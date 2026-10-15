@@ -1,0 +1,76 @@
+- name: Case 1, ineligible senior over 60.
+  period: 2023
+  input:
+    is_ssi_eligible_individual: true
+    age: 60
+    is_blind: true
+    is_ssi_disabled: true
+    state_code: CO
+  output:
+    co_state_supplement_eligible: false
+
+- name: Case 2, not blind or disabled.
+  period: 2023
+  input:
+    is_ssi_eligible_individual: true
+    age: 30
+    is_blind: false
+    is_ssi_disabled: false
+    state_code: CO
+  output:
+    co_state_supplement_eligible: false
+
+- name: Case 3, not SSI eligible.
+  period: 2023
+  input:
+    is_ssi_eligible_individual: false
+    age: 19
+    is_blind: true
+    is_ssi_disabled: true
+    state_code: CO
+  output:
+    co_state_supplement_eligible: false
+
+- name: Case 4, SSI eligible and blind under 60.
+  period: 2023
+  input:
+    is_ssi_eligible_individual: true
+    age: 59
+    is_blind: true
+    is_ssi_disabled: false
+    state_code: CO
+  output:
+    co_state_supplement_eligible: true
+
+- name: Case 5, SSI eligible and disabled child.
+  period: 2023
+  input:
+    is_ssi_eligible_individual: true
+    age: 5
+    is_blind: false
+    is_ssi_disabled: true
+    state_code: CO
+  output:
+    co_state_supplement_eligible: true
+
+- name: Case 6, historical eligibility in 2005.
+  period: 2005
+  input:
+    is_ssi_eligible_individual: true
+    age: 40
+    is_blind: false
+    is_ssi_disabled: true
+    state_code: CO
+  output:
+    co_state_supplement_eligible: true
+
+- name: Case 7, age boundary at exactly 59.
+  period: 2023
+  input:
+    is_ssi_eligible_individual: true
+    age: 59
+    is_blind: false
+    is_ssi_disabled: true
+    state_code: CO
+  output:
+    co_state_supplement_eligible: true

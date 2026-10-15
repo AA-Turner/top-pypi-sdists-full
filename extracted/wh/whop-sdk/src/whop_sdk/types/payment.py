@@ -54,7 +54,7 @@ class Payment(UniversalBaseModel):
 
     client_secret: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The credential a buyer's surface presents to poll this payment and set its return URL. Only on payments created from a confirmation token, and always null in list responses — retrieve the payment for it.
+    The credential a buyer's surface presents to poll this payment, set its return URL and resume it when the bank asked the customer to authenticate. Only on payments created from a confirmation token or waiting on that authentication, and always null in list responses — retrieve the payment for it.
     """
 
     created_at: str = pydantic.Field()
@@ -101,6 +101,11 @@ class Payment(UniversalBaseModel):
     id: str = pydantic.Field()
     """
     Payment ID, prefixed `pay_`.
+    """
+
+    ip_address: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The buyer's IP address at checkout, as identified by Whop's fraud screening. Null when the payment was not screened at checkout, such as a subscription renewal or a charge made without the buyer present.
     """
 
     last_payment_attempt_at: typing.Optional[str] = pydantic.Field(default=None)

@@ -3,10 +3,8 @@ from __future__ import annotations
 import os
 import types
 
-# Every module and subpackage of the kolo package. Kolo's own code must never
-# show up in a user's trace, whichever thread runs it. Keep in sync with
-# KOLO_MODULES in rust/src/filters.rs; tests/test_internal_threads.py and the
-# Rust filter tests fail when a module is missing.
+# Kolo's own code must never show up in a user's trace, whichever thread runs it.
+# Keep in sync with KOLO_MODULES in rust/src/filters.rs.
 KOLO_MODULES = (
     "__init__.py",
     "__main__.py",
@@ -15,6 +13,7 @@ KOLO_MODULES = (
     "_emit_auto.py",
     "_kolotxt.py",
     "_paths.py",
+    "_platform_info.py",
     "_repr_audit.py",
     "build_frame_tree.py",
     "checks.py",

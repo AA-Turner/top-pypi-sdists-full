@@ -279,6 +279,8 @@ class ProbeCallback(TrainerCallback):
         #: Upload set names used in this run -> their folder (`_checkpoints`).
         self._set_names: dict[str, str] = {}
         self._warned: set[str] = set()
+        #: (run id, uri, role) of the Hub model and datasets already recorded (R9).
+        self._data_recorded: set[tuple[str, str, str]] = set()
         #: Given (validated above), else PROBE_CHECKPOINTS, else "reference".
         self._checkpoints_given = checkpoints
         self._checkpoints = _checkpoints.resolve_mode(checkpoints, self._warn_once)
@@ -294,11 +296,18 @@ class ProbeCallback(TrainerCallback):
 
     def on_train_begin(self, args, state, control, model=None, **kwargs):
         if state.is_world_process_zero and not self._disabled and not self._stands_down():
-            self._begin_on_world_zero(args, state, model)
+            self._begin_on_world_zero(args, state, model, kwargs)
         # Every rank, after world zero has its run for this train().
         self._share_run_identity(state)
 
-    def _begin_on_world_zero(self, args: Any, state: Any, model: Any) -> None:
+    def on_evaluate(self, args, state, control, **kwargs):
+        # The eval dataloader exists only once evaluation runs: its Hub dataset
+        # is recorded then (once per run), as `eval`.
+        if not state.is_world_process_zero or self._run is None or self._stands_down(warn=False):
+            return
+        self._record_data(self._run, evaluate=kwargs.get("eval_dataloader"))
+
+    def _begin_on_world_zero(self, args: Any, state: Any, model: Any, hook: dict | None = None) -> None:
         if self._run is None and self._same_trainer_has_one(state):
             return
         searching, self._searching = self._searching, bool(state.is_hyper_param_search)
@@ -333,6 +342,12 @@ class ProbeCallback(TrainerCallback):
             return
         self._train_began_at = time.time()
         self._merge_config(run, args, model)
+        self._record_data(
+            run,
+            model=model,
+            train=(hook or {}).get("train_dataloader"),
+            evaluate=(hook or {}).get("eval_dataloader"),
+        )
         _UNFINISHED[run.id] = weakref.ref(state)
         _note_unfinished_at_exit.register()
         _SIGNALS_SEEN.clear()
@@ -718,6 +733,41 @@ class ProbeCallback(TrainerCallback):
             combined["peft_config"] = peft
         combined.update(args.to_dict())
         run.update_config(combined, allow_val_change=True, strict=self._strict_arg)
+
+    # -- data provenance (plan data-catalog R9) ----------------------------------
+    def _record_data(self, run: Any, *, model: Any = None, train: Any = None, evaluate: Any = None) -> None:
+        """The Hub base model this run starts from (role ``init``) and the Hub
+        datasets it trains and evaluates on, as sources the run used: ids and
+        revisions only, never content. Off with read capture
+        (``capture_reads=False``, ``PROBE_CAPTURE_READS=0``). Never raises,
+        ``strict`` or not: a provenance record is never a reason to stop."""
+        from probe.sdk import catalog, inputs
+
+        from . import _hub
+
+        try:
+            if not inputs.enabled(self._init_kwargs.get("capture_reads")):
+                return
+            found = []
+            if model is not None:
+                found.append((_hub.base_model(model), "init"))
+            if train is not None:
+                found.append((_hub.hub_dataset(_hub.loader_dataset(train)), "train"))
+            if evaluate is not None:
+                found.append((_hub.hub_dataset(_hub.loader_dataset(evaluate)), "eval"))
+            for hub_ref, role in found:
+                if hub_ref is None or (run.id, hub_ref.uri, role) in self._data_recorded:
+                    continue
+                self._data_recorded.add((run.id, hub_ref.uri, role))
+                src = catalog.source(hub_ref.uri, kind=hub_ref.kind, revision=hub_ref.revision, client=run._client)
+                if src.ref:
+                    run.use_dataset(src, role=role)
+        except Exception as exc:  # noqa: BLE001 - never into training
+            self._warn_once(
+                "data provenance",
+                f"probe: the Hugging Face callback could not record the model or datasets this run used "
+                f"({type(exc).__name__}: {exc}); training continues.",
+            )
 
     # -- metrics ------------------------------------------------------------------
     def _log(self, run: Any, metrics: dict[str, Any], step: int) -> None:

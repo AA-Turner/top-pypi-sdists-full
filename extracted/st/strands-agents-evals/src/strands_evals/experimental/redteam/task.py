@@ -97,14 +97,7 @@ def _build_shared_target_task_fn(
         session = _build_session(agent, baseline=initial_snapshot)
         session.reset()
 
-        result = strategy.run_attack(case, session, max_turns=MAX_ALLOWED_TURNS, model=model)
-        if run_meta is not None and case.name is not None:
-            run_meta[case.name] = {**result.metadata, "pruned_branches": result.pruned_branches}
-        return {
-            "output": result.conversation,
-            # Snapshot of the trace; the next case's session.reset() clears this list in place.
-            "trajectory": list(session.trace),
-        }
+        return _run_attack(strategy, case, session, model=model, run_meta=run_meta)
 
     return task_fn
 
@@ -134,17 +127,34 @@ def _build_per_case_task_fn(
         session = _build_session(make_target(), baseline=None)
         session.reset()
 
-        result = strategy.run_attack(case, session, max_turns=MAX_ALLOWED_TURNS, model=model)
-        if run_meta is not None and case.name is not None:
-            # CPython dict assignment for a single distinct key is atomic, and case names are unique
-            # per cross-product expansion, so concurrent writers never target the same key.
-            run_meta[case.name] = {**result.metadata, "pruned_branches": result.pruned_branches}
-        return {
-            "output": result.conversation,
-            "trajectory": list(session.trace),
-        }
+        # CPython dict assignment for a single distinct key is atomic, and case names are unique
+        # per cross-product expansion, so concurrent writers never target the same key.
+        return _run_attack(strategy, case, session, model=model, run_meta=run_meta)
 
     return task_fn
+
+
+def _run_attack(
+    strategy: AttackStrategy,
+    case: RedTeamCase,
+    session: TargetSession,
+    *,
+    model: Model | str | None,
+    run_meta: dict[str, dict[str, Any]] | None,
+) -> dict:
+    """Run one attack and record its strategy metadata into `run_meta`.
+
+    Errors propagate: the base `Experiment` retries throttling, records any other failure as an
+    error reason (which the report classifies as errored), and skips caching the failed case.
+    """
+    result = strategy.run_attack(case, session, max_turns=MAX_ALLOWED_TURNS, model=model)
+    if run_meta is not None and case.name is not None:
+        run_meta[case.name] = {**result.metadata, "pruned_branches": result.pruned_branches}
+    return {
+        "output": result.conversation,
+        # Snapshot of the trace; the next case's session.reset() clears this list in place.
+        "trajectory": list(session.trace),
+    }
 
 
 def _resolve_target_source(

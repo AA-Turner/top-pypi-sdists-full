@@ -71,10 +71,12 @@ class DnaMixin:
         RESONANT one (>=2500) splashes amount//5 DNA into the two adjacent
         Fields (capped, no refund)."""
         self.dna_wager_pending = 0            # the bet settles here, win or waste
-        field = dna_field_for_rate(rate)
-        if field == "None" and amount >= DNA_STABILIZER_BET:
-            rate = min(max(rate, DNA_RATE_BANDS[0][0] + 1), DNA_RATE_BANDS[-1][0])
-            field = dna_field_for_rate(rate)
+        field = dna_award_field(amount, rate)
+        if field == "None":
+            # a spoiled mash refunds HALF the wager instead of banking dud DNA
+            # nothing can ever spend (Joel 2026-10-15, DNA call #4 = A)
+            self.bits += amount // 2
+            return field
         gained = min(amount, MAX_DNA_INVENTORY)
         total = self.dna_owned.get(field, 0) + gained
         if total > MAX_DNA_INVENTORY:
@@ -92,13 +94,35 @@ class DnaMixin:
                                              MAX_DNA_INVENTORY)
         return field
 
+    def settle_dud_dna(self):
+        """Legacy "None" DNA (banked by spoiled mashes before 2026-10-15) pays
+        out at the spoiled-mash rate -- half a bit per unit -- and the slot
+        empties (it stays in the bank's shape at 0).  Returns the bits paid."""
+        bank = self.dna_owned if self.dna_owned is not None else {}
+        n = int(bank.get("None", 0) or 0)
+        if "None" in bank:
+            bank["None"] = 0
+        paid = max(0, n) // 2
+        self.bits += paid
+        return paid
+
+    def dna_affordable(self, field):
+        """How many units of `field` the pet's energy can PAY for right now
+        (1/unit own Field, 2/unit otherwise).  A charge never runs energy
+        past empty (Joel 2026-10-15, DNA call #5 = A): the old bill kept
+        charging at the floor and took the deficit out of obedience."""
+        per = DNA_SAME_FIELD_ENERGY if field == self.field else DNA_DIFF_FIELD_ENERGY  # noqa: F405
+        return max(0, int(self.energy)) // per
+
     def apply_dna(self, field, amount):
-        """PhysicalState.applyDNA: owned -> charged.  The live bill is ENERGY
-        (1/unit own Field, x2 off) + the strength ceiling below; canon's
-        disturb/mood/spirit/sick costs left with their systems."""
+        """Owned -> charged; energy costs 1/unit own Field, 2/unit otherwise.
+
+        DNA audit 2026-10-14: negative energy also costs obedience; Effort
+        rises to three hearts without lowering an already-full gauge.
+        """
         owned = self.dna_owned.get(field, 0)
-        if amount <= 0 or owned < amount:
-            self._set_anim("refuse", 1.0)                   # Jeering: not enough DNA
+        if amount <= 0 or owned < amount or amount > self.dna_affordable(field):
+            self._set_anim("refuse", 1.0)                   # Jeering: not enough DNA/energy
             return False
         self.dna_owned[field] = owned - amount
         self.dna_applied[field] = self.dna_applied.get(field, 0) + amount

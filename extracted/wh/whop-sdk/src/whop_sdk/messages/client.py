@@ -45,7 +45,7 @@ class MessagesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[MessageListItem, ListMessagesResponse]:
         """
-        Returns a paginated list of messages within a specific experience chat, DM, or group chat channel, sorted by creation time.
+        Lists messages in an experience chat, DM, or group chat channel, sorted by creation time.
 
         Required permissions (one of):
          - `chat:read`
@@ -84,7 +84,7 @@ class MessagesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -121,7 +121,7 @@ class MessagesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Message:
         """
-        Send a new message in an experience chat, DM, or group chat channel. Supports text content, attachments, polls, and replies.
+        Sends a message in an experience chat, DM, or group chat channel. Supports text content, attachments, polls, and replies.
 
         Required permissions (one of):
          - `chat:message:create`
@@ -162,7 +162,7 @@ class MessagesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -210,7 +210,7 @@ class MessagesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -223,7 +223,7 @@ class MessagesClient:
 
     def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> bool:
         """
-        Permanently delete a message from an experience chat, DM, or group chat channel. Only the message author or a channel admin can delete a message.
+        Permanently deletes a message from an experience chat, DM, or group chat channel. Only the message author or a channel admin can delete a message.
 
         Required permissions (one of):
          - `chat:message:create` and `chat:read`
@@ -249,7 +249,7 @@ class MessagesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -270,7 +270,7 @@ class MessagesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Message:
         """
-        Edit the content, attachments, or pinned status of an existing message in an experience chat, DM, or group chat channel.
+        Edits the content, attachments, or pinned status of a message in an experience chat, DM, or group chat channel.
 
         Required permissions (one of):
          - `chat:message:create`
@@ -305,7 +305,7 @@ class MessagesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -346,7 +346,7 @@ class AsyncMessagesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[MessageListItem, ListMessagesResponse]:
         """
-        Returns a paginated list of messages within a specific experience chat, DM, or group chat channel, sorted by creation time.
+        Lists messages in an experience chat, DM, or group chat channel, sorted by creation time.
 
         Required permissions (one of):
          - `chat:read`
@@ -387,7 +387,7 @@ class AsyncMessagesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -431,7 +431,7 @@ class AsyncMessagesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Message:
         """
-        Send a new message in an experience chat, DM, or group chat channel. Supports text content, attachments, polls, and replies.
+        Sends a message in an experience chat, DM, or group chat channel. Supports text content, attachments, polls, and replies.
 
         Required permissions (one of):
          - `chat:message:create`
@@ -474,7 +474,7 @@ class AsyncMessagesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -530,7 +530,7 @@ class AsyncMessagesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -549,7 +549,7 @@ class AsyncMessagesClient:
 
     async def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> bool:
         """
-        Permanently delete a message from an experience chat, DM, or group chat channel. Only the message author or a channel admin can delete a message.
+        Permanently deletes a message from an experience chat, DM, or group chat channel. Only the message author or a channel admin can delete a message.
 
         Required permissions (one of):
          - `chat:message:create` and `chat:read`
@@ -577,7 +577,7 @@ class AsyncMessagesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -604,7 +604,7 @@ class AsyncMessagesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Message:
         """
-        Edit the content, attachments, or pinned status of an existing message in an experience chat, DM, or group chat channel.
+        Edits the content, attachments, or pinned status of a message in an experience chat, DM, or group chat channel.
 
         Required permissions (one of):
          - `chat:message:create`
@@ -641,7 +641,7 @@ class AsyncMessagesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

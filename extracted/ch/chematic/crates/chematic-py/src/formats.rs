@@ -6,6 +6,8 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::sync::Arc;
 
+mod cif;
+use cif::*;
 mod interchange;
 mod materials;
 mod xyz;
@@ -47,17 +49,7 @@ pub(crate) fn stereo_diagnostics_to_py<'py>(
 }
 
 pub(crate) fn bitvec2048_to_bytes(fp: &chematic_fp::bitvec::BitVec2048) -> Vec<u8> {
-    (0..256usize)
-        .map(|byte_idx| {
-            let mut byte = 0u8;
-            for bit in 0..8usize {
-                if fp.get(byte_idx * 8 + bit) {
-                    byte |= 1 << bit;
-                }
-            }
-            byte
-        })
-        .collect()
+    fp.to_le_bytes().to_vec()
 }
 
 pub(crate) fn flat_to_coords3d(coords: &[[f64; 3]]) -> chematic_3d::Coords3D {
@@ -884,51 +876,6 @@ fn write_gjf(
     chematic_mol::write_gjf(&mol.inner, &c, charge, multiplicity, method, title)
 }
 
-/// Parse a CIF (Crystallographic Information File) string and return a dict.
-///
-/// Returns:
-///     dict: ``{"mol": Mol, "coords": list[list[float]], "cell": dict | None}``
-///     where ``cell`` has keys ``a, b, c, alpha, beta, gamma``.
-///
-/// Raises:
-///     ValueError: on parse failure.
-///
-/// Example::
-///
-///     result = chematic.parse_cif(open("structure.cif").read())
-///     mol = result["mol"]
-///     coords = result["coords"]
-#[pyfunction]
-fn parse_cif<'py>(py: Python<'py>, cif_str: &str) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
-    let result =
-        chematic_mol::parse_cif(cif_str).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let mol = Mol {
-        inner: Arc::new(result.mol),
-        props: Default::default(),
-    };
-    let coords: Vec<Vec<f64>> = result
-        .coords
-        .iter()
-        .map(|&(x, y, z)| vec![x, y, z])
-        .collect();
-    let d = pyo3::types::PyDict::new(py);
-    d.set_item("mol", mol)?;
-    d.set_item("coords", coords)?;
-    if let Some(cell) = result.cell {
-        let cd = pyo3::types::PyDict::new(py);
-        cd.set_item("a", cell.a)?;
-        cd.set_item("b", cell.b)?;
-        cd.set_item("c", cell.c)?;
-        cd.set_item("alpha", cell.alpha)?;
-        cd.set_item("beta", cell.beta)?;
-        cd.set_item("gamma", cell.gamma)?;
-        d.set_item("cell", cd)?;
-    } else {
-        d.set_item("cell", py.None())?;
-    }
-    Ok(d)
-}
-
 /// Return True if the SMILES can be parsed without error.
 #[pyfunction]
 fn is_valid_smiles(smiles: &str) -> bool {
@@ -1442,6 +1389,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
         parse_gaussian_log,
         write_gjf,
         parse_cif,
+        write_cif_checked,
         is_valid_smiles,
         is_valid_smarts,
         from_inchi,
@@ -1469,6 +1417,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
         parse_smi_file,
         write_smi_file,
         parse_mmcif,
+        protein_from_pdb_json,
+        protein_from_mmcif_json,
         write_mmcif,
         parse_pqr,
         write_pqr,

@@ -970,6 +970,8 @@ def _save_zone(task, family, fig):
     out_dir = os.path.join(task["pathwork"], family)
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(out_dir, figure_name(task))
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, task.get('selector'))
     save_figure(fig, out_file, svg=task.get("svg", False), dpi=DPI)
     for ax in fig.axes:                  # the row under the mouse, in the viewer
         rows = getattr(ax, "_pikobs_rows", None)

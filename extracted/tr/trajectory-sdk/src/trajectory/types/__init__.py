@@ -12,10 +12,11 @@ from trajectory.types.artifacts.artifact_download import ArtifactDownload as Art
 from trajectory.types.async_failure import AsyncFailure as AsyncFailure
 from trajectory.types.base_model_slug import BaseModelSlug as BaseModelSlug
 from trajectory.types.batch_item_failure import BatchItemFailure as BatchItemFailure
-from trajectory.types.benchmark_images_response import BenchmarkImage as BenchmarkImage
-from trajectory.types.benchmark_images_response import (
-  BenchmarkImagesResponse as BenchmarkImagesResponse,
+from trajectory.types.benchmark_image_build_response import (
+  BenchmarkImageBuildResponse as BenchmarkImageBuildResponse,
 )
+from trajectory.types.benchmark_images_page import BenchmarkImage as BenchmarkImage
+from trajectory.types.benchmark_images_page import BenchmarkImagesPage as BenchmarkImagesPage
 from trajectory.types.benchmark_ingestion_operation_page import (
   BenchmarkIngestionOperationPage as BenchmarkIngestionOperationPage,
 )
@@ -32,6 +33,8 @@ from trajectory.types.benchmark_ingestion_upload_urls import (
   BenchmarkIngestionUploadUrls as BenchmarkIngestionUploadUrls,
 )
 from trajectory.types.benchmark_runtime import BenchmarkRuntime as BenchmarkRuntime
+from trajectory.types.benchmark_runtimes_page import BenchmarkRuntimesPage as BenchmarkRuntimesPage
+from trajectory.types.benchmark_spec_tool import BenchmarkSpecTool as BenchmarkSpecTool
 from trajectory.types.benchmark_task_append_result import (
   BenchmarkTaskAppendResult as BenchmarkTaskAppendResult,
 )
@@ -44,6 +47,7 @@ from trajectory.types.benchmark_task_diff_response import (
 from trajectory.types.benchmark_task_write_failure import (
   BenchmarkTaskWriteFailure as BenchmarkTaskWriteFailure,
 )
+from trajectory.types.benchmark_tools_page import BenchmarkToolsPage as BenchmarkToolsPage
 from trajectory.types.benchmark_upload_url import BenchmarkUploadUrl as BenchmarkUploadUrl
 from trajectory.types.benchmarks.benchmark_list_item import BenchmarkListItem as BenchmarkListItem
 from trajectory.types.benchmarks.benchmark_readiness import BenchmarkReadiness as BenchmarkReadiness
@@ -58,9 +62,6 @@ from trajectory.types.benchmarks.ingestion.benchmark_ingestion_operation_status 
 from trajectory.types.benchmarks.runtime_spec import RuntimeSpec as RuntimeSpec
 from trajectory.types.benchmarks.secret_ref import SecretRef as SecretRef
 from trajectory.types.benchmarks.specs.benchmark_details import BenchmarkDetails as BenchmarkDetails
-from trajectory.types.benchmarks.specs.benchmark_details import (
-  BenchmarkSpecTool as BenchmarkSpecTool,
-)
 from trajectory.types.benchmarks.task_spec import EnvResources as EnvResources
 from trajectory.types.benchmarks.task_spec import McpServerSpec as McpServerSpec
 from trajectory.types.benchmarks.task_spec import NetworkMode as NetworkMode
@@ -170,6 +171,9 @@ from trajectory.types.paginated_response_benchmark_list_item import (
 from trajectory.types.paginated_response_benchmark_runtime import (
   PaginatedResponseBenchmarkRuntime as PaginatedResponseBenchmarkRuntime,
 )
+from trajectory.types.paginated_response_benchmark_spec_task import (
+  PaginatedResponseBenchmarkSpecTask as PaginatedResponseBenchmarkSpecTask,
+)
 from trajectory.types.paginated_response_dataset_metadata import (
   PaginatedResponseDatasetMetadata as PaginatedResponseDatasetMetadata,
 )
@@ -270,7 +274,8 @@ __all__ = [
   "BatchItemFailure",
   "BenchmarkDetails",
   "BenchmarkImage",
-  "BenchmarkImagesResponse",
+  "BenchmarkImageBuildResponse",
+  "BenchmarkImagesPage",
   "BenchmarkIngestionFailure",
   "BenchmarkIngestionOperationPage",
   "BenchmarkIngestionOperationStatus",
@@ -282,6 +287,7 @@ __all__ = [
   "BenchmarkMessage",
   "BenchmarkReadiness",
   "BenchmarkRuntime",
+  "BenchmarkRuntimesPage",
   "BenchmarkSpec",
   "BenchmarkSpecTask",
   "BenchmarkSpecTool",
@@ -290,6 +296,7 @@ __all__ = [
   "BenchmarkTaskCountResponse",
   "BenchmarkTaskDiffResponse",
   "BenchmarkTaskWriteFailure",
+  "BenchmarkToolsPage",
   "BenchmarkUploadUrl",
   "ChatCompletionChoice",
   "ChatCompletionChunk",
@@ -343,6 +350,7 @@ __all__ = [
   "NetworkMode",
   "PaginatedResponseBenchmarkListItem",
   "PaginatedResponseBenchmarkRuntime",
+  "PaginatedResponseBenchmarkSpecTask",
   "PaginatedResponseDatasetMetadata",
   "PaginatedResponseEvalRun",
   "PaginatedResponseStep",

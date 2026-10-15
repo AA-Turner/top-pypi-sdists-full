@@ -1,0 +1,30 @@
+from policyengine_us.model_api import *
+
+
+class mo_business_income_deduction(Variable):
+    value_type = float
+    entity = TaxUnit
+    label = "Missouri business income deduction"
+    unit = USD
+    definition_period = YEAR
+    reference = (
+        "https://dor.mo.gov/forms/MO-1040%20Instructions_2023.pdf#page=16",
+        "https://revisor.mo.gov/main/OneSection.aspx?section=143.022",
+    )
+    defined_for = StateCode.MO
+
+    def formula(tax_unit, period, parameters):
+        p = parameters(period).gov.states.mo.tax.income.deductions.business_income
+        person = tax_unit.members
+        # The head's and spouse's business income; a tax unit dependent's is
+        # on the dependent's own return.
+        filer = ~person("is_tax_unit_dependent", period)
+        total_qualified_business_income = tax_unit.sum(
+            filer
+            * max_(
+                0,
+                person("qualified_business_income", period)
+                + person("sstb_qualified_business_income", period),
+            )
+        )
+        return p.rate * total_qualified_business_income

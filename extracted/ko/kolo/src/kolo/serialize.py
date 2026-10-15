@@ -43,7 +43,6 @@ if TYPE_CHECKING:
 
 
 class UserCodeCallSite(TypedDict):
-    # None when the calling frame has no source line (`f_lineno is None`).
     line_number: int | None
     call_frame_id: str
 
@@ -55,11 +54,8 @@ class _ValueReference:
         self.index = index
 
 
-# Every msgpack extension code in Kolo traces. The native encoder
-# (python/rust/src/utils/value_serializer.rs) and all readers (this module,
-# dashboard/core/serialize.py, vscode/src/extension/msgpack.ts) must agree
-# with this table; tests/test_extension_codes.py checks them. Claim a new code
-# here, in RESERVED_EXTENSION_TYPES while its PR is open, before using it.
+# Must agree with the native encoder (value_serializer.rs) and all readers; checked by
+# tests/test_extension_codes.py. Claim a new code here or in RESERVED_EXTENSION_TYPES first.
 EXTENSION_TYPES = {
     0: "repr text",
     1: "datetime",
@@ -76,31 +72,17 @@ EXTENSION_TYPES = {
     12: "value truncated by max_value_mb",
     127: "serialization error",
 }
-# Codes claimed by open PRs, so no other change reuses them.
 RESERVED_EXTENSION_TYPES: dict[int, str] = {}
 
-# A later occurrence of an exact list or dict already packed in the same root
-# is written as this extension: the number of arrays and maps completed in the
-# root's stream since the referenced one. It keeps DAG-shaped values (the same
-# list referenced at many depths) linear instead of exponential. The rule is
-# mirrored by the native encoder in python/rust/src/utils/value_serializer.rs.
+# Payload: arrays and maps completed in the root's stream since the referenced one.
+# Mirrored by the native encoder in python/rust/src/utils/value_serializer.rs.
 SHARED_REFERENCE_EXTENSION_TYPE = 11
-# Plain containers one root packs before identities are tracked.
 SHARED_TRACKING_THRESHOLD = 1024
-# Containers one root remembers at most (as natively), which bounds the
-# tracking table's memory however many containers a value holds.
 MAX_SHARED_CONTAINERS = 1 << 18
-# A value whose encoding exceeded ``max_value_mb`` is replaced by this marker.
 TRUNCATED_VALUE_EXTENSION_TYPE = 12
-# How to raise the budget, appended to every truncation marker's text (as
-# natively).
 TRUNCATION_MARKER_HINT = "; raise max_value_mb in .kolo/config.toml or set it to false"
-# A frame's weight when shared and value references are expanded: this much
-# per value plus the length of each str/bytes. Readers keep shared references
-# as markers past MAX_EXPANDED_WEIGHT, and refuse frames that stay heavier.
 EXPANDED_VALUE_WEIGHT = 16
 MAX_EXPANDED_WEIGHT = 1 << 30
-# Longest type name a truncation marker repeats (as natively).
 MAX_MARKER_TYPE_NAME_CHARS = 200
 SHARED_VALUE_MARKER = "KoloSharedValue: repeats an earlier value, too large to expand"
 
@@ -157,25 +139,16 @@ class DatabaseAccessBlocked(Exception):
 
 
 class _QueryGuard(threading.local):
-    # Per thread: other threads keep querying while one serializes. The
-    # native encoder keeps its own per-thread count instead (see
-    # `_native_encode_in_progress`), which is far cheaper on the hot path.
-    # A depth rather than a flag, so encodes that end out of order (greenlets
-    # switching mid-repr) cannot leave it set.
+    # A depth rather than a flag, so encodes that end out of order (greenlets switching
+    # mid-repr) cannot leave it set.
     depth = 0
 
 
-# `[found]` for the root being dumped: what `_objects_under_construction`
-# found (None: not looked for yet). The stack below Kolo cannot change while
-# one root is serialized, so one walk serves all its values. Each dump owns
-# its list, and a context variable keeps greenlets that switch inside a
-# `__repr__` from reading each other's.
+# A context variable, so greenlets switching inside a `__repr__` don't read each other's.
 _CONSTRUCTION: ContextVar = ContextVar("kolo_objects_under_construction", default=None)
 
 
 try:
-    # The same walk in native code, far cheaper on a deep stack; None when
-    # it leaves the answer to `_objects_under_construction`.
     from kolo._kolo import _validated_objects_under_construction
 except ImportError:  # pragma: no cover - PyPy and builds without the extension
     _validated_objects_under_construction = None
@@ -213,18 +186,13 @@ def _under_construction_ext(obj, lightweight=False):
     text = _construction_placeholder(found, obj, lightweight)
     if text is None:
         return None
-    # A class name can hold lone surrogates; escape them rather than fail.
     return msgpack.ExtType(0, text.encode("utf-8", "backslashreplace"))
 
 
-# Set once Django's database layer is patched, so the Python serializers cost
-# nothing extra in processes that never use Django.
 _QUERY_GUARD: _QueryGuard | None = None
 # Concurrent first requests (or free-threaded builds) must patch Django once.
 _PATCH_LOCK = threading.Lock()
 
-# Lazy-loaded Django QuerySet (to avoid importing Django at module load time)
-# This dramatically speeds up subprocess startup for emit --auto
 _QuerySet = None
 _QuerySet_checked = False
 
@@ -275,11 +243,7 @@ def _monkeypatch_queryset_repr():
 
 
 REPR_EXTENSION = 0
-# A str with lone surrogates, as `str.encode("utf-8", "surrogatepass")`.
 SURROGATE_STR_EXTENSION = 10
-# What the careful pass records (as repr text) for a container that is
-# already being packed further up, as Python's repr marks a recursive
-# reference.
 _SEQUENCE_CYCLE_MARKERS = {6: b"(...)", 7: b"set(...)", 8: b"frozenset(...)"}
 _LIST_CYCLE_MARKER = b"[...]"
 _DICT_CYCLE_MARKER = b"{...}"
@@ -293,7 +257,6 @@ def _cycle_marker(marker: bytes) -> msgpack.ExtType:
     return msgpack.ExtType(REPR_EXTENSION, marker)
 
 
-# msgpack's own messages.
 _RECURSION_LIMIT_MESSAGE = "recursion limit exceeded."
 # msgpack's pure-Python packer (PyPy, Pyodide, MSGPACK_PUREPYTHON) drops the period.
 _FALLBACK_RECURSION_LIMIT_MESSAGE = "recursion limit exceeded"
@@ -306,8 +269,6 @@ _CAREFUL_VALUE_ERROR_MESSAGES = (
 # msgpack 1.2 raised Packer's DEFAULT_RECURSE_LIMIT from 511.
 _RECURSE_LIMIT = 1024 if msgpack.version >= (1, 2) else 511
 
-# `active` is None during the usual pass, and during the careful pass the
-# identities of the containers being packed (see `_dump_root`).
 _CAREFUL = threading.local()
 
 
@@ -339,12 +300,8 @@ def _install_query_guard():
 
         return wrapper
 
-    # Refuse at the entry points, before any state changes: every query
-    # creates a cursor (`_cursor`) or runs on a held one, and the other
-    # connection methods here reach the driver without a cursor (or, for
-    # `savepoint`, count the savepoint first). Entering `atomic()` or
-    # `mark_for_rollback_on_error()` would let the refusal mark the program's
-    # own transaction for rollback on its way out.
+    # Refuse at the entry points, before any state changes. Entering atomic() or
+    # mark_for_rollback_on_error() would mark the program's own transaction for rollback.
     for owner, names in (
         (
             BaseDatabaseWrapper,
@@ -392,7 +349,6 @@ def _query_free_repr(obj) -> str:
         try:
             description = _describe_instance(cls._meta, obj.__dict__)
         except Exception:
-            # Only a model overriding `__dict__` or `_meta` gets here.
             pass
         else:
             return f"<{cls.__name__} {description}: {_SKIPPED}>"
@@ -464,7 +420,6 @@ def msgpack_encode_hook(obj):
         if isinstance(obj, Decimal):
             return msgpack.ExtType(5, str(obj).encode("utf-8"))
 
-        # Check for Django QuerySet (lazy import to avoid loading Django at module load)
         QuerySet = _get_queryset_class()
         if QuerySet is not None and isinstance(obj, QuerySet):
             if obj._result_cache is None:
@@ -476,7 +431,6 @@ def msgpack_encode_hook(obj):
         return msgpack.ExtType(0, _query_free_repr(obj).encode("utf-8"))
     except Exception as error:
         if getattr(_CAREFUL, "active", None) is None and _needs_careful(error):
-            # Left to the careful pass, which records it instead.
             raise
         path = f"{obj.__module__}.{type(obj).__qualname__}"
         # A type name can hold lone surrogates; escape them rather than fail.
@@ -606,9 +560,6 @@ def _pack_careful(value, packer, default, share):
     numbers: dict[int, int] | None = None
     # Keeps remembered containers alive so their ids are not reused.
     pins: list = []
-    # Each entry: the values left to pack, the nesting limit they are packed
-    # at, the container finishing them completes (with whether it may be
-    # remembered) or None, and whether those values may be shared.
     stack: list = [(iter((value,)), _RECURSE_LIMIT, None, share)]
     try:
         while stack:
@@ -620,8 +571,6 @@ def _pack_careful(value, packer, default, share):
                     active.pop()
                     if numbers is not None:
                         obj, remember, markers = container
-                        # A container holding a cycle marker is encoded
-                        # relative to what encloses it: not shared.
                         if (
                             remember
                             and markers == getattr(_CAREFUL, "markers", 0)
@@ -682,7 +631,6 @@ def _pack_careful(value, packer, default, share):
                 parts.append(packer.pack(item))
                 continue
             else:
-                # As msgpack does: `o = default(o)`, then pack `o` itself.
                 source = item
                 item = default(item)
                 if type(item) is not dict:
@@ -713,14 +661,11 @@ def _dump_root(dump, dump_carefully, data):
     saved = getattr(_CAREFUL, "active", None)
     saved_reprs = getattr(_CAREFUL, "reprs", None)
     _CAREFUL.active = None
-    # A memo opened by the caller (dump_frame_msgpack) spans its dumps.
     _CAREFUL.reprs = {} if saved_reprs is None else saved_reprs
     try:
         try:
             return dump(data)
         except Exception as error:
-            # The careful pass shares repeated containers too, so a shared
-            # value is not expanded there either.
             if not _needs_careful(error):
                 raise
         _CAREFUL.active = []
@@ -790,7 +735,6 @@ def msgpack_encode_hook_lightweight_repr(obj):
     try:
         return _lightweight_repr_ext(obj)
     except DatabaseAccessBlocked:
-        # `obj.__class__` can still evaluate a lazy object.
         return msgpack.ExtType(0, _query_free_repr(obj).encode("utf-8"))
 
 
@@ -883,8 +827,6 @@ def dump_msgpack_lightweight_repr(data, may_share=None):
 _PLAIN_CONTAINER_TYPE_IDS = frozenset({id(list), id(dict)})
 
 try:
-    # The same count natively, so the Python backends pay almost nothing per
-    # frame for values too small to start tracking.
     from kolo._kolo import _count_plain_containers
 except ImportError:  # pragma: no cover - PyPy and builds without the extension
     _count_plain_containers = None
@@ -901,8 +843,6 @@ def _may_share(root) -> bool:
             _count_plain_containers(root, SHARED_TRACKING_THRESHOLD)
             >= SHARED_TRACKING_THRESHOLD
         )
-    # Counting needs no order or identities, and C-level type scans skip
-    # containers without nested ones.
     pending: list[Any] = [root]
     entered = 0
     while pending:
@@ -916,7 +856,6 @@ def _may_share(root) -> bool:
             for child in children:
                 if type(child) is list or type(child) is dict:
                     pending.append(child)
-                    # Every pending container counts once popped.
                     if entered + len(pending) >= SHARED_TRACKING_THRESHOLD:
                         return True
     return False
@@ -1002,10 +941,7 @@ class _SharedValueEncoder:
         self.pins: list = []
 
     def encode(self, data) -> bytes:
-        # An explicit work stack, so nesting is bounded by msgpack's limit as
-        # with its own packer, not by Python's recursion limit. Each entry is
-        # a value to pack (with its nest limit and whether it may be shared)
-        # or, with nest limit None, a container to complete.
+        # An explicit work stack, so nesting is bounded by msgpack's limit, not Python's recursion limit.
         stack: list = [(data, _PACKER_RECURSE_LIMIT, True)]
         while stack:
             obj, nest_limit, shareable = stack.pop()
@@ -1026,7 +962,6 @@ class _SharedValueEncoder:
                 return
             obj = self.default(obj)
             if type(obj) is not dict:
-                # The hooks only return an ExtType or a dict.
                 self.out += self.leaf_packer.pack(obj)
                 return
             shareable = False
@@ -1088,9 +1023,7 @@ def _type_defines(cls, name: str) -> bool:
 
 _COMPREHENSIONS = frozenset(("<genexpr>", "<listcomp>", "<setcomp>", "<dictcomp>"))
 
-# Whether the interpreter passes a generator expression its iterable rather
-# than an iterator (see ``hide_implicit_iterable``). Callers on the per-event
-# path test this instead of paying for a call on older versions.
+# Python 3.15 passes the raw iterable where older versions pass an iterator.
 IMPLICIT_ITERABLE_IS_RAW = sys.version_info >= (3, 15)
 
 
@@ -1124,9 +1057,7 @@ def hide_implicit_iterable(frame, frame_locals: Dict[str, Any]) -> None:
     cls = type(iterable)
     if _type_defines(cls, "__next__"):
         return
-    # An async iterator that can also be iterated synchronously (``__iter__``
-    # or the sequence protocol) may be the collection a synchronous generator
-    # expression iterates: only one that cannot be is kept.
+    # Keep an async iterator only when it cannot also serve a synchronous generator expression.
     if (
         _type_defines(cls, "__anext__")
         and not _type_defines(cls, "__iter__")
@@ -1138,9 +1069,7 @@ def hide_implicit_iterable(frame, frame_locals: Dict[str, Any]) -> None:
 
 def truncation_marker(value, max_value_bytes: int) -> msgpack.ExtType:
     """What the native frame writer records for a value over ``max_value_mb``."""
-    # As natively, a type whose name cannot be read still gets a marker. A
-    # metaclass may compute the name: keep the query guard on meanwhile, as
-    # the native encoder does.
+    # A metaclass may compute the name: keep the query guard on, as the native encoder does.
     guard = _QUERY_GUARD
     if guard is not None:
         guard.depth += 1
@@ -1153,8 +1082,7 @@ def truncation_marker(value, max_value_bytes: int) -> msgpack.ExtType:
             guard.depth -= 1
     if not isinstance(qualname, str):
         qualname = "object"
-    # An exact str (a str subclass's overrides never run), with lone
-    # surrogates escaped, as natively.
+    # str.__getitem__ so a str subclass's overrides never run.
     qualname = str.__getitem__(qualname, slice(0, MAX_MARKER_TYPE_NAME_CHARS))
     text = f"{qualname} exceeded max_value_mb ({max_value_bytes} bytes){TRUNCATION_MARKER_HINT}"
     return msgpack.ExtType(
@@ -1174,8 +1102,7 @@ _FRAME_ENVELOPE_KEYS = frozenset(
         "user_code_call_site",
     }
 )
-# Plugin frames also carry a subtype. Mirrored by ENVELOPE_KEYS in
-# value_serializer.rs.
+# Mirrored by ENVELOPE_KEYS in value_serializer.rs.
 _ENVELOPE_KEYS = _FRAME_ENVELOPE_KEYS | {"subtype"}
 
 
@@ -1184,7 +1111,6 @@ def _size_in_tuple_payload(dump, value) -> int:
     references (so it can be larger than ``dump(value)``), as the native
     writer budgets an assignment's value."""
     payload = msgpack.unpackb(dump((value,)), ext_hook=lambda code, data: data)
-    # Minus the one-item array header.
     return len(payload) - 1
 
 
@@ -1196,7 +1122,6 @@ def dump_frame_msgpack(dump, frame_data, max_value_bytes: int | None) -> bytes:
     ``type``) are capped per value once the frame as a whole is over budget,
     as the native plugin processor does.
     """
-    # Checked once per frame: the dump and the cap below both need it.
     may_share = _may_share(frame_data)
     if max_value_bytes is None:
         return dump(frame_data, may_share=may_share)
@@ -1231,7 +1156,6 @@ def _dump_frame_capped(dump, frame_data, max_value_bytes, may_share):
         return data
     is_frame = frame_data.get("type") == "frame"
     if not is_frame and len(data) <= max_value_bytes:
-        # Natively a plugin frame is one root, so it fits as it is.
         return data
     capped = dict(frame_data)
     for key, value in frame_data.items():
@@ -1322,7 +1246,6 @@ def _unpack(data):
     try:
         return msgpack.unpackb(data, strict_map_key=False, ext_hook=msgpack_decode_hook)
     except TypeError:
-        # A map key that decoded unhashable.
         return msgpack.unpackb(
             data,
             strict_map_key=False,
@@ -1366,10 +1289,8 @@ class _DeferredSequence:
         self.data = data
 
 
-# Each nested tuple/set/frozenset payload re-enters msgpack's unpacker, which
-# keeps about 40 KiB on the C stack, so deep nesting crashed the reader with a
-# C stack overflow. Payloads nested deeper than this are decoded by
-# `_materialize` instead, without recursing.
+# Each nested tuple/set/frozenset payload re-enters msgpack's unpacker (~40 KiB of C stack);
+# deeper payloads go through `_materialize` to avoid a C stack overflow.
 _EAGER_SEQUENCE_DEPTH = 4
 _DECODING = threading.local()
 
@@ -1422,7 +1343,6 @@ def _materialize(value, table):
         result = _NOTHING
         if kind is _DeferredSequence:
             depth = getattr(_DECODING, "depth", 0)
-            # Nested sequences come back deferred too.
             _DECODING.depth = _EAGER_SEQUENCE_DEPTH
             try:
                 items = _unpack(value.data)
@@ -1463,7 +1383,6 @@ def _materialize(value, table):
 
 def _load_with_shared_references(data):
     completed = []
-    # Containers handed out for a reference (kept alive by `completed`).
     referenced = set()
 
     def track(container):
@@ -1473,8 +1392,6 @@ def _load_with_shared_references(data):
     def ext_hook(code, payload):
         if code != SHARED_REFERENCE_EXTENSION_TYPE:
             return msgpack_decode_hook(code, payload)
-        # Only containers completed earlier can be referenced, so there are no
-        # self or forward references.
         index = len(completed) - 1 - _shared_reference_distance(payload)
         if index < 0:
             raise ValueError("Invalid Kolo shared reference")
@@ -1482,15 +1399,11 @@ def _load_with_shared_references(data):
         return completed[index]
 
     def track_map(pairs):
-        # Kolo never writes a reference as a map key (as the VS Code reader
-        # enforces too).
         for key, _ in pairs:
             if id(key) in referenced and (type(key) is list or type(key) is dict):
                 raise ValueError("Invalid Kolo shared reference as a map key")
         return track(_dict_from_pairs(pairs))
 
-    # Maps complete through `object_pairs_hook`, in the same order, so a key
-    # that decodes unhashable still decodes (see `_dict_from_pairs`).
     return msgpack.unpackb(
         data,
         strict_map_key=False,
@@ -1537,9 +1450,6 @@ def load_frame(data, value_table, max_expanded_weight=MAX_EXPANDED_WEIGHT):
             value = _load_with_shared_references(data)
             shared = True
         if not shared and not _DECODING.value_references and not _DECODING.deferred:
-            # Without references a frame decodes to fresh objects no larger
-            # than its bytes, and there is nothing to resolve. Deferred deep
-            # payloads (which may hold value references) decode in `_resolve`.
             return value
         value, weight = _resolve(value, value_table, {}, max_expanded_weight)
         if weight <= max_expanded_weight:
@@ -1577,8 +1487,6 @@ def _resolve(value, table, resolved, limit):
     leaf = _resolve_leaf(value, table)
     if leaf is not None:
         return leaf
-    # Each entry: the container, an iterator over its items (keys and values
-    # alternating for a dict), its resolved items so far, and its weight.
     stack: list[list[Any]] = [
         [value, _container_items(value), [], EXPANDED_VALUE_WEIGHT]
     ]
@@ -1607,8 +1515,6 @@ def _resolve(value, table, resolved, limit):
 
 def _container_items(container):
     if type(container) is _DeferredSequence:
-        # A payload nested too deep to decode eagerly (see `_decode_sequence`);
-        # payloads hold no shared references, so it is decoded once here.
         depth = getattr(_DECODING, "depth", 0)
         _DECODING.depth = _EAGER_SEQUENCE_DEPTH
         try:
@@ -1637,18 +1543,12 @@ def _rebuild(container, items):
     return _sequence(8, items)
 
 
-# Conservative rendered sizes for the expanded weight: repr and JSON escape
-# a quote or backslash as two characters, a control or non-ASCII character
-# as up to twelve (`\\UXXXXXXXX`, its backslash escaped again in JSON), and
-# a non-ASCII character takes up to four UTF-8 bytes.
 _RENDERED_DATE_TIME_WEIGHT = 128
 
 
 def _text_weight(text):
     if text.isascii() and text.isprintable():
         return 2 * len(text)
-    # Up to `\\U000e0001` per code point in a repr, its backslash escaped
-    # again in JSON.
     return 12 * len(text)
 
 
@@ -1663,20 +1563,15 @@ def _resolve_leaf(value, table):
     if isinstance(value, str):
         return value, EXPANDED_VALUE_WEIGHT + _text_weight(value)
     if isinstance(value, bytes):
-        # `\\xNN` in a repr, escaped again in JSON.
         return value, EXPANDED_VALUE_WEIGHT + 6 * len(value)
     if isinstance(value, int):
-        # Rendered in decimal: at most one digit per 3.3 bits, plus a sign.
         return value, EXPANDED_VALUE_WEIGHT + value.bit_length() // 3 + 2
     if isinstance(value, (datetime, date, time)):
-        # A repr with its constructor name and time zone.
         return value, EXPANDED_VALUE_WEIGHT + _RENDERED_DATE_TIME_WEIGHT
     if isinstance(value, Decimal):
-        # Its text holds every coefficient digit; `as_tuple()` would make a
-        # tuple of them, eight bytes or more per digit.
+        # Not `as_tuple()`: it builds a tuple of every digit, eight bytes or more each.
         return value, EXPANDED_VALUE_WEIGHT + len(str(value)) + 32
     if isinstance(value, float):
-        # Up to 24 characters, as `-1.7976931348623157e+308`.
         return value, EXPANDED_VALUE_WEIGHT + 24
     if isinstance(value, (dict, list, tuple, set, frozenset, _DeferredSequence)):
         return None

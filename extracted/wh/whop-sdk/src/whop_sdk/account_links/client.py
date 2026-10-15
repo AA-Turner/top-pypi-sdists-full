@@ -37,7 +37,7 @@ class AccountLinksClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AccountLink:
         """
-        Generate a URL that directs a sub-merchant to their account portal, such as the hosted payouts dashboard or the KYC onboarding flow.
+        Generates a URL that sends a sub-merchant to a hosted Whop page, such as the payouts dashboard or the KYC onboarding flow. Requires an API key.
 
         Parameters
         ----------
@@ -66,7 +66,7 @@ class AccountLinksClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -112,7 +112,7 @@ class AsyncAccountLinksClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AccountLink:
         """
-        Generate a URL that directs a sub-merchant to their account portal, such as the hosted payouts dashboard or the KYC onboarding flow.
+        Generates a URL that sends a sub-merchant to a hosted Whop page, such as the payouts dashboard or the KYC onboarding flow. Requires an API key.
 
         Parameters
         ----------
@@ -143,7 +143,7 @@ class AsyncAccountLinksClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

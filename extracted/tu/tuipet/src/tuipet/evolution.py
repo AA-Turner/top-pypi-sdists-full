@@ -77,16 +77,17 @@ def _win_rate(pet):
 
 
 def _dna_ok(pet, req):
-    """testDNA + hasDNARequirement: the form declares Field-DNA gates AND the pet's
-    charged-DNA distribution satisfies every one. This is DVPet's universal
-    evolution-requirement bypass (EnableDNAReqReplacement=TRUE)."""
+    """Whether all declared charged-share bonuses match; not a care-gate bypass.
+
+    DNA audit 2026-10-14: these conditions only add fulfilled-score bonuses.
+    """
     dna = req.get("dna")
     if not dna or not any(g[0] != "None" for g in dna.values()):
         return False                       # hasDNARequirement: no Field gate set
     return all(_cmp(cond, val, pet.dna_percent(f)) for f, (cond, val) in dna.items())
 
 
-def check(pet, num, item=-1, food=-1, connecting=False):
+def check(pet, num, item=-1, food=-1, connecting=False, roll=True):
     """checkEvolReq, verbatim semantics (canon re-audit 2026-07):
 
     * NO DNA gate-forgiveness (the canon consume-once excuse left with the
@@ -181,6 +182,8 @@ def check(pet, num, item=-1, food=-1, connecting=False):
         return False
     # probability: prob >= probBound -> always; else prob must beat a roll.
     # DVPet boosts prob by the care bonus + winRate*coefficient (checkEvolReq).
+    if not roll:
+        return True          # care gates only (a relic names its form outright)
     boost = getattr(pet, "evol_bonus", 0) + int(_win_rate(pet) * WIN_RATE_PROB_COEF)
     prob, bound = req["prob"] + boost, req["probBound"]
     if prob < bound:
@@ -315,6 +318,11 @@ def food_select(pet, food_id):
     return random.choice(top)
 
 
+def item_gate(num):
+    """The EvolItemID a form requires (-1 = none)."""
+    return (data.load_requirements().get(num) or {}).get("evol_item", -1)
+
+
 def item_direct(pet, dexnum):
     """Direct evolution item (items.csv DigimonID names the form): evolve into `dexnum`
     if it is a reachable graph neighbour of the current form."""
@@ -377,11 +385,8 @@ def select(pet):
 # that claims the target keeps the pet on lines; otherwise it rides this
 # corpus engine from then on -- a road it PAID for).
 #
-# Thresholds are the balance knob: the charge bill is ENERGY, 1/unit on
-# your own Field and 2/unit off-Field over the -24..24 meter (the old
-# spirit bill left with its system), so each figure below is still N charge
-# SESSIONS with recovery between, not one action -- plus the wager bits
-# that banked the DNA.
+# DNA audit 2026-10-14: all usable thresholds fit one charge from full
+# species energy, even off-Field. Fresh currently has no real-Field road.
 DIVERGE_NEED = {"Fresh": 2, "InTraining": 4, "Rookie": 8,
                 "Champion": 12, "Ultimate": 16}
 _STAGE_ORDER = ["Fresh", "InTraining", "Rookie", "Champion", "Ultimate", "Mega"]
@@ -416,12 +421,14 @@ def divergence_target(pet):
                 and getattr(pet, "x_antibody", "None") == "None":
             continue        # Induced X-forms stay X-egg territory (LINES_SPEC §4)
         out.append(t)
-    if not out:
+    # DNA RESPECTS CARE (Joel 2026-10-14, design call #1: "B"): the steer
+    # picks only among the Field's forms whose care gates the pet meets.
+    # None qualify -> no steer, and normal evolution decides.  (It used to
+    # fall back to the best-fulfilled edge, so heavy neglect + 8 DNA still
+    # earned the form.)
+    pool = [t for t in out if check(pet, t, roll=False)]
+    if not pool:
         return None
-    # the paid steer always fires: gates pick among qualifiers, else the
-    # best-fulfilled edge (select()'s never-stuck fallback idiom)
-    valid = [t for t in out if check(pet, t)]
-    pool = valid or out
     best = max(fulfilled(pet, t) for t in pool)
     top = [t for t in pool if abs(fulfilled(pet, t) - best) < 1e-9]
     if len(top) > 1:
@@ -455,6 +462,19 @@ def divergence_roads(pet):
             continue
         roads.setdefault(rec["field"], []).append(t)
     return roads
+
+
+def divergence_options(pet):
+    """Stable road destinations while armed; only evolution rolls the final pick."""
+    # DNA audit 2026-10-14: readouts must not spend the gameplay RNG.
+    field = pet.highest_dna()
+    need = DIVERGE_NEED.get(pet.stage)
+    if not field or field == "None" or need is None \
+            or pet.dna_applied.get(field, 0) < need:
+        return []
+    # only the forms the pet's care qualifies for (DNA respects care, 2026-10-14)
+    return sorted(t for t in set(divergence_roads(pet).get(field, []))
+                  if check(pet, t, roll=False))
 
 
 def is_mode_form(num):
@@ -503,7 +523,7 @@ def requirement_report(pet, num):
     """The data book's requirement checklist for one evolution target: a list of
     (met, text) rows, one per CONSTRAINED gate, mirroring check()'s reads exactly
     (unconstrained "None" gates are skipped).  met is True/False, or None for an
-    informational row (the probability line, the DNA-bypass note)."""
+    informational row (probability and DNA selection bonuses)."""
     req = data.load_requirements().get(num)
     if req is None:
         return [(False, "unknown form")]
@@ -565,9 +585,9 @@ def requirement_report(pet, num):
     dna = req.get("dna") or {}
     dna_gated = [(f, g) for f, g in dna.items() if g[0] != "None"]
     for f, (cond, val) in dna_gated:
-        rows.append((_cmp(cond, val, pet.dna_percent(f)),
-                     f"DNA {data.pretty_field(f)} {_SYM.get(cond, '?')}{val:g}%"
-                     f"  (now {pet.dna_percent(f):g}%)"))
+        # DNA audit 2026-10-14: informational bonuses are not unmet care gates.
+        rows.append((None, f"DNA bonus {data.pretty_field(f)} {_SYM.get(cond, '?')}{val:g}%"))
+        rows.append((None, f"charged share: {pet.dna_percent(f)}%"))
     prob, bound = req["prob"], req["probBound"]
     if prob < bound:
         boost = getattr(pet, "evol_bonus", 0) + int(_win_rate(pet) * WIN_RATE_PROB_COEF)
@@ -576,10 +596,11 @@ def requirement_report(pet, num):
 
 
 def candidates(pet):
-    """Debug helper: (num, name, passes, fulfilled) for each target."""
+    """Readout helper: (num, name, care gates pass, fulfilled) for each target."""
     _, by_num = data.load_sprites()
     out = []
     for t in data.load_evolutions().get(pet.num, []):
         if t in by_num and by_num[t]["stage"] != pet.stage:
-            out.append((t, by_num[t]["name"], check(pet, t), round(fulfilled(pet, t), 2)))
+            # DNA audit 2026-10-14: only the final selector rolls probabilities.
+            out.append((t, by_num[t]["name"], check(pet, t, roll=False), round(fulfilled(pet, t), 2)))
     return out

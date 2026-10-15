@@ -1,6 +1,6 @@
 [project]
 name = "sphinxcontrib-httpdomain"
-version = "2.2.0"
+version = "2.2.1"
 description = "Sphinx extension that provides domains for documenting HTTP and WebSocket APIs."
 keywords = [
     "Sphinx",
@@ -52,7 +52,7 @@ name = "Ash Berlin-Taylor"
 email = "ash_github@firemirror.com"
 
 [project.urls]
-Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+Changelog = "https://sphinxcontrib-httpdomain.readthedocs.io/en/stable/#changelog"
 Documentation = "https://sphinxcontrib-httpdomain.readthedocs.io/en/stable/"
 Download = "https://pypi.org/project/sphinxcontrib-httpdomain/"
 Funding = "https://github.com/sponsors/stevepiercy"

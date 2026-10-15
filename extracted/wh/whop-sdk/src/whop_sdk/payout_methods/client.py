@@ -37,7 +37,7 @@ class PayoutMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[PayoutMethodListItem, ListPayoutMethodResponse]:
         """
-        Returns a list of active payout methods configured for a company, ordered by most recently created.
+        Lists the active payout methods configured for an account, newest first.
 
         Required permissions:
          - `payout:destination:read`
@@ -72,7 +72,7 @@ class PayoutMethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -118,7 +118,7 @@ class PayoutMethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -156,7 +156,7 @@ class AsyncPayoutMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[PayoutMethodListItem, ListPayoutMethodResponse]:
         """
-        Returns a list of active payout methods configured for a company, ordered by most recently created.
+        Lists the active payout methods configured for an account, newest first.
 
         Required permissions:
          - `payout:destination:read`
@@ -193,7 +193,7 @@ class AsyncPayoutMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -248,7 +248,7 @@ class AsyncPayoutMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

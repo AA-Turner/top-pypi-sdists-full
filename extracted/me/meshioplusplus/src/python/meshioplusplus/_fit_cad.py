@@ -38,6 +38,13 @@ _REPORT_INTS = (
     "num_exact_edges",
     "num_approx_edges",
     "num_solids",
+    "num_bspline",
+    "num_split_patches",
+    "num_fillet",
+    "num_helical",
+    "num_variable_fillet",
+    "num_blend",
+    "num_rounded_thread",
 )
 
 
@@ -75,13 +82,30 @@ def fit_cad(
     types=None,
     mesh_deflection: float | None = None,
     max_demotion_rounds: int = 8,
+    freeform: bool = True,
+    freeform_degree: int = 3,
+    freeform_max_control: int = 64,
+    freeform_split: bool = True,
+    fillets: bool = True,
+    threads: bool = True,
     return_report: bool = False,
 ):
     """Build a CAD solid from the fitted patches of a closed skin.
 
     Every patch :func:`fit_primitives` accepted becomes one plane, sphere,
-    cylinder, cone or torus face trimmed by the patch boundary; the rest of
-    the skin becomes planar facets. The faces are sewn into a solid that
+    cylinder, cone or torus face trimmed by the patch boundary. A patch no
+    primitive explains is tried, with ``fillets``, as a rolling-ball fillet
+    when it runs between two analytic faces (of one radius, else of a radius
+    varying along it), and, with ``threads``, as a helical thread face: about
+    the axis of a cylinder or cone beside it, or of the screw the patch itself
+    fits, with a straight flank or any other profile (a rounded root or
+    crest). Failing those it becomes, with ``freeform``, a B-spline face
+    fitted over the patch flattened onto its best-fit plane or unrolled around
+    a cylinder, and one both fold is, with ``freeform_split``, split into
+    pieces that flatten, each its own face under a new patch label. A patch
+    between two fitted faces, one of them freeform, is then tried, with
+    ``fillets``, as a rolling-ball blend. The rest of the skin becomes planar
+    facets. The faces are sewn into a solid that
     OpenCASCADE checks, and a face that fails the check or strays further than
     ``tolerance`` from the skin is demoted to facets, so a feature the fitter
     cannot explain comes back faceted, never silently wrong.
@@ -104,13 +128,31 @@ def fit_cad(
         default a quarter of the tolerance.
     :param max_demotion_rounds: how many times failed faces are demoted and
         the solid rebuilt before every patch is faceted.
+    :param freeform: try a patch no primitive explains as a B-spline face.
+    :param freeform_degree: that B-spline's highest degree, 3 to 8.
+    :param freeform_max_control: the most grid points per direction its fit
+        samples, 4 to 1024.
+    :param freeform_split: split a freeform patch that folds over both its
+        flattenings into pieces that do not.
+    :param fillets: try a patch between two fitted faces as a rolling-ball
+        fillet or blend.
+    :param threads: try a patch as a helical thread face.
     :param return_report: also return the report.
     :returns: the solid re-meshed as triangles with cell data ``fit_cad:face``,
-        ``fit_cad:type`` (0 a facet, else as ``fit:type``) and
-        ``fit_cad:patch``. With ``return_report``, ``(mesh, report)``, the
-        report holding ``valid``, the tolerance, the solid's and the skin's
-        volume and their ratio, the Hausdorff ``max_deviation``, the faces by
-        type, the demoted patches and the exact and approximated edges.
+        ``fit_cad:type`` (0 a facet, 6 a freeform B-spline, 7 a fillet or
+        blend, 8 a helical thread face, else as ``fit:type``) and
+        ``fit_cad:patch``, and the solid as NURBS faces,
+        loops and edges in ``mesh.info["brep"]`` (face ``i`` of
+        ``fit_cad:face`` has id ``i + 1``), so writing it as ``.cad.json`` gives
+        Kratos CAD JSON. With ``return_report``, ``(mesh, report)``, the report
+        holding ``valid``, the tolerance, the solid's and the skin's volume and
+        their ratio, the Hausdorff ``max_deviation``, the faces by type
+        (``num_bspline`` the freeform ones, ``num_fillet``, ``num_helical``),
+        of those the fillets of varying radius (``num_variable_fillet``), the
+        blends beside a freeform face (``num_blend``) and the thread faces of
+        a profile that is not straight (``num_rounded_thread``),
+        ``num_split_patches``, the demoted patches and the exact and
+        approximated edges.
     :raises NotImplementedError: when the core was built without OpenCASCADE.
     """
     opts = {
@@ -120,6 +162,12 @@ def fit_cad(
         "types": _types_mask(types),
         "mesh_deflection": 0.0 if mesh_deflection is None else float(mesh_deflection),
         "max_demotion_rounds": int(max_demotion_rounds),
+        "freeform": bool(freeform),
+        "freeform_degree": int(freeform_degree),
+        "freeform_max_control": int(freeform_max_control),
+        "freeform_split": bool(freeform_split),
+        "fillets": bool(fillets),
+        "threads": bool(threads),
     }
     if tolerance is not None and not (
         opts["tolerance"] > 0.0 and math.isfinite(opts["tolerance"])
@@ -131,6 +179,10 @@ def fit_cad(
         raise ValueError(f"{_PREFIX}mesh_deflection must be finite and > 0")
     if opts["max_demotion_rounds"] < 0:
         raise ValueError(f"{_PREFIX}max_demotion_rounds must be >= 0")
+    if not 3 <= opts["freeform_degree"] <= 8:
+        raise ValueError(f"{_PREFIX}freeform_degree must be 3 to 8")
+    if not 4 <= opts["freeform_max_control"] <= 1024:
+        raise ValueError(f"{_PREFIX}freeform_max_control must be 4 to 1024")
 
     try:
         from . import _core
@@ -152,8 +204,17 @@ def fit_cad(
         opts["types"],
         opts["mesh_deflection"],
         opts["max_demotion_rounds"],
+        opts["freeform"],
+        opts["freeform_degree"],
+        opts["freeform_max_control"],
+        opts["freeform_split"],
+        opts["fillets"],
+        opts["threads"],
     )
     out = res["mesh"]
+    info = out.info if isinstance(getattr(out, "info", None), dict) else {}
+    info["brep"] = res["brep"]
+    out.info = info
     if not return_report:
         return out
     report = {"valid": bool(res["valid"])}

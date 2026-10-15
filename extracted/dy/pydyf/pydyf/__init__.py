@@ -10,7 +10,7 @@ from codecs import BOM_UTF16_BE
 from hashlib import md5
 from math import ceil, log
 
-VERSION = __version__ = '0.12.1'
+VERSION = __version__ = '0.13.0'
 
 
 def _to_bytes(item):
@@ -25,6 +25,13 @@ def _to_bytes(item):
     elif isinstance(item, Object):
         return item.data
     return str(item).encode('ascii')
+
+
+def name(string):
+    """Create bytes with leading solidus representing a name object."""
+    return b'/' + b''.join(
+        char.to_bytes() if 33 <= char <= 126 and char not in b'<>()[]/# '
+        else f'#{char:02x}'.encode() for char in string.encode())
 
 
 class Object:
@@ -54,7 +61,7 @@ class Object:
     @property
     def data(self):
         """Data contained in the object. Shall be defined in each subclass."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @property
     def compressible(self):
@@ -527,21 +534,21 @@ class PDF:
         :param bool compress: whether the PDF uses a compressed object stream.
 
         """
-        # Convert version and identifier to bytes
+        # Convert version and identifier to bytes.
         version = _to_bytes(version or b'1.7')  # Force 1.7 when None
         if identifier not in (False, True, None):
             identifier = _to_bytes(identifier)
 
-        # Add info object if needed
+        # Add info object if needed.
         if self.info:
             self.add_object(self.info)
 
-        # Write header
+        # Write header.
         self.write_line(b'%PDF-' + version, output)
         self.write_line(b'%\xf0\x9f\x96\xa4', output)
 
         if version >= b'1.5' and compress:
-            # Store compressed objects for later and write other ones in PDF
+            # Store compressed objects for later and write other ones in PDF.
             compressed_objects = []
             for object_ in self.objects:
                 if object_.free == 'f':
@@ -552,7 +559,7 @@ class PDF:
                     object_.offset = self.current_position
                     self.write_line(object_.indirect, output)
 
-            # Write compressed objects in object stream
+            # Write compressed objects in object stream.
             stream = [[]]
             position = 0
             for i, object_ in enumerate(compressed_objects):
@@ -572,7 +579,7 @@ class PDF:
             self.add_object(object_stream)
             self.write_line(object_stream.indirect, output)
 
-            # Write cross-reference stream
+            # Write cross-reference stream.
             xref = []
             dict_index = 0
             for object_ in self.objects:
@@ -613,14 +620,14 @@ class PDF:
             self.add_object(dict_stream)
             self.write_line(dict_stream.indirect, output)
         else:
-            # Write all non-free PDF objects
+            # Write all non-free PDF objects.
             for object_ in self.objects:
                 if object_.free == 'f':
                     continue
                 object_.offset = self.current_position
                 self.write_line(object_.indirect, output)
 
-            # Write cross-reference table
+            # Write cross-reference table.
             self.xref_position = self.current_position
             self.write_line(b'xref', output)
             self.write_line(f'0 {len(self.objects)}'.encode(), output)
@@ -629,7 +636,7 @@ class PDF:
                     (f'{object_.offset:010} {object_.generation:05} '
                      f'{object_.free} ').encode(), output)
 
-            # Write trailer
+            # Write trailer.
             self.write_line(b'trailer', output)
             self.write_line(b'<<', output)
             self.write_line(f'/Size {len(self.objects)}'.encode(), output)

@@ -37,10 +37,7 @@ use crate::storage::{self, Census, GcDelete, HeldKey};
 use crate::store::Store;
 
 fn io(what: impl AsRef<str>, error: std::io::Error) -> Refusal {
-    Refusal {
-        code: Code::IO_FAILED,
-        detail: format!("{}: {error}", what.as_ref()),
-    }
+    crate::store::classify_io(what, error)
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -196,8 +193,10 @@ pub(crate) fn unretained_manifests(store: &Store, wanted: &[ObjectRef]) -> Resul
     };
     let everything =
         || -> Result<Vec<ObjectRef>> { Ok(manifests(session_holds(store)?.0).collect()) };
-    let passes: [&dyn Fn() -> Result<Vec<ObjectRef>>; 3] =
-        [&repositories, &named_roots, &everything];
+    // Not a root: a checkpoint here in part whose origin keeps it whole ([`crate::origin`]).
+    let origins = || crate::origin::manifests(store);
+    let passes: [&dyn Fn() -> Result<Vec<ObjectRef>>; 4] =
+        [&repositories, &named_roots, &everything, &origins];
     let mut missing = wanted.to_vec();
     for pass in passes {
         if missing.is_empty() {
@@ -308,6 +307,7 @@ pub(crate) fn collect_locked(
     if let Some(catalog) = &catalog {
         catalog.prune_verifications(|sha256| store.object_path(sha256).is_file())?;
     }
+    crate::origin::prune(store)?;
     Ok(report)
 }
 

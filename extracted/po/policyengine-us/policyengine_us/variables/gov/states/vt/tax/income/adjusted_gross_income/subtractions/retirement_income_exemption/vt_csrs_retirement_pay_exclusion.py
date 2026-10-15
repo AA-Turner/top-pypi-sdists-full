@@ -1,0 +1,28 @@
+from policyengine_us.model_api import *
+
+
+class vt_csrs_retirement_pay_exclusion(Variable):
+    value_type = float
+    entity = TaxUnit
+    definition_period = YEAR
+    label = "Vermont Civil Service Retirement System (CSRS) retirement income exclusion"
+    reference = (
+        "https://tax.vermont.gov/individuals/seniors-and-retirees",
+        "https://legislature.vermont.gov/statutes/section/32/151/05830e",  # Legal Code Titl. 32 V.S.A. § 5830e (b)(1)(B), (b)(2)(B)
+    )
+    unit = USD
+    defined_for = StateCode.VT
+    documentation = "Vermont Civil Service Retirement System (CSRS) retirement benefits exempt from Vermont taxation."
+
+    def formula(tax_unit, period, parameters):
+        p = parameters(
+            period
+        ).gov.states.vt.tax.income.agi.retirement_income_exemption.csrs
+        # Get retirement amount from the Civil Service Retirement System
+        # Dependents' income is not in federal AGI; they report it on their
+        # own return, so only the head's and spouse's pay counts.
+        tax_unit_csrs_retirement_pay = tax_unit_non_dep_sum(
+            "csrs_retirement_pay", tax_unit, period
+        )
+        # Retirement income from systems other than social security have maximum amount.
+        return min_(tax_unit_csrs_retirement_pay, p.amount)

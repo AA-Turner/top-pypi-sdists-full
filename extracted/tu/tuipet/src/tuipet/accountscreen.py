@@ -46,7 +46,7 @@ class AccountPanel:
     def strip(self):
         # "field", the grammar sweep's verb -- the lobby's login strip and
         # this one said different words for the same key (round 35)
-        return menu.hints(("TAB", "field"), ("ENTER", "go"), ("ESC", "back"))
+        return menu.hints(("TAB", "field"), ("ENTER", "sign in"), ("ESC", "back"))
 
     def key(self, k):
         if k == "escape":
@@ -95,7 +95,40 @@ class AccountPanel:
         t.append("  password: ", style=DIM)
         t.append(pw + "\n\n", style=INK_B if self.field == "pw" else INK)
         # keys ride the strip (round 35: the in-LCD hint line doubled it)
-        # the note MARQUEES when over-wide (QOL sweep 2026-07-23: the hard
-        # [:38] clip ate the actionable tail of long server rejections)
-        t.append_text(menu.footer_note("  " + self.note, tick=self.frame_i))
+        # the note WRAPS, never scrolls (menus call #14 = A, 2026-10-15): a
+        # server's words are the ones you must read -- the old marquee made
+        # you wait for the actionable tail of a long rejection
+        import textwrap
+        lines = textwrap.wrap(self.note, menu.W - 2) or [""]
+        t.append("\n".join("  " + ln for ln in lines[:6]), style=DIM)
+        return t
+
+
+FIRST_RUN_NOTE = "Have an account? Sign in to bring your pet. ESC: new pet."
+
+
+class CloudWaitPanel:
+    """The few seconds the first-run sign-in spends asking the cloud: a card
+    that holds the screen (no pet ticks underneath, no second Enter fires a
+    second sign-in) until the app closes it with the verdict."""
+
+    def __init__(self, name):
+        self.name = name
+        self.sfx = None
+        self.frame_i = 0
+
+    def anim(self):
+        self.frame_i += 1
+
+    def strip(self):
+        return "[dim]checking the cloud…[/]"
+
+    def key(self, k):
+        return None
+
+    def text(self):
+        t = Text()
+        t.append("  TUIPET ACCOUNT\n\n", style=INK_B)
+        t.append("  " + _tail(self.name, _FIELD_W) + "\n\n", style=INK)
+        t.append("  checking the cloud" + "." * (1 + (self.frame_i // 4) % 3), style=DIM)
         return t

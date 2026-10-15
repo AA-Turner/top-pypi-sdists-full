@@ -1,0 +1,18 @@
+from policyengine_us.model_api import *
+
+
+class taxsim_pui(Variable):
+    value_type = float
+    entity = TaxUnit
+    label = "Unemployment compensation (primary taxpayer)"
+    unit = USD
+    documentation = "Unemployment Compensation received - primary taxpayer."
+    definition_period = YEAR
+
+    def formula(tax_unit, period, parameters):
+        person = tax_unit.members
+        is_primary = person("is_tax_unit_head", period)
+        total_unemployment_compensation = person(
+            "total_unemployment_compensation", period
+        )
+        return tax_unit.sum(total_unemployment_compensation * is_primary)

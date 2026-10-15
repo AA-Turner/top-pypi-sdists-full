@@ -78,9 +78,7 @@ impl TraceNameIndex {
             return;
         }
         let Some(observation) = trace_name_observation(frame_index, frame_type, frame) else {
-            // A relevant frame which the sidecar cannot reproduce must not be
-            // silently omitted: the positional resolver still observes it and
-            // its first-request/last-response precedence may affect the name.
+            // Mark sidecar resolution incomplete so the positional resolver still sees relevant request/response frames.
             self.mark_incomplete();
             return;
         };
@@ -317,13 +315,11 @@ pub fn extract_http_trace_name<S: FrameSequence>(
     let mut request_frame = None;
     let mut response_frame = None;
 
-    // Look for django_request and django_response frames
     let mut scratch = Vec::new();
     for index in relevant_frame_indices(frames.len()) {
         let frame_bytes = frames.frame(index, &mut scratch).ok()?;
         if let Ok(frame) = rmpv::decode::read_value(&mut &frame_bytes[..]) {
             if let rmpv::Value::Map(frame_map) = frame {
-                // Extract frame type
                 let frame_type = frame_map
                     .iter()
                     .find(|(k, _)| k == &rmpv::Value::String("type".into()))
@@ -334,11 +330,9 @@ pub fn extract_http_trace_name<S: FrameSequence>(
 
                 match frame_type {
                     Some("django_request") if request_frame.is_none() => {
-                        // First request frame wins
                         request_frame = Some(frame_map);
                     }
                     Some("django_response") => {
-                        // Last response frame wins (since we're iterating in order)
                         response_frame = Some(frame_map);
                     }
                     _ => {}
@@ -347,7 +341,6 @@ pub fn extract_http_trace_name<S: FrameSequence>(
         }
     }
 
-    // Extract trace name components if we have both frames
     if let (Some(req), Some(res)) = (&request_frame, &response_frame) {
         let method = req
             .iter()
@@ -385,16 +378,13 @@ pub fn extract_test_trace_name<S: FrameSequence>(
     }
 
     let mut start_test_frame = None;
-    // we don't actually need anything stored under _end_test_frame yet
     let mut _end_test_frame = None;
 
-    // Look for start_test and end_test frames
     let mut scratch = Vec::new();
     for index in relevant_frame_indices(frames.len()) {
         let frame_bytes = frames.frame(index, &mut scratch).ok()?;
         if let Ok(frame) = rmpv::decode::read_value(&mut &frame_bytes[..]) {
             if let rmpv::Value::Map(frame_map) = frame {
-                // Extract frame type
                 let frame_type = frame_map
                     .iter()
                     .find(|(k, _)| k == &rmpv::Value::String("type".into()))
@@ -405,11 +395,9 @@ pub fn extract_test_trace_name<S: FrameSequence>(
 
                 match frame_type {
                     Some("start_test") if start_test_frame.is_none() => {
-                        // First start_test frame wins
                         start_test_frame = Some(frame_map);
                     }
                     Some("end_test") => {
-                        // Last end_test frame wins (since we're iterating in order)
                         _end_test_frame = Some(frame_map);
                     }
                     _ => {}
@@ -418,7 +406,6 @@ pub fn extract_test_trace_name<S: FrameSequence>(
         }
     }
 
-    // Extract trace name components if we have both frames
     if let Some(start) = start_test_frame {
         let test_name = start
             .iter()
@@ -753,7 +740,6 @@ mod trace_name_tests {
 
     #[test]
     fn test_names_decode_surrogate_strs_escaped_like_python() {
-        // "/caf\ud800\u00e9" as `str.encode("utf-8", "surrogatepass")`.
         let encoded = vec![b'/', b'c', b'a', b'f', 0xED, 0xA0, 0x80, 0xC3, 0xA9];
         assert_eq!(
             name_text(&Value::Ext(10, encoded)).as_deref(),

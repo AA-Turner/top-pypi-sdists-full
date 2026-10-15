@@ -43,6 +43,9 @@ class AsyncOpenIDMixin:
         self, token, nonce, claims_options=None, claims_cls=None, leeway=120
     ):
         """Return an instance of UserInfo from token's ``id_token``."""
+        if "id_token" not in token:
+            return None
+
         claims_params = dict(
             nonce=nonce,
             client_id=self.client_id,
@@ -80,9 +83,6 @@ class AsyncOpenIDMixin:
             )
 
         claims = claims_cls(token.claims, token.header, claims_options, claims_params)
-        # https://github.com/authlib/authlib/issues/259
-        if claims.get("nonce_supported") is False:
-            claims.params["nonce"] = None
         claims.validate(leeway=leeway)
         return UserInfo(claims)
 

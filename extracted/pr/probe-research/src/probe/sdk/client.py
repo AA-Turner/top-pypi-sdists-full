@@ -566,6 +566,21 @@ def _route_absent(exc: errors.RosError) -> bool:
     return isinstance(exc, errors.NotFoundError) and exc.detail == "Not Found"
 
 
+def catalog_path_ref(ref: str) -> str:
+    """A catalog ref (`dataset:c4-clean@3`, `checkpoint:<run>@best`) as one path
+    segment: `:` and `@` stay readable, anything else (a `/` in a source's
+    canonical key) is percent-encoded."""
+    from urllib.parse import quote
+
+    return quote(str(ref), safe=":@")
+
+
+def _present(params: dict[str, Any]) -> dict[str, Any] | None:
+    """Query params minus the ones not given (None), booleans as `true`/`false`."""
+    kept = {k: (str(v).lower() if isinstance(v, bool) else v) for k, v in params.items() if v is not None}
+    return kept or None
+
+
 #: What an artifact hangs off (`anchors.py`, where the lower layers can import
 #: it without this module). Re-exported: `client.Anchor` is the one class.
 from .anchors import Anchor  # noqa: E402
@@ -2981,12 +2996,98 @@ class Client:
     def get_workspace(self, workspace_id: str) -> dict:
         return self.transport.get(f"/v1/workspaces/{workspace_id}")
 
+    def computer_workspace_id(self) -> str | None:
+        """The workspace this computer files new projects into, as an id, or None.
+
+        From `Settings.workspace`: PROBE_WORKSPACE, else the context's pin (the
+        setup wizard's choice; `probe workspace use` changes it). An id
+        (bare or `id:<uuid>`) is used as is; anything else is a workspace SLUG
+        and is looked up, so `PROBE_WORKSPACE=engineering` works. An unknown
+        slug raises rather than falling through to the server's rule.
+        """
+        return self.workspace_id_for(self.settings.workspace)
+
+    def workspace_id_for(self, ref: str | None) -> str | None:
+        """A workspace ref -- an id (bare or `id:<uuid>`) or a slug (bare or
+        `slug:<slug>`) -- as an id. Only a slug costs a request."""
+        if not ref:
+            return None
+        if ref.startswith("slug:"):
+            bare = ref[5:]
+        else:
+            bare = ref[3:] if ref.startswith("id:") else ref
+            try:
+                return str(uuid.UUID(bare))
+            except ValueError:
+                pass
+        for row in self.list_workspaces():
+            if row.get("slug") == bare:
+                return str(row["id"])
+        raise errors.ValidationError(
+            f"workspace {bare!r} is not a workspace on this team: see `probe workspace list`"
+        )
+
+    def _hand_over_workspace(self) -> str | None:
+        """Pin the caller's legacy saved default (0354) on this computer, once.
+
+        Only for a computer with no workspace set, and only when the server still
+        marks one of the caller's workspaces `is_default` that they may write.
+        Saves it as this context's pin -- what `probe workspace use` writes --
+        and says so on stderr. Once per computer: the context remembers it ran
+        (`config.WORKSPACE_HANDOVER`, also set by `probe workspace use --clear`,
+        so an explicit clear is never undone). Returns the id, or None when there
+        is nothing to hand over (the caller then raises `WorkspaceRequired`).
+        """
+        if self.settings.workspace:
+            return None
+        from probe.sdk.config import WORKSPACE_HANDOVER, ConfigUnreadable, load_context, save_context
+
+        try:
+            saved = load_context()
+        except ConfigUnreadable:
+            saved = {}
+        pinned = (saved.get("workspace") or {}).get("id") if isinstance(saved.get("workspace"), dict) else None
+        if pinned:
+            # Set since this process read its settings (the setup wizard, `probe
+            # workspace use` in another shell): that choice wins over the legacy one.
+            self.settings.workspace = str(pinned)
+            return self.workspace_id_for(str(pinned))
+        if saved.get(WORKSPACE_HANDOVER):
+            return None
+        try:
+            mine = next(
+                (
+                    w for w in self.list_workspaces()
+                    if w.get("is_default") is True and w.get("writable") is not False
+                ),
+                None,
+            )
+        except errors.RosError:
+            return None
+        if mine is None:
+            return None
+        try:
+            save_context(
+                {"workspace": {"id": str(mine["id"]), "project": None}, WORKSPACE_HANDOVER: True}
+            )
+        except (OSError, ConfigUnreadable):
+            pass  # a read-only or unreadable config still gets this one request filed
+        self.settings.workspace = str(mine["id"])
+        print(
+            f"probe: this computer's work now goes into {mine.get('name')!r} "
+            "(change it with `probe workspace use <slug>`)",
+            file=sys.stderr,
+        )
+        return str(mine["id"])
+
     def create_workspace(self, slug: str, name: str | None = None) -> dict:
         """POST /v1/workspaces — a workspace any team member may use or rename.
 
         Pass ``workspace_id`` to :meth:`create_project`, or select it in the CLI
         with ``probe workspace use <slug>``. Without a workspace, the server uses
-        the oldest existing one and creates a Default workspace only if none remain.
+        this computer's workspace (``probe workspace use``, ``PROBE_WORKSPACE``);
+        with none set, the server files into the team's only workspace and
+        refuses (``WorkspaceRequired``) when there are several.
 
         A taken slug is a 409 carrying the existing id and a free suggestion, never a
         silent hand-back of somebody else's row.
@@ -3114,6 +3215,10 @@ class Client:
         owned by the root), the depth cap applies, and passing a
         ``workspace_id`` that is not the parent's is a 422.
 
+        ``workspace_id`` (an id, or a workspace slug) files a top-level project;
+        omitted, this computer's workspace (:meth:`computer_workspace_id`). With
+        neither, a team with several workspaces refuses (``WorkspaceRequired``).
+
         Creation is always explicit: there is no get-or-create. A caller that
         does not know whether the project exists asks :meth:`resolve_project`
         first and decides.
@@ -3138,6 +3243,16 @@ class Client:
         if parent_project_id is not None:
             body["parent_project_id"] = parent_project_id
         if workspace_id is not None:
+            # A slug is looked up only here, on the create itself: a caller
+            # whose project already exists never pays for (or trips on) it.
+            workspace_id = self.workspace_id_for(workspace_id)
+        elif parent_project_id is None:
+            # This computer's workspace: what its setup picked (`probe workspace
+            # use`), or PROBE_WORKSPACE. None leaves it to the server, which
+            # files into a team's only workspace and refuses (422
+            # `workspace_required`) when there are several.
+            workspace_id = self.computer_workspace_id()
+        if workspace_id is not None:
             body["workspace_id"] = workspace_id
         if description is not None:
             body["description"] = description
@@ -3147,7 +3262,17 @@ class Client:
             body["tags"] = tags
         if metadata is not None:
             body["metadata"] = metadata
-        row = self.transport.post("/v1/projects", body)
+        try:
+            row = self.transport.post("/v1/projects", body)
+        except errors.WorkspaceRequired:
+            # One-time handover: a member whose saved default (0354) moved their
+            # work to their own workspace gets it pinned on this computer
+            # instead of an error, once; then the request is sent again.
+            handed = None if "workspace_id" in body else self._hand_over_workspace()
+            if handed is None:
+                raise
+            body["workspace_id"] = handed
+            row = self.transport.post("/v1/projects", body)
         if tags is not None:
             self._verify_tags_written(tags, row, "POST /v1/projects")
         return row
@@ -4420,6 +4545,7 @@ class Client:
         experiment_id: str,
         *,
         question: str | None = None,
+        conclusion: str | None = None,
         name: str | None = None,
         description: str | None = None,
         document: str | None = None,
@@ -4429,9 +4555,12 @@ class Client:
         authored_by: str | None = None,
         project_id: str | None = None,
     ) -> dict:
-        """Amend an experiment's question, name or visible Markdown.
+        """Amend an experiment's question, conclusion, name or visible Markdown.
 
-        ``question`` and ``name`` go to ``PATCH /v1/projects/{P}/experiments/{E}``.
+        ``question``, ``conclusion`` and ``name`` go to
+        ``PATCH /v1/projects/{P}/experiments/{E}``. ``conclusion`` is the
+        experiment's answer; ``""`` clears it. The server answers 409 when an
+        agent's write would replace a person's conclusion.
 
         ``document`` replaces the authored Markdown that lives INSIDE the
         experiment's Overview page, as a block the page's AI writer may not
@@ -4453,7 +4582,11 @@ class Client:
         _refuse_read_only_experiment_fields(tags=tags, metadata=metadata, summary=summary)
         identity = {
             key: value
-            for key, value in {"question": question, "name": name}.items()
+            for key, value in {
+                "question": question,
+                "conclusion": conclusion,
+                "name": name,
+            }.items()
             if value is not None
         }
         if not identity and document is None:
@@ -5246,10 +5379,14 @@ class Client:
         capture_outputs: bool | None = None,
         intent: str | None = None,
         ignore: str | list[str] | tuple[str, ...] | None = None,
+        workspace: str | None = None,
         **run_kw,
     ) -> Run:
         """Open a run — full resolution/creation/``on_conflict`` semantics in
-        :meth:`_run_impl` (unchanged). ``hw=True`` (or ``PROBE_HW=1``) also
+        :meth:`_run_impl` (unchanged). ``workspace`` (a slug or an id) is where a
+        NEW project is filed; without it, this computer's workspace (``probe
+        workspace use``, ``PROBE_WORKSPACE``). A team with several workspaces and
+        none set raises ``WorkspaceRequired`` before anything is created. ``hw=True`` (or ``PROBE_HW=1``) also
         starts the opt-in hardware collector when this process is the
         node-local leader. Best-effort by contract: a broken collector never
         touches the run (docs/2026-08-05-hw-metrics-design.md). ``snapshot``
@@ -5312,6 +5449,7 @@ class Client:
             on_conflict=on_conflict,
             snapshot=snapshot,
             ignore=ignore,
+            workspace=workspace,
             # Only forwarded when set: `_run_impl` splats run_kw into `create_run`,
             # and an unconditional `parent_run_id=None` would make every ordinary
             # run look like it declared a null parent.
@@ -5354,6 +5492,7 @@ class Client:
         on_conflict: str | Rewind = "auto",
         snapshot: bool | None = None,
         ignore: str | list[str] | tuple[str, ...] | None = None,
+        workspace: str | None = None,
         **run_kw,
     ) -> Run:
         """Open a run inside an experiment — or straight under a project.
@@ -5513,8 +5652,15 @@ class Client:
             # The project follows the experiment: creation is unlocked only by a
             # question, so a project-direct run (which cannot carry one) always
             # resolves strictly.
+            # `workspace` (a slug or an id) is where a NEW project is filed;
+            # without it, this computer's workspace (`create_project`). An
+            # existing project keeps its own: nothing ever moves.
             project_id = (
-                self.ensure_project(project, authored_by=run_kw.get("authored_by"))["id"]
+                self.ensure_project(
+                    project,
+                    authored_by=run_kw.get("authored_by"),
+                    **({"workspace_id": workspace} if workspace else {}),
+                )["id"]
                 if question is not None
                 else self.resolve_or_raise("project", project)["id"]
             )
@@ -7786,7 +7932,8 @@ class Client:
         """The run's ``"latest"`` (highest step) or ``"best"`` (``meta.best``)
         checkpoint row, or None. ``recoverable=True`` skips one whose bytes are
         gone: an upload with a file not (yet) stored, or a location known to be
-        gone, so ``"latest"`` is the newest save that can be had. Two
+        gone, so ``"latest"`` is the newest save that can be had. A save from a
+        range a rewind abandoned (``meta.rewound``) is never picked. Two
         Lightning callbacks each marking a best raise ``AmbiguousCheckpoint``
         unless ``callback=`` names one."""
         row, _files = _checkpoints.find(self, run_id, which, callback=callback, recoverable_only=recoverable)
@@ -7799,6 +7946,106 @@ class Client:
         location-only checkpoint is, before writing anything."""
         row = self.get_artifact(checkpoint) if isinstance(checkpoint, str) else checkpoint
         return _checkpoints.download(self, row, dest)
+
+    # -- the data catalog (plan data-catalog C1-C11; probe.sdk.catalog) -------
+    # Datasets, checkpoints and sources as first-class things. These are the
+    # plain HTTP calls: they RAISE, for the CLI. The SDK's training-side verbs
+    # (`probe.source`, `Run.use_dataset`, `Run.log_dataset`, ...) live in
+    # `probe.sdk.catalog`, which warns once and never raises into a job.
+
+    def create_source(self, body: dict) -> dict:
+        """``POST /v1/sources``: register an external source (a Hub dataset, a
+        bucket, a URL, a base model) or get the one already registered for the
+        same canonical uri and revision. ``{id, ref, canonical_key, provider,
+        kind, revision, created}``."""
+        return self.transport.post("/v1/sources", body)
+
+    def get_source(self, ref: str) -> dict:
+        """``GET /v1/sources/{ref}``: one source with its use counts."""
+        return self.transport.get(f"/v1/sources/{catalog_path_ref(ref)}")
+
+    def list_sources(self, **params: Any) -> dict:
+        """``GET /v1/catalog/sources`` (``q``, ``provider``, ``kind``, ``cursor``, ``limit``)."""
+        return self.transport.get("/v1/catalog/sources", params=_present(params))
+
+    def use_in_run(self, run_id: str, body: dict) -> dict:
+        """``POST /v1/runs/{run}/uses``: what a run used, with its roles --
+        ``{target, roles, share?}`` -- or a training mixture that replaces the
+        run's train shares in one transaction, ``{mixture: [{target, share}],
+        role}`` (V12)."""
+        return self.transport.post(f"/v1/runs/{run_id}/uses", body)
+
+    def put_manifest(self, digest: str, gz: bytes) -> None:
+        """``PUT /v1/catalog/manifests/{sha256}``: a folder dataset's manifest,
+        gzip JSON, keyed by its identity hash (idempotent: 204 either way)."""
+        self.transport.request(
+            "PUT",
+            f"/v1/catalog/manifests/{digest}",
+            content=gz,
+            content_headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+            idempotent=True,
+        )
+
+    def host_dataset_uploads(self, name: str, manifest_hash: str) -> dict:
+        """``POST /v1/catalog/datasets/uploads`` (C8): which of a manifest's
+        files Probe already hosts (``have``) and an upload for each of the rest
+        (``uploads: [{content_hash, artifact_id, size_bytes, url + headers +
+        confirm | multipart}]``), at most 1,000 per call: ``deferred`` counts the
+        ones still to send after these (`catalog.host` asks again). Safe to
+        retry: asking again re-answers the same rows and resumes the same
+        multipart uploads."""
+        return self.transport.post(
+            "/v1/catalog/datasets/uploads", {"name": name, "manifest_hash": manifest_hash}, idempotent=True
+        )
+
+    def confirm_hosted_blob(self, artifact_id: str, *, shared: bool = False) -> dict:
+        """Confirm one hosted blob PUT through the existing confirm doors: the
+        Shared folder's own when the upload names it, else the generic one
+        (both delegate to the same core)."""
+        if shared:
+            return self.transport.post(f"/v1/shared/files/{artifact_id}/confirm", None)
+        return self.transport.post(f"/v1/artifacts/{artifact_id}/confirm", None)
+
+    def register_dataset(self, body: dict) -> dict:
+        """``POST /v1/catalog/datasets``: the next version of a team dataset,
+        from a run's file, a reference or hosted bytes, in one request (Q9)."""
+        return self.transport.post("/v1/catalog/datasets", body)
+
+    def dataset(self, ref: str) -> dict:
+        """``GET /v1/catalog/datasets/{ref}``: one dataset and every version."""
+        return self.transport.get(f"/v1/catalog/datasets/{catalog_path_ref(ref)}")
+
+    def list_datasets(self, **params: Any) -> dict:
+        """``GET /v1/catalog/datasets`` (``q``, ``project``, ``registered``, ``cursor``, ``limit``)."""
+        return self.transport.get("/v1/catalog/datasets", params=_present(params))
+
+    def dataset_files(self, ref: str, *, cursor: str | None = None) -> dict:
+        """``GET /v1/catalog/datasets/{ref}/files``: one version's files
+        (``{relpath, artifact_id | null, size_bytes, rows, content_hash,
+        fingerprint, preview_artifact_id, download: {artifact_id, version} |
+        null}``). Bytes come by ``artifact_id`` through
+        :meth:`presign_download_batch`, else by ``download`` through
+        :meth:`presign_version_download` (an older version of a one-file team
+        dataset); a file with neither is kept outside Probe."""
+        return self.transport.get(
+            f"/v1/catalog/datasets/{catalog_path_ref(ref)}/files", params=_present({"cursor": cursor})
+        )
+
+    def list_checkpoints(self, **params: Any) -> dict:
+        """``GET /v1/catalog/checkpoints`` (``project``, ``experiment``, ``run``,
+        ``best``, ``stored``, ``cursor``, ``limit``): every checkpoint team-wide."""
+        return self.transport.get("/v1/catalog/checkpoints", params=_present(params))
+
+    def provenance(self, ref: str, direction: str = "upstream", depth: int = 4) -> dict:
+        """``GET /v1/provenance``: the bounded graph up to the sources, or down
+        to everything that used ``ref``."""
+        return self.transport.get(
+            "/v1/provenance", params={"ref": ref, "direction": str(direction), "depth": int(depth)}
+        )
+
+    def provenance_steps(self, ref: str) -> dict:
+        """``GET /v1/provenance?format=steps``: the methods view, source first."""
+        return self.transport.get("/v1/provenance", params={"ref": ref, "format": "steps"})
 
     # -- artifact versions (an artifact's content history) ------------------
     def list_artifact_versions(self, artifact_id: str) -> list[dict]:
@@ -8555,6 +8802,7 @@ class Client:
         discrepancies_md: str | None = None,
         tags: list[str] | None = None,
         lineage: dict | None = None,
+        relates_to: dict | None = None,
     ) -> dict:
         """Record one paper against a project.
 
@@ -8597,6 +8845,19 @@ class Client:
         :meth:`citation_graph`), never something this edge asserts.
 
         Answer at ADD TIME. Two turns later this is a guess.
+
+        ``relates_to`` links this paper to the EARLIER paper in the project it
+        connects to, with the reason (server 0357)::
+
+            relates_to=None                    not answered -> nothing stored
+            relates_to={"paper": None}         none (the project's first paper)
+            relates_to={"paper": "<paper id>",
+                        "reason": "how the two relate, in 1-2 sentences",
+                        "provenance": "inferred"}
+
+        ``reason`` and ``provenance`` are required with a paper. Pick it by what
+        the papers say, never the paper added last. A link written with the
+        Probe daemon's key is stored ``inferred`` whatever it says.
         """
         body = {
             key: value
@@ -8609,6 +8870,7 @@ class Client:
                 # `is not None` on the OBJECT, never on `via` inside it -- the
                 # presence of the object is what says "I looked".
                 "lineage": lineage,
+                "relates_to": relates_to,
             }.items()
             if value is not None
         }

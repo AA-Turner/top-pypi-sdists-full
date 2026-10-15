@@ -151,6 +151,10 @@ EGG_BG = {
     45: "datatunnel",    # Kera Digitama (h: Hard Disk)
     46: "city",          # Godzilla Egg (* the kaiju come ashore at the city --
                          #   the device's G-Cell scenes end "Inside City")
+    47: "volcano",       # Volcanic Beat Egg (VB DIM card; its egg unlocks on the Volcano road)
+    48: "seafloor",      # Infinite Tide Egg (VB DIM card; unlocks on the Seafloor Deep road)
+    49: "factory",       # Nu Metal Empire Egg (VB DIM card; unlocks on the Factory road)
+    50: "frozenpeak",    # Blizzard Fang Egg (VB DIM card; the genuinely cold line Frozen Peak waited for)
 }
 
 

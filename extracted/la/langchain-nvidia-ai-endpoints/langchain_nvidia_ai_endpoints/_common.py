@@ -35,6 +35,17 @@ from pydantic import (
 from requests.models import Response
 
 from langchain_nvidia_ai_endpoints._statics import MODEL_TABLE, Model, determine_model
+from langchain_nvidia_ai_endpoints._telemetry import (
+    _TokenUsage,
+    classify_error,
+    http_status_class,
+    merge_token_usage,
+    record_usage,
+    token_usage,
+)
+from langchain_nvidia_ai_endpoints._telemetry import (
+    usage_telemetry_enabled as _usage_telemetry_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,12 +103,22 @@ class _NVIDIABaseClient(BaseModel):
     )
 
     api_key: Optional[SecretStr] = Field(
-        default_factory=lambda: SecretStr(
-            os.getenv(_API_KEY_VAR, "INTERNAL_LCNVAIE_ERROR")
-        )
-        if _API_KEY_VAR in os.environ
-        else None,
+        default_factory=lambda: (
+            SecretStr(os.getenv(_API_KEY_VAR, "INTERNAL_LCNVAIE_ERROR"))
+            if _API_KEY_VAR in os.environ
+            else None
+        ),
         description="API Key for service of choice",
+    )
+
+    usage_telemetry_enabled: bool = Field(
+        default_factory=_usage_telemetry_enabled,
+        exclude=True,
+        repr=False,
+        description=(
+            "Enable content-free aggregate usage telemetry for NVIDIA-hosted NIMs. "
+            "Enabled by default unless disabled."
+        ),
     )
 
     ## Generation arguments
@@ -145,49 +166,47 @@ class _NVIDIABaseClient(BaseModel):
     ################### Validation and Initialization #################################
 
     @field_validator("base_url")
+    @classmethod
     def _validate_base_url(cls, v: str) -> str:
+        """Accept a deployment root or /v1 base, never an inference endpoint.
+
+        A proxy prefix is preserved: https://proxy/nim becomes
+        https://proxy/nim/v1. URL credentials and query strings are forbidden
+        because they could be sent to the model-listing endpoint or logged.
         """
-        Validate the `base_url`.
-
-        If the `base_url` is not a url, raise an error
-
-        If the `base_url` does not end in `/v1`, e.g. `/embeddings`, `/completions`,
-        `/rankings`, or `/reranking`, emit a warning. old documentation told users to
-        pass in the full inference url, which is incorrect and prevents model listing
-        from working.
-
-        Normalize `base_url` to end in `/v1`
-        """
-        ## Making sure /v1 in added to the url
-        if v is not None:
-            parsed = urlparse(v)
-
-            # Ensure scheme and netloc (domain name) are present
-            if not (parsed.scheme and parsed.netloc):
-                expected_format = "Expected format is: http://host:port"
-                warnings.warn(
-                    "The provided url appears incorrect. "
-                    f"Expected: {expected_format} Got: {v}"
-                )
-
-            normalized_path = parsed.path.rstrip("/")
-            skip_api_version_check = os.environ.get(
-                "NVIDIA_APPEND_API_VERSION", ""
-            ) in ["false", "False", "0"]
-            if not skip_api_version_check and not normalized_path.endswith("/v1"):
-                warnings.warn(
-                    f"{v} does not end in /v1, "
-                    "you may have inference and listing issues. "
-                    "This check will be deprecated in the next release. "
-                    "Please ensure /v1 is appended to the provided URL",
-                )
-                normalized_path += "/v1"
-
-            v = urlunparse(
-                (parsed.scheme, parsed.netloc, normalized_path, None, None, None)
+        parsed = urlparse(v)
+        if (
+            parsed.scheme not in ("http", "https")
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or parsed.params
+        ):
+            raise ValueError(
+                "base_url must be an http(s) deployment root or /v1 URL "
+                "without credentials, query, or fragment"
             )
-
-        return v
+        path = parsed.path.rstrip("/")
+        if path.endswith(
+            (
+                "/models",
+                "/chat/completions",
+                "/embeddings",
+                "/completions",
+                "/ranking",
+                "/rankings",
+                "/reranking",
+            )
+        ):
+            raise ValueError(
+                "base_url must point to the deployment root or /v1, "
+                "not a /models or inference endpoint"
+            )
+        if not path.endswith("/v1"):
+            path += "/v1"
+        return urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
 
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
@@ -202,10 +221,10 @@ class _NVIDIABaseClient(BaseModel):
     # Any new attribute set here that is NOT a model field must be propagated
     # explicitly in `_build_clients`, or the async client will be missing it.
     def _finalize(self) -> None:
-        self.is_hosted = urlparse(self.base_url).netloc in [
+        self.is_hosted = urlparse(self.base_url).hostname in (
             "integrate.api.nvidia.com",
             "ai.api.nvidia.com",
-        ]
+        )
 
         if self.is_hosted:
             if not self.api_key:
@@ -329,6 +348,58 @@ class _NVIDIABaseClient(BaseModel):
                 "Authorization": f"Bearer {self.api_key.get_secret_value()}",
             }
         return payload
+
+    def _record_usage_success(
+        self,
+        value: Any,
+        *,
+        execution_mode: str,
+        latency_seconds: float,
+        ttft_seconds: Optional[float] = None,
+    ) -> None:
+        try:
+            usage = value if isinstance(value, _TokenUsage) else token_usage(value)
+            record_usage(
+                enabled=self.usage_telemetry_enabled,
+                is_hosted=self.is_hosted,
+                client_name=self.cls,
+                model_name=self.mdl_name,
+                success=True,
+                usage=usage,
+                execution_mode=execution_mode,
+                http_status=http_status_class(self.last_response),
+                latency_seconds=latency_seconds,
+                ttft_seconds=ttft_seconds,
+            )
+        except Exception:
+            pass
+
+    def _record_usage_failure(
+        self,
+        error: BaseException,
+        *,
+        execution_mode: str,
+        latency_seconds: float,
+        ttft_seconds: Optional[float] = None,
+        partial: bool = False,
+    ) -> None:
+        try:
+            record_usage(
+                enabled=self.usage_telemetry_enabled,
+                is_hosted=self.is_hosted,
+                client_name=self.cls,
+                model_name=self.mdl_name,
+                success=False,
+                usage=_TokenUsage(),
+                error_category=classify_error(self.last_response, error),
+                execution_mode=execution_mode,
+                http_status=http_status_class(self.last_response),
+                latency_seconds=latency_seconds,
+                ttft_seconds=ttft_seconds,
+                partial=partial,
+            )
+        except Exception:
+            pass
 
     ###################################################################################
     ################### Model discovery and selection #################################
@@ -494,6 +565,24 @@ class _NVIDIABaseClient(BaseModel):
             body = f"{body}\nPlease check or regenerate your API key."
         return f"{header}\n{body}"
 
+    def _custom_embeddings_404_guidance(self) -> Optional[str]:
+        """Return guidance for the known custom embeddings endpoint 404 path."""
+        if self.cls != "NVIDIAEmbeddings" or self.is_hosted:
+            return None
+        request_url = (self.last_inputs or {}).get("url")
+        if request_url != self.infer_url:
+            return None
+        return (
+            f"NVIDIAEmbeddings received a 404 from custom endpoint URL "
+            f"{request_url}. When initialized with `base_url`, "
+            "NVIDIAEmbeddings sends embedding requests to `base_url` + "
+            "`/embeddings`. If your deployment URL is already the full "
+            "embeddings inference endpoint, register it with "
+            "`register_model(Model(..., endpoint=...))` and initialize "
+            "NVIDIAEmbeddings with that model id instead of passing the "
+            "inference URL as `base_url`."
+        )
+
     def _try_raise(self, response: Response) -> None:
         """Try to raise an error from a response"""
         try:
@@ -522,6 +611,9 @@ class _NVIDIABaseClient(BaseModel):
                     except Exception:
                         rd = {"detail": rd}
             message = self._format_error(rd)
+            if response.status_code == 404:
+                if custom_guidance := self._custom_embeddings_404_guidance():
+                    message = f"{message}\n\n{custom_guidance}"
             # todo: raise as an HTTPError
             raise Exception(message) from None
 
@@ -609,10 +701,27 @@ class _NVIDIASyncClient(_NVIDIABaseClient):
         extra_headers: dict = {},
     ) -> Response:
         """Post to the API."""
-        response, session = self._post(
-            self.infer_url, payload, extra_headers=extra_headers
-        )
-        return self._wait(response, session)
+        start_time = time.monotonic()
+        try:
+            response, session = self._post(
+                self.infer_url, payload, extra_headers=extra_headers
+            )
+            self.last_response = response
+            response = self._wait(response, session)
+            self.last_response = response
+            self._record_usage_success(
+                response,
+                execution_mode="sync",
+                latency_seconds=time.monotonic() - start_time,
+            )
+            return response
+        except BaseException as error:
+            self._record_usage_failure(
+                error,
+                execution_mode="sync",
+                latency_seconds=time.monotonic() - start_time,
+            )
+            raise
 
     ###################################################################################
     ## Streaming interface to allow you to iterate through progressive generations ####
@@ -622,6 +731,7 @@ class _NVIDIASyncClient(_NVIDIABaseClient):
         payload: dict,
         extra_headers: dict = {},
     ) -> Iterator[Dict]:
+        start_time = time.monotonic()
         self.last_inputs = {
             "url": self.infer_url,
             "headers": {
@@ -631,22 +741,54 @@ class _NVIDIASyncClient(_NVIDIABaseClient):
             "json": payload,
         }
 
-        response = self.get_session_fn().post(
-            stream=True,
-            **self._add_authorization(self.last_inputs),
-            timeout=self.timeout,
-        )
-        self._try_raise(response)
+        try:
+            self.last_response = response = self.get_session_fn().post(
+                stream=True,
+                **self._add_authorization(self.last_inputs),
+                timeout=self.timeout,
+            )
+            self._try_raise(response)
+        except BaseException as error:
+            self._record_usage_failure(
+                error,
+                execution_mode="streaming",
+                latency_seconds=time.monotonic() - start_time,
+            )
+            raise
         call: _NVIDIASyncClient = self.model_copy()
 
         def out_gen() -> Generator[dict, Any, Any]:
-            ## Good for client, since it allows self.last_inputs
-            for line in response.iter_lines():
-                if line and line.strip() != b"data: [DONE]":
-                    line = line.decode("utf-8")
-                    msg, final_line = call.postprocess(line)
-                    yield msg
-                self._try_raise(response)
+            usage = _TokenUsage()
+            completed = False
+            ttft_seconds: Optional[float] = None
+            try:
+                for line in response.iter_lines():
+                    if line and line.strip() != b"data: [DONE]":
+                        if ttft_seconds is None:
+                            ttft_seconds = time.monotonic() - start_time
+                        line = line.decode("utf-8")
+                        msg, final_line = call.postprocess(line)
+                        usage = merge_token_usage(usage, token_usage(msg))
+                        yield msg
+                    self._try_raise(response)
+                completed = True
+            except BaseException as error:
+                self._record_usage_failure(
+                    error,
+                    execution_mode="streaming",
+                    latency_seconds=time.monotonic() - start_time,
+                    ttft_seconds=ttft_seconds,
+                    partial=ttft_seconds is not None,
+                )
+                raise
+            finally:
+                if completed:
+                    self._record_usage_success(
+                        usage,
+                        execution_mode="streaming",
+                        latency_seconds=time.monotonic() - start_time,
+                        ttft_seconds=ttft_seconds,
+                    )
 
         return (r for r in out_gen())
 
@@ -804,6 +946,9 @@ class _NVIDIAAsyncClient(_NVIDIABaseClient):
                 rd = {"detail": rd_raw}
 
         message = self._format_error(rd)
+        if response.status == 404:
+            if custom_guidance := self._custom_embeddings_404_guidance():
+                message = f"{message}\n\n{custom_guidance}"
         # todo: raise as an HTTPError
         raise Exception(message) from None
 
@@ -816,15 +961,31 @@ class _NVIDIAAsyncClient(_NVIDIABaseClient):
         extra_headers: dict = {},
     ) -> str:
         """Async version of `get_req`."""
-        response, session = await self._post_async(
-            self.infer_url, payload, extra_headers=extra_headers
-        )
+        start_time = time.monotonic()
         try:
-            response = await self._wait_async(response, session)
-            text = await response.text()
-            return text
-        finally:
-            await session.close()
+            response, session = await self._post_async(
+                self.infer_url, payload, extra_headers=extra_headers
+            )
+            self.last_response = response
+            try:
+                response = await self._wait_async(response, session)
+                self.last_response = response
+                text = await response.text()
+                self._record_usage_success(
+                    text,
+                    execution_mode="async",
+                    latency_seconds=time.monotonic() - start_time,
+                )
+                return text
+            finally:
+                await session.close()
+        except BaseException as error:
+            self._record_usage_failure(
+                error,
+                execution_mode="async",
+                latency_seconds=time.monotonic() - start_time,
+            )
+            raise
 
     async def aget_req_stream(
         self,
@@ -832,6 +993,7 @@ class _NVIDIAAsyncClient(_NVIDIABaseClient):
         extra_headers: dict = {},
     ) -> AsyncIterator[Dict]:
         """Async version of `get_req_stream`."""
+        start_time = time.monotonic()
         self.last_inputs = {
             "url": self.infer_url,
             "headers": {
@@ -842,6 +1004,9 @@ class _NVIDIAAsyncClient(_NVIDIABaseClient):
         }
 
         session = self.get_async_session_fn()
+        usage = _TokenUsage()
+        completed = False
+        ttft_seconds: Optional[float] = None
         try:
             self.last_response = response = await session.post(
                 **self._add_authorization(self.last_inputs)
@@ -856,12 +1021,32 @@ class _NVIDIAAsyncClient(_NVIDIABaseClient):
                     break
                 line = line.strip()
                 if line and line != b"data: [DONE]":
+                    if ttft_seconds is None:
+                        ttft_seconds = time.monotonic() - start_time
                     line_str = line.decode("utf-8")
                     msg, final_line = call.postprocess(line_str)
+                    usage = merge_token_usage(usage, token_usage(msg))
                     yield msg
                 await self._try_raise_async(response)
+            completed = True
+        except BaseException as error:
+            self._record_usage_failure(
+                error,
+                execution_mode="streaming",
+                latency_seconds=time.monotonic() - start_time,
+                ttft_seconds=ttft_seconds,
+                partial=ttft_seconds is not None,
+            )
+            raise
         finally:
             await session.close()
+            if completed:
+                self._record_usage_success(
+                    usage,
+                    execution_mode="streaming",
+                    latency_seconds=time.monotonic() - start_time,
+                    ttft_seconds=ttft_seconds,
+                )
 
 
 def _build_clients(

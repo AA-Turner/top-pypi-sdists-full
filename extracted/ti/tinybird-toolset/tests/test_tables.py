@@ -254,6 +254,41 @@ SELECT *
         """
         self.assertEqual(chquery.tables(sql), [('', 'table', '')])
 
+    def test_explain_query(self):
+        for kind in ["", "PLAN", "PLAN indexes=1", "actions=1"]:
+            sql = f"EXPLAIN {kind} SELECT table.col FROM db.table JOIN other ON table.id = other.id"
+            self.assertEqual(sorted(chquery.tables(sql)),
+                             [('', 'other', ''), ('db', 'table', '')], sql)
+
+    def test_explain_query_throws_with_unsupported_kinds(self):
+        for kind in ["AST", "SYNTAX", "QUERY TREE", "PIPELINE", "ESTIMATE"]:
+            with self.assertRaisesRegex(ValueError, 'Only plain EXPLAIN is supported'):
+                chquery.tables(f"EXPLAIN {kind} SELECT col FROM db.table")
+
+    def test_explain_query_throws_with_invalid_inner_function(self):
+        with self.assertRaisesRegex(ValueError, 'DB::Exception: Unknown function doesNotExist'):
+            chquery.tables("EXPLAIN SELECT doesNotExist(number) FROM numbers(100)")
+
+    def test_explain_query_throws_with_unsupported_explained_query(self):
+        queries = [
+            "EXPLAIN INSERT INTO test.table VALUES (1,2,3)",
+            "EXPLAIN INSERT INTO test.table SELECT * FROM other",
+            "EXPLAIN CREATE TABLE table_test (`index` String) ENGINE = MergeTree ORDER BY index",
+        ]
+        for q in queries:
+            with self.assertRaisesRegex(ValueError, 'EXPLAIN is only supported for SELECT queries'):
+                chquery.tables(q)
+
+        queries = [
+            "EXPLAIN TABLE OVERRIDE mysql('127.0.0.1:3306', 'db', 't', 'u', 'p') PARTITION BY toYYYYMM(d)",
+            "EXPLAIN CURRENT TRANSACTION",
+            "EXPLAIN AST DROP TABLE test",
+            "EXPLAIN AST INSERT INTO test.table VALUES (1,2,3)",
+        ]
+        for q in queries:
+            with self.assertRaisesRegex(ValueError, 'Only plain EXPLAIN is supported'):
+                chquery.tables(q)
+
     def test_throws_with_invalid_query_types(self):
         queries = [
             "INSERT INTO test.table VALUES (1,2,3)",
@@ -265,7 +300,7 @@ SELECT *
             "DROP TABLE test"
         ]
         for q in queries:
-            with self.assertRaisesRegex(ValueError, 'Only SELECT or DESCRIBE queries are supported. Got: .*'):
+            with self.assertRaisesRegex(ValueError, 'Only SELECT, DESCRIBE and EXPLAIN queries are supported. Got: .*'):
                 chquery.tables(q)
 
     def test_throws_with_invalid_functions(self):

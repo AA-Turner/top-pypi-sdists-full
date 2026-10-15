@@ -6,6 +6,9 @@ SYNTAX_ERROR_LIMIT_ONLY_WITH_MSG = (
     "ERR syntax error, LIMIT is only supported in combination with either BYSCORE or BYLEX"
 )
 INVALID_HASH_MSG = "ERR hash value is not an integer"
+NO_SUCH_FIELDSET_MSG = "ERR no such fieldset"
+DUPLICATE_FIELDSET_FIELD_MSG = "ERR duplicate field name in fieldset"
+FIELDSET_VALUE_COUNT_MSG = "ERR value count does not match fieldset field count"
 INVALID_INT_MSG = "ERR value is not an integer or out of range"
 INVALID_FLOAT_MSG = "ERR value is not a valid float"
 INVALID_WEIGHT_MSG = "ERR weight value is not a float"
@@ -97,6 +100,46 @@ LUA_SETRESP_VERSION_MSG = "ERR RESP version must be 2 or 3."
 SCRIPT_ERROR_MSG = "ERR Error running script (call to f_{}): @user_script:?: {}"
 # Dragonfly reports redis_version 7.x but wraps script errors the way Redis 6 did, minus the `f_` prefix on the sha.
 DRAGONFLY_SCRIPT_ERROR_MSG = "ERR Error running script (call to {}): @user_script:?: {}"
+
+# Redis Functions (FUNCTION ... and FCALL)
+FUNCTION_NOT_FOUND_MSG = "ERR Function not found"
+FUNCTION_BAD_NUMKEYS_MSG = "ERR Bad number of keys provided"
+FUNCTION_WRITE_FLAG_RO_MSG = "ERR Can not execute a script with write flag using *_ro command."
+FUNCTION_LIBRARY_NOT_FOUND_MSG = "ERR Library not found"
+FUNCTION_LIBRARY_EXISTS_MSG = "ERR Library '{}' already exists"
+FUNCTION_RESTORE_LIBRARY_EXISTS_MSG = "ERR Library {} already exists"
+FUNCTION_EXISTS_MSG = "ERR Function {} already exists"
+FUNCTION_DUPLICATE_IN_LIBRARY_MSG = "ERR Function already exists in the library"
+FUNCTION_MISSING_METADATA_MSG = "ERR Missing library metadata"
+FUNCTION_INVALID_METADATA_MSG = "ERR Invalid library metadata"
+FUNCTION_INVALID_METADATA_VALUE_MSG = "ERR Invalid metadata value given: {}"
+FUNCTION_NAME_GIVEN_TWICE_MSG = "ERR Invalid metadata value, name argument was given multiple times"
+FUNCTION_NO_LIBRARY_NAME_MSG = "ERR Library name was not given"
+FUNCTION_INVALID_LIBRARY_NAME_MSG = (
+    "ERR Library names can only contain letters, numbers, or underscores(_) and must be at least one character long"
+)
+VALKEY_FUNCTION_INVALID_NAME_MSG = (
+    "ERR Function names can only contain letters, numbers, or underscores(_) and must be at least one character long"
+)
+FUNCTION_ENGINE_NOT_FOUND_MSG = "ERR Engine '{}' not found"
+FUNCTION_NO_FUNCTIONS_MSG = "ERR No functions registered"
+FUNCTION_COMPILE_ERROR_MSG = "ERR Error compiling function: {}"
+FUNCTION_REGISTER_ERROR_MSG = "ERR Error registering functions: {}"
+FUNCTION_UNKNOWN_OPTION_MSG = "ERR Unknown option given: {}"
+FUNCTION_LIST_UNKNOWN_ARG_MSG = "ERR Unknown argument {}"
+FUNCTION_LIST_NO_LIBRARY_NAME_MSG = "ERR library name argument was not given"
+FUNCTION_FLUSH_MODE_MSG = "ERR FUNCTION FLUSH only supports SYNC|ASYNC option"
+FUNCTION_SUBCOMMAND_SYNTAX_MSG = "ERR unknown subcommand or wrong number of arguments for '{}'. Try FUNCTION HELP."
+FUNCTION_RESTORE_POLICY_MSG = "ERR Wrong restore policy given, value should be either FLUSH, APPEND or REPLACE."
+FUNCTION_RESTORE_PAYLOAD_MSG = "ERR DUMP payload version or checksum are wrong"
+FUNCTION_NOTBUSY_MSG = "NOTBUSY No scripts in execution right now."
+SCRIPT_READ_ONLY_WRITE_MSG = "ERR Write commands are not allowed from read-only scripts."
+SCRIPT_UNKNOWN_COMMAND_MSG = "ERR Unknown Redis command called from script"
+VALKEY_SCRIPT_UNKNOWN_COMMAND_MSG = "ERR Unknown command called from script"
+VALKEY_WRONG_ARGS_MSG7 = "ERR Wrong number of args calling command from script"
+VALKEY_FUNCTION_COMMAND_ARG_MSG = "ERR Command arguments must be strings or integers"
+LUA_CALL_NO_ARGS_MSG = "ERR Please specify at least one argument for this redis lib call"
+LUA_SHA1HEX_ARGS_MSG = "ERR wrong number of arguments"
 RESTORE_KEY_EXISTS = "BUSYKEY Target key name already exists."
 RESTORE_INVALID_CHECKSUM_MSG = "ERR DUMP payload version or checksum are wrong"
 
@@ -107,6 +150,13 @@ JSON_PATH_NOT_FOUND_OR_NOT_STRING = "ERR Path '{}' does not exist or not a strin
 JSON_PATH_DOES_NOT_EXIST = "ERR Path '{}' does not exist"
 JSON_INVALID_FPHA_TYPE_MSG = "ERR invalid FPHA type"
 JSON_VALUE_OUT_OF_RANGE_MSG = "value out of range for {} at line {} column {}"
+JSON_PATH_NOT_FOUND_OR_NOT_NUMBER = "ERR Path does not exist or does not contains a number"
+JSON_PATH_NOT_FOUND_OR_NOT_NUMBER_WITH_PATH = "ERR Path '{}' does not exist or does not contains a number"
+JSON_BAD_INPUT_NUMBER_MSG = "ERR bad input number"
+JSON_EXPECTED_VALUE_MSG = "ERR expected value at line 1 column 1"
+JSON_NUMBER_OUT_OF_RANGE_MSG = "ERR number out of range at line 1 column {}"
+JSON_NUMERIC_OVERFLOW_MSG = "ERR numeric overflow"
+JSON_RESULT_NOT_A_NUMBER_MSG = "ERR result is not a number"
 LCS_CANT_HAVE_BOTH_LEN_AND_IDX = "ERR If you want both the length and indexes, please just use IDX."
 BIT_ARG_MUST_BE_ZERO_OR_ONE = "ERR The bit argument must be 1 or 0."
 XADD_ID_LOWER_THAN_LAST = "ERR The ID specified in XADD is equal or smaller than the target stream top item"
@@ -209,6 +259,12 @@ TIMESERIES_READ_BLOCK_NOT_ALLOWED = (
 )
 HEXPIRE_NUMFIELDS_DIFFERENT = "The `numfields` parameter must match the number of arguments"
 HEXPIRE_INVALID_TIME_MSG = "ERR invalid expire time, must be >= 0"
+
+# DIGEST / DELEX error messages
+DIGEST_MISSING_XXHASH_MSG = "ERR digests need the xxhash package, install it with `pip install 'fakeredis[digest]'`"
+DIGEST_INVALID_LENGTH_MSG = "ERR must be exactly 16 hexadecimal characters"
+DELEX_NOT_STRING_MSG = "ERR Key should be of string type if conditions are specified"
+DELEX_INVALID_CONDITION_MSG = "ERR Invalid condition. Use IFEQ, IFNE, IFDEQ, or IFDNE"
 
 MISSING_ACLFILE_CONFIG = "ERR This Redis instance is not configured to use an ACL file. You may want to specify users via the ACL SETUSER command and then issue a CONFIG REWRITE (assuming you have a Redis configuration file set) in order to store users in the Redis configuration."
 

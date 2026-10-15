@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from icalendar import Component
 from icalendar.prop import vCategory, vText
 
-from .collation import Collation, get_collation_function
+from .collation import Collation, get_collation_function, get_equality_function
 from .utils import NEGATED_OPERATORS, types_factory
 
 
@@ -44,9 +44,9 @@ from .utils import NEGATED_OPERATORS, types_factory
 class _CommaListSpec:
     """A comma-list property family: its plural canonical name and singular alias.
 
-    The iCalendar component value is read through ``getattr(component, plural)``
-    (e.g. ``component.categories``), which the icalendar library exposes as a
-    convenience accessor returning the list of tokens.
+    The iCalendar component value is read from the raw property (see
+    :func:`_component_tokens`), not through icalendar's ``component.categories``
+    style accessor.
     """
 
     plural: str
@@ -74,16 +74,44 @@ def is_plural_sort_key(key: str) -> bool:
     return key.lower() in _BY_PLURAL
 
 
+def _component_tokens(spec: _CommaListSpec, component: Component) -> list[str]:
+    """Return the component's tokens for this property, without modifying it.
+
+    Temporary workaround until icalendar stops mutating components on read
+    (https://github.com/collective/icalendar/issues/1722): its
+    ``component.categories`` accessor inserts an empty CATEGORIES when there
+    is none (and merges several CATEGORIES lines into one).  A searcher must
+    never change the components it inspects, so the raw property is read here.
+
+    Empty tokens are dropped: a ``CATEGORIES:`` line, as stored by clients
+    hit by that accessor, holds no category.  Keep that when reverting.
+    """
+    value = component.get(spec.plural)
+    if value is None:
+        return []
+    tokens: list[str] = []
+    for item in value if isinstance(value, list) else [value]:
+        if hasattr(item, "cats"):
+            tokens.extend(str(x) for x in item.cats)
+        else:
+            tokens.extend(str(item).split(","))
+    return [token for token in tokens if token]
+
+
 def _component_value_set(spec: _CommaListSpec, component: Component) -> set[str]:
     """Return the component's tokens for this property as a set of strings."""
-    return {str(x) for x in getattr(component, spec.plural)}
+    ## Temporary workaround, see _component_tokens and
+    ## https://github.com/collective/icalendar/issues/1722
+    return set(_component_tokens(spec, component))
 
 
 def sort_value(key: str, component: Component) -> object:
     """Return the raw value used when sorting by this comma-list property."""
     spec = _spec_for(key)
     assert spec is not None, f"{key!r} is not a comma-list property"
-    return getattr(component, spec.plural)
+    ## Temporary workaround, see _component_tokens and
+    ## https://github.com/collective/icalendar/issues/1722
+    return _component_tokens(spec, component)
 
 
 def store_filter_value(key: str, value: object) -> object:
@@ -136,10 +164,6 @@ def _normalize_plural_filter(filter_value: object) -> str | set[str]:
     return filter_value  # type: ignore[return-value]
 
 
-def _eq(a: str, b: str, case_sensitive: bool) -> bool:
-    return a == b if case_sensitive else a.lower() == b.lower()
-
-
 def matches(
     key: str,
     operator: str,
@@ -149,6 +173,7 @@ def matches(
     collation: Collation,
     case_sensitive: bool,
     locale: str | None,
+    accent_sensitive: bool = True,
 ) -> bool:
     """Whether ``component`` matches a comma-list property filter.
 
@@ -160,8 +185,8 @@ def matches(
     plural = key.lower() == spec.plural
     comp_values = _component_value_set(spec, component)
 
-    ## icalendar >=6 supplies an empty vCategory default even when the
-    ## property is absent, so presence is decided by the value set.
+    ## Presence is decided by the value set: an absent CATEGORIES and an
+    ## empty one (``CATEGORIES:``) are both undefined.
     if operator == "undef":
         return not comp_values
     if operator == "def":
@@ -176,32 +201,37 @@ def matches(
             collation=collation,
             case_sensitive=case_sensitive,
             locale=locale,
+            accent_sensitive=accent_sensitive,
         )
+
+    _eq = get_equality_function(collation, case_sensitive, locale, accent_sensitive)
 
     if not plural:
         ## singular: substring (contains) / exact-to-one-token (==)
         filter_str = str(filter_value)
         if operator == "contains":
-            collation_fn = get_collation_function(collation, case_sensitive, locale)
+            collation_fn = get_collation_function(
+                collation, case_sensitive, locale, accent_sensitive
+            )
             return any(collation_fn(filter_str, token) for token in comp_values)
         if operator == "==":
-            return any(_eq(filter_str, token, case_sensitive) for token in comp_values)
+            return any(_eq(filter_str, token) for token in comp_values)
         raise NotImplementedError(f"The operator {operator} is not supported yet.")
 
     ## plural: exact matching against the set of tokens
     normalized = _normalize_plural_filter(filter_value)
     if operator == "contains":
         if isinstance(normalized, str):
-            return any(_eq(normalized, cv, case_sensitive) for cv in comp_values)
+            return any(_eq(normalized, cv) for cv in comp_values)
         ## subset check: every requested token must be present
-        return all(any(_eq(fv, cv, case_sensitive) for cv in comp_values) for fv in normalized)
+        return all(any(_eq(fv, cv) for cv in comp_values) for fv in normalized)
     if operator == "==":
         if isinstance(normalized, str):
             if len(comp_values) != 1:
                 return False
-            return _eq(normalized, next(iter(comp_values)), case_sensitive)
+            return _eq(normalized, next(iter(comp_values)))
         ## exact set equality (order irrelevant)
         if len(normalized) != len(comp_values):
             return False
-        return all(any(_eq(fv, cv, case_sensitive) for cv in comp_values) for fv in normalized)
+        return all(any(_eq(fv, cv) for cv in comp_values) for fv in normalized)
     raise NotImplementedError(f"The operator {operator} is not supported yet.")

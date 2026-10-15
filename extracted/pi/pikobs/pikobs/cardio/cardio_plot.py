@@ -376,11 +376,12 @@ def _verdict_text(verdict, is_oma: bool) -> list:
 
 def _test_strip(strip, ax, x, quantity, key, tests, verdict, on, is_oma) -> None:
     """The tests of a panel, in the strip under it: a line for O-P, one for
-    O-A, and on them only dots -- filled where the change is significant
-    (red: Exp better, blue: Ctl better), hollow where it is not. One dot
-    per date, under it: Welch on the bias and the F-test on the sigma, on
-    the pairs of that date with MATCH on, on all its observations with
-    MATCH off."""
+    O-A, and on them a short vertical line per date whose change is
+    significant (red: Exp better, blue: Ctl better), nothing where it is
+    not -- with hundreds of dates, a mark on every one made a solid band.
+    Under each date: Welch on the bias and the F-test on the sigma, on the
+    pairs of that date with MATCH on, on all its observations with MATCH
+    off. The 'period' verdict at the right stays a dot."""
     metrics = ("omp", "oma") if is_oma else ("omp",)
     rows = {m: len(metrics) - 1 - i for i, m in enumerate(metrics)}
     beside = mtransforms.blended_transform_factory(strip.transAxes, strip.transData)
@@ -388,6 +389,13 @@ def _test_strip(strip, ax, x, quantity, key, tests, verdict, on, is_oma) -> None
     def _dots(xs, yrow, sig, side, size, transform=None):
         kw = {"transform": transform} if transform is not None else {}
         filled = np.where(side < 0, EXP_BETTER, CTL_BETTER)
+        if transform is None:
+            # the dates: a line where the change passes the test, nothing
+            # where it does not
+            if sig.any():
+                strip.vlines(xs[sig], yrow - 0.34, yrow + 0.34, colors=filled[sig],
+                             linewidths=2.0, zorder=3)
+            return
         if sig.any():
             strip.scatter(xs[sig], np.full(sig.sum(), yrow), s=size, facecolors=filled[sig],
                           edgecolors=filled[sig], linewidths=1.5, zorder=3, clip_on=False, **kw)
@@ -824,6 +832,8 @@ def _save_cardiogram(pathwork, family, exp_name, flag, task, id_stn, region, cha
     if task.get("db_control") and task.get("match_mode") in ("off", "no"):
         # MATCH off and no have their own files, beside the MATCH on one
         out_file = out_file[: -len(".png")] + f"_match{task['match_mode']}.png"
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, task.get('selector'))
     save_figure(fig, out_file, svg=task.get("svg", False), dpi=DPI)
     plt.close(fig)
     return out_file

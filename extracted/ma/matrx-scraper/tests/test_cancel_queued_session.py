@@ -175,7 +175,7 @@ def resume_worker(monkeypatch: pytest.MonkeyPatch) -> Callable[[_SessionTable], 
             return row
 
         async def claim_run_lease(
-            _repo: WebCrawlRepository, session_id: str, *, is_resume: bool
+            _repo: WebCrawlRepository, session_id: str, *, is_resume: bool, pages_done: int | None = None
         ) -> tuple[str, int]:
             claimed.append(session_id)
             return "resume-lease-token", 1
@@ -189,6 +189,7 @@ def resume_worker(monkeypatch: pytest.MonkeyPatch) -> Callable[[_SessionTable], 
         )
         monkeypatch.setattr(WebCrawlRepository, "claim_run_lease", claim_run_lease)
         monkeypatch.setattr(WebCrawlRepository, "max_url_sequence", AsyncMock(return_value=0))
+        monkeypatch.setattr(WebCrawlRepository, "captured_page_count", AsyncMock(return_value=0))
         monkeypatch.setattr(WebCrawlRepository, "max_event_sequence", AsyncMock(return_value=0))
         monkeypatch.setattr(service_module, "validate_public_http_url", AsyncMock(return_value=None))
         configure_ext(

@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"mt4-term-api-internal-charts.proto\x12\x0cmt4_term_api\"\x1f\n\x1d\x43ustomChartApplyTemplateReply\"O\n\x1f\x43ustomChartApplyTemplateRequest\x12\x10\n\x08\x63hart_id\x18\x01 \x01(\x03\x12\x1a\n\x12template_file_name\x18\x02 \x01(\t\"2\n\x1e\x43ustomChartSaveTemplateRequest\x12\x10\n\x08\x63hart_id\x18\x01 \x01(\x03\":\n\x1c\x43ustomChartSaveTemplateReply\x12\x1a\n\x12template_file_name\x18\x01 \x01(\t\"H\n\x16\x43ustomChartOpenRequest\x12\x14\n\x0c\x63hart_symbol\x18\x01 \x01(\t\x12\x18\n\x10\x63hart_period_int\x18\x02 \x01(\x05\"(\n\x14\x43ustomChartOpenReply\x12\x10\n\x08\x63hart_id\x18\x01 \x01(\x03\"W\n\x10\x43hartOpenRequest\x12\x14\n\x0c\x63hart_symbol\x18\x01 \x01(\t\x12-\n\x04mode\x18\x02 \x01(\x0e\x32\x1f.mt4_term_api.ChartTemplateMode\"+\n\x0e\x43hartOpenReply\x12\x19\n\x11\x63hart_terminal_id\x18\x01 \x01(\x03\".\n\x11\x43hartCloseRequest\x12\x19\n\x11\x63hart_terminal_id\x18\x01 \x01(\x03\"\x11\n\x0f\x43hartCloseReply*m\n\x11\x43hartTemplateMode\x12\x0c\n\x08ON_TRADE\x10\x00\x12\x1c\n\x18ON_OPENED_ORDERS_TICKETS\x10\x01\x12\x13\n\x0fON_ORDER_PROFIT\x10\x02\x12\x17\n\x13ON_SYMBOL_INFO_TICK\x10\x03\x32\xf3\x03\n\x0eInternalCharts\x12I\n\tChartOpen\x12\x1e.mt4_term_api.ChartOpenRequest\x1a\x1c.mt4_term_api.ChartOpenReply\x12L\n\nChartClose\x12\x1f.mt4_term_api.ChartCloseRequest\x1a\x1d.mt4_term_api.ChartCloseReply\x12[\n\x0f\x43ustomChartOpen\x12$.mt4_term_api.CustomChartOpenRequest\x1a\".mt4_term_api.CustomChartOpenReply\x12s\n\x17\x43ustomChartSaveTemplate\x12,.mt4_term_api.CustomChartSaveTemplateRequest\x1a*.mt4_term_api.CustomChartSaveTemplateReply\x12v\n\x18\x43ustomChartApplyTemplate\x12-.mt4_term_api.CustomChartApplyTemplateRequest\x1a+.mt4_term_api.CustomChartApplyTemplateReplyBBZ1git.mtapi.io/root/mrpc-proto.git/mt4/libraries/go\xaa\x02\x0cmt4_term_apib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"mt4-term-api-internal-charts.proto\x12\x0cmt4_term_api\"\x1f\n\x1d\x43ustomChartApplyTemplateReply\"O\n\x1f\x43ustomChartApplyTemplateRequest\x12\x10\n\x08\x63hart_id\x18\x01 \x01(\x03\x12\x1a\n\x12template_file_name\x18\x02 \x01(\t\"2\n\x1e\x43ustomChartSaveTemplateRequest\x12\x10\n\x08\x63hart_id\x18\x01 \x01(\x03\":\n\x1c\x43ustomChartSaveTemplateReply\x12\x1a\n\x12template_file_name\x18\x01 \x01(\t\"H\n\x16\x43ustomChartOpenRequest\x12\x14\n\x0c\x63hart_symbol\x18\x01 \x01(\t\x12\x18\n\x10\x63hart_period_int\x18\x02 \x01(\x05\"(\n\x14\x43ustomChartOpenReply\x12\x10\n\x08\x63hart_id\x18\x01 \x01(\x03\"W\n\x10\x43hartOpenRequest\x12\x14\n\x0c\x63hart_symbol\x18\x01 \x01(\t\x12-\n\x04mode\x18\x02 \x01(\x0e\x32\x1f.mt4_term_api.ChartTemplateMode\"+\n\x0e\x43hartOpenReply\x12\x19\n\x11\x63hart_terminal_id\x18\x01 \x01(\x03\".\n\x11\x43hartCloseRequest\x12\x19\n\x11\x63hart_terminal_id\x18\x01 \x01(\x03\"\x11\n\x0f\x43hartCloseReply*y\n\x11\x43hartTemplateMode\x12\x0c\n\x08ON_TRADE\x10\x00\x12\x1c\n\x18ON_OPENED_ORDERS_TICKETS\x10\x01\x12\x13\n\x0fON_ORDER_PROFIT\x10\x02\x12\x17\n\x13ON_SYMBOL_INFO_TICK\x10\x03\x12\n\n\x06\x45VENTS\x10\x04\x32\xf3\x03\n\x0eInternalCharts\x12I\n\tChartOpen\x12\x1e.mt4_term_api.ChartOpenRequest\x1a\x1c.mt4_term_api.ChartOpenReply\x12L\n\nChartClose\x12\x1f.mt4_term_api.ChartCloseRequest\x1a\x1d.mt4_term_api.ChartCloseReply\x12[\n\x0f\x43ustomChartOpen\x12$.mt4_term_api.CustomChartOpenRequest\x1a\".mt4_term_api.CustomChartOpenReply\x12s\n\x17\x43ustomChartSaveTemplate\x12,.mt4_term_api.CustomChartSaveTemplateRequest\x1a*.mt4_term_api.CustomChartSaveTemplateReply\x12v\n\x18\x43ustomChartApplyTemplate\x12-.mt4_term_api.CustomChartApplyTemplateRequest\x1a+.mt4_term_api.CustomChartApplyTemplateReplyBBZ1git.mtapi.io/root/mrpc-proto.git/mt4/libraries/go\xaa\x02\x0cmt4_term_apib\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'mt4_term_api_internal_charts_pb2', globals())
@@ -22,7 +22,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'Z1git.mtapi.io/root/mrpc-proto.git/mt4/libraries/go\252\002\014mt4_term_api'
   _CHARTTEMPLATEMODE._serialized_start=595
-  _CHARTTEMPLATEMODE._serialized_end=704
+  _CHARTTEMPLATEMODE._serialized_end=716
   _CUSTOMCHARTAPPLYTEMPLATEREPLY._serialized_start=52
   _CUSTOMCHARTAPPLYTEMPLATEREPLY._serialized_end=83
   _CUSTOMCHARTAPPLYTEMPLATEREQUEST._serialized_start=85
@@ -43,6 +43,6 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _CHARTCLOSEREQUEST._serialized_end=574
   _CHARTCLOSEREPLY._serialized_start=576
   _CHARTCLOSEREPLY._serialized_end=593
-  _INTERNALCHARTS._serialized_start=707
-  _INTERNALCHARTS._serialized_end=1206
+  _INTERNALCHARTS._serialized_start=719
+  _INTERNALCHARTS._serialized_end=1218
 # @@protoc_insertion_point(module_scope)

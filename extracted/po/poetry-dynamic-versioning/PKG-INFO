@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry-dynamic-versioning
-Version: 1.10.0
+Version: 1.10.1
 Summary: Plugin for Poetry to enable dynamic versioning based on VCS tags
 License: MIT
 License-File: LICENSE

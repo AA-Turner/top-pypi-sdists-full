@@ -59,7 +59,8 @@ log = logging.getLogger("probe.daemon")
 #: the 7 days to 10-07, 78% of writer spend ($763 of $972) was calls over 200K
 #: tokens; under 272K OpenAI also bills gpt-6.1-sol at its short-context rate.
 #: The reader: only the immediate reading matters (Richard, 2026-09-28: "compact
-#: to 120k").
+#: to 120k"). It never compacts: a turn that would pass its size starts the
+#: conversation fresh instead (rule A, `reader_lane`; 2026-10-14).
 #: Both are the client's own; the server can lower them (`writer_context_tokens`,
 #: `read_context_tokens`; Richard 2026-10-07, T10: "server-pushed cap").
 CONTEXT_TOKENS = int(os.environ.get("PROBE_DAEMON_CONTEXT_TOKENS") or 250_000)
@@ -392,10 +393,13 @@ class RunState:
     compactions it made, and the worker's hooks (each model round, the state of
     the record)."""
 
-    #: One long conversation per session (T15): compaction on, no per-bite caps.
+    #: One long conversation per session (T15): no per-bite caps, and compaction
+    #: on unless `compacts` is False.
     conversation: bool = False
-    #: The compaction prompt and the size it compacts at (the reader has its own).
-    summary_prompt: str = ""
+    #: False: the conversation is never compacted (the reader: its lane starts it
+    #: fresh instead, before a turn that would pass the size, rule A).
+    compacts: bool = True
+    #: The size the conversation compacts at (the reader: starts fresh at).
     context_tokens: int = 0
     on_round: Callable[[Any], None] | None = None
     #: Plain code's state of the record (`session(op=status)`), read on demand.
@@ -476,8 +480,8 @@ def newest_within(messages: list, wire: int) -> int:
 
 def counted_compaction(state: RunState):
     """TieredCompaction that tells `state` each time it rewrote the history, and
-    keeps a user turn first after it (`user_turn_first`). The summary prompt and
-    the size are the state's (the writer's by default, the reader's own).
+    keeps a user turn first after it (`user_turn_first`). The size is the
+    state's (the writer's by default); the reader never compacts.
 
     It runs once the context passes the size and compacts down to COMPACT_TO of
     it (the harness's own target is that lower mark; the size is our gate), the
@@ -514,7 +518,7 @@ def counted_compaction(state: RunState):
 
     summarizer = KeptByCount(max_messages=1, keep_tokens=max(1, int(size * KEEP_SHARE)),
                              preserve_first_user_message=False,
-                             summary_prompt=state.summary_prompt or SUMMARY_PROMPT,
+                             summary_prompt=SUMMARY_PROMPT,
                              tool_return_max_chars=1_500,
                              summarization_capabilities=[UsageMeter(on_round=state.on_round)])
 
@@ -563,7 +567,7 @@ def _harness(state: RunState) -> list:
     from pydantic_ai_harness.repair_tool_arguments import RepairToolArguments
 
     add("repair_tool_arguments", RepairToolArguments)
-    if state.conversation:
+    if state.conversation and state.compacts:
         add("compaction", lambda: counted_compaction(state))
     from pydantic_ai_harness.warn_on_cache_busts import WarnOnCacheBusts
 
@@ -701,6 +705,12 @@ READ_ROUNDS = 40
 #: ...and this many seconds (READ_WALL_ASK_S when it answers an ask).
 READ_WALL_S = 300.0
 READ_WALL_ASK_S = 360.0
+#: ...and, once a round's request is this many tokens (or more wire messages
+#: than COMPACT_MESSAGES), it ends: the reader never compacts, so a turn would
+#: otherwise grow round by round until the model route refuses it as over its
+#: ceiling (260K) and the turn's whole work is lost. One more round of tool
+#: results (a `read` page is at most ~6K tokens) still fits under the ceiling.
+READ_STOP_TOKENS = 180_000
 
 READER_READ_DESCRIPTION = (
     "Read a file - nothing runs. Any file in the session's working folders, or the main agent's memory and "
@@ -729,27 +739,6 @@ READER_FEEDBACK_DESCRIPTION = (
 READER_FEEDBACK_HELD = ("held as {header}: the main agent asks the researcher at their next prompt. Nothing is sent "
                         "unless they say yes.")
 
-READER_SUMMARY_PROMPT = """\
-Summarize this conversation of the Probe reader - your summary REPLACES it, so it must let the reader carry on \
-without redoing work. Use these headings, and skip one only if it is empty:
-
-## What the session is about
-## What the main agent was sent
-Every message and answer (with the question it answered), and the Probe ids and URLs it gave.
-## Open asks
-The main agent's questions not answered yet.
-## Searches that found nothing
-What was looked up with no result, so it is not searched again.
-## Where it left off
-The last turn and event ids covered.
-
-Quote ids, numbers, metric names, URLs and paths VERBATIM. Reply with the summary only.
-
-<messages>
-{messages}
-</messages>\
-"""
-
 MESSAGE_TOO_LONG = "not sent: the message is {n} characters - at most 1,200. Shorten it."
 TURN_LIMIT = "not run: this turn was stopped - {why}. End it with final_result."
 
@@ -771,6 +760,11 @@ class ReaderState(RunState):
     started: float = 0.0
     rounds: int = 0
     limit_why: str | None = None
+    #: The reader never compacts: the lane starts its conversation fresh instead.
+    compacts: bool = False
+    #: The last round's request: its provider-counted tokens and wire messages.
+    last_request_tokens: int = 0
+    last_request_wire: int = 0
 
 
 @dataclass
@@ -790,7 +784,14 @@ class ReaderLimits(AbstractCapability[tools.Deps]):
 
     async def wrap_model_request(self, ctx: Any, *, request_context: Any, handler: Any) -> Any:
         self.state.rounds += 1
-        return await handler(request_context)
+        response = await handler(request_context)
+        try:
+            usage = getattr(response, "usage", None)
+            self.state.last_request_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+            self.state.last_request_wire = wire_messages(list(request_context.messages)) + 1
+        except Exception as exc:  # noqa: BLE001 -- a size it cannot read stops nothing
+            log.warning("reader: could not size the round's request: %s", exc)
+        return response
 
     async def before_tool_execute(self, ctx: Any, *, call: Any, tool_def: Any, args: Any) -> Any:
         wall = READ_WALL_ASK_S if self.state.ask else READ_WALL_S
@@ -798,6 +799,10 @@ class ReaderLimits(AbstractCapability[tools.Deps]):
             self.state.limit_why = f"{READ_ROUNDS} model rounds"
         elif self._now() - self.state.started >= wall:
             self.state.limit_why = f"{wall:.0f} seconds"
+        elif self.state.last_request_tokens >= READ_STOP_TOKENS:
+            self.state.limit_why = f"{READ_STOP_TOKENS:,} tokens"
+        elif self.state.last_request_wire > COMPACT_MESSAGES:
+            self.state.limit_why = f"{COMPACT_MESSAGES:,} messages"
         if self.state.limit_why is not None:
             raise SkipToolExecution(TURN_LIMIT.format(why=self.state.limit_why))
         return args

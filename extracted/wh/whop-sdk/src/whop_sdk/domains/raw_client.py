@@ -19,17 +19,23 @@ from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..types.domain import Domain
 from ..types.domain_list_item import DomainListItem
 from ..types.v1error_response import V1ErrorResponse
+from .types.create_domains_request_apple_pay import CreateDomainsRequestApplePay
+from .types.create_domains_request_pixel import CreateDomainsRequestPixel
 from .types.create_domains_request_registration import CreateDomainsRequestRegistration
 from .types.create_domains_request_verification import CreateDomainsRequestVerification
 from .types.create_domains_request_website import CreateDomainsRequestWebsite
+from .types.list_domains_request_apple_pay import ListDomainsRequestApplePay
 from .types.list_domains_request_direction import ListDomainsRequestDirection
 from .types.list_domains_request_order import ListDomainsRequestOrder
+from .types.list_domains_request_pixel import ListDomainsRequestPixel
 from .types.list_domains_request_platform import ListDomainsRequestPlatform
 from .types.list_domains_request_registration import ListDomainsRequestRegistration
 from .types.list_domains_request_status import ListDomainsRequestStatus
 from .types.list_domains_request_verification import ListDomainsRequestVerification
 from .types.list_domains_request_website import ListDomainsRequestWebsite
 from .types.list_domains_response import ListDomainsResponse
+from .types.update_domains_request_apple_pay import UpdateDomainsRequestApplePay
+from .types.update_domains_request_pixel import UpdateDomainsRequestPixel
 from .types.update_domains_request_registration import UpdateDomainsRequestRegistration
 from .types.update_domains_request_verification import UpdateDomainsRequestVerification
 from .types.update_domains_request_website import UpdateDomainsRequestWebsite
@@ -62,6 +68,8 @@ class RawDomainsClient:
         registration: typing.Optional[ListDomainsRequestRegistration] = None,
         platform: typing.Optional[ListDomainsRequestPlatform] = None,
         website: typing.Optional[ListDomainsRequestWebsite] = None,
+        apple_pay: typing.Optional[ListDomainsRequestApplePay] = None,
+        pixel: typing.Optional[ListDomainsRequestPixel] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[DomainListItem, ListDomainsResponse]:
         """
@@ -81,7 +89,7 @@ class RawDomainsClient:
             Only domains with this status: the most pressing state of their capabilities, or `idle` when they want nothing.
 
         order : typing.Optional[ListDomainsRequestOrder]
-            Field to sort by.
+            Field to sort by. Domains with the same value keep their creation order in the same direction.
 
         direction : typing.Optional[ListDomainsRequestDirection]
             Sort direction.
@@ -119,6 +127,12 @@ class RawDomainsClient:
         website : typing.Optional[ListDomainsRequestWebsite]
             Only domains with website in this state, such as `ready`, or `any` for every domain that has website.
 
+        apple_pay : typing.Optional[ListDomainsRequestApplePay]
+            Only domains with apple_pay in this state, such as `ready`, or `any` for every domain that has apple_pay.
+
+        pixel : typing.Optional[ListDomainsRequestPixel]
+            Only domains with pixel in this state, such as `ready`, or `any` for every domain that has pixel.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -148,6 +162,8 @@ class RawDomainsClient:
                 "registration": registration,
                 "platform": platform,
                 "website": website,
+                "apple_pay": apple_pay,
+                "pixel": pixel,
             },
             request_options=request_options,
         )
@@ -183,6 +199,8 @@ class RawDomainsClient:
                         registration=registration,
                         platform=platform,
                         website=website,
+                        apple_pay=apple_pay,
+                        pixel=pixel,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -233,7 +251,9 @@ class RawDomainsClient:
         *,
         domain: str,
         account_id: typing.Optional[str] = OMIT,
+        apple_pay: typing.Optional[CreateDomainsRequestApplePay] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        pixel: typing.Optional[CreateDomainsRequestPixel] = OMIT,
         registration: typing.Optional[CreateDomainsRequestRegistration] = OMIT,
         verification: typing.Optional[CreateDomainsRequestVerification] = OMIT,
         website: typing.Optional[CreateDomainsRequestWebsite] = OMIT,
@@ -256,8 +276,14 @@ class RawDomainsClient:
         account_id : typing.Optional[str]
             Account ID, prefixed biz_. Required for user credentials; otherwise defaults to the credential's account.
 
+        apple_pay : typing.Optional[CreateDomainsRequestApplePay]
+            Accept Apple Pay at checkout on the domain. It needs no other capability. Whop registers the domain with Apple: it stays `pending` until Apple answers, then turns `ready`, or `action_required` when Apple couldn't fetch the domain association file. Serve the file, then check the domain to register it again. Pass `null` to turn Apple Pay off: Whop removes the domain from Apple, and the domain stays, like releasing any other capability.
+
         metadata : typing.Optional[typing.Dict[str, str]]
             Custom string keys and values.
+
+        pixel : typing.Optional[CreateDomainsRequestPixel]
+            Track page views on the domain with the Whop pixel. It needs no other capability: it stays `pending` until the pixel records a page view, and turns `action_required` if it goes 7 days without one. Pass `null` to stop tracking.
 
         registration : typing.Optional[CreateDomainsRequestRegistration]
             Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
@@ -282,8 +308,14 @@ class RawDomainsClient:
             method="POST",
             json={
                 "account_id": account_id,
+                "apple_pay": convert_and_respect_annotation_metadata(
+                    object_=apple_pay, annotation=typing.Optional[CreateDomainsRequestApplePay], direction="write"
+                ),
                 "domain": domain,
                 "metadata": metadata,
+                "pixel": convert_and_respect_annotation_metadata(
+                    object_=pixel, annotation=typing.Optional[CreateDomainsRequestPixel], direction="write"
+                ),
                 "registration": convert_and_respect_annotation_metadata(
                     object_=registration,
                     annotation=typing.Optional[CreateDomainsRequestRegistration],
@@ -468,7 +500,9 @@ class RawDomainsClient:
         self,
         id: str,
         *,
+        apple_pay: typing.Optional[UpdateDomainsRequestApplePay] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        pixel: typing.Optional[UpdateDomainsRequestPixel] = OMIT,
         registration: typing.Optional[UpdateDomainsRequestRegistration] = OMIT,
         verification: typing.Optional[UpdateDomainsRequestVerification] = OMIT,
         website: typing.Optional[UpdateDomainsRequestWebsite] = OMIT,
@@ -482,8 +516,14 @@ class RawDomainsClient:
         id : str
             Domain ID, prefixed `dom_`, or a hostname such as `example.com`; a bare name looks up `.com`.
 
+        apple_pay : typing.Optional[UpdateDomainsRequestApplePay]
+            Accept Apple Pay at checkout on the domain. It needs no other capability. Whop registers the domain with Apple: it stays `pending` until Apple answers, then turns `ready`, or `action_required` when Apple couldn't fetch the domain association file. Serve the file, then check the domain to register it again. Pass `null` to turn Apple Pay off: Whop removes the domain from Apple, and the domain stays, like releasing any other capability.
+
         metadata : typing.Optional[typing.Dict[str, str]]
             Replacement custom string keys and values.
+
+        pixel : typing.Optional[UpdateDomainsRequestPixel]
+            Track page views on the domain with the Whop pixel. It needs no other capability: it stays `pending` until the pixel records a page view, and turns `action_required` if it goes 7 days without one. Pass `null` to stop tracking.
 
         registration : typing.Optional[UpdateDomainsRequestRegistration]
             Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
@@ -507,7 +547,13 @@ class RawDomainsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
+                "apple_pay": convert_and_respect_annotation_metadata(
+                    object_=apple_pay, annotation=typing.Optional[UpdateDomainsRequestApplePay], direction="write"
+                ),
                 "metadata": metadata,
+                "pixel": convert_and_respect_annotation_metadata(
+                    object_=pixel, annotation=typing.Optional[UpdateDomainsRequestPixel], direction="write"
+                ),
                 "registration": convert_and_respect_annotation_metadata(
                     object_=registration,
                     annotation=typing.Optional[UpdateDomainsRequestRegistration],
@@ -635,6 +681,8 @@ class AsyncRawDomainsClient:
         registration: typing.Optional[ListDomainsRequestRegistration] = None,
         platform: typing.Optional[ListDomainsRequestPlatform] = None,
         website: typing.Optional[ListDomainsRequestWebsite] = None,
+        apple_pay: typing.Optional[ListDomainsRequestApplePay] = None,
+        pixel: typing.Optional[ListDomainsRequestPixel] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[DomainListItem, ListDomainsResponse]:
         """
@@ -654,7 +702,7 @@ class AsyncRawDomainsClient:
             Only domains with this status: the most pressing state of their capabilities, or `idle` when they want nothing.
 
         order : typing.Optional[ListDomainsRequestOrder]
-            Field to sort by.
+            Field to sort by. Domains with the same value keep their creation order in the same direction.
 
         direction : typing.Optional[ListDomainsRequestDirection]
             Sort direction.
@@ -692,6 +740,12 @@ class AsyncRawDomainsClient:
         website : typing.Optional[ListDomainsRequestWebsite]
             Only domains with website in this state, such as `ready`, or `any` for every domain that has website.
 
+        apple_pay : typing.Optional[ListDomainsRequestApplePay]
+            Only domains with apple_pay in this state, such as `ready`, or `any` for every domain that has apple_pay.
+
+        pixel : typing.Optional[ListDomainsRequestPixel]
+            Only domains with pixel in this state, such as `ready`, or `any` for every domain that has pixel.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -721,6 +775,8 @@ class AsyncRawDomainsClient:
                 "registration": registration,
                 "platform": platform,
                 "website": website,
+                "apple_pay": apple_pay,
+                "pixel": pixel,
             },
             request_options=request_options,
         )
@@ -758,6 +814,8 @@ class AsyncRawDomainsClient:
                             registration=registration,
                             platform=platform,
                             website=website,
+                            apple_pay=apple_pay,
+                            pixel=pixel,
                             request_options=request_options,
                         )
 
@@ -809,7 +867,9 @@ class AsyncRawDomainsClient:
         *,
         domain: str,
         account_id: typing.Optional[str] = OMIT,
+        apple_pay: typing.Optional[CreateDomainsRequestApplePay] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        pixel: typing.Optional[CreateDomainsRequestPixel] = OMIT,
         registration: typing.Optional[CreateDomainsRequestRegistration] = OMIT,
         verification: typing.Optional[CreateDomainsRequestVerification] = OMIT,
         website: typing.Optional[CreateDomainsRequestWebsite] = OMIT,
@@ -832,8 +892,14 @@ class AsyncRawDomainsClient:
         account_id : typing.Optional[str]
             Account ID, prefixed biz_. Required for user credentials; otherwise defaults to the credential's account.
 
+        apple_pay : typing.Optional[CreateDomainsRequestApplePay]
+            Accept Apple Pay at checkout on the domain. It needs no other capability. Whop registers the domain with Apple: it stays `pending` until Apple answers, then turns `ready`, or `action_required` when Apple couldn't fetch the domain association file. Serve the file, then check the domain to register it again. Pass `null` to turn Apple Pay off: Whop removes the domain from Apple, and the domain stays, like releasing any other capability.
+
         metadata : typing.Optional[typing.Dict[str, str]]
             Custom string keys and values.
+
+        pixel : typing.Optional[CreateDomainsRequestPixel]
+            Track page views on the domain with the Whop pixel. It needs no other capability: it stays `pending` until the pixel records a page view, and turns `action_required` if it goes 7 days without one. Pass `null` to stop tracking.
 
         registration : typing.Optional[CreateDomainsRequestRegistration]
             Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
@@ -858,8 +924,14 @@ class AsyncRawDomainsClient:
             method="POST",
             json={
                 "account_id": account_id,
+                "apple_pay": convert_and_respect_annotation_metadata(
+                    object_=apple_pay, annotation=typing.Optional[CreateDomainsRequestApplePay], direction="write"
+                ),
                 "domain": domain,
                 "metadata": metadata,
+                "pixel": convert_and_respect_annotation_metadata(
+                    object_=pixel, annotation=typing.Optional[CreateDomainsRequestPixel], direction="write"
+                ),
                 "registration": convert_and_respect_annotation_metadata(
                     object_=registration,
                     annotation=typing.Optional[CreateDomainsRequestRegistration],
@@ -1048,7 +1120,9 @@ class AsyncRawDomainsClient:
         self,
         id: str,
         *,
+        apple_pay: typing.Optional[UpdateDomainsRequestApplePay] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        pixel: typing.Optional[UpdateDomainsRequestPixel] = OMIT,
         registration: typing.Optional[UpdateDomainsRequestRegistration] = OMIT,
         verification: typing.Optional[UpdateDomainsRequestVerification] = OMIT,
         website: typing.Optional[UpdateDomainsRequestWebsite] = OMIT,
@@ -1062,8 +1136,14 @@ class AsyncRawDomainsClient:
         id : str
             Domain ID, prefixed `dom_`, or a hostname such as `example.com`; a bare name looks up `.com`.
 
+        apple_pay : typing.Optional[UpdateDomainsRequestApplePay]
+            Accept Apple Pay at checkout on the domain. It needs no other capability. Whop registers the domain with Apple: it stays `pending` until Apple answers, then turns `ready`, or `action_required` when Apple couldn't fetch the domain association file. Serve the file, then check the domain to register it again. Pass `null` to turn Apple Pay off: Whop removes the domain from Apple, and the domain stays, like releasing any other capability.
+
         metadata : typing.Optional[typing.Dict[str, str]]
             Replacement custom string keys and values.
+
+        pixel : typing.Optional[UpdateDomainsRequestPixel]
+            Track page views on the domain with the Whop pixel. It needs no other capability: it stays `pending` until the pixel records a page view, and turns `action_required` if it goes 7 days without one. Pass `null` to stop tracking.
 
         registration : typing.Optional[UpdateDomainsRequestRegistration]
             Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
@@ -1087,7 +1167,13 @@ class AsyncRawDomainsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
+                "apple_pay": convert_and_respect_annotation_metadata(
+                    object_=apple_pay, annotation=typing.Optional[UpdateDomainsRequestApplePay], direction="write"
+                ),
                 "metadata": metadata,
+                "pixel": convert_and_respect_annotation_metadata(
+                    object_=pixel, annotation=typing.Optional[UpdateDomainsRequestPixel], direction="write"
+                ),
                 "registration": convert_and_respect_annotation_metadata(
                     object_=registration,
                     annotation=typing.Optional[UpdateDomainsRequestRegistration],

@@ -910,6 +910,8 @@ def _save_outputs(task, fig, ax_bars, segments, dates, counts, pie_flags, pie_to
         ),
     )
 
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, task.get('selector'))
     save_figure(fig, out_file, svg=task.get("svg", False), dpi=DPI)
     _write_map(fig, ax_bars, out_file, segments, dates, counts, pie_flags, pie_total)
 

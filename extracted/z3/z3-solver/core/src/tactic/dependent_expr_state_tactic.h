@@ -97,11 +97,17 @@ public:
         return *m_model_trail;
     }
 
+    model_reconstruction_trail const& model_trail() const override {
+        return *m_model_trail;
+    }
+
     char const* name() const override { return m_simp ? m_simp->name() : "null"; }
 
     bool updated() override { return m_updated; }
 
     void reset_updated() override { m_updated = false; }
+
+    bool proofs_enabled() const override { return m_goal && m_goal->proofs_enabled(); }
 
     void updt_params(params_ref const& p) override {
         m_params.append(p);

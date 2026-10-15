@@ -37,7 +37,7 @@ class TopupsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Topup:
         """
-        Add funds to a company's platform balance by charging a stored payment method. Top-ups have no fees or taxes and do not count as revenue.
+        Add funds to an account's platform balance by charging a stored payment method. Top-ups have no fees or taxes and do not count as revenue.
 
         Required permissions:
          - `payment:charge`
@@ -69,7 +69,7 @@ class TopupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -115,7 +115,7 @@ class AsyncTopupsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Topup:
         """
-        Add funds to a company's platform balance by charging a stored payment method. Top-ups have no fees or taxes and do not count as revenue.
+        Add funds to an account's platform balance by charging a stored payment method. Top-ups have no fees or taxes and do not count as revenue.
 
         Required permissions:
          - `payment:charge`
@@ -149,7 +149,7 @@ class AsyncTopupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

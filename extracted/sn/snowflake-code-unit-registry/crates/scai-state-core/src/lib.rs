@@ -47,6 +47,8 @@ pub use filter::Filter;
 pub use registry::CodeUnitRegistry;
 pub use registry::FindOptions;
 pub use registry::WriteOptions;
+pub use registry::INDEX_ENV_VAR;
+pub use registry::THREADS_ENV_VAR;
 pub use registry::UNKNOWN_ID;
 
 // Re-export validation types

@@ -43,7 +43,7 @@ class ChatChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ChatChannelListItem, ListChatChannelsResponse]:
         """
-        Returns a paginated list of chat channels within a specific company, with optional filtering by product.
+        Lists the chat channels in an account.
 
         Required permissions:
          - `chat:read`
@@ -81,7 +81,7 @@ class ChatChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -132,7 +132,7 @@ class ChatChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -156,7 +156,7 @@ class ChatChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ChatChannel:
         """
-        Update moderation settings for a chat channel, such as who can post, banned words, and media restrictions.
+        Updates a chat channel's moderation settings, such as who can post, banned words, and media restrictions.
 
         Required permissions:
          - `chat:moderate`
@@ -197,7 +197,7 @@ class ChatChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -245,7 +245,7 @@ class AsyncChatChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ChatChannelListItem, ListChatChannelsResponse]:
         """
-        Returns a paginated list of chat channels within a specific company, with optional filtering by product.
+        Lists the chat channels in an account.
 
         Required permissions:
          - `chat:read`
@@ -285,7 +285,7 @@ class AsyncChatChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -345,7 +345,7 @@ class AsyncChatChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -375,7 +375,7 @@ class AsyncChatChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ChatChannel:
         """
-        Update moderation settings for a chat channel, such as who can post, banned words, and media restrictions.
+        Updates a chat channel's moderation settings, such as who can post, banned words, and media restrictions.
 
         Required permissions:
          - `chat:moderate`
@@ -418,7 +418,7 @@ class AsyncChatChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

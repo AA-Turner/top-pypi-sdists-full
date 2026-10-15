@@ -7,6 +7,8 @@ import types
 from importlib import import_module
 from typing import Any, Dict, List, Protocol, Tuple, Union
 
+from .. import _platform_info
+
 
 class FrameFilter(Protocol):
     def __call__(self, frame: types.FrameType, event: str, arg: object) -> bool:
@@ -107,7 +109,7 @@ class LibraryPathFilter:
 
         # 'Linux', 'Darwin', 'Java', 'Windows'.
         # An empty string is returned if the value cannot be determined.
-        self.system = platform.system()
+        self.system = _platform_info.system()
         if self.system == "":
             logger.warning(
                 "Kolo could not determine the current OS. If you're on Windows, capturing frames may be unreliable."

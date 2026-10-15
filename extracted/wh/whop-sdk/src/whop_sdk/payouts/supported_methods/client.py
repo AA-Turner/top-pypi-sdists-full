@@ -42,7 +42,7 @@ class SupportedMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ListSupportedMethodsResponseDataItem, ListSupportedMethodsResponse]:
         """
-        Lists the payout methods an account or user is eligible to add.
+        Lists the payout methods an account or user is eligible to add. Pass a result's ID as `supported_payout_method_id` to `POST /payouts/methods` to save one.
 
         Parameters
         ----------
@@ -92,7 +92,7 @@ class SupportedMethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -151,7 +151,7 @@ class AsyncSupportedMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ListSupportedMethodsResponseDataItem, ListSupportedMethodsResponse]:
         """
-        Lists the payout methods an account or user is eligible to add.
+        Lists the payout methods an account or user is eligible to add. Pass a result's ID as `supported_payout_method_id` to `POST /payouts/methods` to save one.
 
         Parameters
         ----------
@@ -203,7 +203,7 @@ class AsyncSupportedMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

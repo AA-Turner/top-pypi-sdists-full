@@ -1,32 +1,6 @@
-/* ===================================================================
- *
- * Copyright (c) 2018, Helder Eijs <helderijs@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- * ===================================================================
+/*
+ * SPDX-FileCopyrightText: 2018 Helder Eijs <helderijs@gmail.com>
+ * SPDX-License-Identifier: BSD-2-Clause
  */
 
 #include "common.h"
@@ -367,24 +341,36 @@ EXPORT_SYM int poly1305_update(mac_state *state,
                                const uint8_t *in,
                                size_t len)
 {
+    unsigned buffer_used;
+
     if (NULL == state || NULL == in)
         return ERR_NULL;
+
+    /*
+     * Read the position in buffer[] only once, and check it: if several
+     * threads used the object at once (not supported), the state could
+     * be inconsistent, but buffer[] must never overflow.
+     */
+    buffer_used = state->buffer_used;
+    if (buffer_used >= 16)
+        return ERR_STATE;
 
     while (len>0) {
         unsigned btc;
 
-        btc = (unsigned)MIN(len, 16 - state->buffer_used);
-        memcpy(state->buffer + state->buffer_used, in, btc);
-        state->buffer_used += btc;
+        btc = (unsigned)MIN(len, 16 - buffer_used);
+        memcpy(state->buffer + buffer_used, in, btc);
+        buffer_used += btc;
         in += btc;
         len -= btc;
 
-        if (state->buffer_used == 16) {
+        if (buffer_used == 16) {
             poly1305_process(state->h, state->r, state->rr, state->buffer, 16);
-            state->buffer_used = 0;
+            buffer_used = 0;
         }
     }
 
+    state->buffer_used = buffer_used;
     return 0;
 }
 
@@ -403,7 +389,10 @@ EXPORT_SYM int poly1305_digest(const mac_state *state,
         return ERR_DIGEST_SIZE;
 
     temp = *state;
-    
+    /* temp is a private copy, but it may come from an inconsistent state */
+    if (temp.buffer_used >= 16)
+        return ERR_STATE;
+
     if (temp.buffer_used > 0) {
         poly1305_process(temp.h, temp.r, temp.rr, temp.buffer, temp.buffer_used);
     }

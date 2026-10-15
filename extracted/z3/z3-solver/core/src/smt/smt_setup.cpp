@@ -39,6 +39,7 @@ Revision History:
 #include "smt/theory_sls.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
+#include "smt/theory_ff.h"
 #include "smt/theory_polymorphism.h"
 #include "smt/theory_finite_set.h"
 #include "util/manage_warnings.h"
@@ -71,6 +72,12 @@ namespace smt {
         }
         setup_card();
         setup_sls();
+
+    }
+
+    void setup::setup_ff() {
+        setup_bv();
+        m_context.register_plugin(alloc(theory_ff, m_context));
     }
 
     void setup::setup_default() {
@@ -136,6 +143,8 @@ namespace smt {
             setup_QF_S();
         else if (m_logic == "QF_DT")
             setup_QF_DT();
+        else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
+            setup_ff();
         else
             setup_unknown();
     }
@@ -206,6 +215,8 @@ namespace smt {
                 setup_QF_DT();
             else if (m_logic == "LRA")
                 setup_LRA();
+            else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
+                setup_ff();
             else 
                 setup_unknown(st);
         }
@@ -582,6 +593,7 @@ namespace smt {
         else {
             throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'auto'");
         }
+        // m_params.m_phase_selection = PS_ALWAYS_TRUE;
     }
 
     bool is_arith(static_features const & st) {
@@ -815,6 +827,7 @@ namespace smt {
         setup_dl();
         setup_seq_str(st);
         setup_fpa();
+        setup_ff();
         setup_finite_set();
         setup_special_relations();
         setup_polymorphism();
@@ -833,7 +846,7 @@ namespace smt {
             m_params.m_case_split_strategy == CS_RELEVANCY_GOAL)
             return;
 
-        if (st.m_has_bv && !st.m_has_fpa && st.m_num_quantifiers == 0)
+        if (st.m_has_bv && st.m_num_quantifiers == 0)
              m_params.m_relevancy_lvl = 0;           
     }
 
@@ -850,6 +863,7 @@ namespace smt {
             setup_seq_str(st);
             setup_finite_set();
             setup_fpa();
+            setup_ff();
             setup_recfuns();
             setup_special_relations();
             setup_polymorphism();
@@ -921,6 +935,11 @@ namespace smt {
             return;
         }
 
+        if (st.num_theories() == 1 && st.m_has_ff) {
+            setup_ff();
+            return;
+        }
+
         if (st.num_theories() == 2 && st.m_has_fpa && st.m_has_bv) {
             setup_QF_FPBV();
             return;
@@ -945,4 +964,3 @@ namespace smt {
     }
 
 }
-

@@ -20,7 +20,7 @@ from matrx_ai.tools.models import ToolContext
 pytestmark = pytest.mark.asyncio
 
 BASE = "https://aidream.invalid/api/local-proxy/5b0c3a9e-8a51-4c2c-9d0e-1f2a3b4c5d6e"
-DESKTOP = proxy.SandboxBinding("mac-1", BASE, "user-jwt", "/Users/person", "local_machine")
+DESKTOP = proxy.SandboxBinding("mac-1", BASE, "user-jwt", "/Users/person", "local_machine", "5b0c3a9e-8a51-4c2c-9d0e-1f2a3b4c5d6e")
 CLOUD = proxy.SandboxBinding(
     "sbx-1", "https://orchestrator.invalid/sandboxes/sbx-1", "tok", "/home/agent", "sandbox"
 )
@@ -58,6 +58,7 @@ def _bind(binding: proxy.SandboxBinding | None) -> None:
             "access_token": binding.access_token,
             "root_path": binding.root_path,
             "target_kind": binding.target_kind,
+            **({"device_id": binding.device_id} if binding.device_id else {}),
         }
     set_app_context(
         AppContext(
@@ -492,6 +493,19 @@ def _sent(seen: list[httpx.Request]) -> list[tuple[str, dict[str, Any]]]:
             {"url": "https://example.com/a.zip", "path": "/Users/person/Downloads"},
         ),
         (
+            "desktop_outlook",
+            {
+                "action": "draft",
+                "to": ["a@b.co"],
+                "subject": "Hi",
+                "body": "Hello",
+                "attachments": ["C:\\Users\\p\\a.pdf"],
+            },
+            "outlook.draft",
+            {"to": ["a@b.co"], "subject": "Hi", "body": "Hello", "attachments": ["C:\\Users\\p\\a.pdf"]},
+        ),
+        ("desktop_outlook", {"action": "read", "id": "00AB"}, "outlook.read", {"id": "00AB"}),
+        (
             "desktop_automation",
             {"language": "jxa", "script": "1+1"},
             "automation.script",
@@ -594,10 +608,63 @@ async def test_a_successor_says_what_its_action_lacks_and_sends_nothing(
     assert seen == []
 
 
-async def test_desktop_schedule_puts_another_tools_action_on_an_interval(
+class _Rows:
+    """A faithful-enough ORM model: filter by equality (``__isnull`` honoured), create, update."""
+
+    def __init__(self, rows: list[dict[str, Any]] | None = None) -> None:
+        self.rows = rows or []
+        self.created: list[dict[str, Any]] = []
+        self.updated: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        self._filters: dict[str, Any] = {}
+
+    def filter(self, **filters: Any) -> _Rows:
+        self._filters = filters
+        return self
+
+    def order_by(self, *_: Any) -> _Rows:
+        return self
+
+    def limit(self, _: int) -> _Rows:
+        return self
+
+    async def values(self, *_: Any) -> list[dict[str, Any]]:
+        def ok(row: dict[str, Any]) -> bool:
+            for key, want in self._filters.items():
+                if key.endswith("__isnull"):
+                    if (row.get(key[: -len("__isnull")]) is None) != want:
+                        return False
+                elif row.get(key) != want:
+                    return False
+            return True
+
+        return [r for r in self.rows if ok(r)]
+
+    async def create_item(self, **fields: Any) -> Any:
+        row = {"id": f"00000000-0000-4000-8000-00000000000{len(self.created) + 1}", **fields}
+        self.created.append(row)
+        self.rows.append(row)
+        return type("Row", (), {"id": row["id"]})()
+
+    async def update_where(self, where: dict[str, Any], **patch: Any) -> None:
+        self.updated.append((where, patch))
+
+
+DEVICE_ID = "5b0c3a9e-8a51-4c2c-9d0e-1f2a3b4c5d6e"
+
+
+def _schedule_db(monkeypatch: pytest.MonkeyPatch) -> tuple[_Rows, _Rows, _Rows]:
+    tasks, triggers = _Rows(), _Rows()
+    devices = _Rows([{"id": DEVICE_ID, "user_id": "u", "deleted_at": None, "instance_name": "Studio", "hostname": "s"}])
+    monkeypatch.setattr(desktop, "_schedule_models", lambda: (tasks, triggers, devices))
+    monkeypatch.setattr(ToolContext, "organization_id", property(lambda self: "org-1"))
+    return tasks, triggers, devices
+
+
+async def test_desktop_schedule_saves_a_task_for_the_bound_computer_and_says_so(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    seen = _aidream(monkeypatch, 200, {"task": {"id": "t1"}})
+    seen = _aidream(monkeypatch, 200, {})
+    tasks, triggers, _ = _schedule_db(monkeypatch)
     _bind(DESKTOP)
     r = await desktop.desktop_schedule(
         {
@@ -611,26 +678,129 @@ async def test_desktop_schedule_puts_another_tools_action_on_an_interval(
         ToolContext(call_id="s4", tool_name="desktop_schedule"),
     )
     assert r.success, r.error
-    assert _sent(seen) == [
-        (
-            "schedule.create",
-            {
-                "name": "Morning net check",
-                "op": "net.devices",
-                "params": {},
-                "interval_s": 3600,
-                "run_now": True,
-            },
-        )
-    ]
+    assert seen == []  # nothing goes to the computer: the task lives in AI Matrx
+    task = tasks.created[0]
+    assert task["kind"] == "device_op" and task["surfaces"] == ["desktop"]
+    assert task["target_device_id"] == DEVICE_ID and task["organization_id"] == "org-1"
+    assert task["metadata"]["device_op"]["op"] == "net.devices"
+    assert triggers.created[0]["type"] == "interval"
+    assert triggers.created[0]["config"] == {"every_seconds": 3600}
+    assert r.output["device"] == {"id": DEVICE_ID, "name": "Studio", "chosen_as": "the computer connected to this conversation"}
+
+
+async def test_desktop_schedule_takes_a_cron_or_a_single_time_and_refuses_two(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _aidream(monkeypatch, 200, {})
+    _, triggers, _ = _schedule_db(monkeypatch)
+    _bind(None)
+    ctx = ToolContext(call_id="s6", tool_name="desktop_schedule")
+    base = {"action": "create", "name": "x", "tool": "desktop_net", "tool_args": {"action": "devices"}, "device_id": DEVICE_ID}
+    r = await desktop.desktop_schedule({**base, "cron": "0 9 * * 1-5", "timezone": "America/Los_Angeles"}, ctx)
+    assert r.success, r.error
+    assert triggers.created[-1]["config"] == {"expression": "0 9 * * 1-5", "tz": "America/Los_Angeles"}
+    assert r.output["device"]["chosen_as"] == "the computer you named"
+    r = await desktop.desktop_schedule({**base, "at": "2026-12-01T09:00:00-08:00"}, ctx)
+    assert r.success and triggers.created[-1]["type"] == "one-shot"
+    both = await desktop.desktop_schedule({**base, "at": "2026-12-01T09:00:00Z", "interval_s": 60}, ctx)
+    assert both.error is not None and "exactly one of" in both.error.message
+
+
+async def test_desktop_schedule_refuses_without_a_computer_or_a_schedulable_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _aidream(monkeypatch, 200, {})
+    tasks, _, _ = _schedule_db(monkeypatch)
+    _bind(None)
+    ctx = ToolContext(call_id="s5", tool_name="desktop_schedule")
+    none = await desktop.desktop_schedule(
+        {"action": "create", "name": "x", "tool": "desktop_net", "tool_args": {"action": "devices"}, "interval_s": 60}, ctx
+    )
+    assert none.error is not None and none.error.error_type == "no_computer"
     bad = await desktop.desktop_schedule(
-        {
-            "action": "create",
-            "name": "x",
-            "tool": "desktop_schedule",
-            "tool_args": {},
-            "interval_s": 60,
-        },
-        ToolContext(call_id="s5", tool_name="desktop_schedule"),
+        {"action": "create", "name": "x", "tool": "desktop_schedule", "tool_args": {}, "interval_s": 60, "device_id": DEVICE_ID},
+        ctx,
     )
     assert bad.error is not None and "cannot be scheduled" in bad.error.message
+    other = await desktop.desktop_schedule(
+        {"action": "create", "name": "x", "tool": "desktop_net", "tool_args": {"action": "devices"}, "interval_s": 60,
+         "device_id": "11111111-1111-4111-8111-111111111111"},
+        ctx,
+    )
+    assert other.error is not None and "not one of this person's computers" in other.error.message
+    assert tasks.created == []
+
+
+async def test_desktop_schedule_cancel_archives_its_task_else_asks_the_computer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _aidream(monkeypatch, 200, {"cancelled": True})
+    tasks, _, _ = _schedule_db(monkeypatch)
+    tasks.rows.append({"id": "t-1", "user_id": "u", "kind": "device_op", "deleted_at": None})
+    _bind(DESKTOP)
+    ctx = ToolContext(call_id="s7", tool_name="desktop_schedule")
+    r = await desktop.desktop_schedule({"action": "cancel", "id": "t-1"}, ctx)
+    assert r.success and tasks.updated[0][0] == {"id": "t-1"} and tasks.updated[0][1]["enabled"] is False
+    assert seen == []
+    r = await desktop.desktop_schedule({"action": "cancel", "id": "local-1"}, ctx)
+    assert r.success and _sent(seen) == [("schedule.cancel", {"id": "local-1"})]
+
+
+def test_desktop_schedule_coding_session_stores_coding_start_without_a_request_id() -> None:
+    a = desktop.DesktopScheduleArgs(
+        action="create",
+        name="Nightly tidy",
+        tool=desktop.SCHEDULED_CODING_TOOL,
+        tool_args={"folder": "/work/site", "prompt": "Tidy the README", "provider": "Codex", "account_profile_id": "acct-1"},
+        interval_s=3600,
+    )
+    planned = desktop._schedule_op(a)
+    assert planned == ("coding.start", {"provider": "codex", "cwd": "/work/site", "prompt": "Tidy the README", "account_profile_id": "acct-1"})
+    # The computer mints a fresh client_request_id each run; none is ever stored.
+    assert "client_request_id" not in planned[1]
+
+
+def test_desktop_schedule_coding_session_says_what_is_missing() -> None:
+    def plan(args: dict[str, Any]) -> Any:
+        return desktop._schedule_op(desktop.DesktopScheduleArgs(action="create", name="x", tool=desktop.SCHEDULED_CODING_TOOL, tool_args=args, interval_s=60))
+
+    assert "folder" in plan({"prompt": "p"})
+    assert "provider is claude or codex" in plan({"folder": "/w", "prompt": "p", "provider": "gemini"})
+    assert plan({"folder": "/w", "prompt": "p"}) == ("coding.start", {"provider": "claude", "cwd": "/w", "prompt": "p"})
+
+
+async def test_the_bound_computer_is_the_device_id_the_binding_carries_never_the_url_tail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _bind(DESKTOP)
+    assert desktop._bound_device_id() == DEVICE_ID
+    # A binding whose URL ends in a uuid but carries no device_id names no computer.
+    _bind(proxy.SandboxBinding("mac-1", f"https://x.invalid/local/{DEVICE_ID}", "t", "/Users/p", "local_machine"))
+    assert desktop._bound_device_id() is None
+
+
+async def test_one_writer_files_the_task_in_the_computers_organization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tasks, triggers, devices = _schedule_db(monkeypatch)
+    devices.rows[0]["organization_id"] = "org-of-the-computer"
+    a = desktop.DesktopScheduleArgs(
+        action="create",
+        name="Nightly tidy",
+        tool=desktop.SCHEDULED_CODING_TOOL,
+        tool_args={"folder": "/work", "prompt": "tidy", "provider": "codex"},
+        cron="0 2 * * *",
+        timezone="UTC",
+    )
+    made = await desktop.create_device_op_task(
+        a, user_id="u", organization_id="org-1", device_id=DEVICE_ID, created_via="web", description="d"
+    )
+    task = tasks.created[0]
+    assert task["organization_id"] == "org-of-the-computer" and made["organization_id"] == "org-of-the-computer"
+    assert task["metadata"]["created_via"] == "web" and task["description"] == "d"
+    assert task["metadata"]["device_op"]["op"] == "coding.start"
+    assert "client_request_id" not in task["metadata"]["device_op"]["params"]
+    assert triggers.created[0]["organization_id"] == "org-of-the-computer"
+    with pytest.raises(desktop.DeviceTaskRefused) as refused:
+        await desktop.create_device_op_task(a, user_id="u", organization_id="o", device_id="nope", created_via="web")
+    assert refused.value.error_type == "invalid_argument"

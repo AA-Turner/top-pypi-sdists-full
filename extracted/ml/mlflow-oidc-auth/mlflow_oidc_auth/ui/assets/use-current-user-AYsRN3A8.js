@@ -1,0 +1,1 @@
+import{t as e}from"./use-api-DgwSZSry.js";import{o as t}from"./user-service-lpn7J7G6.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{currentUser:n,isLoading:r,error:i,refresh:a}}export{n as t};

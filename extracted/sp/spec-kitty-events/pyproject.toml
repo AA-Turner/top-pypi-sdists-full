@@ -1,6 +1,6 @@
 [project]
 name = "spec-kitty-events"
-version = "10.4.6"
+version = "10.5.0"
 description = "Event log library with Lamport clocks and systematic error tracking"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -101,6 +101,15 @@ spec_kitty_events = [
     "conformance/fixtures/work_observation/invalid/*.json",
     "conformance/fixtures/work_observation/replay/*.jsonl",
     "conformance/fixtures/work_observation/replay/*.json",
+    "producer_contract/*.json",
+    "producer_contract/*.md",
+    "producer_contract/composed/rows/*.json",
+    "producer_contract/composed/legacy/*.json",
+    "producer_contract/data/*.json",
+    "producer_contract/fixtures/rows/valid/*.json",
+    "producer_contract/fixtures/rows/invalid/*.json",
+    "producer_contract/fixtures/rows/legacy_invalid/*.json",
+    "producer_contract/fixtures/total_order/*.json",
 ]
 
 [tool.pytest.ini_options]

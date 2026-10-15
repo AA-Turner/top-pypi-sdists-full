@@ -346,19 +346,14 @@ SURR_ENTH_DEC = 3                       # SurrenderEnthusiasmDec
 # --- DNA system (DVPet DNA.class + PhysicalState.applyDNA + config.csv) ---
 MAX_DNA_INVENTORY = 99                  # config MaxDNAInventory
 DNA_STRENGTH_CHANGE = 1                 # config DNAStrengthChange
-# the charge bill moved onto ENERGY when the mood/spirit meters left (DNA
-# slim, BASIC VPET 2026-07-16): canon billed 3/6 spirit per unit against a
-# +-10 range -- the same "N charge sessions with recovery between" pacing,
-# re-expressed on the meter that still exists.  Off-field charging costs
-# double, exactly like the spirit bill it replaces.
+# DNA audit 2026-10-14: charge bills energy; a negative balance also costs
+# obedience through _set_energy. Off-Field units cost twice as much.
 DNA_SAME_FIELD_ENERGY, DNA_DIFF_FIELD_ENERGY = 1, 2
-DNA_SAME_FIELD_SICK, DNA_DIFF_FIELD_SICK = 1, 2     # checkSick target out of SICK_BOUND
-DNA_SICK_BOUND = 100                    # config SickChance / WorseSickChance bound
 
 # DVPet ClockTic.getDNARate: the DNA-generate mini-game maps your mash-rate (which,
 # at the 10s mark, equals your total presses) onto one of these 8-wide Field bands
 # (config _<field>RateMaxMiniGame). Too slow (<=8) or over-mashed (>80) -> None = a
-# wasted wager. Faster mashing reaches the rarer late fields (DarkArea needs 73-80).
+# dud bank. Faster mashing selects later Fields (DarkArea needs 73-80).
 DNA_RATE_BANDS = (
     (8, "None"), (16, "DeepSaver"), (24, "JungleTrooper"), (32, "NatureSpirit"),
     (40, "WindGuardian"), (48, "DragonsRoar"), (56, "MetalEmpire"),
@@ -384,6 +379,16 @@ def dna_field_for_rate(rate):
         if rate <= hi:
             return field
     return "None"
+
+
+def dna_award_field(amount, rate):
+    """The effective Field, including existing stabilization, without awarding DNA."""
+    # DNA audit 2026-10-14: preview and settlement must agree on spoiled samples.
+    field = dna_field_for_rate(rate)
+    if field == "None" and amount >= DNA_STABILIZER_BET:
+        rate = min(max(rate, DNA_RATE_BANDS[0][0] + 1), DNA_RATE_BANDS[-1][0])
+        field = dna_field_for_rate(rate)
+    return field
 # --- food taste (DVPet Taste<Food> + Rank + config.csv) ---
 RANK_LIMIT, RANK_MIN = 200, -200       # config RankLimit / RankMinimum
 RANK_CHANGE_FOOD = 1                    # config RankChangeFood (per meal)
@@ -635,6 +640,7 @@ TEXTBOOK_OBEDIENCE = 20
 # shelf-mates (the 300b Dumbbell buys ~10 drills of an evolution gate; the
 # 500b Vitamin fills effort outright).
 GROW_CAPSULE_FRACTION = 0.25
+RELIC_STAGE_FRACTION = 0.5     # a relic needs half the stage lived (audit 2026-10-14)
 PILL_WEIGHT_GAIN = 5
 STOMACH_CAPACITY = 4                    # legacy fallback only -- see stomach_capacity()
 # canon stomach (food audit 2026-07-15): capacity is a PER-SPECIES field
@@ -679,7 +685,11 @@ LIGHTS_MISTAKE_POSTPONE = -60.0         # AfterMistakeMinutesPostponed: the NEXT
 LIGHTS_MISTAKE_OBED = -1                # LightsOnMistakeObedienceChange (once per night)
 HUNGER_MISTAKE_OBED = 1                 # HungerMistakeObedienceChange (canon: +1!)
 HUNGER_MISTAKE_OBED_GLUTTON = -1        # ...ChangeGlutton
-LIGHTS_MISTAKE_SEC = 60.0               # MinutesToMistakeLights(60): the FIRST lit mistake
+# CARE CALL #15 = A (Joel 2026-10-15): the lights call gets the SAME ten real
+# minutes as hunger/effort, and books at most ONE mistake a night (the canon
+# 60s window + a repeat every 120 below cost a lit night five mistakes)
+LIGHTS_MISTAKE_SEC = 600.0
+# (history) MinutesToMistakeLights(60) was: the FIRST lit mistake
 #                                         lands 60 game-min into the sleep, then every 120
 #                                         (LIGHTS_MISTAKE_POSTPONE).  ⚠ THE OLD TAIL HERE
 #                                         CLAIMED "~6-min night -- one mistake/night" AND IT

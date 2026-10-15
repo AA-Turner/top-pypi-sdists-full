@@ -1,0 +1,19 @@
+description: The Department of Education will used a simplified formula if a household has any of these benefits.
+values:
+  2023-01-01:
+    - snap
+    - receives_snap # Reported SNAP receipt, for households the model gives a $0 allotment.
+    - school_meal_net_subsidy
+    - tanf
+    - receives_tanf # Reported TANF receipt, for households the model gives a $0 benefit.
+    - wic
+    - receives_wic # Reported WIC receipt, for people the model gives a $0 benefit.
+    - medicaid_enrolled
+    - ssi
+    - receives_ssi # Reported SSI receipt, for people the model gives a $0 payment.
+metadata:
+  unit: list
+  label: Qualifying benefits for EFC simplified formula
+  reference:
+    - title: THE EFC FORMULA, 2022–2023
+      href: https://fsapartners.ed.gov/sites/default/files/2021-08/2223EFCFormulaGuide.pdf#page=4

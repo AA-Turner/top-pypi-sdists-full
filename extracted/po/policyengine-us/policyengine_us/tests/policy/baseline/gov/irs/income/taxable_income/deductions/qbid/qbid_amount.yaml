@@ -1,0 +1,320 @@
+# Tests based on Meade and Shroff (2018), adjusted for 2022 thresholds.
+# A final, person-level 'qbid_amount' variable would aggregate these
+# business-level components and apply final caps.
+
+- name: Non-SSTB in phase-in range (Entity 1 from Appendix A)
+  period: 2022
+  input:
+    qualified_business_income: 80_000
+    w2_wages_from_qualified_business: 8_000
+    unadjusted_basis_qualified_property: 50_000
+    taxable_income_less_qbid: 400_100
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: False
+    filing_status: JOINT
+  output:
+    # Calculation: In phase-in range.
+    # Tentative Deduction = $16,000. W-2/UBIA Limit = $4,000.
+    # Phase-in % = (400.1k-340.1k)/100k = 60%.
+    # Deduction = 16k - 0.6 * (16k - 4k) = $8,800.
+    # This test result is for the final, capped qbid_amount.
+    qbid_amount: 8800
+
+- name: Non-SSTB in phase-in range plus REIT/PTP income
+  period: 2022
+  input:
+    qualified_business_income: 80_000
+    w2_wages_from_qualified_business: 8_000
+    unadjusted_basis_qualified_property: 50_000
+    taxable_income_less_qbid: 400_100
+    qualified_reit_and_ptp_income: 1_000
+    business_is_sstb: False
+    filing_status: JOINT
+  output:
+    # Calculation: QBI component is $8,800 (same as Entity 1).
+    # REIT/PTP component = 0.20 * 1k = $200.
+    # Total = $8,800 + $200 = $9,000.
+    qbid_amount: 9_000
+
+- name: Non-SSTB above phase-in range (Entity 2 from Appendix A)
+  period: 2022
+  input:
+    qualified_business_income: 80_000
+    w2_wages_from_qualified_business: 8_000
+    unadjusted_basis_qualified_property: 50_000
+    taxable_income_less_qbid: 460_100
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: False
+    filing_status: JOINT
+  output:
+    # Calculation: Above phase-in. Full W-2/UBIA limit applies.
+    # Limit = max(0.5*8k, 0.25*8k + 0.025*50k) = $4,000.
+    qbid_amount: 4_000
+
+- name: Non-SSTB below threshold (Entity 3 from Appendix A)
+  period: 2022
+  input:
+    qualified_business_income: 80_000
+    w2_wages_from_qualified_business: 8_000
+    unadjusted_basis_qualified_property: 50_000
+    taxable_income_less_qbid: 330_100
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: False
+    filing_status: JOINT
+  output:
+    # Calculation: Below threshold. No W-2/UBIA limit.
+    # Deduction = 20% of QBI = 0.20 * 80k = $16,000.
+    qbid_amount: 16_000
+
+- name: SSTB in phase-in range (Entity 4 from Appendix A)
+  period: 2022
+  input:
+    qualified_business_income: 110_000
+    w2_wages_from_qualified_business: 60_000
+    unadjusted_basis_qualified_property: 6_000
+    taxable_income_less_qbid: 400_100
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: True
+    filing_status: JOINT
+  output:
+    # Calculation: SSTB in phase-in. Phase-in % = 60%.
+    # Applicable % = 1 - 0.6 = 40%.
+    # Reduced QBI = 44k. Reduced W-2 = 24k. Reduced UBIA = 2.4k.
+    # Tentative Ded (reduced) = 0.2 * 44k = $8,800.
+    # Limit (reduced) = max(0.5*24k, 0.25*24k + 0.025*2.4k) = $12,000.
+    # Deduction = min(8800, 12000) = $8,800.
+    qbid_amount: 8_800
+
+- name: SSTB above phase-in range (Entity 5 from Appendix A)
+  period: 2022
+  input:
+    qualified_business_income: 110_000
+    w2_wages_from_qualified_business: 60_000
+    unadjusted_basis_qualified_property: 6_000
+    taxable_income_less_qbid: 460_100
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: True
+    filing_status: JOINT
+  output:
+    # Calculation: SSTB above phase-in range. Deduction is fully phased out.
+    qbid_amount: 0
+
+- name: SSTB below threshold (Entity 6 from Appendix A)
+  period: 2022
+  input:
+    qualified_business_income: 110_000
+    w2_wages_from_qualified_business: 60_000
+    unadjusted_basis_qualified_property: 6_000
+    taxable_income_less_qbid: 330_100
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: True
+    filing_status: JOINT
+  output:
+    # Calculation: Below threshold. SSTB status and W-2/UBIA limit are ignored.
+    # Deduction = 20% of QBI = 0.20 * 110k = $22,000.
+    qbid_amount: 22_000
+
+- name: Non-SSTB below threshold, high QBI (Entity 7 from Appendix A)
+  period: 2022
+  input:
+    qualified_business_income: 200_000
+    w2_wages_from_qualified_business: 150_000
+    unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 120_000
+    business_is_sstb: False
+    filing_status: JOINT
+  output:
+    # The function returns the uncapped component (0.20 * 200k = 40k)
+    # because taxable income (120k) is below the threshold (340.1k).
+    # The final taxable income cap (at 24k) is applied at the
+    # tax-unit level, outside the scope of this business-level function.
+    qbid_amount: 40_000
+
+# REIT/PTP Income Tests - Form 8995 Lines 6-9
+# REIT/PTP income gets 20% deduction WITHOUT W-2 wage or UBIA limitations
+
+- name: REIT/PTP only - no QBI (Form 8995 simplified path)
+  period: 2022
+  input:
+    qualified_business_income: 0
+    w2_wages_from_qualified_business: 0
+    unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 100_000
+    qualified_reit_and_ptp_income: 10_000
+    business_is_sstb: False
+    filing_status: SINGLE
+  output:
+    # No QBI, so QBI component = $0.
+    # REIT/PTP component = 0.20 * 10k = $2,000.
+    # Total = $2,000.
+    qbid_amount: 2_000
+
+- name: REIT/PTP with SSTB - REIT/PTP not affected by SSTB phase-out
+  period: 2022
+  input:
+    qualified_business_income: 110_000
+    w2_wages_from_qualified_business: 60_000
+    unadjusted_basis_qualified_property: 6_000
+    taxable_income_less_qbid: 460_100
+    qualified_reit_and_ptp_income: 50_000
+    business_is_sstb: True
+    filing_status: JOINT
+  output:
+    # SSTB above phase-in range, so QBI component = $0 (fully phased out).
+    # REIT/PTP is NOT subject to SSTB rules, so:
+    # REIT/PTP component = 0.20 * 50k = $10,000.
+    # Total = $0 + $10,000 = $10,000.
+    qbid_amount: 10_000
+
+- name: REIT/PTP above wage limitation - no wage cap applies
+  period: 2022
+  input:
+    qualified_business_income: 0
+    w2_wages_from_qualified_business: 0
+    unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 500_000
+    qualified_reit_and_ptp_income: 100_000
+    business_is_sstb: False
+    filing_status: JOINT
+  output:
+    # No QBI, so QBI component = $0.
+    # Even though taxable income is above threshold and W-2 wages are $0,
+    # REIT/PTP is NOT subject to W-2 wage limitations.
+    # REIT/PTP component = 0.20 * 100k = $20,000.
+    qbid_amount: 20_000
+
+- name: Combined QBI and REIT/PTP - below threshold
+  period: 2024
+  input:
+    qualified_business_income: 50_000
+    w2_wages_from_qualified_business: 30_000
+    unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 150_000
+    qualified_reit_and_ptp_income: 25_000
+    business_is_sstb: False
+    filing_status: SINGLE
+  output:
+    # Below threshold ($191,950 single in 2024), so no W-2/UBIA limit.
+    # QBI component = 0.20 * 50k = $10,000.
+    # REIT/PTP component = 0.20 * 25k = $5,000.
+    # Total = $15,000.
+    qbid_amount: 15_000
+
+# Mixed SSTB / non-SSTB tests (Form 8995-A, columns A vs B)
+- name: Mixed SSTB and non-SSTB above threshold - SSTB phased out, non-SSTB capped
+  period: 2024
+  input:
+    qualified_business_income: 50_000
+    sstb_qualified_business_income: 50_000
+    w2_wages_from_qualified_business: 100_000
+    unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 300_000
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: false
+    filing_status: SINGLE
+  output:
+    # Single 2024 threshold $191,950, length $50,000.
+    # Reduction rate = min(1, (300k - 191.95k)/50k) = 1 → applicable rate = 0.
+    # Non-SSTB component:
+    #   qbid_max = 0.20 * 50k = $10,000
+    #   wage_cap = 0.50 * 100k = $50,000
+    #   min($10k, $50k) = $10,000.
+    # SSTB component: 0 (applicable rate = 0).
+    # Total = $10,000.
+    qbid_amount: 10_000
+
+- name: Mixed SSTB and non-SSTB below threshold - both get full 20% deduction
+  period: 2024
+  input:
+    qualified_business_income: 50_000
+    sstb_qualified_business_income: 50_000
+    w2_wages_from_qualified_business: 0
+    unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 100_000
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: false
+    filing_status: SINGLE
+  output:
+    # Below threshold, so SSTB phaseout does not apply and W-2/UBIA limits do not bind.
+    # Non-SSTB: 0.20 * 50k = $10,000.
+    # SSTB:     0.20 * 50k = $10,000.
+    # Total = $20,000.
+    qbid_amount: 20_000
+
+- name: Mixed SSTB and non-SSTB in phase-in range with separate allocable wages
+  absolute_error_margin: 0.01
+  period: 2024
+  input:
+    qualified_business_income: 100_000
+    sstb_qualified_business_income: 100_000
+    w2_wages_from_qualified_business: 20_000
+    sstb_w2_wages_from_qualified_business: 10_000
+    unadjusted_basis_qualified_property: 0
+    sstb_unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 200_000
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: false
+    filing_status: SINGLE
+  output:
+    # Single 2024 threshold $191,950, length $50,000.
+    # Reduction rate = (200k - 191.95k) / 50k = 0.161; applicable rate = 0.839.
+    # Non-SSTB W-2 wages = 10k => cap = 5k.
+    #   Non-SSTB deduction = 20k - 0.161 * (20k - 5k) = 17,585.00.
+    # SSTB W-2 wages = 10k => applicable-percentage cap = 0.839 * 5k = 4,195.
+    #   SSTB deduction = 16,780 - 0.161 * (16,780 - 4,195) = 14,753.82.
+    # Total = 32,338.82.
+    qbid_amount: 32_338.82
+
+- name: Only SSTB QBI fully phased out above threshold
+  period: 2024
+  input:
+    qualified_business_income: 0
+    sstb_qualified_business_income: 100_000
+    w2_wages_from_qualified_business: 0
+    unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 300_000
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: false
+    filing_status: SINGLE
+  output:
+    # Above threshold; SSTB applicable rate = 0; non-SSTB QBI = 0.
+    qbid_amount: 0
+
+- name: Only SSTB QBI in phase-in range
+  period: 2024
+  input:
+    qualified_business_income: 0
+    sstb_qualified_business_income: 100_000
+    w2_wages_from_qualified_business: 50_000
+    unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 216_950
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: false
+    filing_status: SINGLE
+  output:
+    # Reduction rate = (216_950 - 191_950) / 50_000 = 0.5 → applicable rate = 0.5
+    # Reduced QBI = 50_000; reduced W-2 = 25_000.
+    # qbid_max (reduced) = 0.20 * 50_000 = 10_000.
+    # wage_cap (reduced) = 0.50 * 25_000 = 12_500.
+    # min(10_000, 12_500) = 10_000.
+    qbid_amount: 10_000
+
+- name: Mixed negative non-SSTB and positive SSTB QBI uses explicit SSTB wages
+  period: 2024
+  input:
+    self_employment_income: -1
+    qualified_business_income: 0
+    sstb_qualified_business_income: 100_000
+    w2_wages_from_qualified_business: 100_000
+    sstb_w2_wages_from_qualified_business: 0
+    unadjusted_basis_qualified_property: 0
+    sstb_unadjusted_basis_qualified_property: 0
+    taxable_income_less_qbid: 216_950
+    qualified_reit_and_ptp_income: 0
+    business_is_sstb: false
+    filing_status: SINGLE
+  output:
+    # Non-SSTB gross income is negative, so the wage pool is mixed even though
+    # non-SSTB QBI is zero. With no SSTB allocable wages, the SSTB component
+    # is limited by the zero wage/property cap during phase-in.
+    qbid_amount: 5_000

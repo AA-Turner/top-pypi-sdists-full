@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rolo
-Version: 0.8.8
+Version: 0.8.9
 Dynamic: Description
 Dynamic: Description-Content-Type
 Summary: A Python framework for building HTTP-based server applications
@@ -216,6 +216,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 Requires-Dist: requests>=2.20
@@ -225,12 +227,13 @@ Provides-Extra: dev
 Requires-Dist: black==23.10.0; extra == 'dev'
 Requires-Dist: coverage[toml]>=5.0.0; extra == 'dev'
 Requires-Dist: coveralls>=3.3; extra == 'dev'
+Requires-Dist: httpx[http2]; extra == 'dev'
 Requires-Dist: hypercorn; extra == 'dev'
 Requires-Dist: pydantic; extra == 'dev'
 Requires-Dist: pytest-httpserver; extra == 'dev'
 Requires-Dist: pytest>=7.0; extra == 'dev'
 Requires-Dist: ruff==0.1.0; extra == 'dev'
-Requires-Dist: twisted[tls]>=24; extra == 'dev'
+Requires-Dist: twisted[http2,tls]>=24; extra == 'dev'
 Requires-Dist: websocket-client>=1.7.0; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: furo; extra == 'docs'

@@ -342,6 +342,7 @@ CREATE TABLE IF NOT EXISTS auth_credentials (
   data TEXT NOT NULL,
   disabled_cause TEXT DEFAULT NULL,
   identity_key TEXT DEFAULT NULL,
+  login_incarnation TEXT DEFAULT NULL,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -1086,6 +1087,11 @@ class AuthStore:
         HTTP clients stay per-process.
     """
 
+    #: The WRITABLE handle, definitely typed. A read-only store never assigns it
+    #: (its handle lives in :attr:`_ro_conn`); the annotation keeps the type
+    #: non-Optional for every unguarded ``self._conn.x`` on the writable path.
+    _conn: _SerializedConnection
+
     def __init__(
         self,
         db_path: str | Path | None = None,
@@ -1093,8 +1099,14 @@ class AuthStore:
         config_dir: Path | None = None,
         config_overrides: dict[str, str] | None = None,
         usage_cache: "UsageCacheStore | None" = None,
+        read_only: bool = False,
     ) -> None:
         self._db_path = Path(db_path) if db_path is not None else default_db_path()
+        #: Metadata-only mode for the paired-phone usage seam. Every open is
+        #: ``mode=ro`` over an existing file and constructor performs NO disk
+        #: write (no mkdir, no schema DDL, no WAL, no chmod). Read paths
+        #: (:meth:`list_credentials`) work; write paths must not be reached.
+        self._read_only = read_only
         self._config_dir = config_dir
         self._config_overrides = dict(config_overrides or {})
         self._runtime_overrides: dict[str, str] = {}
@@ -1141,7 +1153,133 @@ class AuthStore:
         #: Set by :meth:`close`. Read by :func:`shared_auth_store` to decide
         #: whether the process-level store it is holding is still usable.
         self._closed = False
-        self._conn = self._connect()
+        if read_only:
+            # Construction must WRITE NOTHING: an absent database is simply an
+            # empty store, so the read-only handle is allowed to be ``None``
+            # instead of raising out of the constructor (the mode=ro open cannot
+            # be created, only opened). It lives in its OWN Optional attribute,
+            # and the WRITABLE ``self._conn`` is left UNASSIGNED here, so pyright
+            # keeps ``self._conn``'s declared type definite -- assigning a
+            # possibly-``None`` to it widened the attribute to Optional and made
+            # every unguarded ``store._conn.x`` across the tree a pyright error.
+            # Read paths branch on ``self._read_only`` and never touch
+            # ``self._conn`` on such a store.
+            self._ro_conn = self._connect_read_only()
+        else:
+            self._ro_conn = None
+            self._conn = self._connect()
+
+    @classmethod
+    def open_read_only(cls, db_path: str | Path | None = None) -> "AuthStore":
+        """A metadata-only store that writes nothing on construction or read.
+
+        The paired-phone seam must be able to read persisted credential
+        METADATA (which providers/rows exist) without the default store's
+        constructor side effects: ``mkdir`` of the config root, ``O_CREAT`` of
+        auth.db, the WAL PRAGMA, the schema ``executescript`` and three
+        ``chmod`` calls. Building a default store and merely refraining from
+        writing would still have performed all of those, so the read-only open
+        is a distinct constructor rather than a flag a caller could forget.
+        An absent database reads as an empty store.
+        """
+        store = cls(db_path, read_only=True)
+        return store
+
+    def _connect_read_only(self) -> _SerializedConnection | None:
+        """The metadata-only handle, or ``None`` when there is nothing to read.
+
+        ``mode=ro&immutable=1`` over an existing file only: no mkdir, no
+        O_CREAT, no WAL PRAGMA, no schema DDL, no commit, no chmod. The
+        ``immutable=1`` is required, not decorative — a plain ``mode=ro`` open
+        still creates ``-wal``/``-shm`` sidecars (measured), which the no-writes
+        promise forbids. sqlite also refuses every write through this handle.
+
+        Returns ``None`` when there is nothing to read: an ABSENT database
+        (legitimately empty) or one that will not open. Callers distinguish the
+        two states by :meth:`read_only_unavailable`; returning a bare ``None``
+        here is what keeps construction from creating a file to find out.
+        """
+        if not self._db_path.exists():
+            return None
+        try:
+            conn = sqlite3.connect(
+                f"file:{self._db_path}?mode=ro&immutable=1",
+                timeout=5.0,
+                uri=True,
+                check_same_thread=False,
+            )
+            conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()
+            return _SerializedConnection(conn)
+        except Exception:  # noqa: BLE001 — corrupt/unreadable db = no handle
+            logger.debug("auth store: read-only open failed %s", self._db_path, exc_info=True)
+            return None
+
+    def read_only_unavailable(self) -> bool:
+        """Whether a read-only store could not be read (vs. genuinely empty).
+
+        ``False`` when the database is simply absent — "empty" is a legitimate
+        answer, and the seam must be able to say it without creating the file.
+        ``True`` when the file exists but cannot yield credentials: it will not
+        open (corrupt/locked), OR it opens but lacks the tables/columns this
+        store's read path requires. The second case is a foreign or half-built
+        database — a valid SQLite file that is NOT a credential store — and
+        reporting it as empty would tell the phone "no accounts" when the truth
+        is "this is not a store I can read". Only meaningful for a read-only
+        store; a writing store always has a live, schema-applied handle.
+        """
+        if not self._read_only:
+            return False
+        if not self._db_path.exists():
+            return False
+        if self._ro_conn is None:
+            return True
+        return not self._has_required_schema()
+
+    def _has_required_schema(self) -> bool:
+        """Whether the required credential table AND its columns are present.
+
+        ``sqlite_master`` alone is not enough: a database can hold a
+        ``auth_credentials`` table missing ``identity_key`` (an older or foreign
+        build), which then fails at the first SELECT rather than at open. Both
+        the table and every column the read path selects are required.
+        """
+        conn = self._ro_conn if self._read_only else self._conn
+        if conn is None:
+            return False
+        try:
+            cols = {
+                str(row[1])
+                for row in conn.execute("PRAGMA table_info(auth_credentials)").fetchall()
+            }
+        except Exception:  # noqa: BLE001 — unreadable schema = unavailable
+            return False
+        required = {
+            "id",
+            "provider",
+            "credential_type",
+            "data",
+            "disabled_cause",
+            "identity_key",
+            "created_at",
+            "updated_at",
+        }
+        return required.issubset(cols)
+
+    def read_only_sidecar_present(self) -> bool:
+        """True when a non-empty ``-wal`` sits beside the store's database.
+
+        ``immutable=1`` (the read-only open) cannot see an uncheckpointed WAL,
+        so a committed DELETE in the WAL is invisible to it: the reader still
+        sees the removed credential row. A non-empty ``-wal`` is that exact
+        on-disk signal, which the seam surfaces as staleness so a possibly-
+        deleted account is never presented as current. A zero-length WAL holds
+        no frames and is not staleness.
+        """
+        try:
+            wal = self._db_path.with_suffix(self._db_path.suffix + "-wal")
+            return wal.exists() and wal.stat().st_size > 0
+        except OSError:
+            return False
 
     @property
     def db_path(self) -> Path:
@@ -1186,7 +1324,21 @@ class AuthStore:
         conn.execute("PRAGMA synchronous=NORMAL")
         conn.execute("PRAGMA busy_timeout=5000")
         conn.executescript(_SCHEMA)
-        conn.commit()
+        # Local metadata, never credential payload: old rows remain unknown until
+        # a real login write attests an incarnation. Refresh cannot create one.
+        # Concurrent process startup must serialize the check and ALTER, not
+        # swallow duplicate-column errors (which can conceal real corruption).
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(auth_credentials)")}
+            if "login_incarnation" not in columns:
+                conn.execute(
+                    "ALTER TABLE auth_credentials ADD COLUMN login_incarnation TEXT DEFAULT NULL"
+                )
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
         for path in (
             self._db_path,
             self._db_path.with_suffix(self._db_path.suffix + "-wal"),
@@ -1207,7 +1359,15 @@ class AuthStore:
         # its only consumer: everything else detects a closed connection the way
         # sqlite does, with ``ProgrammingError`` on use.
         self._closed = True
-        self._conn.close()
+        # A read-only store over an ABSENT database has no handle: closing it
+        # must be a safe no-op, not a ``NoneType.close`` raise. The phone route
+        # closes whatever it opened, and "there was nothing to open" is the
+        # common cold-start case.
+        if self._read_only:
+            if self._ro_conn is not None:
+                self._ro_conn.close()
+        else:
+            self._conn.close()
         if self._usage_cache is not None:
             self._usage_cache.close()
             self._usage_cache = None
@@ -1357,15 +1517,18 @@ class AuthStore:
         ``provider`` is resolved through :meth:`_storage_id`, so asking for a
         login flavour returns the rows its login actually wrote.
         """
+        conn = self._ro_conn if self._read_only else self._conn
+        if conn is None:
+            return []
         if provider is not None:
             provider = self._storage_id(provider)
-            rows = self._conn.execute(
+            rows = conn.execute(
                 "SELECT id, provider, credential_type, data, disabled_cause, identity_key,"
                 " created_at, updated_at FROM auth_credentials WHERE provider = ? ORDER BY id",
                 (provider,),
             ).fetchall()
         else:
-            rows = self._conn.execute(
+            rows = conn.execute(
                 "SELECT id, provider, credential_type, data, disabled_cause, identity_key,"
                 " created_at, updated_at FROM auth_credentials ORDER BY id"
             ).fetchall()
@@ -1460,6 +1623,9 @@ class AuthStore:
         # the credential the user just proved is alive.
         payload.pop(GRANT_DEAD_AT_KEY, None)
         payload.pop(REFRESH_SEND_UNCONFIRMED_KEY, None)
+        # Unlike updated_at this is a login event, not a refresh timestamp.
+        # MCP refresh also uses upsert, so it cannot attest an incarnation yet.
+        incarnation = uuid.uuid4().hex if provider != "mcp-oauth" else None
         now = self._now_ms()
         data_json = json.dumps(payload)
 
@@ -1499,20 +1665,96 @@ class AuthStore:
                 self._conn.execute(
                     "UPDATE auth_credentials SET credential_type = ?, data = ?, "
                     "disabled_cause = NULL,"
-                    " updated_at = ? WHERE id = ?",
-                    (credential_type, data_json, now, row[0]),
+                    " updated_at = ?, login_incarnation = ? WHERE id = ?",
+                    (credential_type, data_json, now, incarnation, row[0]),
                 )
                 self._conn.commit()
                 return self._after_credential_write(provider, row[0])
 
         cursor = self._conn.execute(
             "INSERT INTO auth_credentials "
-            "(provider, credential_type, data, identity_key, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (provider, credential_type, data_json, identity, now, now),
+            "(provider, credential_type, data, identity_key, created_at, updated_at,"
+            " login_incarnation)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (provider, credential_type, data_json, identity, now, now, incarnation),
         )
         self._conn.commit()
         return self._after_credential_write(provider, cursor.lastrowid)
+
+    @staticmethod
+    def native_lifecycle_snapshot(db_path: Path, provider: str) -> list[tuple[Any, ...]] | None:
+        """One coherent committed WAL snapshot, with NO credential material read.
+
+        Lifecycle observation must not construct a writable AuthStore (migrations),
+        nor use immutable=1 (which ignores live WAL). mode=ro may create SQLite
+        sidecars if absent, but cannot migrate or write credential/database rows.
+        Missing/legacy/unreadable is UNKNOWN, not an empty native baseline.
+        """
+        if not db_path.is_file():
+            return None
+        conn = None
+        try:
+            conn = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True, timeout=5)
+            return conn.execute(
+                "SELECT id, updated_at, login_incarnation, disabled_cause, credential_type,"
+                " json_extract(data, '$.account_id'), json_extract(data, '$.email'),"
+                " json_extract(data, '$.org_id'), json_type(data, '$.mesh_origin')"
+                " FROM auth_credentials WHERE provider = ? ORDER BY id",
+                (provider,),
+            ).fetchall()
+        except sqlite3.Error:
+            return None
+        finally:
+            if conn is not None:
+                conn.close()
+
+    @staticmethod
+    def native_oauth_inventory(db_path: Path) -> list[tuple[Any, ...]] | None:
+        """``(provider, id, login_incarnation, account, email, org, mesh_origin_type,
+        credential_type)`` for every ENABLED row, with NO credential material read and
+        no ``updated_at``.
+
+        The mesh consent reconciler asks "which providers could a signed future-login
+        approval cover, and did that set change" on a timer. ``list_credentials`` would
+        decrypt every row; ``updated_at`` is left out on purpose because it moves on
+        every token refresh and the reconciler's memo must not be invalidated by
+        rotation. Same read-only WAL snapshot as :meth:`native_lifecycle_snapshot`;
+        ``None`` means unknown (missing/legacy/unreadable), never empty.
+        """
+        if not db_path.is_file():
+            return None
+        conn = None
+        try:
+            conn = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True, timeout=5)
+            return conn.execute(
+                "SELECT provider, id, login_incarnation, json_extract(data, '$.account_id'),"
+                " json_extract(data, '$.email'), json_extract(data, '$.org_id'),"
+                " json_type(data, '$.mesh_origin'), credential_type"
+                " FROM auth_credentials WHERE disabled_cause IS NULL"
+                " ORDER BY provider, id"
+            ).fetchall()
+        except sqlite3.Error:
+            return None
+        finally:
+            if conn is not None:
+                conn.close()
+
+    def native_login_incarnation(self, credential_id: int) -> str | None:
+        """Authoritative login identity without loading or deriving from secrets.
+
+        Read-only callers may see a pre-migration database: unknown is not an
+        invented genesis. OAuth refresh updates data/updated_at, never this column.
+        """
+        conn = self._ro_conn if self._read_only else self._conn
+        if conn is None:
+            return None
+        try:
+            row = conn.execute(
+                "SELECT login_incarnation FROM auth_credentials WHERE id = ?", (credential_id,)
+            ).fetchone()
+        except sqlite3.Error:
+            return None
+        return str(row[0]) if row and row[0] else None
 
     def _after_credential_write(self, provider: str, credential_id: int | None) -> StoredCredential:
         """Read the row back, then run what a completed write implies.
@@ -1651,12 +1893,61 @@ class AuthStore:
         return stored
 
     def get_credential(self, credential_id: int) -> StoredCredential | None:
-        row = self._conn.execute(
+        conn = self._ro_conn if self._read_only else self._conn
+        if conn is None:
+            return None
+        row = conn.execute(
             "SELECT id, provider, credential_type, data, disabled_cause, identity_key,"
             " created_at, updated_at FROM auth_credentials WHERE id = ?",
             (credential_id,),
         ).fetchone()
         return self._row_to_credential(row) if row else None
+
+    def record_muse_usage(self, access: OAuthAccess, value: object) -> bool:
+        """Retain a passive receipt only on the account/key that actually served.
+
+        A snapshot must not reseal an inference key or overwrite a concurrent
+        login/logout. Compare-and-swap the metadata row, preserving its other
+        fields; a newer request's receipt must also win over a delayed stream.
+        """
+        from local_operator.providers.meta_muse_credentials import REF_FIELD
+        from local_operator.providers.meta_muse_usage import subscription_observation
+
+        if self._read_only or not access.raw:
+            return False
+        receipt = subscription_observation(value)
+        if receipt is None:
+            return False
+        receipt["source"] = "responses"
+        row = self.get_credential(access.credential_id)
+        ref = access.raw.get(REF_FIELD)
+        if row is None or row.provider != "meta-muse" or not ref or row.data.get(REF_FIELD) != ref:
+            return False
+        previous = row.data.get("subscription_observation") or {}
+        stamp = value.get("observedAtMs") if isinstance(value, dict) else None
+        if not isinstance(stamp, int) or isinstance(stamp, bool) or not 0 < stamp <= self._now_ms():
+            return False
+        receipt["observedAtMs"] = stamp
+        if (
+            isinstance(previous, dict)
+            and previous.get("source") == "responses"
+            and previous.get("observedAtMs", 0) >= stamp
+        ):
+            return False
+        # Compare against the exact stored encoding, not a re-serialization:
+        # auth rows written by older versions may have different whitespace.
+        original = self._conn.execute(
+            "SELECT data FROM auth_credentials WHERE id = ?", (row.id,)
+        ).fetchone()
+        if original is None or json.loads(original[0]) != row.data:
+            return False
+        data = {**row.data, "subscription_observation": receipt}
+        changed = self._conn.execute(
+            "UPDATE auth_credentials SET data = ? WHERE id = ? AND data = ?",
+            (json.dumps(data), row.id, original[0]),
+        ).rowcount
+        self._conn.commit()
+        return bool(changed)
 
     def disable_credential(self, credential_id: int, cause: str) -> None:
         """Soft-delete tombstone (keeps history, blocks selection)."""

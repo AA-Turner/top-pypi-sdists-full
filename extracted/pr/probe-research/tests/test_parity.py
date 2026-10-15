@@ -237,6 +237,10 @@ def schema_operations() -> dict[Op, str]:
 # Allowlist 1: PERMANENT. Not the SDK/CLI's job. Every entry states why.
 # --------------------------------------------------------------------------
 NOT_CLIENT_SURFACE: dict[Op, str] = {
+    # RETIRED 2026-10-14 with per-person default workspaces: a 410 that tells CLI
+    # 0.254.1's `probe workspace default` to use `probe workspace use`. No client
+    # calls it; it goes when 0.254.1 is gone.
+    ("PUT", "/v1/workspaces/{}/default"): "retired 410 for CLI 0.254.1 (per-computer workspaces)",
     # RETIRING, not unwired. An experiment IS a project now, and the client
     # reads this document at `/v1/projects/{}/notes/versions/{}` -- the same
     # rows, from the address that survives the route cut. The experiment path
@@ -619,7 +623,7 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "/v1/device-state",
     ): "setup wizard's main-menu read (the npm launcher / wizard), not the SDK",
     ("GET", "/v1/projects/{}/public/effective"): "dashboard share management",
-    ("GET", "/v1/projects/{}/workspace/visuals"): "dashboard evaluation-project visuals browser",
+    ("GET", "/v1/projects/{}/workspace/visuals"): "dashboard experiment visuals browser",
     # 0231 -- THE RETIRED `/v1/experiments/*` SURFACE the schema still declares.
     #
     # `app/experiments/gone_router.py` answers every one of these 410
@@ -1147,6 +1151,24 @@ CLIENT_AHEAD: dict[Op, str] = {
     # reads as "no alerts", asked again at the next poll. Delete this entry once
     # `make regen` brings the route into schema/openapi.json.
     ("GET", "/v1/sessions/{}/run-alerts"): "daemon run-alert poller; the server route ships in its own PR",
+    # The data catalog (plan data-catalog, PR D): the SDK and CLI are built to
+    # the plan's Interfaces while the server PRs (A, B, C) land beside them.
+    # Old-backend guard: every SDK verb (`probe.sdk.catalog`) reads FastAPI's
+    # own 404 / a 405 as "this server predates the catalog", warns once and
+    # records nothing (`catalog.old_server`); the CLI prints the error. Delete
+    # each entry once `make regen` brings its route into schema/openapi.json.
+    ("POST", "/v1/sources"): "data catalog C1 (server PR A)",
+    ("GET", "/v1/sources/{}"): "data catalog C1 (server PR A)",
+    ("POST", "/v1/runs/{}/uses"): "data catalog C2/C10 (server PR A)",
+    ("PUT", "/v1/catalog/manifests/{}"): "data catalog C5/Q9 (server PR B)",
+    ("POST", "/v1/catalog/datasets"): "data catalog C3 registration (server PR B)",
+    ("GET", "/v1/catalog/datasets"): "data catalog C4 lists (server PR B)",
+    ("GET", "/v1/catalog/datasets/{}"): "data catalog C4 detail (server PR B)",
+    ("GET", "/v1/catalog/datasets/{}/files"): "data catalog C11 files list (server PR B)",
+    ("GET", "/v1/catalog/checkpoints"): "data catalog C4 checkpoints list (server PR B)",
+    ("GET", "/v1/catalog/sources"): "data catalog C4 sources list (server PR B)",
+    ("GET", "/v1/provenance"): "data catalog C4 walk + methods view (server PR B)",
+    ("POST", "/v1/catalog/datasets/uploads"): "data catalog C8 hosting door (server PR C)",
 }
 
 _ALLOWED: dict[Op, str] = {**NOT_CLIENT_SURFACE, **PENDING}

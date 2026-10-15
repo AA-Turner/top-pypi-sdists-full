@@ -45,7 +45,7 @@ class RefundsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Refund, ListRefundsResponse]:
         """
-        Lists refunds, newest first. Without filters this is every refund the caller can read; narrow it to one payment with `payment_id`, one account with `account_id`, or one buyer with `user_id`.
+        Lists refunds the caller can read, newest first. Filter by payment, account, or buyer to narrow the results.
 
         Parameters
         ----------
@@ -95,7 +95,7 @@ class RefundsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -143,7 +143,7 @@ class RefundsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -187,7 +187,7 @@ class AsyncRefundsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Refund, ListRefundsResponse]:
         """
-        Lists refunds, newest first. Without filters this is every refund the caller can read; narrow it to one payment with `payment_id`, one account with `account_id`, or one buyer with `user_id`.
+        Lists refunds the caller can read, newest first. Filter by payment, account, or buyer to narrow the results.
 
         Parameters
         ----------
@@ -239,7 +239,7 @@ class AsyncRefundsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -296,7 +296,7 @@ class AsyncRefundsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

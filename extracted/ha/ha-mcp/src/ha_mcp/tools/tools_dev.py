@@ -32,23 +32,21 @@ from ..client.websocket_client import get_websocket_client
 from ..errors import ErrorCode, create_error_response
 from ..policy.editing import PolicyCaller
 from ..renamed_tools import current_tool_name
+from .coercion import JSON_STRING_COERCION
 from .component_api import (
     component_supports,
     get_component_caps,
     invalidate_caps,
     is_unknown_command,
 )
-from .config_entry_flow_form import (
-    _MISSING_DEFAULT,
-    _step_owned_submission_value,
-)
+from .config_entry_flow_form import _MISSING_DEFAULT, _step_owned_submission_value
 from .helpers import (
     exception_to_structured_error,
     log_tool_usage,
     raise_tool_error,
     register_tool_methods,
 )
-from .util_helpers import JSON_STRING_COERCION
+from .tool_hints import write_hints
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +323,7 @@ async def _fetch_server_entry_via_component(client: Any) -> dict[str, Any] | Non
         else:
             logger.warning("%s failed; fell back to legacy: %r", WS_SERVER_ENTRY, exc)
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         # HomeAssistantConnectionError / plain establish Exception → legacy probe
         # (which rides the send_websocket_message bridge).
         logger.warning(
@@ -488,7 +486,7 @@ async def abort_options_flow_quietly(client: Any, flow: dict[str, Any]) -> None:
         return
     try:
         await client.abort_options_flow(flow_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.debug("Options-flow abort failed: %s", exc)
 
 
@@ -632,7 +630,7 @@ class DevTools:
                 row["min"], row["max"] = bounds
                 sentinel = _ADVANCED_SETTINGS_SENTINELS.get(fname)
                 if sentinel is not None:
-                    row["min"] = sentinel
+                    row["off_value"] = sentinel
             choices = _ADVANCED_SETTINGS_CHOICES.get(fname)
             if choices is not None:
                 row["choices"] = list(choices)
@@ -816,11 +814,12 @@ class DevTools:
     @tool(
         name="ha_dev_manage_settings",
         tags={"Developer"},
-        annotations={
-            "openWorldHint": False,
-            "title": "Manage Server Settings (dev)",
-            "destructiveHint": True,
-        },
+        annotations=write_hints(
+            "Manage Server Settings (dev)",
+            destructive=True,
+            idempotent=False,
+            open_world=False,
+        ),
     )
     @log_tool_usage
     async def ha_dev_manage_settings(
@@ -934,7 +933,8 @@ class DevTools:
 
         Drives everything the web settings UI can change: the Server
         Settings matrix, the Tools tab, the Tool Security Policies editor,
-        and the auto-backup config. Use ha_dev_manage_server for
+        and agent-editable backup config. Snapshot Actions and Backup Read
+        Only are human-only controls. Use ha_dev_manage_server for
         the live approval queue and to restart.
 
         When NOT to use: for HA entity/automation configuration use the
@@ -976,7 +976,7 @@ class DevTools:
             return await self._apply_set_backup_config(backup)
         except ToolError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             exception_to_structured_error(
                 e,
                 context={"action": action, "setting": setting, "tool": tool},
@@ -1419,7 +1419,7 @@ class DevTools:
             return self._commit_gate(plan, data)
         except ToolError:
             raise
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             suffix = (
                 " The state/LLM-API change WAS already saved — re-run set_tool "
                 "with only gated= to finish the gate."
@@ -1608,67 +1608,23 @@ class DevTools:
 
     async def _get_backup_config(self) -> dict[str, Any]:
         """Return the auto-backup config fields (shared with the web handler)."""
-        from ..settings_ui._handlers_backups import backup_config_fields
+        from .dev_backup import dev_backup_config_fields
 
         return {
             "success": True,
             "data": {
                 "is_addon": is_running_in_addon(),
-                "fields": backup_config_fields(),
+                "fields": dev_backup_config_fields(),
             },
         }
 
     async def _apply_set_backup_config(
         self, backup: dict[str, Any] | None
     ) -> dict[str, Any]:
-        """Apply auto-backup config changes (same routing as the web UI)."""
-        from ..settings_ui._handlers_backups import (
-            _validate_backup_payload,
-            apply_backup_config,
-        )
+        """Apply backup configuration while preserving human-only controls."""
+        from .dev_backup import apply_dev_backup_config
 
-        if not isinstance(backup, dict):
-            raise_tool_error(
-                create_error_response(
-                    ErrorCode.VALIDATION_MISSING_PARAMETER,
-                    "'backup' (an object of {field: value}) is required for "
-                    "action='set_backup_config'",
-                    suggestions=[
-                        "Call ha_dev_manage_settings('get_backup_config') for "
-                        "field names"
-                    ],
-                )
-            )
-        clean, err = _validate_backup_payload(backup)
-        if err is not None:
-            raise_tool_error(
-                create_error_response(ErrorCode.VALIDATION_INVALID_PARAMETER, err)
-            )
-        response = await apply_backup_config(self._server, clean)
-        # JSONResponse.body is typed bytes | memoryview; bytes() normalizes both
-        # (no-op for bytes) so json.loads accepts it.
-        body = json.loads(bytes(response.body))
-        if response.status_code >= 400:
-            raise_tool_error(
-                create_error_response(
-                    ErrorCode.SERVICE_CALL_FAILED,
-                    self._backup_error_message(body),
-                    context={"status": response.status_code, "response": body},
-                )
-            )
-        return {"success": True, "data": body}
-
-    @staticmethod
-    def _backup_error_message(body: Any) -> str:
-        """Pull a human message out of a backup-config error response body."""
-        err = body.get("error") if isinstance(body, dict) else None
-        if isinstance(err, dict):
-            return str(
-                err.get("message") or err.get("code") or "backup config update failed"
-            )
-        if isinstance(err, str):
-            return err
-        return "backup config update failed"
+        return await apply_dev_backup_config(self._server, backup)
 
     async def _apply_setting_reset(
         self, setting: str, env_name: str, origin: str
@@ -1823,11 +1779,12 @@ class DevTools:
     @tool(
         name="ha_dev_manage_server",
         tags={"Developer"},
-        annotations={
-            "openWorldHint": True,
-            "title": "Manage MCP Server (dev)",
-            "destructiveHint": True,
-        },
+        annotations=write_hints(
+            "Manage MCP Server (dev)",
+            destructive=True,
+            idempotent=False,
+            open_world=True,
+        ),
     )
     @log_tool_usage
     async def ha_dev_manage_server(
@@ -1931,7 +1888,7 @@ class DevTools:
             return await self._decide_approval(token, approve=action == "approve")
         except ToolError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             exception_to_structured_error(
                 e,
                 context={"action": action, "channel": channel, "pip_spec": pip_spec},
@@ -1960,7 +1917,7 @@ class DevTools:
         try:
             ha_config = await self._client.get_config()
             data["ha_version"] = ha_config.get("version")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             warnings.append(f"Could not read HA version: {exc}")
         try:
             found = await find_server_config_entry(self._client)
@@ -1985,7 +1942,7 @@ class DevTools:
                         )
                     ),
                 }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             # Best-effort probe: a failure here (including the ToolError the
             # entry discovery raises on a config_entries/get failure) must
             # degrade the info report to a warning, mirroring the HA-version
@@ -2183,7 +2140,7 @@ class DevTools:
                 token=self._client.token,
                 verify_ssl=getattr(self._client, "verify_ssl", None),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "%s establishment failed; falling back to legacy: %r",
                 WS_SERVER_ENTRY_UPDATE,
@@ -2213,7 +2170,7 @@ class DevTools:
                     exc,
                 )
             return None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             # HomeAssistantConnectionError (pooled-WS drop) or a plain post-send
             # transport failure. The write is idempotent, so a legacy re-apply is
             # safe (see docstring) — fall back rather than report a phantom error.

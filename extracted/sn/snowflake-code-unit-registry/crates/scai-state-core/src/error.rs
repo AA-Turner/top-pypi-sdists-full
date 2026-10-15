@@ -217,6 +217,23 @@ pub enum Error {
         #[snafu(implicit)]
         location: snafu::Location,
     },
+
+    /// Failure inside the SQLite query index (`registry/.index/`): a failed
+    /// or rolled-back transaction, or a database that is not a usable index.
+    ///
+    /// The index is a cache of the JSON files, so registry operations recover
+    /// from these internally (rebuilding the index or reading the files) and
+    /// callers should normally never see this code.
+    ///
+    /// Carries a rendered message rather than the backend's own error type so
+    /// the backend stays an implementation detail of the public contract.
+    #[snafu(display("Storage error: {message}"))]
+    #[error_code(1024)]
+    StorageError {
+        message: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
 }
 
 impl ErrorTrace for Error {
@@ -234,7 +251,23 @@ impl From<scai_log::Error> for Error {
     }
 }
 
+impl From<rusqlite::Error> for Error {
+    #[track_caller]
+    fn from(e: rusqlite::Error) -> Self {
+        Error::storage(e.to_string())
+    }
+}
+
 impl Error {
+    /// Construct a [`StorageError`](Error::StorageError).
+    #[track_caller]
+    pub(crate) fn storage(message: impl Into<String>) -> Self {
+        StorageSnafu {
+            message: message.into(),
+        }
+        .build()
+    }
+
     /// Construct an [`InvalidPath`](Error::InvalidPath) error.
     ///
     /// Provided for binding crates that need to synthesize this variant
@@ -304,7 +337,7 @@ pub struct TraceEntry {
 
 /// Bump this when adding or removing a variant.
 #[cfg(test)]
-const EXPECTED_VARIANT_COUNT: usize = 22;
+const EXPECTED_VARIANT_COUNT: usize = 23;
 
 /// Result type alias for SCAI state operations
 pub type Result<T> = std::result::Result<T, Error>;
@@ -380,6 +413,7 @@ mod tests {
     #[test_case(SchemaMigrationSnafu { message: "failed", context: None }.build() => 1021 ; "SchemaMigrationError")]
     #[test_case(RegistrySchemaMigrationRequiredSnafu { document_version: 1i64, target_version: 2i64 }.build() => 1022 ; "RegistrySchemaMigrationRequired")]
     #[test_case(FileIoSnafu { op: "open", path: "/tmp/x" }.into_error(std::io::Error::from(std::io::ErrorKind::NotFound)) => 1023 ; "FileIoError")]
+    #[test_case(StorageSnafu { message: "disk I/O error" }.build()               => 1024 ; "StorageError")]
     fn error_code_is_stable(err: Error) -> i32 {
         err.error_code_i32()
     }

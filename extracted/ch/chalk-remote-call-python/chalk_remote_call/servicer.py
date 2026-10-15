@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pyarrow as pa
+import pyarrow.ipc as ipc
 
 from chalk_remote_call.arrow_utils import decode_ipc_stream, encode_record_batch
 from chalk_remote_call.input_transform import resolve_column_names, transform
@@ -146,18 +147,6 @@ def _run_async(coro):
     return loop.run_until_complete(coro)
 
 
-def _collect_async_gen(agen) -> list:
-    """Collect all items from an async generator synchronously."""
-
-    async def _collect():
-        items = []
-        async for item in agen:
-            items.append(item)
-        return items
-
-    return _run_async(_collect())
-
-
 def _drain_async_gen(agen, emit: Callable[[bytes], None]) -> None:
     """Drain an async generator and emit each encoded item immediately."""
 
@@ -180,49 +169,37 @@ def process_batches(
     Decodes IPC stream, transforms each batch, calls the handler,
     coerces the result, and encodes the response.
 
-    Returns a list of IPC-encoded response bytes (one per input batch).
+    Returns IPC-encoded responses (one per input batch, or per generator yield).
     When ``emit`` is provided, each encoded response is emitted immediately and
-    the returned list is empty.
+    the returned list is empty. Input batches are decoded incrementally; a
+    malformed later batch can raise after earlier handlers/responses have run.
     """
-    batches = decode_ipc_stream(ipc_bytes)
-    results = []
+    results: list[bytes] = []
+    append_or_emit = results.append if emit is None else emit
 
-    def append_or_emit(chunk: bytes) -> None:
-        if emit is None:
-            results.append(chunk)
-        else:
-            emit(chunk)
+    with ipc.open_stream(ipc_bytes) as batches:
+        for batch in batches:
+            try:
+                event = transform(batch, arg_names)
+            except Exception as e:
+                raise ValueError(f"Input transformation failed: {e}") from e
 
-    for batch in batches:
-        try:
-            event = transform(batch, arg_names)
-        except Exception as e:
-            raise ValueError(f"Input transformation failed: {e}") from e
+            with remote_function_invocation_span(context_metadata):
+                result = handler(event, context_metadata)
+                # If the handler is async, await the coroutine.
+                if inspect.iscoroutine(result):
+                    result = _run_async(result)
 
-        with remote_function_invocation_span(context_metadata):
-            result = handler(event, context_metadata)
-            # If the handler is async, await the coroutine.
-            if inspect.iscoroutine(result):
-                result = _run_async(result)
-
-            if inspect.isgenerator(result):
-                # Sync generator: encode each yielded value as a separate chunk.
-                for item in result:
-                    result_batch = _coerce_to_record_batch(item)
-                    append_or_emit(encode_record_batch(result_batch))
-            elif inspect.isasyncgen(result):
-                # Async generator: stream when possible, otherwise preserve
-                # the existing list-returning bridge contract.
-                if emit is not None:
-                    _drain_async_gen(result, emit)
-                else:
-                    for item in _collect_async_gen(result):
+                if inspect.isgenerator(result):
+                    # Sync generator: encode each yielded value as a separate chunk.
+                    for item in result:
                         result_batch = _coerce_to_record_batch(item)
-                        results.append(encode_record_batch(result_batch))
-            else:
-                result_batch = _coerce_to_record_batch(result)
-                append_or_emit(encode_record_batch(result_batch))
-
+                        append_or_emit(encode_record_batch(result_batch))
+                elif inspect.isasyncgen(result):
+                    _drain_async_gen(result, append_or_emit)
+                else:
+                    result_batch = _coerce_to_record_batch(result)
+                    append_or_emit(encode_record_batch(result_batch))
     return results
 
 

@@ -405,6 +405,54 @@ class PageInspection:
     screenshot_failures: list[ScreenshotCaptureFailure] = field(default_factory=list)
 
 
+# Cookie / consent banners cover the top of a homepage picture and say nothing about the brand. They are HIDDEN
+# (a stylesheet plus a fixed-overlay sweep), never clicked: nothing is accepted or declined on anyone's behalf.
+# Returns how many overlays were hidden; the page-scroll lock a banner sets is lifted only when one was.
+_HIDE_CONSENT_OVERLAYS_JS = r"""() => {
+  const known = [
+    '#onetrust-consent-sdk','#onetrust-banner-sdk','#CybotCookiebotDialog','#CybotCookiebotDialogBodyUnderlay',
+    '#usercentrics-root','#usercentrics-cmp-ui','.cc-window','.cc-banner','#cookie-law-info-bar','#cookie-notice',
+    '#cookiebanner','#cookie-banner','.cookie-banner','.cookie-notice','.cookie-consent','#cookie-consent',
+    '#cookieConsent','.cookieconsent','.osano-cm-window','.osano-cm-dialog','#truste-consent-track',
+    '[id^="sp_message_container"]','.fc-consent-root','.qc-cmp2-container','#didomi-host','#didomi-popup',
+    '.iubenda-cs-container','#iubenda-cs-banner','#cmpwrapper','.klaro','#hs-eu-cookie-confirmation',
+    '#gdpr-cookie-message','.gdpr-banner','#gdpr-banner','.termly-styles-root','#termly-code-snippet-support',
+    '#shopify-pc__banner','.shopify-pc__banner','#CookieBanner','.CookieConsent','#cmplz-cookiebanner-container',
+    '.cmplz-cookiebanner','#moove_gdpr_cookie_info_bar','#cookie_action_close_header','.complianz-banner',
+    '[aria-label*="cookie" i][role="dialog"]','[aria-label*="consent" i][role="dialog"]',
+    '[id*="cookie-banner" i]','[class*="cookie-banner" i]','[id*="consent-banner" i]','[class*="consent-banner" i]',
+  ];
+  let hidden = 0;
+  const hide = (el) => { if (el && el.style && el.style.display !== 'none') { el.style.setProperty('display','none','important'); hidden++; } };
+  for (const sel of known) { try { document.querySelectorAll(sel).forEach(hide); } catch (_) {} }
+  // A fixed or sticky panel that talks about cookies and offers buttons is a banner even when it is unnamed.
+  const words = /\b(cookies?|consent|gdpr|ccpa|your privacy|privacy (choices|preferences|settings))\b/i;
+  for (const el of document.body ? document.body.querySelectorAll('div,section,aside,dialog,form') : []) {
+    const cs = getComputedStyle(el);
+    if ((cs.position !== 'fixed' && cs.position !== 'sticky') || cs.display === 'none' || cs.visibility === 'hidden') continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 200 || r.height < 30 || r.height > innerHeight * 0.9) continue;
+    const text = (el.innerText || '').slice(0, 600);
+    if (words.test(text) && el.querySelector('button,[role=button],a') && !el.closest('header,nav')) hide(el);
+  }
+  if (hidden) {
+    for (const el of [document.documentElement, document.body]) {
+      if (el) { el.style.setProperty('overflow','auto','important'); el.style.setProperty('position','static','important'); }
+    }
+  }
+  return hidden;
+}"""
+
+
+async def hide_consent_overlays(page: Any) -> int:
+    """Hide cookie / consent banners before a screenshot. Best effort: a page that refuses is captured as it is."""
+    try:
+        return int(await page.evaluate(_HIDE_CONSENT_OVERLAYS_JS) or 0)
+    except Exception as exc:  # noqa: BLE001 — never stops the capture
+        logger.debug("consent overlay hiding skipped: %s", exc)
+        return 0
+
+
 async def capture_screenshots(
     page: Any,
     *,
@@ -441,6 +489,7 @@ async def capture_screenshots(
     # stopping early is what produced near-blank homepage frames.
     await wait_until_painted(page)
     await asyncio.sleep(0.3)  # one settle for the whole set, not one per kind
+    await hide_consent_overlays(page)
     # The caller has already completed its bounded DOM settle and recipe (the
     # backlink recipe highlights + centers the target here). Freeze the
     # rendered evidence before asking Chrome to rasterize it; third-party
@@ -585,7 +634,10 @@ class PlaywrightBrowserPool:
         os.environ[PLAYWRIGHT_SKIP_FONT_READY_ENV] = "1"
         self._playwright = await async_playwright().start()
         for _ in range(self._pool_size):
-            browser = await self._playwright.chromium.launch(headless=True)
+            # --disable-dev-shm-usage: a container's /dev/shm is 64 MB by default and five Chromiums share it;
+            # without the flag Chromium's shared-memory use stalls or crashes under load (the standard container
+            # setting, the remedy for slow renders in production versus a laptop).
+            browser = await self._playwright.chromium.launch(headless=True, args=["--disable-dev-shm-usage"])
             self._browsers.append(browser)
             self._queue.put_nowait(browser)
         logger.info("PlaywrightBrowserPool started with %d browsers", self._pool_size)
@@ -1002,6 +1054,7 @@ class PlaywrightBrowserPool:
         settle_seconds: float = INSPECT_SETTLE_SECONDS,
         hard_budget_seconds: float = INSPECT_HARD_BUDGET_SECONDS,
         exact: ExactCaptureSpec | None = None,
+        pictures_only: bool = False,
     ) -> PageInspection:
         """Navigate and report what the BROWSER saw — errors, DOM probes, shots.
 
@@ -1026,6 +1079,11 @@ class PlaywrightBrowserPool:
         title, final URL and the DOM probes come from the FIRST profile's
         navigation so the result is deterministic.
         """
+        if pictures_only:
+            # The caller wants the pictures, not a render verdict: no wait for the network to go quiet (analytics
+            # never do) and a short settle. The capture itself still waits until real content has painted.
+            network_idle_timeout_ms = 0
+            settle_seconds = min(settle_seconds, 0.4)
         kinds = list(kinds or [])
         # No screenshots requested still means one real navigation — the
         # console/DOM evidence IS the product of this call.
@@ -1086,13 +1144,17 @@ class PlaywrightBrowserPool:
                         ),
                     )
                     try:
-                        response = await page.goto(url, timeout=nav_timeout_ms, wait_until="load")
-                        try:
-                            await page.wait_for_load_state(
-                                "networkidle", timeout=network_idle_timeout_ms
-                            )
-                        except Exception:
-                            pass  # best-effort — analytics beacons never go quiet
+                        response = await page.goto(
+                            url, timeout=nav_timeout_ms,
+                            wait_until="domcontentloaded" if pictures_only else "load",
+                        )
+                        if network_idle_timeout_ms > 0:
+                            try:
+                                await page.wait_for_load_state(
+                                    "networkidle", timeout=network_idle_timeout_ms
+                                )
+                            except Exception:
+                                pass  # best-effort — analytics beacons never go quiet
                         await asyncio.sleep(settle_seconds)
 
                         if is_primary:
@@ -1137,8 +1199,13 @@ class PlaywrightBrowserPool:
                 self.release(browser)
 
         async def _run_all() -> None:
-            for index, (profile, profile_kinds) in enumerate(groups):
-                await _run_profile(profile, profile_kinds, is_primary=index == 0)
+            # One pooled browser per device profile, all at once: desktop and mobile were two navigations run
+            # one after the other (their waits added up); now the slowest one is the whole cost. The first
+            # profile still owns status / title / probes.
+            await asyncio.gather(*(
+                _run_profile(profile, profile_kinds, is_primary=index == 0)
+                for index, (profile, profile_kinds) in enumerate(groups)
+            ))
 
         try:
             await asyncio.wait_for(_run_all(), timeout=hard_budget_seconds)

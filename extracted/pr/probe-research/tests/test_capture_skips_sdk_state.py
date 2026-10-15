@@ -26,6 +26,15 @@ import pytest
 
 from probe.sdk import homedir, inputs, journal
 from tests.conftest import make_client, open_run
+from tests.conftest import _WS_MINE
+
+
+@pytest.fixture(autouse=True)
+def _set_up_computer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A computer whose setup picked its workspace (the fake seeds two, and an
+    unaddressed create in a team with several is refused)."""
+    monkeypatch.setenv("PROBE_WORKSPACE", _WS_MINE)
+
 
 UID = os.getuid()
 #: `owndirs.REASON`, spelled out: the capture tests must run (and fail) on a
@@ -172,6 +181,7 @@ def test_the_output_sweep_never_takes_an_sdk_file(app, work):
 
 _CHILD = """
 import probe
+
 run = probe.init(project="tmpjob", name="r")
 probe.log({"loss": 0.5}, step=0)
 probe.finish()

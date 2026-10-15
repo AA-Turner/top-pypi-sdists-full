@@ -32,12 +32,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, success
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from matrx_ai._ext import has_ext
 from matrx_ai.graph_nodes.agent_action import (
@@ -72,6 +73,14 @@ class MandateStartStrictInput(AgentRunCommonInput):
     model_config = ConfigDict(extra="forbid")
 
     mandate_key: str = mandate_key_field(required=True)
+    #: THE STATE AT THE CALL POINT: every value the mandate's provision offers, by its offered name
+    #: (Arman, 2026-10-14). The mandate's BINDING decides what the doer receives: which values, joined
+    #: how, under which of its own variable names. Nothing upstream shapes values for one agent.
+    provision_values: dict[str, Any] | None = Field(
+        default=None,
+        description=("Every value the mandate's provision offers at this point, by offered name. The "
+                     "mandate's binding picks and joins them into the doer's inputs."),
+    )
 
 
 class MandateStartInput(MandateStartStrictInput):
@@ -83,6 +92,47 @@ class MandateStartInput(MandateStartStrictInput):
     """
 
     model_config = ConfigDict(extra="allow")
+
+
+def _state_as_extras(inputs: MandateStartInput) -> MandateStartInput:
+    """A workflow Holder takes the state on its own input surface: the provision values ride as the supplied
+    offer (by offered name) and the workflow runner applies the mandate's binding to them."""
+    if inputs.provision_values is None:
+        return inputs
+    extras = dict(inputs.model_extra or {})
+    return MandateStartInput.model_validate(
+        {**inputs.model_dump(exclude={"provision_values"}, exclude_none=True), **inputs.provision_values, **extras}
+    )
+
+
+async def _bind_provision_values(inputs: MandateStartInput, resolved: Any) -> MandateStartInput:
+    """Run the step's provision values (THE STATE at the point) through the mandate's BINDING (the host's
+    one consumption pipeline): the variables the doer runs on replace the raw state. Edge-fed variables
+    (top-level extras) still ride beside them; a binding variable of the same name wins.
+
+    Without ``provision_values`` the step behaves exactly as before. It REFUSES, never runs unbound, when:
+    the point handed an empty state (nothing was captured), the host offers no pipeline, or the mandate has
+    no binding map — the default pin would hand the doer every value of the state by name.
+    """
+    supplied = inputs.provision_values
+    if supplied is None:
+        return inputs
+    where = f"{_NODE_TYPE}: mandate {inputs.mandate_key!r}"
+    if not supplied:
+        raise ValueError(f"{where} was handed an empty state — the point before it captured nothing, so "
+                         "there is nothing to bind. See that step's error.")
+    materialize = getattr(resolved, "materialize", None)
+    if materialize is None:
+        raise ValueError(f"{where} was handed its provision values, but this host offers no consumption "
+                         "pipeline to apply the mandate's binding — the doer cannot receive the state unbound.")
+    if not getattr(resolved, "consumption_map", None):
+        raise ValueError(f"{where} has no binding map: the whole state would reach the doer by name. Bind the "
+                         "doer's inputs on the mandate's Binding tab (its default consumption map).")
+    variables = await materialize(dict(supplied))
+    extras = dict(inputs.model_extra or {})
+    return MandateStartInput.model_validate(
+        {**inputs.model_dump(exclude={"provision_values"}, exclude_none=True), **extras, **variables}
+    )
 
 
 @register_node(
@@ -143,10 +193,11 @@ async def _mandate_start_body(
     declared_variables = list(getattr(config, "exposed_variables", None) or [])
     if isinstance(resolved, StepWorkflowMandate):
         return await _run_workflow_held_mandate(
-            ctx, inputs, resolved, declared_variables=declared_variables
+            ctx, _state_as_extras(inputs), resolved, declared_variables=declared_variables
         )
     limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
     inputs.max_iterations = limit.value
+    inputs = await _bind_provision_values(inputs, resolved)
     request = build_agent_request(
         ctx,
         inputs,
@@ -155,6 +206,23 @@ async def _mandate_start_body(
         declared_variables=declared_variables,
         variable_sources=dict(getattr(config, "variable_sources", None) or {}),
     )
+    # AI TEST MODE — the host may answer this exact step from a recorded test baseline (opt-in per
+    # test session only; ``mandate_taps.MandateReplay``). Not installed / real mode → None → real run.
+    from matrx_ai.mandate_taps import replay_lookup, replay_store
+
+    run_id = getattr(ctx, "run_id", None)
+    fingerprint = {
+        "inputs": inputs.model_dump(mode="json", exclude_none=True),
+        "agent_id": resolved.agent_id,
+        "is_version": resolved.is_version,
+        "config_overrides": resolved.config_overrides or {},
+        "declared_variables": declared_variables,
+        "variable_sources": dict(getattr(config, "variable_sources", None) or {}),
+    }
+    replayed = await replay_lookup("workflow_step", inputs.mandate_key, run_id, fingerprint)
+    if replayed is not None:
+        return success(AiExecutionResult.model_validate(replayed))
+
     completed = await run_step_agent(
         ctx, resolved.agent_id, request, mandate_key=inputs.mandate_key
     )
@@ -163,6 +231,8 @@ async def _mandate_start_body(
     # (a compiled Orchestra whose final step IS the result). Pass it through.
     if isinstance(completed, AiExecutionResult):
         completed.metadata.setdefault("agent_id", resolved.agent_id)
+        await replay_store("workflow_step", inputs.mandate_key, run_id, fingerprint,
+                           completed.model_dump(mode="json"))
         return success(completed)
     result = await asyncio.to_thread(normalize_completed_result, completed)
     # WHO did the job: the doer the database resolved for this run (a research
@@ -170,4 +240,6 @@ async def _mandate_start_body(
     payload = getattr(result, "result", None)
     if isinstance(payload, AiExecutionResult):
         payload.metadata["agent_id"] = resolved.agent_id
+        await replay_store("workflow_step", inputs.mandate_key, run_id, fingerprint,
+                           payload.model_dump(mode="json"))
     return limit.name_on(result)

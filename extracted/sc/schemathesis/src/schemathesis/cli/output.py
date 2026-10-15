@@ -461,10 +461,11 @@ def display_test_cases(test_cases: TestCasesSummary) -> None:
     parts = [f"  {click.style(str(test_cases.generated), bold=True)} generated"]
 
     if test_cases.without_checks + test_cases.errored != test_cases.generated:
-        if test_cases.unique_failures > 0:
+        unique = test_cases.unique_failures
+        if unique > 0:
             parts.append(
                 f"{click.style(str(test_cases.with_failures), bold=True)} found "
-                f"{click.style(str(test_cases.unique_failures), bold=True)} unique failures"
+                f"{click.style(str(unique), bold=True)} unique failure{'' if unique == 1 else 's'}"
             )
         else:
             parts.append(f"{click.style(str(test_cases.generated), bold=True)} passed")
@@ -538,7 +539,7 @@ def display_fatal_error(
             suggestion = LOADER_ERROR_SUGGESTIONS.get(event.exception.kind)
             if suggestion is not None:
                 suggestion = re.sub(r"`[^`]+`", lambda match: _bold(match.group()), suggestion)
-                click.echo(_style(f"{click.style('Tip:', bold=True, fg='green')} {suggestion}"))
+                click.echo(_style(f"{click.style('Tip:', bold=True, fg='green')} {suggestion}\n"))
 
         raise click.Abort
 
@@ -551,7 +552,7 @@ def display_fatal_error(
         for extra in split_traceback(info.traceback):
             console.print(Indent(Text(extra), left=5, right=0))
         console.print()
-        click.echo(f"For more information on how to work with hooks, visit {EXTENSIONS_DOCUMENTATION_URL}")
+        click.echo(f"For more information on how to work with hooks, visit {EXTENSIONS_DOCUMENTATION_URL}\n")
         raise click.Abort
 
     traceback = format_exception(event.exception, with_traceback=True)
@@ -561,5 +562,5 @@ def display_fatal_error(
     click.echo()
     click.echo(DEFAULT_INTERNAL_ERROR_MESSAGE)
     _display_extras(extras)
-    click.echo(_style(f"\n{click.style('Tip:', bold=True, fg='green')} {suggestion}"))
+    click.echo(_style(f"\n{click.style('Tip:', bold=True, fg='green')} {suggestion}\n"))
     raise click.Abort

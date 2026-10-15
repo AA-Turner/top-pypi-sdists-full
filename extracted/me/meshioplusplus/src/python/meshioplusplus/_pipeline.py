@@ -76,6 +76,7 @@ from ._split import split
 from ._subdivide import subdivide
 from ._surface import extract_surface
 from ._tensor_invariants import tensor_invariants
+from ._tessellation import tessellate
 from ._transform import transform
 from ._undo_green import undo_green
 from ._voxelize import voxelize
@@ -184,6 +185,12 @@ _OP_TABLE = {
         "Types",
         "MeshDeflection",
         "MaxDemotionRounds",
+        "Freeform",
+        "FreeformDegree",
+        "FreeformMaxControl",
+        "FreeformSplit",
+        "Fillets",
+        "Threads",
     ),
     "EditRegions": ("Edit", "Inputs", "Output", "Kind", "Dim", "Tag", "KeepInputs"),
     "RegionAdjacency": ("Regions",),
@@ -348,6 +355,7 @@ _OP_TABLE = {
     ),
     "ConvertCells": ("Mode", "RecordParentIds"),
     "Subdivide": ("RecordParentIds",),
+    "Tessellate": ("Levels", "Curved", "Fields", "RecordStencil"),
     "Agglomerate": (
         "TargetGroupSize",
         "MergeCoplanarFaces",
@@ -1034,6 +1042,12 @@ def _apply_step(mesh, step, steps, warnings):
             types=types,
             mesh_deflection=deflection if deflection > 0.0 else None,
             max_demotion_rounds=int(_number(step, "MaxDemotionRounds", 8.0)),
+            freeform=_flag(step, "Freeform", True),
+            freeform_degree=int(_number(step, "FreeformDegree", 3.0)),
+            freeform_max_control=int(_number(step, "FreeformMaxControl", 64.0)),
+            freeform_split=_flag(step, "FreeformSplit", True),
+            fillets=_flag(step, "Fillets", True),
+            threads=_flag(step, "Threads", True),
             return_report=True,
         )
         entry["Valid"] = 1.0 if report["valid"] else 0.0
@@ -1041,6 +1055,13 @@ def _apply_step(mesh, step, steps, warnings):
         entry["MaxDeviation"] = report["max_deviation"]
         entry["NumFaces"] = report["num_faces"]
         entry["NumFacetedFaces"] = report["num_faceted_faces"]
+        entry["NumBspline"] = report["num_bspline"]
+        entry["NumSplitPatches"] = report["num_split_patches"]
+        entry["NumFillet"] = report["num_fillet"]
+        entry["NumHelical"] = report["num_helical"]
+        entry["NumVariableFillet"] = report["num_variable_fillet"]
+        entry["NumBlend"] = report["num_blend"]
+        entry["NumRoundedThread"] = report["num_rounded_thread"]
         entry["NumDemoted"] = report["num_demoted"]
     elif op == "Snapshot":
         # A side output, not a transform: the mesh passes through untouched and
@@ -1373,6 +1394,25 @@ def _apply_step(mesh, step, steps, warnings):
         mesh = subdivide(
             mesh,
             record_parent_ids=_flag(step, "RecordParentIds", False),
+        )
+    elif op == "Tessellate":
+        tess = tessellate(
+            mesh,
+            levels=int(_number(step, "Levels", 2.0)),
+            curved=_flag(step, "Curved", True),
+            fields=_flag(step, "Fields", True),
+            record_stencil=_flag(step, "RecordStencil", False),
+        )
+        mesh = tess.mesh
+        schema = tess.schema
+        entry["NumCurvedSourceCells"] = float(schema["num_curved_source_cells"])
+        entry["NumPassThroughSourceCells"] = float(
+            schema["num_pass_through_source_cells"]
+        )
+        entry["NumPoints"] = float(schema["num_points"])
+        entry["NumCells"] = float(schema["num_cells"])
+        entry["NumFacetsWithBadCount"] = float(
+            schema["watertight"]["num_facets_with_bad_count"]
         )
     elif op == "Agglomerate":
         mesh, report = agglomerate(

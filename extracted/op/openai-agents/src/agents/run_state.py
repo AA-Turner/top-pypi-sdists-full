@@ -43,6 +43,8 @@ from ._run_state_agent_identity import (
     _build_agent_identity_map,
     _build_agent_map,
     _get_ambiguous_agent_ids,
+    _has_ambiguous_hook_identities,
+    _has_legacy_hook_identity_ambiguity,
     _iter_agent_graph,
 )
 from ._tool_identity import (
@@ -66,6 +68,7 @@ from .agent import Agent
 from .exceptions import (
     ModelBehaviorError,
     UserError,
+    _detach_source_exception_traceback,
     _mark_error_data_redacted,
     _prepare_data_redacted_error,
     _raise_data_redacted_error,
@@ -110,6 +113,7 @@ from .logger import (
 from .run_context import RunContextWrapper, _ApprovalRecord, _FunctionToolApprovalKey
 from .run_internal.items import (
     NestedHistoryOwnedItemRef,
+    ReasoningItemIdPolicy,
     digest_input_item,
     ensure_nested_history_run_item_occurrence_key,
     nested_history_run_item_occurrence_key,
@@ -168,6 +172,13 @@ RunStateValidationErrorFactory = Callable[
 ]
 
 
+class _HeldCurrentResponse(TypedDict):
+    """The current logical turn's suffix within an ordered withheld batch."""
+
+    turn: int
+    start: int
+
+
 class _SessionCompactionModelExchange(TypedDict):
     """Digests of one successful model exchange and its resolved replay policy."""
 
@@ -176,12 +187,35 @@ class _SessionCompactionModelExchange(TypedDict):
 
 
 class _PendingSessionWrite(TypedDict):
-    """One canonical resumed-output append awaiting acknowledgement."""
+    """One canonical resumed-output append awaiting acknowledgement.
+
+    ``held`` marks a batch the interruption park withheld because the agent's output
+    guardrails had not approved the turn yet. A held batch was never offered to the
+    Session, so ``before`` stays ``None`` until a gate-legal exit starts settling it;
+    from that point it is an ordinary pending write and the digest reconciliation
+    recovers a half-acknowledged append. Absent or ``False`` keeps the released
+    meaning: an append already approved for eager settlement on resume entry.
+
+    ``response_id`` records the model response the withheld batch belongs to, and
+    ``store`` the store setting that response was produced under, so the settle runs
+    the same compaction bookkeeping the ordinary persistence path would have run for
+    it instead of appending behind its back.
+
+    ``reasoning_item_id_policy`` records how the batch's items were converted, so a
+    detached re-park folds new items under the same conversion: a Conversations-origin
+    batch preserves server reasoning ids even when the resuming run's own policy would
+    omit them, and an id stripped at registration cannot be restored at the settle.
+
+    ``current_response`` identifies the suffix owned by the current logical turn.
+    Filtering or reconstructing that response must not alter earlier held history.
+    The boundary survives rejected approvals and serialized retries.
+    """
 
     session_id: str
     items: list[TResponseInputItem]
     before: list[str] | None
     persisted_count: int
+    held: NotRequired[bool]
     # Once acknowledged, only compaction remains; its replacement can change the history.
     append_acknowledged: NotRequired[bool]
     compaction_model_exchange: NotRequired[_SessionCompactionModelExchange]
@@ -193,6 +227,8 @@ class _PendingSessionWrite(TypedDict):
     response_id: NotRequired[str | None]
     store: NotRequired[bool | None]
     has_local_tool_outputs: NotRequired[bool]
+    reasoning_item_id_policy: NotRequired[ReasoningItemIdPolicy | None]
+    current_response: NotRequired[_HeldCurrentResponse]
 
 
 def _default_run_state_validation_error(
@@ -209,10 +245,13 @@ def _default_run_state_validation_error(
 # 3. to_json() always emits CURRENT_SCHEMA_VERSION.
 # 4. Forward compatibility is intentionally fail-fast (older SDKs reject newer or unsupported
 #    versions).
-CURRENT_SCHEMA_VERSION = "1.18"
+CURRENT_SCHEMA_VERSION = "1.21"
 _PROGRAMMATIC_TOOL_CALLING_MIN_SCHEMA_VERSION = "1.13"
 _HOSTED_MCP_APPROVALS_MIN_SCHEMA_VERSION = "1.14"
 _CURRENT_RESPONSE_OWNERSHIP_MIN_SCHEMA_VERSION = "1.17"
+_PENDING_WRITE_COMPACTION_MIN_SCHEMA_VERSION = "1.18"
+_HELD_PENDING_SESSION_WRITE_MIN_SCHEMA_VERSION = "1.19"
+_TOOL_OUTPUT_GUARDRAIL_BOUNDARY_MIN_SCHEMA_VERSION = "1.20"
 # Keep this mapping in chronological order. Every schema bump must add a one-line summary here.
 SCHEMA_VERSION_SUMMARIES: dict[str, str] = {
     "1.0": "Initial RunState snapshot format for HITL pause/resume flows.",
@@ -255,6 +294,16 @@ SCHEMA_VERSION_SUMMARIES: dict[str, str] = {
         "Session writes, including acknowledgement and model-exchange evidence for "
         "compaction retry, and records named Vercel sandboxes alongside exact execution IDs."
     ),
+    "1.19": (
+        "Persists the interrupted turn's withheld Session write as a held pending write, "
+        "with the conversion policy its items were registered under and the current-response "
+        "boundary, so an approval resume can settle it under the output-guardrail gate."
+    ),
+    "1.20": (
+        "Persists the pending tool output guardrail result boundary so a resumed run withholds "
+        "current-response diagnostics until its terminal guardrails complete."
+    ),
+    "1.21": "Makes duplicate-agent identity independent of mutable hook instance state.",
 }
 SUPPORTED_SCHEMA_VERSIONS = frozenset(SCHEMA_VERSION_SUMMARIES)
 
@@ -500,7 +549,9 @@ def _copy_pydantic_value(
                 if normalized_field_name in allowed_fields_set:
                     copied_fields_set.add(normalized_field_name)
 
-            copied_model = declared_model_type.model_construct(
+            # The OpenAI override expects wire aliases; these copied keys are field names.
+            copied_model = cast(Any, BaseModel.model_construct).__func__(
+                declared_model_type,
                 _fields_set=set(copied_fields_set),
                 **copied_fields,
                 **copied_extra,
@@ -617,7 +668,8 @@ def _validate_declared_payload(
     """Validate a declared payload after filling only missing required values."""
     while True:
         try:
-            return model_adapter.validate_python(explicit)
+            # Approval snapshots are dumped with Python field names, including aliased fields.
+            return model_adapter.validate_python(explicit, by_name=True)
         except ValidationError as error:
             filled_missing_value = False
             for detail in error.errors(
@@ -778,7 +830,7 @@ def _copy_tool_approval_raw_item(raw_item: Any) -> Any:
             copied_realized,
             copied_baseline,
         )
-        validated_model = model_adapter.validate_python(merged)
+        validated_model = model_adapter.validate_python(merged, by_name=True)
         _restore_pydantic_fields_set(validated_model, copied_raw_item)
         return validated_model
     if dict in raw_item_mro:
@@ -1025,16 +1077,23 @@ class RunState(Generic[TContext, TAgent]):
             if self._current_agent is None:
                 raise UserError("Cannot add input to a RunState without a current agent")
             tool_use_behavior = self._current_agent.tool_use_behavior
-            interrupted_tool_names = {
+            response_tool_names = {
                 item.tool_name
                 for item in self._current_step.interruptions
                 if item.tool_name is not None
             }
+            # Completed siblings also participate in the resumed turn's final-output decision.
+            # A pending handoff takes precedence and continues with the receiving agent instead.
+            if (
+                self._last_processed_response is not None
+                and not self._last_processed_response.handoffs
+            ):
+                for function_run in self._last_processed_response.functions:
+                    response_tool_names.add(function_run.function_tool.name)
+                    response_tool_names.add(function_run.function_tool.qualified_name)
             stops_before_next_model = tool_use_behavior == "stop_on_first_tool" or (
                 isinstance(tool_use_behavior, dict)
-                and bool(
-                    interrupted_tool_names & set(tool_use_behavior.get("stop_at_tool_names", []))
-                )
+                and bool(response_tool_names & set(tool_use_behavior.get("stop_at_tool_names", [])))
             )
             if stops_before_next_model or callable(tool_use_behavior):
                 raise UserError(
@@ -1068,7 +1127,7 @@ class RunState(Generic[TContext, TAgent]):
                     )
                 )
         except Exception as error:
-            _prepare_data_redacted_error(error)
+            _detach_source_exception_traceback(error)
             copy_error = UserError(
                 "Cannot safely copy pending tool approvals. Ensure each interruption uses a "
                 "supported tool call or contains only JSON-compatible mapping data."
@@ -1679,23 +1738,27 @@ class RunState(Generic[TContext, TAgent]):
             )
 
         if dataclasses.is_dataclass(raw_context_payload):
-            serialized = dataclasses.asdict(cast(Any, raw_context_payload))
-            if not isinstance(serialized, Mapping):
-                raise UserError("RunState dataclass context must serialize to a mapping.")
-            # Dataclass instances serialize to dicts, so reconstruction requires a deserializer.
-            logger.warning(
-                "RunState context was serialized from a dataclass. "
-                "Provide context_deserializer or context_override to restore the original type."
-            )
-            return (
-                dict(serialized),
-                _build_context_meta(
-                    raw_context_payload,
-                    serialized_via="asdict",
-                    requires_deserializer=True,
-                    omitted=False,
-                ),
-            )
+            try:
+                serialized = dataclasses.asdict(cast(Any, raw_context_payload))
+                # Copyable dataclass fields are not necessarily JSON serializable.
+                json.dumps(serialized)
+            except (TypeError, ValueError):
+                pass  # Use the same omission fallback as other unsupported contexts.
+            else:
+                # Dataclass instances become dicts, so restoring the type needs a deserializer.
+                logger.warning(
+                    "RunState context was serialized from a dataclass. "
+                    "Provide context_deserializer or context_override to restore the original type."
+                )
+                return (
+                    serialized,
+                    _build_context_meta(
+                        raw_context_payload,
+                        serialized_via="asdict",
+                        requires_deserializer=True,
+                        omitted=False,
+                    ),
+                )
 
         # Fall back to an empty dict so the run state remains serializable, but
         # explicitly warn because the original context will be unavailable on restore.
@@ -1854,12 +1917,22 @@ class RunState(Generic[TContext, TAgent]):
             A dictionary representation of the run state.
 
         Raises:
-            UserError: If required state (agent, context) is missing.
+            UserError: If required state (agent, context) is missing, or same-name agents
+                cannot be distinguished without hook instance attributes. Use unique agent
+                names before starting a persistable run in that case.
         """
         if self._current_agent is None:
             raise UserError("Cannot serialize RunState: No current agent")
         if self._context is None:
             raise UserError("Cannot serialize RunState: No context")
+
+        if self._starting_agent is not None and _has_ambiguous_hook_identities(
+            self._starting_agent
+        ):
+            raise UserError(
+                "RunState cannot distinguish same-name agents without hook instance state. "
+                "Use unique agent names before starting a persistable run."
+            )
 
         approvals_dict = self._serialize_approvals()
         tool_invocations = self._serialize_tool_invocations()
@@ -2031,7 +2104,7 @@ class RunState(Generic[TContext, TAgent]):
             if isinstance(interruption, ToolApprovalItem)
         ]
 
-        return {
+        result: dict[str, Any] = {
             "new_items": [
                 self._serialize_item(item, agent_identity_keys_by_id=agent_identity_keys_by_id)
                 for item in processed_response.new_items
@@ -2044,6 +2117,11 @@ class RunState(Generic[TContext, TAgent]):
                 for call_id, binding in processed_response.mcp_tool_bindings.items()
             },
         }
+        if processed_response.tool_output_guardrail_result_start is not None:
+            result["tool_output_guardrail_result_start"] = (
+                processed_response.tool_output_guardrail_result_start
+            )
+        return result
 
     def _serialize_current_step(self) -> dict[str, Any] | None:
         """Serialize the current resumable step."""
@@ -2268,6 +2346,12 @@ class RunState(Generic[TContext, TAgent]):
         server and apply authorized approval decisions to that server-owned state instead.
         Neither `context_override` nor `strict_context` verifies snapshot integrity.
 
+        Hook instance attributes do not identify agents in schema 1.21 or later.
+        Same-name agents that cannot be distinguished without those attributes are
+        rejected. Older snapshots are rejected if hook state could have changed
+        their identity ordering. Use unique names before starting new persistable
+        runs; renaming agents does not repair an ambiguous existing checkpoint.
+
         Executing pending local MCP calls requires recipient bindings written by schema 1.18
         or later.
         Keep the application's MCP server configuration and ordering unchanged when resuming.
@@ -2294,7 +2378,7 @@ class RunState(Generic[TContext, TAgent]):
             state_json = json.loads(state_string)
         except json.JSONDecodeError as error:
             state_string = "<redacted>"
-            _prepare_data_redacted_error(error)
+            _detach_source_exception_traceback(error)
             parse_error = UserError("Failed to parse run state JSON")
         except BaseException as error:
             state_string = "<redacted>"
@@ -2355,6 +2439,12 @@ class RunState(Generic[TContext, TAgent]):
         Do not pass client-supplied state directly to this method. Keep the snapshot on the
         server and apply authorized approval decisions to that server-owned state instead.
         Neither `context_override` nor `strict_context` verifies snapshot integrity.
+
+        Hook instance attributes do not identify agents in schema 1.21 or later.
+        Same-name agents that cannot be distinguished without those attributes are
+        rejected. Older snapshots are rejected if hook state could have changed
+        their identity ordering. Use unique names before starting new persistable
+        runs; renaming agents does not repair an ambiguous existing checkpoint.
 
         Executing pending local MCP calls requires recipient bindings written by schema 1.18
         or later.
@@ -3270,7 +3360,7 @@ async def _deserialize_processed_response(
 
     def _parse_apply_patch_call(data: dict[str, Any]) -> Any:
         try:
-            return ResponseFunctionToolCall(**data)
+            return ResponseFunctionToolCall.model_validate(data, by_name=True)
         except Exception:
             return data
 
@@ -3325,7 +3415,10 @@ async def _deserialize_processed_response(
                     dict(tool_call_data_raw) if isinstance(tool_call_data_raw, Mapping) else {}
                 )
                 try:
-                    tool_call = ResponseFunctionToolCall(**tool_call_data)
+                    # RunState stores Python field names, including alias-only provider fields.
+                    tool_call = ResponseFunctionToolCall.model_validate(
+                        tool_call_data, by_name=True
+                    )
                 except Exception:
                     continue
                 _ensure_restored_tool_call_allowed(
@@ -3364,7 +3457,7 @@ async def _deserialize_processed_response(
                 "handoffs",
                 "handoff",
                 handoffs_map,
-                lambda data: ResponseFunctionToolCall(**data),
+                lambda data: ResponseFunctionToolCall.model_validate(data, by_name=True),
                 lambda tool_call, handoff: ToolRunHandoff(tool_call=tool_call, handoff=handoff),
                 _resolve_handoff_tool_name,
             ),
@@ -3507,6 +3600,10 @@ async def _deserialize_processed_response(
         if isinstance(binding, list)
     }
 
+    guardrail_start = processed_response_data.get("tool_output_guardrail_result_start")
+    if guardrail_start is not None and (type(guardrail_start) is not int or guardrail_start < 0):
+        raise validation_error_factory("Invalid tool output guardrail result boundary", UserError)
+
     return ProcessedResponse(
         new_items=new_items,
         handoffs=handoffs,
@@ -3520,6 +3617,7 @@ async def _deserialize_processed_response(
         mcp_approval_requests=mcp_approval_requests,
         interruptions=interruptions,
         mcp_tool_bindings=mcp_tool_bindings,
+        tool_output_guardrail_result_start=guardrail_start,
     )
 
 
@@ -3532,7 +3630,7 @@ def _deserialize_tool_call_raw_item(normalized_raw_item: Mapping[str, Any]) -> A
 
     if tool_type == "function_call":
         try:
-            return ResponseFunctionToolCall(**normalized_raw_item)
+            return ResponseFunctionToolCall.model_validate(normalized_raw_item, by_name=True)
         except Exception:
             return normalized_raw_item
 
@@ -3546,7 +3644,7 @@ def _deserialize_tool_call_raw_item(normalized_raw_item: Mapping[str, Any]) -> A
         return normalized_raw_item
 
     try:
-        return ResponseFunctionToolCall(**normalized_raw_item)
+        return ResponseFunctionToolCall.model_validate(normalized_raw_item, by_name=True)
     except Exception:
         return normalized_raw_item
 
@@ -4102,6 +4200,22 @@ async def _build_run_state_from_json(
             UserError,
         )
 
+    if (schema_major, schema_minor) < (1, 21) and _has_legacy_hook_identity_ambiguity(
+        initial_agent
+    ):
+        raise validation_error_factory(
+            "Cannot safely restore legacy duplicate-agent identities with hooks. "
+            "Start a new run with unique agent names; the saved hook ordering is unavailable.",
+            UserError,
+        )
+
+    if _has_ambiguous_hook_identities(initial_agent):
+        raise validation_error_factory(
+            "RunState cannot distinguish same-name agents without hook instance state. "
+            "Use unique agent names before starting a persistable run.",
+            UserError,
+        )
+
     agent_identity_map = _build_agent_identity_map(initial_agent)
     agent_map = _build_agent_map(initial_agent)
 
@@ -4290,6 +4404,16 @@ async def _build_run_state_from_json(
 
     last_processed_response_data = state_json.get("last_processed_response")
     if last_processed_response_data and state._context is not None:
+        if last_processed_response_data.get("tool_output_guardrail_result_start") is not None and (
+            schema_major,
+            schema_minor,
+        ) < tuple(
+            int(part)
+            for part in _TOOL_OUTPUT_GUARDRAIL_BOUNDARY_MIN_SCHEMA_VERSION.split(".", maxsplit=1)
+        ):
+            raise validation_error_factory(
+                "Run state tool output guardrail result boundary requires schema 1.20.", UserError
+            )
         program_call_ids, completed_program_call_ids = _run_state_program_call_ids(state_json)
         state._last_processed_response = await _deserialize_processed_response(
             last_processed_response_data,
@@ -4454,9 +4578,20 @@ async def _build_run_state_from_json(
     state._tool_input_guardrail_results = _deserialize_tool_input_guardrail_results(
         state_json.get("tool_input_guardrail_results", [])
     )
+    serialized_tool_output_results = state_json.get("tool_output_guardrail_results", []) or []
     state._tool_output_guardrail_results = _deserialize_tool_output_guardrail_results(
-        state_json.get("tool_output_guardrail_results", [])
+        serialized_tool_output_results
     )
+    if state._last_processed_response is not None:
+        result_start = state._last_processed_response.tool_output_guardrail_result_start
+        if result_start is not None and (
+            result_start > len(state._tool_output_guardrail_results)
+            or len(state._tool_output_guardrail_results) != len(serialized_tool_output_results)
+        ):
+            # Dropping a serialized entry shifts every following result's boundary.
+            raise validation_error_factory(
+                "Invalid tool output guardrail result boundary", UserError
+            )
 
     current_step_data = state_json.get("current_step")
     if current_step_data and current_step_data.get("type") == "next_step_run_again":
@@ -4519,10 +4654,19 @@ async def _build_run_state_from_json(
     if pending_write is not None:
         from .run_internal.run_steps import NextStepInterruption, NextStepRunAgain
 
-        required_pending_write_keys = {"session_id", "items", "before", "persisted_count"}
-        # Released schema 1.17 wrote exactly four keys. Compaction metadata belongs to 1.18;
-        # older checkpoints remain readable without claiming the newer recovery behavior.
-        optional_pending_write_keys = (
+        # Released readers validate this object by exact key set, so every key is gated
+        # to the version that introduced it and a payload keeps exactly the keys its own
+        # label defined. 1.17 defined the four base keys. 1.18 (v0.23.0) added the
+        # compaction metadata. The held keys arrived after that release, so writing them
+        # under the 1.18 label would emit checkpoints the released reader rejects; they
+        # require 1.19, while a 1.18 payload with compaction metadata keeps loading.
+        def _at_least(minimum: str) -> bool:
+            return (schema_major, schema_minor) >= tuple(
+                int(part) for part in minimum.split(".", maxsplit=1)
+            )
+
+        base_keys = {"session_id", "items", "before", "persisted_count"}
+        compaction_keys = (
             {
                 "response_id",
                 "store",
@@ -4530,7 +4674,12 @@ async def _build_run_state_from_json(
                 "append_acknowledged",
                 "compaction_model_exchange",
             }
-            if (schema_major, schema_minor) >= (1, 18)
+            if _at_least(_PENDING_WRITE_COMPACTION_MIN_SCHEMA_VERSION)
+            else set()
+        )
+        held_keys = (
+            {"held", "reasoning_item_id_policy", "current_response"}
+            if _at_least(_HELD_PENDING_SESSION_WRITE_MIN_SCHEMA_VERSION)
             else set()
         )
         compaction_exchange = (
@@ -4542,8 +4691,38 @@ async def _build_run_state_from_json(
             (schema_major, schema_minor) < (1, 17)
             or not isinstance(state._current_step, NextStepRunAgain | NextStepInterruption)
             or not isinstance(pending_write, dict)
-            or not required_pending_write_keys <= set(pending_write)
-            or not set(pending_write) <= required_pending_write_keys | optional_pending_write_keys
+            or set(pending_write) - compaction_keys - held_keys != base_keys
+            or ("held" in pending_write and type(pending_write["held"]) is not bool)
+            or (pending_write.get("held") is True and pending_write.get("before") is not None)
+            or (pending_write.get("held") is True and "current_response" not in pending_write)
+            or (
+                "reasoning_item_id_policy" in pending_write
+                and pending_write["reasoning_item_id_policy"] not in (None, "preserve", "omit")
+            )
+            or (
+                "current_response" in pending_write
+                and (
+                    not isinstance(pending_write["current_response"], dict)
+                    or set(pending_write["current_response"]) != {"turn", "start"}
+                    or type(pending_write["current_response"]["turn"]) is not int
+                    or not 0 <= pending_write["current_response"]["turn"] <= state._current_turn
+                    or type(pending_write["current_response"]["start"]) is not int
+                    or not isinstance(pending_write.get("items"), list)
+                    or not 0
+                    <= pending_write["current_response"]["start"]
+                    <= len(pending_write["items"])
+                )
+            )
+            # These keys describe the withheld batch, so they are meaningless on an
+            # ordinary pending write and are refused there rather than restored as
+            # state nothing consumes.
+            or (
+                not pending_write.get("held")
+                and (
+                    "reasoning_item_id_policy" in pending_write
+                    or "current_response" in pending_write
+                )
+            )
             or not isinstance(pending_write.get("session_id"), str)
             or not isinstance(pending_write.get("items"), list)
             or not pending_write["items"]
@@ -4934,7 +5113,7 @@ def _deserialize_model_responses(responses_data: list[dict[str, Any]]) -> list[M
                 output.append(item)
             elif item.get("type") == "message":
                 output.append(_deserialize_message_output_item(item))
-            elif item.get("type") == "program":
+            elif item.get("type") in {"program", "function_call"}:
                 output.append(_deserialize_tool_call_raw_item(item))
             elif item.get("type") == "program_output":
                 output.append(_deserialize_tool_call_output_raw_item(item))
@@ -5136,7 +5315,9 @@ def _deserialize_items(
                 result.append(ReasoningItem(agent=agent, raw_item=raw_item_reason))
 
             elif item_type == "handoff_call_item":
-                raw_item_handoff = ResponseFunctionToolCall(**normalized_raw_item)
+                raw_item_handoff = ResponseFunctionToolCall.model_validate(
+                    normalized_raw_item, by_name=True
+                )
                 result.append(HandoffCallItem(agent=agent, raw_item=raw_item_handoff))
 
             elif item_type == "handoff_output_item":
@@ -5354,12 +5535,21 @@ def _restore_current_response_item_identities(
     if not all(isinstance(item, ToolApprovalItem) for item in restored_interruptions):
         return
 
-    # The complete current response must be the same terminal suffix in both histories.
-    session_start = len(state._session_items) - len(restored_current_response_items)
+    # A callback can fail after a local output is committed to execution history,
+    # before that output reaches public history. All other current-response items
+    # must still be the same terminal suffix in both histories.
+    session_item_ids = {id(item) for item in state._session_items}
+    public_current_response_items: list[RunItem] = []
+    for index, item in enumerate(restored_current_response_items):
+        if id(item) in session_item_ids:
+            public_current_response_items.append(item)
+        elif index < processed_item_count or not isinstance(item, ToolCallOutputItem):
+            return
+    session_start = len(state._session_items) - len(public_current_response_items)
     if session_start < 0 or any(
         generated_item is not session_item
         for generated_item, session_item in zip(
-            restored_current_response_items,
+            public_current_response_items,
             state._session_items[session_start:],
             strict=True,
         )
@@ -5388,8 +5578,18 @@ _TRUSTED_RUN_STATE_ERROR_MESSAGES = frozenset(
             f"New snapshots are written as version {CURRENT_SCHEMA_VERSION}."
         ),
         "Run state agent not found in agent map",
+        (
+            "RunState cannot distinguish same-name agents without hook instance state. "
+            "Use unique agent names before starting a persistable run."
+        ),
+        (
+            "Cannot safely restore legacy duplicate-agent identities with hooks. "
+            "Start a new run with unique agent names; the saved hook ordering is unavailable."
+        ),
         "Run state pending_input must be a list",
         "Run state pending Session write is invalid",
+        "Invalid tool output guardrail result boundary",
+        "Run state tool output guardrail result boundary requires schema 1.20.",
         "Run state terminal marker is invalid",
         "Run state references an agent identity that is not present in the restored graph",
         (

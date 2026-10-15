@@ -72,16 +72,21 @@ class SoftFourOhFourEvidence(CheckEvidence):
 class LcpEvidence(CheckEvidence):
     lcp_ms: float | None = None
     strategy: str | None = None
+    #: "field" (real visitors, CrUX) or "lab" (simulated estimate).
+    source: str | None = None
 
 
 class ClsEvidence(CheckEvidence):
     cls: float | None = None
     strategy: str | None = None
+    source: str | None = None
 
 
 class InpTbtEvidence(CheckEvidence):
     tbt_ms: float | None = None
+    inp_ms: float | None = None
     strategy: str | None = None
+    source: str | None = None
 
 
 class TtfbEvidence(CheckEvidence):
@@ -93,6 +98,8 @@ class AssetDeliveryEvidence(CheckEvidence):
     #: Lighthouse audit id -> estimated savings in milliseconds.
     audits: dict[str, float] | None = None
     total_savings_ms: float | None = None
+    largest_saving_ms: float | None = None
+    largest_saving_audit: str | None = None
     strategy: str | None = None
 
 
@@ -100,6 +107,9 @@ class CachingPolicyEvidence(CheckEvidence):
     static_bytes: int | None = None
     well_cached_bytes: int | None = None
     short_ttl_urls: list[str] | None = None
+    third_party_not_yours: list[str] | None = None
+    third_party_hosts: list[str] | None = None
+    list_truncated: bool | None = None
     strategy: str | None = None
 
 
@@ -140,6 +150,8 @@ class BrokenTargetsEvidence(CheckEvidence):
     """Shared by ``broken_internal_links`` and ``broken_external_links``."""
 
     broken_targets: list[Any] | None = None
+    #: Targets that refused our checker (401/403/429, bot walls) — never judged.
+    blocked_targets: list[Any] | None = None
 
 
 class InternalRedirectLinksEvidence(CheckEvidence):
@@ -219,6 +231,10 @@ class HttpStatusEvidence(CheckEvidence):
 
     http_status: int | None = None
     blocked_reason: str | None = None
+    # Why the site still asks for this address (``broken_page_4xx`` only).
+    # ``None`` = not measured on this run, never "zero".
+    inlink_pages: int | None = None
+    in_sitemap: bool | None = None
 
 
 class RedirectChainEvidence(CheckEvidence):
@@ -245,6 +261,9 @@ class MetaRefreshRedirectEvidence(CheckEvidence):
 
 class MetaRobotsConflictsEvidence(CheckEvidence):
     meta_robots: str | None = None
+    #: Why a noindexed page is (or is not) promoted by the site; ``None`` = unknown.
+    inlink_pages: int | None = None
+    in_sitemap: bool | None = None
 
 
 class RobotsTxtHealthEvidence(CheckEvidence):
@@ -264,6 +283,10 @@ class SitemapHealthEvidence(CheckEvidence):
     noindexed: list[Any] | None = None
     redirecting: list[Any] | None = None
     not_found_or_error: list[Any] | None = None
+    #: Entries that answered a wall / rate limit / 5xx / nothing — never judged dead.
+    could_not_check: list[Any] | None = None
+    #: Sitemap files that failed transiently or are guessed paths serving a non-sitemap.
+    unchecked_sitemaps: list[Any] | None = None
 
 
 class SitemapCoverageEvidence(CheckEvidence):

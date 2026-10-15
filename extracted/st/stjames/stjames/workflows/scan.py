@@ -71,8 +71,8 @@ class ScanWorkflow(MoleculeWorkflow):
         scan_settings_2d: what additional coordinate(s) to scan; makes a grid with `scan_settings`
         wavefront_propagation: use wavefront propagation (10.1063/5.0009232) for more expensive but smoother scans when true
         calc_settings: settings for the calculation
-        calc_engine: engine to use for the calculation
-        scan_points: points along the scan
+        calc_engine: deprecated engine override; populated from `calc_settings.engine` when omitted
+        scan_points: calculation UUIDs for scan points
     """
 
     scan_settings: ScanSettings | list[ScanSettings]

@@ -84,7 +84,7 @@ class RawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Account, ListAccountsResponse]:
         """
-        Lists accounts visible to the credential. User tokens return the user's business accounts; Account API keys return the requesting account and its connected accounts. Pass `parent_account_id` to return only that parent account's connected accounts. Includes each account's `cards` application summary when the caller has `company:balance:read` access to that account.
+        Lists accounts visible to the credential. User tokens return the user's business accounts; Account API keys return the requesting account and its connected accounts.
 
         Parameters
         ----------
@@ -450,12 +450,12 @@ class RawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Account]:
         """
-        Retrieves a single account by ID or public route when it is visible to the credential, including its crypto wallet. The reserved id `me` retrieves the account associated with the current Account API key; user tokens have no single account, so they must address one by ID or route.
+        Retrieves an account visible to the credential by ID or public route, including its crypto wallet.
 
         Parameters
         ----------
         id : str
-            Account ID, prefixed `biz_`, its public route, or `me` for the account associated with the current API key.
+            Account ID, prefixed `biz_`, its public route, or `me` for the account associated with the current Account API key. User tokens have no single account, so they cannot use `me`.
 
         include_trading : typing.Optional[bool]
             Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet; null otherwise.
@@ -626,7 +626,6 @@ class RawAccountsClient:
         banner_image: typing.Optional[UpdateAccountsRequestBannerImage] = OMIT,
         business_address: typing.Optional[UpdateAccountsRequestBusinessAddress] = OMIT,
         business_name: typing.Optional[str] = OMIT,
-        business_type: typing.Optional[str] = OMIT,
         cancellation_policy: typing.Optional[UpdateAccountsRequestCancellationPolicy] = OMIT,
         collect_vat_id: typing.Optional[bool] = OMIT,
         country: typing.Optional[str] = OMIT,
@@ -635,8 +634,6 @@ class RawAccountsClient:
         eula: typing.Optional[UpdateAccountsRequestEula] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
-        industry_group: typing.Optional[str] = OMIT,
-        industry_type: typing.Optional[str] = OMIT,
         invoice_prefix: typing.Optional[str] = OMIT,
         logo: typing.Optional[UpdateAccountsRequestLogo] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
@@ -670,15 +667,16 @@ class RawAccountsClient:
         title: typing.Optional[str] = OMIT,
         use_logo_as_opengraph_image_fallback: typing.Optional[bool] = OMIT,
         website: typing.Optional[str] = OMIT,
+        industry_type: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Account]:
         """
-        Updates an account. User tokens can update business accounts; Account API keys can update connected accounts. The reserved id `me` — accepted on Retrieve Account — resolves to the requesting account, which an Account API key cannot edit, so updates must name the connected account by its `biz_` id.
+        Updates an account. User tokens can update business accounts; Account API keys can update connected accounts.
 
         Parameters
         ----------
         id : str
-            Account ID, prefixed `biz_`.
+            Account ID, prefixed `biz_`. The reserved id `me` resolves to the requesting account, which an Account API key cannot edit.
 
         affiliate_application_required : typing.Optional[bool]
             Whether prospective affiliates must submit an application before promoting this account.
@@ -694,9 +692,6 @@ class RawAccountsClient:
 
         business_name : typing.Optional[str]
             The legal business name used with the account's tax address.
-
-        business_type : typing.Optional[str]
-            High-level business category for the account. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
 
         cancellation_policy : typing.Optional[UpdateAccountsRequestCancellationPolicy]
             The account's cancellation policy document. Attached to new disputes as the cancellation policy evidence, with the terms of service as the fallback. PDF only. Pass a JSON object containing an `id` from [Create File](/api-reference/files/create-file), or `null` to remove it.
@@ -721,12 +716,6 @@ class RawAccountsClient:
 
         home_preferences : typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]]
             Public account home page preferences.
-
-        industry_group : typing.Optional[str]
-            Account industry group. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
-
-        industry_type : typing.Optional[str]
-            Specific industry vertical for the account. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
 
         invoice_prefix : typing.Optional[str]
             Prefix used for account invoices.
@@ -821,6 +810,8 @@ class RawAccountsClient:
         website : typing.Optional[str]
             The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry. Pass `null` to clear the website; existing social links are left unchanged.
 
+        industry_type : typing.Optional[typing.Any]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -845,7 +836,6 @@ class RawAccountsClient:
                     object_=business_address, annotation=UpdateAccountsRequestBusinessAddress, direction="write"
                 ),
                 "business_name": business_name,
-                "business_type": business_type,
                 "cancellation_policy": convert_and_respect_annotation_metadata(
                     object_=cancellation_policy,
                     annotation=typing.Optional[UpdateAccountsRequestCancellationPolicy],
@@ -860,8 +850,6 @@ class RawAccountsClient:
                 ),
                 "featured_affiliate_product_id": featured_affiliate_product_id,
                 "home_preferences": home_preferences,
-                "industry_group": industry_group,
-                "industry_type": industry_type,
                 "invoice_prefix": invoice_prefix,
                 "logo": convert_and_respect_annotation_metadata(
                     object_=logo, annotation=typing.Optional[UpdateAccountsRequestLogo], direction="write"
@@ -923,6 +911,7 @@ class RawAccountsClient:
                 "title": title,
                 "use_logo_as_opengraph_image_fallback": use_logo_as_opengraph_image_fallback,
                 "website": website,
+                "industry_type": industry_type,
             },
             headers={
                 "content-type": "application/json",
@@ -998,11 +987,8 @@ class RawAccountsClient:
         id: str,
         *,
         business_name: str,
-        business_type: str,
         formation_state: FormCompanyAccountsRequestFormationState,
         founders: typing.Sequence[FormCompanyAccountsRequestFoundersItem],
-        industry_group: str,
-        industry_type: str,
         business_address: typing.Optional[FormCompanyAccountsRequestBusinessAddress] = OMIT,
         business_phone: typing.Optional[str] = OMIT,
         business_website: typing.Optional[str] = OMIT,
@@ -1014,7 +1000,7 @@ class RawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[FormCompanyAccountsResponse]:
         """
-        Starts an LLC or C-Corp formation for a business account. Defaults to an LLC; set `entity_type` to `c_corp` to form a C-Corp, which additionally requires `share_structure` and officer `roles` on every founder. On submission, the application is validated and the response returns a hosted checkout URL. Once paid, the filing is submitted. Track progress through the account's [`company_formation`](/api-reference/beta/accounts/retrieve-account) field on Retrieve Account.
+        Starts an LLC or C-Corp formation for a business account. The application is validated and the response returns a hosted checkout URL; once paid, the filing is submitted. Track progress through the account's [`company_formation`](/api-reference/beta/accounts/retrieve-account) field on Retrieve Account.
 
         Parameters
         ----------
@@ -1024,20 +1010,11 @@ class RawAccountsClient:
         business_name : str
             Legal name for the new company.
 
-        business_type : str
-            High-level business category, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
-
         formation_state : FormCompanyAccountsRequestFormationState
             Two-letter code of the US state (or `DC`) to form the company in. We recommend `WY` because Wyoming formations are completed the same day.
 
         founders : typing.Sequence[FormCompanyAccountsRequestFoundersItem]
             The company's founders. Exactly one must be marked `is_primary` — the responsible party for the filing.
-
-        industry_group : str
-            Industry group, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
-
-        industry_type : str
-            Specific industry vertical, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
 
         business_address : typing.Optional[FormCompanyAccountsRequestBusinessAddress]
             Company mailing address. Required unless `use_registered_agent` is `true`.
@@ -1081,7 +1058,6 @@ class RawAccountsClient:
                 ),
                 "business_name": business_name,
                 "business_phone": business_phone,
-                "business_type": business_type,
                 "business_website": business_website,
                 "entity_suffix": entity_suffix,
                 "entity_type": entity_type,
@@ -1092,8 +1068,6 @@ class RawAccountsClient:
                     annotation=typing.Sequence[FormCompanyAccountsRequestFoundersItem],
                     direction="write",
                 ),
-                "industry_group": industry_group,
-                "industry_type": industry_type,
                 "share_structure": convert_and_respect_annotation_metadata(
                     object_=share_structure, annotation=FormCompanyAccountsRequestShareStructure, direction="write"
                 ),
@@ -1183,12 +1157,12 @@ class RawAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[RetryAdsPaymentAccountsResponse]:
         """
-        Queues one background retry of the account's failed ads payments across its campaigns, using the account's configured ads payment methods. A queued response does not mean payment succeeded. Read campaign delivery_status and issues for the outcome. Successful settlement clears the payment block without changing configured active or paused status; legacy payment_failed status becomes paused. Another request while the account retry is queued or running returns an error asking you to wait.
+        Queues one background retry of the account's failed ads payments across its campaigns, using the account's configured ads payment methods. A queued response does not mean payment succeeded; read each campaign's `delivery_status` and `issues` for the outcome. Successful settlement clears the payment block without changing a configured `active` or `paused` status; a legacy `payment_failed` status becomes `paused`. Returns an error when the account has no failed ads payments, or while a previous retry for the account is queued or running.
 
         Parameters
         ----------
         id : str
-            The account ID.
+            Account ID, prefixed `biz_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1370,6 +1344,7 @@ class RawAccountsClient:
         *,
         identifier: str,
         as_partner: typing.Optional[bool] = OMIT,
+        authorized_user_id: typing.Optional[str] = OMIT,
         message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TransferOwnershipAccountsResponse]:
@@ -1386,6 +1361,9 @@ class RawAccountsClient:
 
         as_partner : typing.Optional[bool]
             If true, the current owner is credited as the account's Whop partner, earning partner commission on its sales. Requires the current owner to already be an enrolled Whop partner. Skipped if the account already has an active partner.
+
+        authorized_user_id : typing.Optional[str]
+            Your team membership on the business this referral is made for, prefixed `ausr_`. The referral then credits that team instead of you personally. Requires `as_partner`.
 
         message : typing.Optional[str]
             A note from the partner, shown as a quote in the invite email and signed with their name. Requires `as_partner`; sending it on an ordinary transfer is a 400. Omit it and the email sends without a note.
@@ -1404,6 +1382,7 @@ class RawAccountsClient:
             method="POST",
             json={
                 "as_partner": as_partner,
+                "authorized_user_id": authorized_user_id,
                 "identifier": identifier,
                 "message": message,
             },
@@ -1478,7 +1457,7 @@ class AsyncRawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Account, ListAccountsResponse]:
         """
-        Lists accounts visible to the credential. User tokens return the user's business accounts; Account API keys return the requesting account and its connected accounts. Pass `parent_account_id` to return only that parent account's connected accounts. Includes each account's `cards` application summary when the caller has `company:balance:read` access to that account.
+        Lists accounts visible to the credential. User tokens return the user's business accounts; Account API keys return the requesting account and its connected accounts.
 
         Parameters
         ----------
@@ -1847,12 +1826,12 @@ class AsyncRawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Account]:
         """
-        Retrieves a single account by ID or public route when it is visible to the credential, including its crypto wallet. The reserved id `me` retrieves the account associated with the current Account API key; user tokens have no single account, so they must address one by ID or route.
+        Retrieves an account visible to the credential by ID or public route, including its crypto wallet.
 
         Parameters
         ----------
         id : str
-            Account ID, prefixed `biz_`, its public route, or `me` for the account associated with the current API key.
+            Account ID, prefixed `biz_`, its public route, or `me` for the account associated with the current Account API key. User tokens have no single account, so they cannot use `me`.
 
         include_trading : typing.Optional[bool]
             Also return the trading account under `trading`: its address and its Hyperliquid WebSocket subscriptions. Requires crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet; null otherwise.
@@ -2023,7 +2002,6 @@ class AsyncRawAccountsClient:
         banner_image: typing.Optional[UpdateAccountsRequestBannerImage] = OMIT,
         business_address: typing.Optional[UpdateAccountsRequestBusinessAddress] = OMIT,
         business_name: typing.Optional[str] = OMIT,
-        business_type: typing.Optional[str] = OMIT,
         cancellation_policy: typing.Optional[UpdateAccountsRequestCancellationPolicy] = OMIT,
         collect_vat_id: typing.Optional[bool] = OMIT,
         country: typing.Optional[str] = OMIT,
@@ -2032,8 +2010,6 @@ class AsyncRawAccountsClient:
         eula: typing.Optional[UpdateAccountsRequestEula] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
-        industry_group: typing.Optional[str] = OMIT,
-        industry_type: typing.Optional[str] = OMIT,
         invoice_prefix: typing.Optional[str] = OMIT,
         logo: typing.Optional[UpdateAccountsRequestLogo] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
@@ -2067,15 +2043,16 @@ class AsyncRawAccountsClient:
         title: typing.Optional[str] = OMIT,
         use_logo_as_opengraph_image_fallback: typing.Optional[bool] = OMIT,
         website: typing.Optional[str] = OMIT,
+        industry_type: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Account]:
         """
-        Updates an account. User tokens can update business accounts; Account API keys can update connected accounts. The reserved id `me` — accepted on Retrieve Account — resolves to the requesting account, which an Account API key cannot edit, so updates must name the connected account by its `biz_` id.
+        Updates an account. User tokens can update business accounts; Account API keys can update connected accounts.
 
         Parameters
         ----------
         id : str
-            Account ID, prefixed `biz_`.
+            Account ID, prefixed `biz_`. The reserved id `me` resolves to the requesting account, which an Account API key cannot edit.
 
         affiliate_application_required : typing.Optional[bool]
             Whether prospective affiliates must submit an application before promoting this account.
@@ -2091,9 +2068,6 @@ class AsyncRawAccountsClient:
 
         business_name : typing.Optional[str]
             The legal business name used with the account's tax address.
-
-        business_type : typing.Optional[str]
-            High-level business category for the account. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
 
         cancellation_policy : typing.Optional[UpdateAccountsRequestCancellationPolicy]
             The account's cancellation policy document. Attached to new disputes as the cancellation policy evidence, with the terms of service as the fallback. PDF only. Pass a JSON object containing an `id` from [Create File](/api-reference/files/create-file), or `null` to remove it.
@@ -2118,12 +2092,6 @@ class AsyncRawAccountsClient:
 
         home_preferences : typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]]
             Public account home page preferences.
-
-        industry_group : typing.Optional[str]
-            Account industry group. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
-
-        industry_type : typing.Optional[str]
-            Specific industry vertical for the account. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
 
         invoice_prefix : typing.Optional[str]
             Prefix used for account invoices.
@@ -2218,6 +2186,8 @@ class AsyncRawAccountsClient:
         website : typing.Optional[str]
             The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry. Pass `null` to clear the website; existing social links are left unchanged.
 
+        industry_type : typing.Optional[typing.Any]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2242,7 +2212,6 @@ class AsyncRawAccountsClient:
                     object_=business_address, annotation=UpdateAccountsRequestBusinessAddress, direction="write"
                 ),
                 "business_name": business_name,
-                "business_type": business_type,
                 "cancellation_policy": convert_and_respect_annotation_metadata(
                     object_=cancellation_policy,
                     annotation=typing.Optional[UpdateAccountsRequestCancellationPolicy],
@@ -2257,8 +2226,6 @@ class AsyncRawAccountsClient:
                 ),
                 "featured_affiliate_product_id": featured_affiliate_product_id,
                 "home_preferences": home_preferences,
-                "industry_group": industry_group,
-                "industry_type": industry_type,
                 "invoice_prefix": invoice_prefix,
                 "logo": convert_and_respect_annotation_metadata(
                     object_=logo, annotation=typing.Optional[UpdateAccountsRequestLogo], direction="write"
@@ -2320,6 +2287,7 @@ class AsyncRawAccountsClient:
                 "title": title,
                 "use_logo_as_opengraph_image_fallback": use_logo_as_opengraph_image_fallback,
                 "website": website,
+                "industry_type": industry_type,
             },
             headers={
                 "content-type": "application/json",
@@ -2395,11 +2363,8 @@ class AsyncRawAccountsClient:
         id: str,
         *,
         business_name: str,
-        business_type: str,
         formation_state: FormCompanyAccountsRequestFormationState,
         founders: typing.Sequence[FormCompanyAccountsRequestFoundersItem],
-        industry_group: str,
-        industry_type: str,
         business_address: typing.Optional[FormCompanyAccountsRequestBusinessAddress] = OMIT,
         business_phone: typing.Optional[str] = OMIT,
         business_website: typing.Optional[str] = OMIT,
@@ -2411,7 +2376,7 @@ class AsyncRawAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[FormCompanyAccountsResponse]:
         """
-        Starts an LLC or C-Corp formation for a business account. Defaults to an LLC; set `entity_type` to `c_corp` to form a C-Corp, which additionally requires `share_structure` and officer `roles` on every founder. On submission, the application is validated and the response returns a hosted checkout URL. Once paid, the filing is submitted. Track progress through the account's [`company_formation`](/api-reference/beta/accounts/retrieve-account) field on Retrieve Account.
+        Starts an LLC or C-Corp formation for a business account. The application is validated and the response returns a hosted checkout URL; once paid, the filing is submitted. Track progress through the account's [`company_formation`](/api-reference/beta/accounts/retrieve-account) field on Retrieve Account.
 
         Parameters
         ----------
@@ -2421,20 +2386,11 @@ class AsyncRawAccountsClient:
         business_name : str
             Legal name for the new company.
 
-        business_type : str
-            High-level business category, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
-
         formation_state : FormCompanyAccountsRequestFormationState
             Two-letter code of the US state (or `DC`) to form the company in. We recommend `WY` because Wyoming formations are completed the same day.
 
         founders : typing.Sequence[FormCompanyAccountsRequestFoundersItem]
             The company's founders. Exactly one must be marked `is_primary` — the responsible party for the filing.
-
-        industry_group : str
-            Industry group, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
-
-        industry_type : str
-            Specific industry vertical, from the Whop business taxonomy. Valid values are listed on [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary).
 
         business_address : typing.Optional[FormCompanyAccountsRequestBusinessAddress]
             Company mailing address. Required unless `use_registered_agent` is `true`.
@@ -2478,7 +2434,6 @@ class AsyncRawAccountsClient:
                 ),
                 "business_name": business_name,
                 "business_phone": business_phone,
-                "business_type": business_type,
                 "business_website": business_website,
                 "entity_suffix": entity_suffix,
                 "entity_type": entity_type,
@@ -2489,8 +2444,6 @@ class AsyncRawAccountsClient:
                     annotation=typing.Sequence[FormCompanyAccountsRequestFoundersItem],
                     direction="write",
                 ),
-                "industry_group": industry_group,
-                "industry_type": industry_type,
                 "share_structure": convert_and_respect_annotation_metadata(
                     object_=share_structure, annotation=FormCompanyAccountsRequestShareStructure, direction="write"
                 ),
@@ -2580,12 +2533,12 @@ class AsyncRawAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[RetryAdsPaymentAccountsResponse]:
         """
-        Queues one background retry of the account's failed ads payments across its campaigns, using the account's configured ads payment methods. A queued response does not mean payment succeeded. Read campaign delivery_status and issues for the outcome. Successful settlement clears the payment block without changing configured active or paused status; legacy payment_failed status becomes paused. Another request while the account retry is queued or running returns an error asking you to wait.
+        Queues one background retry of the account's failed ads payments across its campaigns, using the account's configured ads payment methods. A queued response does not mean payment succeeded; read each campaign's `delivery_status` and `issues` for the outcome. Successful settlement clears the payment block without changing a configured `active` or `paused` status; a legacy `payment_failed` status becomes `paused`. Returns an error when the account has no failed ads payments, or while a previous retry for the account is queued or running.
 
         Parameters
         ----------
         id : str
-            The account ID.
+            Account ID, prefixed `biz_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2769,6 +2722,7 @@ class AsyncRawAccountsClient:
         *,
         identifier: str,
         as_partner: typing.Optional[bool] = OMIT,
+        authorized_user_id: typing.Optional[str] = OMIT,
         message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TransferOwnershipAccountsResponse]:
@@ -2785,6 +2739,9 @@ class AsyncRawAccountsClient:
 
         as_partner : typing.Optional[bool]
             If true, the current owner is credited as the account's Whop partner, earning partner commission on its sales. Requires the current owner to already be an enrolled Whop partner. Skipped if the account already has an active partner.
+
+        authorized_user_id : typing.Optional[str]
+            Your team membership on the business this referral is made for, prefixed `ausr_`. The referral then credits that team instead of you personally. Requires `as_partner`.
 
         message : typing.Optional[str]
             A note from the partner, shown as a quote in the invite email and signed with their name. Requires `as_partner`; sending it on an ordinary transfer is a 400. Omit it and the email sends without a note.
@@ -2803,6 +2760,7 @@ class AsyncRawAccountsClient:
             method="POST",
             json={
                 "as_partner": as_partner,
+                "authorized_user_id": authorized_user_id,
                 "identifier": identifier,
                 "message": message,
             },

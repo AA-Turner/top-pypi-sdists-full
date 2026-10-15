@@ -263,6 +263,80 @@ class _Manager:
 
         return make(None, frozenset())
 
+    def _paginate_chunked(
+        self,
+        fetch: Callable[[list[str], str | None], Any],
+        bind: Callable[[Any], T],
+        keys: list[str],
+        *,
+        chunk_size: int,
+    ) -> "Page[T]":
+        """Like :meth:`_paginate`, for a filter that repeats one query parameter per key.
+
+        ``keys`` is split into chunks of ``chunk_size``; each chunk is paginated with
+        :meth:`_paginate` and the chunks are chained into one auto-paging
+        :class:`Page`, so no request URL grows with the number of keys.
+        ``fetch(chunk, cursor)`` returns one generated ``CursorPage*``. No keys
+        yields an empty Page without a request (an empty key list would be sent
+        as no filter at all). With more than one chunk, every page in the chain
+        has items unless the whole remainder is empty, so a filter whose matches
+        sit in a later chunk still surfaces them on the first page; ``total`` is
+        the sum of the chunks' server totals and is computed on first read. Both
+        may fetch later chunks' first pages early, which iteration then reuses
+        instead of requesting again.
+        """
+        chunks = [keys[i : i + chunk_size] for i in range(0, len(keys), chunk_size)]
+        if not chunks:
+            return Page([], fetch_next=None, total=0)
+        if len(chunks) == 1:
+            return self._paginate(lambda cursor: fetch(chunks[0], cursor), bind)
+
+        first_pages: dict[int, "Page[T]"] = {}
+
+        def chunk_page(index: int) -> "Page[T]":
+            if index not in first_pages:
+                first_pages[index] = self._paginate(lambda cursor: fetch(chunks[index], cursor), bind)
+            return first_pages[index]
+
+        def count() -> int | None:
+            total = 0
+            for index in range(len(chunks)):
+                chunk_total = chunk_page(index).total
+                if chunk_total is None:
+                    return None
+                total += chunk_total
+            return total
+
+        def following(page: "Page[T]", index: int) -> "tuple[Page[T], int] | None":
+            nxt = page.next_page()
+            if nxt is not None:
+                return nxt, index
+            if index + 1 < len(chunks):
+                return chunk_page(index + 1), index + 1
+            return None
+
+        def first_with_items(page: "Page[T]", index: int) -> "tuple[Page[T], int] | None":
+            step: "tuple[Page[T], int] | None" = (page, index)
+            while step is not None and not step[0].items:
+                step = following(*step)
+            return step
+
+        def chain(page: "Page[T]", index: int) -> "Page[T]":
+            def next_page() -> "Page[T] | None":
+                nxt = following(page, index)
+                step = first_with_items(*nxt) if nxt is not None else None
+                if step is None:
+                    return Page([], fetch_next=None, count=count)
+                return chain(*step)
+
+            more = page.has_next() or index + 1 < len(chunks)
+            return Page(page.items, fetch_next=next_page if more else None, count=count)
+
+        start = first_with_items(chunk_page(0), 0)
+        if start is None:
+            return Page([], fetch_next=None, count=count)
+        return chain(*start)
+
     def _paginate_offset(
         self,
         fetch: Callable[[int], Any],
@@ -411,11 +485,25 @@ class Page(Generic[T]):
         *,
         fetch_next: Callable[[], "Page[T] | None"] | None = None,
         total: int | None = None,
+        count: Callable[[], int | None] | None = None,
     ) -> None:
-        """Wrap one page of already-bound ``items`` plus a next-page fetcher."""
+        """Wrap one page of already-bound ``items`` plus a next-page fetcher.
+
+        ``total`` is the server-side count when one response carries it; ``count``
+        computes it on first read when knowing it takes more than one request.
+        """
         self._items = items
         self._fetch_next = fetch_next
-        self.total = total
+        self._total = total
+        self._count = count
+
+    @property
+    def total(self) -> int | None:
+        """The full server-side count, or ``None`` when the endpoint does not report one."""
+        if self._total is None and self._count is not None:
+            self._total = self._count()
+            self._count = None
+        return self._total
 
     @property
     def items(self) -> list[T]:

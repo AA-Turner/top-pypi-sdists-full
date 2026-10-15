@@ -1,13 +1,16 @@
 Metadata-Version: 2.4
 Name: safe-pysha3
-Version: 1.0.5
-Summary: SHA-3 (Keccak) for Python 3.9 - 3.13
+Version: 1.0.7
+Summary: SHA-3 (Keccak) for Python 3.10 - 3.15
 Home-page: https://github.com/5afe/pysha3
 Author: Christian Heimes
 Author-email: christian@python.org
 Maintainer: Uxío Fuentefría
 Maintainer-email: uxio@safe.global
 License: PSFL (Keccak: CC0 1.0 Universal)
+Project-URL: Source, https://github.com/5afe/pysha3
+Project-URL: Issues, https://github.com/5afe/pysha3/issues
+Project-URL: Changelog, https://github.com/5afe/pysha3/blob/master/CHANGES.txt
 Keywords: sha3 sha-3 keccak hash
 Platform: POSIX
 Platform: Windows
@@ -23,12 +26,14 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Security :: Cryptography
+Requires-Python: >=3.10
 License-File: LICENSE
 Dynamic: author
 Dynamic: author-email
@@ -41,6 +46,8 @@ Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: platform
+Dynamic: project-url
+Dynamic: requires-python
 Dynamic: summary
 
 ======
@@ -121,6 +128,30 @@ sha3 module directly and rather go through the `hashlib` interface::
 
 Changelog
 =========
+
+pysha3 1.0.7
+------------
+
+*Unreleased*
+
+- Make pysha3 compatible with Python 3.14 and 3.15
+- Drop support for Python 3.9
+- Publish wheels for Linux x86_64 and aarch64 on every GitHub release
+
+pysha3 1.0.5
+------------
+
+*Release: 20-Jun-2025*
+
+- Make pysha3 compatible with Python 3.13
+- Refactor deployment process to use `build`
+
+pysha3 1.0.4
+------------
+
+*Release: 20-Jun-2025*
+
+- Make pysha3 compatible with Python 3.11
 
 pysha3 1.0.3-dev
 ----------------

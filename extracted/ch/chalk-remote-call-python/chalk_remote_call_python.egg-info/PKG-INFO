@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalk-remote-call-python
-Version: 1.10.4
+Version: 1.10.5
 Summary: Chalk remote call Python runtime interface client
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python
 Classifier: Typing :: Typed
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
@@ -19,7 +20,7 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: pyarrow>=14.0.0
 Provides-Extra: dev
@@ -45,7 +46,7 @@ The server receives Arrow IPC record batches over a bidirectional gRPC stream, t
 ## Requirements
 
 - Python >= 3.10
-- Rust toolchain (for building the native extension)
+- Rust 1.99.0 (for building the native extension)
 - `pyarrow >= 14.0.0`
 
 ## Usage
@@ -115,6 +116,12 @@ CLI logging is configured before importing runtime dependencies. Import failures
 invalid environment configuration, and exceptions escaping startup or the server
 emit a single ERROR record with the full traceback and exit with status 1.
 Calls to `serve()` from Python retain the embedding application's logging configuration.
+
+On Linux, server shutdown drains buffered function-call metrics before the runtime exits,
+including when the server returns an error. Draining waits up to 10 seconds; a timeout or
+publisher failure is logged as a warning.
+Routine drain messages are logged at DEBUG; set `RUST_LOG=info,_native::metrics=debug`
+to include them.
 
 Missing optional StatsD endpoints or a metrics-bus topic do not emit warnings.
 Failures initializing configured metrics sinks still warn. Routine customer
@@ -218,6 +225,15 @@ uv pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
+The Linux metrics shutdown regression tests use an in-memory bus publisher:
+
+```bash
+PYO3_PYTHON=python3 cargo test --manifest-path chalk-remote-call-rs/chalk-remote-call-server/Cargo.toml --no-default-features --lib metrics::tests
+```
+
+`--no-default-features` links Python into the test executable; wheel builds retain
+the default `extension-module` feature.
+
 ### Rust code
 
 Rust source lives in `chalk-remote-call-rs/`:
@@ -232,7 +248,10 @@ PYO3_PYTHON=python3 cargo check --manifest-path chalk-remote-call-rs/chalk-remot
 
 Handler failures retain their original exception type, message, traceback,
 exception chains, and exception groups. Runtime dispatch frames are excluded
-from the user traceback; full diagnostics are retained in server logs.
+from the user traceback, along with callers above the handler dispatch boundary.
+Handler frames and their downstream calls remain visible (except for Chalk SDK
+and marked generated dispatch frames); full diagnostics are retained in server
+logs and `internal_stacktrace`.
 
 All call modes carry a JSON payload with `chalk_remote_error: 1` and an
 `exception` object containing the `ChalkException` fields `kind`, `message`,

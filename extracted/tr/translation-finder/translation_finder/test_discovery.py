@@ -15,7 +15,7 @@ from itertools import product
 from operator import itemgetter
 from pathlib import Path, PurePath, PurePosixPath
 from time import monotonic
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, SupportsIndex, cast
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -63,7 +63,7 @@ from .discovery.files import (
     XLSXDiscovery,
     YAMLDiscovery,
 )
-from .discovery.result import DiscoveryCandidate
+from .discovery.result import DiscoveryCandidate, DiscoveryLimit
 from .discovery.transifex import TransifexDiscovery
 from .finder import Finder
 
@@ -439,6 +439,227 @@ class DiscoveryBaseTest(DiscoveryTestCase):
 
 
 class DiscoveryPathIndexTest(DiscoveryTestCase):
+    def test_exhausted_discovery_budget_rejects_candidate(self) -> None:
+        budget = base_module.DiscoveryBudget(0)
+
+        self.assertFalse(budget.consume_candidate())
+        self.assertTrue(budget.truncated)
+
+    def test_language_masks_per_path_are_bounded(self) -> None:
+        codes = sorted(
+            code
+            for code in base_module.LANGUAGES
+            if BaseDiscovery.is_language_code(code)
+        )[: base_module.MAX_MASKS_PER_PATH + 1]
+        path = PurePath(*codes, "messages.po")
+        discovery = GettextDiscovery(
+            Finder(PurePath(), mock=([(path, path, path.as_posix())], []))
+        )
+
+        with self.assertWarnsRegex(RuntimeWarning, "results may be incomplete"):
+            results = list(discovery.discover())
+
+        self.assertEqual(len(results), base_module.MAX_MASKS_PER_PATH)
+        with self.assertWarnsRegex(RuntimeWarning, "results may be incomplete"):
+            candidates = list(discovery.get_masks())
+        self.assertEqual(len(candidates), base_module.MAX_MASKS_PER_PATH)
+
+        files = [(path, path, path.as_posix())]
+        api_results = api_module.discover(PurePath(), mock=(files, []))
+        self.assertIn(DiscoveryLimit.MASKS_PER_PATH, api_results.limit_reasons)
+
+    def test_duplicate_candidates_consume_discovery_budget(self) -> None:
+        generated = 0
+
+        class DuplicateDiscovery(BaseDiscovery):
+            file_format = "json"
+
+            def get_masks(  # ruff: ignore[no-self-use]
+                self, *, eager: bool = False, hint: str | None = None
+            ) -> Generator[DiscoveryCandidate]:
+                nonlocal generated
+                del eager, hint
+                for _index in range(base_module.DISCOVERY_MAX_CANDIDATES + 1):
+                    generated += 1
+                    yield DiscoveryCandidate(
+                        {"filemask": "locale/*.json"},
+                        [PurePath("locale/cs.json")],
+                    )
+
+        discovery = DuplicateDiscovery(self.get_finder(["locale/cs.json"]))
+
+        with self.assertWarnsRegex(RuntimeWarning, "results may be incomplete"):
+            results = list(discovery.discover())
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(generated, base_module.DISCOVERY_MAX_CANDIDATES + 1)
+
+    def test_new_base_fallback_is_cached_by_directory(self) -> None:
+        discovery = GettextDiscovery(self.get_finder([]))
+        discovery._new_base_by_directory = {
+            "locale": (0, PurePath("locale/messages.pot"))
+        }
+        discovery._new_base_by_name = {}
+        discovery._new_bases_by_name = {}
+        first: ResultDict = {"filemask": "locale/deep/*/first.po"}
+        second: ResultDict = {"filemask": "locale/deep/*/second.po"}
+
+        discovery.fill_in_new_base(first)
+        self.assertEqual(
+            discovery._new_base_fallback_cache,
+            {"locale/deep/*": "locale/messages.pot"},
+        )
+        discovery.fill_in_new_base(second)
+
+        self.assertEqual(first["new_base"], "locale/messages.pot")
+        self.assertEqual(second["new_base"], "locale/messages.pot")
+
+    def test_cached_new_base_without_exact_match_skips_ancestor_walk(self) -> None:
+        class CountingPath(str):  # ruff: ignore[subclass-builtin]
+            __slots__ = ()
+            rsplit_count = 0
+
+            def rsplit(
+                self, sep: str | None = None, maxsplit: SupportsIndex = -1
+            ) -> list[str]:
+                type(self).rsplit_count += 1
+                return super().rsplit(sep, maxsplit)
+
+        discovery = GettextDiscovery(self.get_finder([]))
+        discovery._new_base_by_directory = {
+            "locale": (0, PurePath("locale/messages.pot"))
+        }
+        discovery._new_base_by_name = {}
+        discovery._new_bases_by_name = {}
+        discovery._new_base_fallback_cache = {"locale/deep/*": "locale/messages.pot"}
+        path = CountingPath("locale/deep/*/second.po")
+        result: ResultDict = {"filemask": path}
+
+        discovery.fill_in_new_base(result)
+
+        self.assertEqual(result["new_base"], "locale/messages.pot")
+        self.assertEqual(path.rsplit_count, 2)
+
+    def test_new_base_empty_index_skips_ancestor_walk(self) -> None:
+        discovery = GettextDiscovery(self.get_finder([]))
+        discovery._new_base_by_directory = {}
+        discovery._new_base_by_name = {}
+        discovery._new_bases_by_name = {}
+        result: ResultDict = {"filemask": "deeply/nested/*/messages.po"}
+
+        discovery.fill_in_new_base(result)
+
+        self.assertNotIn("new_base", result)
+
+    def test_new_base_exact_checks_do_not_repeat_ancestor_walks(self) -> None:
+        count = 100
+        directory = "/".join(["locale", *(["deep"] * 100), "*"])
+        discovery = GettextDiscovery(self.get_finder([]))
+        fallback = (0, PurePath("locale/messages.pot"))
+        discovery._new_base_by_directory = {"locale": fallback}
+        discovery._new_base_by_name = {}
+        discovery._new_bases_by_name = {
+            f"file{index}.pot": [
+                ("unrelated", (index + 1, PurePath(f"unrelated/file{index}.pot")))
+            ]
+            for index in range(count)
+        }
+        budget = base_module.DiscoveryBudget(new_base_checks=10_000)
+        discovery._set_run_discovery_budget(budget)
+
+        results: list[ResultDict] = [
+            {"filemask": f"{directory}/file{index}.po"} for index in range(count)
+        ]
+        for result in results:
+            discovery.fill_in_new_base(result)
+
+        self.assertTrue(
+            all(result.get("new_base") == "locale/messages.pot" for result in results)
+        )
+        assert budget.remaining_new_base_checks is not None  # ruff: ignore[assert]
+        self.assertEqual(
+            10_000 - budget.remaining_new_base_checks,
+            count + directory.count("/") + 1,
+        )
+
+    def test_new_base_check_budget_does_not_cache_partial_lookup(self) -> None:
+        discovery = GettextDiscovery(self.get_finder([]))
+        fallback = (0, PurePath("locale/messages.pot"))
+        discovery._new_base_by_directory = {"locale": fallback}
+        discovery._new_base_by_name = {}
+        discovery._new_bases_by_name = {
+            "file.pot": [
+                ("first", (1, PurePath("first/file.pot"))),
+                ("second", (2, PurePath("second/file.pot"))),
+            ]
+        }
+        budget = base_module.DiscoveryBudget(new_base_checks=1)
+        discovery._set_run_discovery_budget(budget)
+        result: ResultDict = {"filemask": "locale/deep/*/file.po"}
+
+        discovery.fill_in_new_base(result)
+
+        self.assertNotIn("new_base", result)
+        self.assertEqual(discovery._new_base_fallback_cache, {})
+        self.assertEqual(
+            budget.limit_reasons,
+            {DiscoveryLimit.NEW_BASE_CHECKS},
+        )
+
+    def test_new_base_fallback_budget_does_not_cache_partial_lookup(self) -> None:
+        discovery = GettextDiscovery(self.get_finder([]))
+        fallback = (0, PurePath("locale/messages.pot"))
+        discovery._new_base_by_directory = {"locale": fallback}
+        discovery._new_base_by_name = {}
+        discovery._new_bases_by_name = {}
+        budget = base_module.DiscoveryBudget(new_base_checks=1)
+        discovery._set_run_discovery_budget(budget)
+        result: ResultDict = {"filemask": "locale/deep/*/file.po"}
+
+        discovery.fill_in_new_base(result)
+
+        self.assertNotIn("new_base", result)
+        self.assertEqual(discovery._new_base_fallback_cache, {})
+        self.assertEqual(
+            budget.limit_reasons,
+            {DiscoveryLimit.NEW_BASE_CHECKS},
+        )
+
+    def test_new_base_fallback_found_at_budget_boundary(self) -> None:
+        discovery = GettextDiscovery(self.get_finder([]))
+        fallback = (0, PurePath("locale/deep/messages.pot"))
+        discovery._new_base_by_directory = {"locale/deep/*": fallback}
+        discovery._new_base_by_name = {}
+        discovery._new_bases_by_name = {}
+        budget = base_module.DiscoveryBudget(new_base_checks=1)
+        discovery._set_run_discovery_budget(budget)
+        result: ResultDict = {"filemask": "locale/deep/*/file.po"}
+
+        discovery.fill_in_new_base(result)
+
+        self.assertEqual(result["new_base"], "locale/deep/messages.pot")
+        self.assertEqual(
+            discovery._new_base_fallback_cache,
+            {"locale/deep/*": "locale/deep/messages.pot"},
+        )
+        self.assertEqual(budget.limit_reasons, set())
+
+    def test_cached_new_base_does_not_consume_budget(self) -> None:
+        discovery = GettextDiscovery(self.get_finder([]))
+        fallback = (0, PurePath("locale/messages.pot"))
+        discovery._new_base_by_directory = {"locale": fallback}
+        discovery._new_base_by_name = {}
+        discovery._new_bases_by_name = {}
+        discovery._new_base_fallback_cache = {"locale/deep/*": "locale/messages.pot"}
+        budget = base_module.DiscoveryBudget(new_base_checks=0)
+        discovery._set_run_discovery_budget(budget)
+        result: ResultDict = {"filemask": "locale/deep/*/file.po"}
+
+        discovery.fill_in_new_base(result)
+
+        self.assertEqual(result["new_base"], "locale/messages.pot")
+        self.assertEqual(budget.limit_reasons, set())
+
     def test_duplicate_masks_merge_confirmed_paths(self) -> None:
         class RecordingDiscovery(BaseDiscovery):
             file_format = "json"
@@ -2898,6 +3119,71 @@ class TOMLDiscoveryTest(DiscoveryTestCase):
             with self.subTest(content=content):
                 self.assertFalse(files_module._is_go_i18n_toml(content))
 
+    def test_long_toml_values(self) -> None:
+        long_value = "x" * (1024 * 1024 - 100)
+
+        self.assertTrue(
+            files_module._is_go_i18n_toml(
+                f'title = "{long_value}"\n[[messages]]\nid = "hello"\n'
+            )
+        )
+        self.assertTrue(
+            files_module._is_go_i18n_toml(
+                f'messages = [{{ description = "{long_value}", id = "hello" }}]\n'
+            )
+        )
+
+    def test_toml_lexical_budget(self) -> None:
+        content = 'title = "messages id"\n[[messages]]\nid = "hello"\n'
+        self.assertTrue(files_module._is_go_i18n_toml(content))
+
+        with patch.object(files_module, "TOML_SCAN_MAX_TOKENS", 1):
+            self.assertFalse(files_module._is_go_i18n_toml(content))
+
+    def test_toml_scanner_termination(self) -> None:
+        self.assertFalse(
+            files_module._is_go_i18n_toml(
+                '[other]\nmessages = [{ id = "not-at-root" }]\n'
+            )
+        )
+
+        stack = ["[", "{"]
+        self.assertEqual(
+            files_module._scan_toml_inline_message(
+                "]", stack, expects_key=False, budget=files_module._TomlScanBudget()
+            ),
+            (False, False),
+        )
+        self.assertEqual(stack, [])
+        self.assertEqual(
+            files_module._scan_toml_inline_message(
+                "description = value",
+                ["[", "{"],
+                expects_key=True,
+                budget=files_module._TomlScanBudget(),
+            ),
+            (False, False),
+        )
+
+    def test_long_toml_lines_runtime(self) -> None:
+        padding = "x" * (1024 * 1024 - 30)
+        contents = (
+            f'"{padding}"',
+            f'"messages id {padding}"',
+            f"messages id {padding}",
+            '"messages id ' + '\\"' * (512 * 1024 - 10) + '"',
+            "messages = [{" + "," * (1024 * 1024 - 30) + 'id = "x"}]',
+        )
+
+        start = monotonic()
+        for content in contents:
+            self.assertFalse(files_module._is_go_i18n_toml(content))
+        duration = monotonic() - start
+
+        # Leave headroom for slower or contended CI workers while still catching
+        # the unbounded lexical scanning this test guards against.
+        self.assertLess(duration, 0.2)
+
     def test_deeply_nested_toml_does_not_trigger_detection(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
@@ -3328,6 +3614,7 @@ class AggregateFormatSniffLimitTest(DiscoveryTestCase):
                 budget = files_module._FormatSniffBudget()
                 self.assertEqual(budget.read(finder, next(paths)), (b"abc", True))
                 self.assertEqual(budget.read(finder, next(paths)), (b"d", False))
+                self.assertIsNone(budget.read(finder, Path("third.txt")))
 
         self.assertTrue(budget.exhausted)
         self.assertEqual(budget.remaining_bytes, 0)
@@ -3497,6 +3784,111 @@ class AggregateFormatSniffLimitTest(DiscoveryTestCase):
                         self.get_candidate(discovery, {"filemask": "*.json"})
                     )
                 )
+
+
+class GlobalSniffLimitTest(DiscoveryTestCase):
+    def test_child_budget_charges_parent(self) -> None:
+        parent = base_module.SniffBudget(10, 3)
+        child = base_module.SniffBudget(4, 2, parent=parent)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "sample.txt").write_bytes(b"abc")
+            finder = Finder(root)
+            path = next(finder.mask_matches("sample.txt"))
+
+            self.assertEqual(child.read(finder, path), (b"abc", True))
+
+        self.assertEqual(child.remaining_bytes, 1)
+        self.assertEqual(child.remaining_files, 1)
+        self.assertEqual(parent.remaining_bytes, 7)
+        self.assertEqual(parent.remaining_files, 2)
+
+    def test_read_failure_charges_parent_file_limit(self) -> None:
+        parent = base_module.SniffBudget(10, 1)
+        child = base_module.SniffBudget(4, 1, parent=parent)
+
+        with patch.object(Finder, "open", side_effect=OSError):
+            self.assertIsNone(child.read(self.get_finder([]), Path("missing.txt")))
+
+        self.assertTrue(child.exhausted)
+        self.assertTrue(parent.exhausted)
+        self.assertEqual(child.remaining_bytes, 4)
+        self.assertEqual(parent.remaining_bytes, 10)
+
+        self.assertIsNone(child.read(self.get_finder([]), Path("other.txt")))
+
+    def test_binary_sample_skips_mock_path(self) -> None:
+        self.assertIsNone(
+            files_module._read_binary_sample(
+                self.get_finder(["sample.txt"]),
+                PurePath("sample.txt"),
+            )
+        )
+
+    def test_discover_shares_byte_limit_across_candidates_and_backends(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for index in range(2):
+                (root / f"messages{index}_cs.properties").write_bytes(b"xxxx")
+            (root / "messages_cs.json").write_text("[]", encoding="utf-8")
+
+            original_open = Finder.open
+            opened: list[str] = []
+
+            def tracked_open(finder: Finder, path: PurePath, mode: str = "r") -> object:
+                self.assertEqual(mode, "rb")
+                opened.append(path.as_posix())
+                return original_open(finder, path, "rb")
+
+            with (
+                patch.object(Finder, "open", tracked_open),
+            ):
+                results = api_module.discover(
+                    root,
+                    limits=api_module.DiscoveryLimits(
+                        sniff_max_bytes=8, sniff_max_files=512
+                    ),
+                )
+                self.assertFalse(results.truncated)
+
+        self.assertEqual(opened, ["messages0_cs.properties"] * 2)
+        self.assertEqual(
+            {result["filemask"] for result in results},
+            {
+                "messages0_*.properties",
+                "messages1_*.properties",
+                "messages_*.json",
+            },
+        )
+
+    def test_discover_shares_file_limit_across_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for index in range(2):
+                (root / f"messages{index}_cs.properties").write_bytes(b"xxxx")
+
+            original_open = Finder.open
+            opened: list[str] = []
+
+            def tracked_open(finder: Finder, path: PurePath, mode: str = "r") -> object:
+                self.assertEqual(mode, "rb")
+                opened.append(path.as_posix())
+                return original_open(finder, path, "rb")
+
+            with (
+                patch.object(Finder, "open", tracked_open),
+            ):
+                results = api_module.discover(
+                    root,
+                    limits=api_module.DiscoveryLimits(
+                        sniff_max_bytes=1024, sniff_max_files=1
+                    ),
+                )
+                self.assertFalse(results.truncated)
+
+        self.assertEqual(opened, ["messages0_cs.properties"])
+        self.assertEqual(len(results), 2)
 
 
 class FormatSniffContentLimitTest(DiscoveryTestCase):

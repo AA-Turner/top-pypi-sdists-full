@@ -54,7 +54,10 @@ class WindowConstructionDynamic(object):
         * outside_emissivity
         * solar_transmittance
         * visible_transmittance
+        * solar_transmissivity
+        * visible_transmissivity
         * shgc
+        * shading_coefficient
         * thickness
         * glazing_count
         * gap_count
@@ -209,6 +212,38 @@ class WindowConstructionDynamic(object):
         return self._constructions[0].u_factor
 
     @property
+    def r_factor_summer(self):
+        """Construction R-factor in NFRC summer conditions [m2-K/W] (including air films).
+
+        Formulas for film coefficients come from come from ISO10292 and ISO15099.
+        """
+        return self._constructions[0].r_factor_summer
+
+    @property
+    def u_factor_summer(self):
+        """Construction U-factor in NFRC summer conditions [W/m2-K] (including air films).
+
+        Formulas for film coefficients come from come from ISO10292 and ISO15099.
+        """
+        return self._constructions[0].u_factor_summer
+
+    @property
+    def r_factor_winter(self):
+        """Construction R-factor in NFRC winter conditions [m2-K/W] (including air films).
+
+        Formulas for film coefficients come from come from ISO10292.
+        """
+        return self._constructions[0].r_factor_winter
+
+    @property
+    def u_factor_winter(self):
+        """Construction U-factor in NFRC winter conditions [W/m2-K] (including air films).
+
+        Formulas for film coefficients come from come from ISO10292.
+        """
+        return self._constructions[0].u_factor_winter
+
+    @property
     def solar_transmittance(self):
         """The solar transmittance of the first window construction at normal incidence.
         """
@@ -221,9 +256,32 @@ class WindowConstructionDynamic(object):
         return self._constructions[0].visible_transmittance
 
     @property
+    def solar_transmissivity(self):
+        """Get the solar transmissivity of all glazing panes at normal incidence.
+        """
+        return self._constructions[0].solar_transmissivity
+
+    @property
+    def visible_transmissivity(self):
+        """Get the visible transmissivity of all glazing panes at normal incidence.
+        """
+        return self._constructions[0].visible_transmissivity
+
+    @property
     def shgc(self):
         """The solar heat gain coefficient (SHGC) of the first window construction."""
         return self._constructions[0].shgc
+
+    @property
+    def shading_coefficient(self):
+        """Get the shading coefficient (SC) of the first window construction.
+
+        Shading Coefficient is the ratio of the solar heat the makes it to the
+        interior compared to that of a standard 1/8-inch (or 3mm) clear float glass.
+        Clear float glass has a SHGC of 0.87 so the SC is computed by taking the
+        window construction's SHGC and dividing it by 0.87.
+        """
+        return self._constructions[0].shading_coefficient
 
     @property
     def is_symmetric(self):

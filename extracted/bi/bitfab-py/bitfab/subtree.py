@@ -162,6 +162,7 @@ class _Open:
     framework_span: bool = False
     resume_beneath: tuple[_Open, ...] = ()
     declared: bool = False
+    claimed: bool = False
 
 
 @dataclass(eq=False)
@@ -487,7 +488,13 @@ def _on_start(code: Any, instruction_offset: int) -> Any:
                 continue
 
             stack = stacks.get(session, ())
-            if stack and stack[-1].code is code and _stands_in(stack[-1]):
+            if (
+                stack
+                and stack[-1].code is code
+                and _stands_in(stack[-1])
+                and not stack[-1].claimed
+            ):
+                stack[-1].claimed = True
                 continue
 
             declared = nested is not None and session is not innermost
@@ -606,6 +613,7 @@ def _restore_suspended(frame: Any) -> None:
                     and stack[top].code is entry.code
                     and stack[top].span_id == entry.span_id
                 ):
+                    stack[top].claimed = stack[top].claimed or entry.claimed
                     continue
                 updated[session] = _reinsert(stack, entry)
         _open.set(updated)

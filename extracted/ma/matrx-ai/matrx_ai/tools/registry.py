@@ -92,6 +92,20 @@ class ToolIdBoundaryError(ValueError):
     """
 
 
+class ToolSystemNotReadyError(RuntimeError):
+    """A turn asked for registered tools while this process's tool registry is
+    not loaded (or loaded empty).
+
+    Sending the request anyway is the silent zero-tool turn: the provider gets
+    no ``tools`` key, the model writes its tool calls as plain text, and nothing
+    runs (local aidream started with ``uvicorn --lifespan off``, 2026-10-12 to
+    2026-10-15: 12 conversations, 0 tools ran, /health still said ok). The turn
+    entries (``execute_ai_request``, the host's tool merge) first try a bounded
+    load through ``ensure_tool_system_ready``; reaching the provider boundary
+    still unloaded raises this. Non-retryable: the provider was never contacted.
+    """
+
+
 class ToolRegistry:
     """Singleton registry: loads tool definitions from the database and
     resolves implementations at startup.
@@ -675,17 +689,41 @@ class ToolRegistry:
         return None
 
     def get_provider_tools(self, tool_names: list[str], provider: str) -> list[dict[str, Any]]:
-        if not self._loaded:
-            vcprint(
-                {
-                    "requested_tools": tool_names,
-                    "provider": provider,
-                    "registry_loaded": self._loaded,
-                    "registry_count": len(self._tools),
-                },
-                "[ToolRegistry] Registry was never loaded! Tools will not be included in the request.",
-                color="red",
-            )
+        from matrx_ai.tools.agent_projection import lookup_projected_tool
+
+        if not self._loaded or not self._tools:
+            # A turn that expects registered tools must never go out without
+            # them because this process's registry is not ready. Request-scoped
+            # projections and tools already registered here resolve anyway; any
+            # other name would be silently dropped, so the turn is refused.
+            needs_registry = [
+                n
+                for n in tool_names
+                if not (
+                    isinstance(n, str)
+                    and (lookup_projected_tool(n) or self._resolve_tool_name(n) is not None)
+                )
+            ]
+            if needs_registry:
+                vcprint(
+                    {
+                        "requested_tools": tool_names,
+                        "provider": provider,
+                        "registry_loaded": self._loaded,
+                        "registry_count": len(self._tools),
+                    },
+                    "[ToolRegistry] Tool registry is not loaded — refusing to send this "
+                    "turn without its tools.",
+                    color="red",
+                )
+                raise ToolSystemNotReadyError(
+                    "This server's tools are not loaded yet, so this turn was stopped "
+                    f"instead of running without its {len(needs_registry)} tool(s). "
+                    f"(registry_loaded={self._loaded}, registry_count={len(self._tools)}; "
+                    "the process skipped or failed initialize_tool_system() — e.g. "
+                    "uvicorn --lifespan off — and the bounded on-demand load did not "
+                    "succeed.)"
+                )
 
         # ── GUARD: tool IDs must NEVER reach the provider boundary ───────────
         # Tool IDs (DB UUIDs) are resolved to NAMES at the edge (the single tool
@@ -732,8 +770,6 @@ class ToolRegistry:
         # and the model never sees it (it can't call a tool it isn't offered).
         # This is the second, independent layer that makes the projection reach
         # BOTH the model (declaration) and dispatch (execution).
-        from matrx_ai.tools.agent_projection import lookup_projected_tool
-
         resolved = [self._resolve_tool_name(n) for n in tool_names]
         out: list[dict[str, Any]] = []
         missing: list[str] = []

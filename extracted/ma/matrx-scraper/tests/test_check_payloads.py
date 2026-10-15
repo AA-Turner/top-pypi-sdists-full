@@ -65,7 +65,10 @@ def _evidence_keys_by_function() -> dict[str, set[str]]:
 
 
 # Evidence emitters whose names don't follow the check prefixes.
-_EMITTER_ITEM_KEYS = {"local_business_outcome": "local_business_markup"}
+_EMITTER_ITEM_KEYS = {
+    "local_business_outcome": "local_business_markup",
+    "_weigh_broken_page": "broken_page_4xx",
+}
 
 
 def _item_key(function_name: str) -> str:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-exec
-Version: 1.12.4
+Version: 1.12.5
 Summary: Utilities to execute code blocks in Markdown files.
 Keywords: markdown,python,exec,shell,bash,mkdocs
 Author-Email: Timothée Mazzucotelli <dev@pawamoy.fr>

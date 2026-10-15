@@ -1,0 +1,35 @@
+from policyengine_us.model_api import *
+
+
+class co_federal_deduction_addback(Variable):
+    value_type = float
+    entity = TaxUnit
+    label = "Colorado federal deductions addback"
+    unit = USD
+    definition_period = YEAR
+    reference = (
+        # C.R.S. 39-22-104 . Income tax imposed on individuals, estates, and trusts - section (3)(p)
+        "https://law.justia.com/codes/colorado/2023/title-39/specific-taxes/income-tax/article-22/part-1/section-39-22-104/",
+        # C.R.S. 39-22-104(3)(p.5)(I) (2023-2025) and (3)(p.7)(I) (2026+),
+        # Colorado Revised Statutes 2025 official compilation, pp. 382-384
+        "https://olls.info/crs/crs2025-title-39.pdf",
+        # 2022 Colorado Individual Income Tax Filing Guide - Additions - Line 4
+        "https://tax.colorado.gov/sites/tax/files/documents/DR_104_Book_2022.pdf#page=5",
+        # Individual Income Tax Guide - Part 3 Additions to Taxable Income - Federal itemized or standard deductions
+        "https://tax.colorado.gov/individual-income-tax-guide",
+    )
+    defined_for = "co_federal_deduction_addback_required"
+
+    def formula(tax_unit, period, parameters):
+        p = parameters(period).gov.states.co.tax.income.additions.federal_deductions
+        if p.itemized_only:
+            deductions = tax_unit("itemized_taxable_income_deductions", period)
+        else:
+            deductions = where(
+                tax_unit("tax_unit_itemizes", period),
+                tax_unit("itemized_taxable_income_deductions", period),
+                tax_unit("standard_deduction", period),
+            )
+        filing_status = tax_unit("filing_status", period)
+        exemption = p.exemption[filing_status]
+        return max_(deductions - exemption, 0)

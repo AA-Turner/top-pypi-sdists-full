@@ -16,6 +16,8 @@ Author:
 --*/
 
 #include <cmath>
+#include <numeric>
+#include <tuple>
 #include "util/mpz.h"
 #include "sat/sat_types.h"
 #include "sat/smt/pb_solver.h"
@@ -1241,7 +1243,7 @@ namespace pb {
                 g = coeff;
             }
             else {
-                g = u_gcd(g, coeff);
+                g = std::gcd(g, coeff);
             }
         }
 
@@ -3379,7 +3381,8 @@ namespace pb {
      */
     struct compare_wlit {
         bool operator()(wliteral l1, wliteral l2) const {
-            return l1.first > l2.first;
+            return std::tuple(l1.first, l1.second.index()) >
+                   std::tuple(l2.first, l2.second.index());
         }
     };
 
@@ -3774,4 +3777,3 @@ namespace pb {
     }
     
 }
-

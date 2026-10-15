@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 #  Cipher/mode_ofb.py : OFB mode
 #
@@ -24,17 +23,30 @@
 Output Feedback (CFB) mode.
 """
 
-__all__ = ['OfbMode']
+from __future__ import annotations
 
-from Crypto.Util.py3compat import _copy_bytes
-from Crypto.Util._raw_api import (load_pycryptodome_raw_lib, VoidPointer,
-                                  create_string_buffer, get_raw_buffer,
-                                  SmartPointer, c_size_t, c_uint8_ptr,
-                                  is_writeable_buffer)
+from typing import Optional, Union, overload
 
+__all__ = ["OfbMode"]
+from Crypto.Cipher._state_machine import Method
 from Crypto.Random import get_random_bytes
+from Crypto.Util._raw_api import (
+    SmartPointer,
+    VoidPointer,
+    c_size_t,
+    c_uint8_ptr_len,
+    c_uint8_ptr_out,
+    create_output_buffer,
+    get_raw_buffer,
+    is_writeable_buffer,
+    load_pycryptodome_raw_lib,
+)
 
-raw_ofb_lib = load_pycryptodome_raw_lib("Crypto.Cipher._raw_ofb", """
+Buffer = Union[bytes, bytearray, memoryview]
+
+raw_ofb_lib = load_pycryptodome_raw_lib(
+    "Crypto.Cipher._raw_ofb",
+    """
                         int OFB_start_operation(void *cipher,
                                                 const uint8_t iv[],
                                                 size_t iv_len,
@@ -48,11 +60,11 @@ raw_ofb_lib = load_pycryptodome_raw_lib("Crypto.Cipher._raw_ofb", """
                                         uint8_t *out,
                                         size_t data_len);
                         int OFB_stop_operation(void *state);
-                        """
-                                        )
+                        """,
+)
 
 
-class OfbMode(object):
+class OfbMode:
     """*Output FeedBack (OFB)*.
 
     This mode is very similar to CBC, but it
@@ -70,7 +82,7 @@ class OfbMode(object):
     :undocumented: __init__
     """
 
-    def __init__(self, block_cipher, iv):
+    def __init__(self, block_cipher: SmartPointer, iv: Buffer) -> None:
         """Create a new block cipher, configured in OFB mode.
 
         :Parameters:
@@ -88,19 +100,17 @@ class OfbMode(object):
             compromises confidentiality.
         """
 
-        self._state = VoidPointer()
-        result = raw_ofb_lib.OFB_start_operation(block_cipher.get(),
-                                                 c_uint8_ptr(iv),
-                                                 c_size_t(len(iv)),
-                                                 self._state.address_of())
+        state = VoidPointer()
+        iv_ptr, iv_len = c_uint8_ptr_len(iv)
+        result = raw_ofb_lib.OFB_start_operation(
+            block_cipher.get(), iv_ptr, c_size_t(iv_len), state.address_of()
+        )
         if result:
-            raise ValueError("Error %d while instantiating the OFB mode"
-                             % result)
+            raise ValueError("Error %d while instantiating the OFB mode" % result)
 
         # Ensure that object disposal of this Python object will (eventually)
         # free the memory allocated by the raw library for the cipher mode
-        self._state = SmartPointer(self._state.get(),
-                                   raw_ofb_lib.OFB_stop_operation)
+        self._state = SmartPointer(state.get(), raw_ofb_lib.OFB_stop_operation)
 
         # Memory allocated for the underlying block cipher is now owed
         # by the cipher mode
@@ -109,16 +119,24 @@ class OfbMode(object):
         self.block_size = len(iv)
         """The block size of the underlying cipher, in bytes."""
 
-        self.iv = _copy_bytes(None, None, iv)
+        self.iv = bytes(iv)
         """The Initialization Vector originally used to create the object.
         The value does not change."""
 
         self.IV = self.iv
         """Alias for `iv`"""
 
-        self._next = ["encrypt", "decrypt"]
+        self._next = [Method.ENCRYPT, Method.DECRYPT]
 
-    def encrypt(self, plaintext, output=None):
+    @overload
+    def encrypt(self, plaintext: Buffer) -> bytes: ...
+
+    @overload
+    def encrypt(self, plaintext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
+
+    def encrypt(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Encrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have encrypted a message
@@ -151,12 +169,12 @@ class OfbMode(object):
           Otherwise, ``None``.
         """
 
-        if "encrypt" not in self._next:
+        if Method.ENCRYPT not in self._next:
             raise TypeError("encrypt() cannot be called after decrypt()")
-        self._next = ["encrypt"]
+        self._next = [Method.ENCRYPT]
 
         if output is None:
-            ciphertext = create_string_buffer(len(plaintext))
+            ciphertext = create_output_buffer(len(plaintext))
         else:
             ciphertext = output
 
@@ -164,13 +182,16 @@ class OfbMode(object):
                 raise TypeError("output must be a bytearray or a writeable memoryview")
 
             if len(plaintext) != len(output):
-                raise ValueError("output must have the same length as the input"
-                                 "  (%d bytes)" % len(plaintext))
+                raise ValueError("output must have the same length as the input  (%d bytes)" % len(plaintext))
 
-        result = raw_ofb_lib.OFB_encrypt(self._state.get(),
-                                         c_uint8_ptr(plaintext),
-                                         c_uint8_ptr(ciphertext),
-                                         c_size_t(len(plaintext)))
+        with c_uint8_ptr_out(ciphertext) as ciphertext_ptr:
+            plaintext_ptr, plaintext_len = c_uint8_ptr_len(plaintext)
+            # Check the lengths of the buffers that C code gets
+            if len(ciphertext_ptr) != plaintext_len:
+                raise ValueError("output must have the same length as the input  (%d bytes)" % plaintext_len)
+            result = raw_ofb_lib.OFB_encrypt(
+                self._state.get(), plaintext_ptr, ciphertext_ptr, c_size_t(plaintext_len)
+            )
         if result:
             raise ValueError("Error %d while encrypting in OFB mode" % result)
 
@@ -179,7 +200,15 @@ class OfbMode(object):
         else:
             return None
 
-    def decrypt(self, ciphertext, output=None):
+    @overload
+    def decrypt(self, ciphertext: Buffer) -> bytes: ...
+
+    @overload
+    def decrypt(self, ciphertext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
+
+    def decrypt(
+        self, ciphertext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Decrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have decrypted a message
@@ -212,12 +241,12 @@ class OfbMode(object):
           Otherwise, ``None``.
         """
 
-        if "decrypt" not in self._next:
+        if Method.DECRYPT not in self._next:
             raise TypeError("decrypt() cannot be called after encrypt()")
-        self._next = ["decrypt"]
+        self._next = [Method.DECRYPT]
 
         if output is None:
-            plaintext = create_string_buffer(len(ciphertext))
+            plaintext = create_output_buffer(len(ciphertext))
         else:
             plaintext = output
 
@@ -225,13 +254,16 @@ class OfbMode(object):
                 raise TypeError("output must be a bytearray or a writeable memoryview")
 
             if len(ciphertext) != len(output):
-                raise ValueError("output must have the same length as the input"
-                                 "  (%d bytes)" % len(plaintext))
+                raise ValueError("output must have the same length as the input  (%d bytes)" % len(plaintext))
 
-        result = raw_ofb_lib.OFB_decrypt(self._state.get(),
-                                         c_uint8_ptr(ciphertext),
-                                         c_uint8_ptr(plaintext),
-                                         c_size_t(len(ciphertext)))
+        with c_uint8_ptr_out(plaintext) as plaintext_ptr:
+            ciphertext_ptr, ciphertext_len = c_uint8_ptr_len(ciphertext)
+            # Check the lengths of the buffers that C code gets
+            if len(plaintext_ptr) != ciphertext_len:
+                raise ValueError("output must have the same length as the input  (%d bytes)" % ciphertext_len)
+            result = raw_ofb_lib.OFB_decrypt(
+                self._state.get(), ciphertext_ptr, plaintext_ptr, c_size_t(ciphertext_len)
+            )
         if result:
             raise ValueError("Error %d while decrypting in OFB mode" % result)
 
@@ -264,7 +296,7 @@ def _create_ofb_cipher(factory, **kwargs):
     iv = kwargs.pop("IV", None)
     IV = kwargs.pop("iv", None)
 
-    if (None, None) == (iv, IV):
+    if (iv, IV) == (None, None):
         iv = get_random_bytes(factory.block_size)
     if iv is not None:
         if IV is not None:
@@ -273,8 +305,7 @@ def _create_ofb_cipher(factory, **kwargs):
         iv = IV
 
     if len(iv) != factory.block_size:
-        raise ValueError("Incorrect IV length (it must be %d bytes long)" %
-                factory.block_size)
+        raise ValueError("Incorrect IV length (it must be %d bytes long)" % factory.block_size)
 
     if kwargs:
         raise TypeError("Unknown parameters for OFB: %s" % str(kwargs))

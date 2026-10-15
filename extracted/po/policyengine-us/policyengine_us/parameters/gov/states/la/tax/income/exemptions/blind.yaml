@@ -1,0 +1,16 @@
+description: Louisiana reduces taxable income by this amount for each blind head or spouse.
+values:
+  2014-01-01: 1_000
+
+metadata:
+  reference:
+    - title: Louisiana Revised Statutes, RS 47:79 - Credits of individuals against net income (A)(2)
+      href: https://www.legis.la.gov/legis/Law.aspx?d=102518
+    # Blind exemption repealed for 2025+ by Act 11.
+    - title: 2025 Louisiana Resident Income Tax Return Instructions, What's New - Exemptions
+      href: https://dam.ldr.la.gov/taxforms/IT540i%20WEB(2025)D11.pdf#page=1
+    - title: 2024 Louisiana Resident Income Tax Return, Tax Table
+      href: https://dam.ldr.la.gov/taxforms/IT540i%20WEB%20(2024)D18%20INSTRUCTIONS.pdf#page=18
+  unit: currency-USD
+  period: year
+  label: Louisiana blind exemption amount

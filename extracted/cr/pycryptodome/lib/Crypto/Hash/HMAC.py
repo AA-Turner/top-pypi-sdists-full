@@ -31,34 +31,56 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # ===================================================================
 
-from Crypto.Util.py3compat import bord, tobytes
+from __future__ import annotations
 
+import warnings
 from binascii import unhexlify
+from hmac import compare_digest
+from typing import TYPE_CHECKING, Optional, Union
 
-from Crypto.Hash import BLAKE2s
+from Crypto.Util._bytes import tobytes
 from Crypto.Util.strxor import strxor
-from Crypto.Random import get_random_bytes
 
-__all__ = ['new', 'HMAC']
+if TYPE_CHECKING:
+    from types import ModuleType
+
+Buffer = Union[bytes, bytearray, memoryview]
+
+__all__ = ["new", "HMAC"]
 
 _hash2hmac_oid = {
-    '1.3.14.3.2.26': '1.2.840.113549.2.7',           # SHA-1
-    '2.16.840.1.101.3.4.2.4': '1.2.840.113549.2.8',  # SHA-224
-    '2.16.840.1.101.3.4.2.1': '1.2.840.113549.2.9',  # SHA-256
-    '2.16.840.1.101.3.4.2.2': '1.2.840.113549.2.10',  # SHA-384
-    '2.16.840.1.101.3.4.2.3': '1.2.840.113549.2.11',  # SHA-512
-    '2.16.840.1.101.3.4.2.5': '1.2.840.113549.2.12',  # SHA-512_224
-    '2.16.840.1.101.3.4.2.6': '1.2.840.113549.2.13',  # SHA-512_256
-    '2.16.840.1.101.3.4.2.7': '2.16.840.1.101.3.4.2.13',   # SHA-3 224
-    '2.16.840.1.101.3.4.2.8': '2.16.840.1.101.3.4.2.14',   # SHA-3 256
-    '2.16.840.1.101.3.4.2.9': '2.16.840.1.101.3.4.2.15',   # SHA-3 384
-    '2.16.840.1.101.3.4.2.10': '2.16.840.1.101.3.4.2.16',  # SHA-3 512
+    "1.3.14.3.2.26": "1.2.840.113549.2.7",  # SHA-1
+    "2.16.840.1.101.3.4.2.4": "1.2.840.113549.2.8",  # SHA-224
+    "2.16.840.1.101.3.4.2.1": "1.2.840.113549.2.9",  # SHA-256
+    "2.16.840.1.101.3.4.2.2": "1.2.840.113549.2.10",  # SHA-384
+    "2.16.840.1.101.3.4.2.3": "1.2.840.113549.2.11",  # SHA-512
+    "2.16.840.1.101.3.4.2.5": "1.2.840.113549.2.12",  # SHA-512_224
+    "2.16.840.1.101.3.4.2.6": "1.2.840.113549.2.13",  # SHA-512_256
+    "2.16.840.1.101.3.4.2.7": "2.16.840.1.101.3.4.2.13",  # SHA-3 224
+    "2.16.840.1.101.3.4.2.8": "2.16.840.1.101.3.4.2.14",  # SHA-3 256
+    "2.16.840.1.101.3.4.2.9": "2.16.840.1.101.3.4.2.15",  # SHA-3 384
+    "2.16.840.1.101.3.4.2.10": "2.16.840.1.101.3.4.2.16",  # SHA-3 512
 }
 
 _hmac2hash_oid = {v: k for k, v in _hash2hmac_oid.items()}
 
 
-class HMAC(object):
+def _default_digestmod() -> ModuleType:
+    """Return MD5, the deprecated default hash, with a warning
+    for the caller of :func:`new` (or of the :class:`HMAC` class)."""
+
+    warnings.warn(
+        "HMAC without 'digestmod' uses MD5, but this default is deprecated "
+        "and will be removed: pass the hash explicitly (for instance, digestmod=SHA256)",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    from Crypto.Hash import MD5
+
+    return MD5
+
+
+class HMAC:
     """An HMAC hash object.
     Do not instantiate directly. Use the :func:`new` function.
 
@@ -69,11 +91,9 @@ class HMAC(object):
                Only present if the algorithm was officially assigned one.
     """
 
-    def __init__(self, key, msg=b"", digestmod=None):
-
+    def __init__(self, key: Buffer, msg: Buffer = b"", digestmod: Optional[ModuleType] = None) -> None:
         if digestmod is None:
-            from Crypto.Hash import MD5
-            digestmod = MD5
+            digestmod = _default_digestmod()
 
         if msg is None:
             msg = b""
@@ -117,7 +137,7 @@ class HMAC(object):
         # Start step 8 and 9
         self._outer = digestmod.new(key_0_opad)
 
-    def update(self, msg):
+    def update(self, msg: Buffer) -> HMAC:
         """Authenticate the next chunk of message.
 
         Args:
@@ -130,14 +150,10 @@ class HMAC(object):
     def _pbkdf2_hmac_assist(self, first_digest, iterations):
         """Carry out the expensive inner loop for PBKDF2-HMAC"""
 
-        result = self._digestmod._pbkdf2_hmac_assist(
-                                    self._inner,
-                                    self._outer,
-                                    first_digest,
-                                    iterations)
+        result = self._digestmod._pbkdf2_hmac_assist(self._inner, self._outer, first_digest, iterations)
         return result
 
-    def copy(self):
+    def copy(self) -> HMAC:
         """Return a copy ("clone") of the HMAC object.
 
         The copy will have the same internal state as the original HMAC
@@ -150,13 +166,13 @@ class HMAC(object):
 
         new_hmac = HMAC(b"fake key", digestmod=self._digestmod)
 
-        # Syncronize the state
+        # Synchronize the state
         new_hmac._inner = self._inner.copy()
         new_hmac._outer = self._outer.copy()
 
         return new_hmac
 
-    def digest(self):
+    def digest(self) -> bytes:
         """Return the **binary** (non-printable) MAC tag of the message
         authenticated so far.
 
@@ -169,7 +185,7 @@ class HMAC(object):
         frozen_outer_hash.update(self._inner.digest())
         return frozen_outer_hash.digest()
 
-    def verify(self, mac_tag):
+    def verify(self, mac_tag: Buffer) -> None:
         """Verify that a given **binary** MAC (computed by another party)
         is valid.
 
@@ -181,15 +197,10 @@ class HMAC(object):
                 has been tampered with or that the MAC key is incorrect.
         """
 
-        secret = get_random_bytes(16)
-
-        mac1 = BLAKE2s.new(digest_bits=160, key=secret, data=mac_tag)
-        mac2 = BLAKE2s.new(digest_bits=160, key=secret, data=self.digest())
-
-        if mac1.digest() != mac2.digest():
+        if not compare_digest(mac_tag, self.digest()):
             raise ValueError("MAC check failed")
 
-    def hexdigest(self):
+    def hexdigest(self) -> str:
         """Return the **printable** MAC tag of the message authenticated so far.
 
         :return: The MAC tag, computed over the data processed so far.
@@ -197,10 +208,9 @@ class HMAC(object):
         :rtype: string
         """
 
-        return "".join(["%02x" % bord(x)
-                        for x in tuple(self.digest())])
+        return self.digest().hex()
 
-    def hexverify(self, hex_mac_tag):
+    def hexverify(self, hex_mac_tag: str) -> None:
         """Verify that a given **printable** MAC (computed by another party)
         is valid.
 
@@ -216,7 +226,7 @@ class HMAC(object):
         self.verify(unhexlify(tobytes(hex_mac_tag)))
 
 
-def new(key, msg=b"", digestmod=None):
+def new(key: Buffer, msg: Buffer = b"", digestmod: Optional[ModuleType] = None) -> HMAC:
     """Create a new MAC object.
 
     Args:
@@ -228,11 +238,18 @@ def new(key, msg=b"", digestmod=None):
             Optional. The very first chunk of the message to authenticate.
             It is equivalent to an early call to :meth:`HMAC.update`.
         digestmod (module):
-            The hash to use to implement the HMAC.
-            Default is :mod:`Crypto.Hash.MD5`.
+            The hash to use to implement the HMAC, like
+            :mod:`Crypto.Hash.SHA256` (or a hash object created from it).
+            It is mandatory.
+
+            .. deprecated:: 4.0
+                If omitted, :mod:`Crypto.Hash.MD5` is used, with a
+                :class:`DeprecationWarning`. This default will be removed.
 
     Returns:
         An :class:`HMAC` object
     """
 
+    if digestmod is None:
+        digestmod = _default_digestmod()
     return HMAC(key, msg, digestmod)

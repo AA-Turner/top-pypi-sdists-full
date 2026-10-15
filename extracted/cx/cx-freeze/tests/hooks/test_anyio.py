@@ -1,0 +1,85 @@
+"""Tests for hooks of anyio async package.
+
+Implicitly test the asyncio and uvloop packages.
+"""
+
+from __future__ import annotations
+
+import sys
+from typing import TYPE_CHECKING
+
+import pytest
+
+from cx_Freeze._compat import ABI_THREAD, IS_LINUX, IS_MINGW, IS_WINDOWS
+
+if TYPE_CHECKING:
+    from tests.conftest import TempPackage
+
+TIMEOUT = 15
+
+zip_packages = pytest.mark.parametrize(
+    "zip_packages", [False, True], ids=["", "zip_packages"]
+)
+
+SOURCE_ANYIO = """
+test_anyio.py
+    import sys
+
+    from anyio import run
+    try:
+        import uvloop
+    except ImportError:
+        uvloop = None
+
+    async def main():
+        print("Hello from cx_Freeze")
+
+    run(
+        main,
+        backend_options={
+            "use_uvloop": uvloop is not None,
+        },
+    )
+pyproject.toml
+    [project]
+    name = "test_anyio"
+    version = "0.1.2.3"
+    dependencies = [
+        "anyio",
+    ]
+
+    [tool.cxfreeze]
+    executables = ["test_anyio.py"]
+
+    [tool.cxfreeze.build_exe]
+    include-msvcr = true
+    excludes = ["tkinter"]
+    silent = true
+"""
+
+
+@pytest.mark.venv
+@zip_packages
+def test_anyio(
+    tmp_package: TempPackage, zip_packages: pytest.MarkDecorator
+) -> None:
+    """Test if anyio is working correctly."""
+    tmp_package.create(SOURCE_ANYIO)
+    if zip_packages:
+        pyproject = tmp_package.path / "pyproject.toml"
+        buf = pyproject.read_bytes().decode().splitlines()
+        buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
+        pyproject.write_bytes("\n".join(buf).encode("utf_8"))
+    if (
+        not (IS_WINDOWS or IS_MINGW)
+        and sys.version_info < (3, 15)
+        and not (sys.version_info == (3, 13) and ABI_THREAD == "t")
+    ):
+        tmp_package.install("uvloop")
+    if IS_LINUX and sys.version_info >= (3, 13):
+        tmp_package.install("freeze-core>=0.7.6")
+    tmp_package.freeze()
+    executable = tmp_package.executable("test_anyio")
+    assert executable.is_file()
+    result = tmp_package.run(executable, timeout=TIMEOUT)
+    result.stdout.fnmatch_lines(["Hello from cx_Freeze"])

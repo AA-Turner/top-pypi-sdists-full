@@ -1,0 +1,136 @@
+- name: simple household_net_income test TX-netinc-base
+  absolute_error_margin: 0.01
+  period: 2021
+  input:
+    age: 40
+    employment_income: 100_000
+    taxable_interest_income: 100_000
+    state_fips: 48  # TX
+  output:
+    household_net_income: 151_539.00
+
+- name: simple household_net_income test TX-netinc-alt
+  absolute_error_margin: 0.01
+  period: 2021
+  input:
+    age: 40
+    employment_income: 101_000
+    taxable_interest_income: 100_000
+    state_fips: 48  # TX
+  output:
+    household_net_income: 152_104.50
+
+- name: simple marginal_tax_rate test TX-mtr
+  absolute_error_margin: 0.0001
+  period: 2021
+  input:
+    age: 40
+    employment_income: 100_000
+    taxable_interest_income: 100_000
+    state_fips: 48  # TX
+  output:  # as expected from above two test results; also same as TAXSIM35
+    marginal_tax_rate: 0.4345  # that is, 43.45%
+
+- name: marginal_tax_rate test 1 in a two tax-unit household
+  absolute_error_margin: 0.0001
+  period: 2021
+  input:
+    simulation.marginal_tax_rate_adults: 1  # below the default of 2
+    people:
+      person1:
+        age: 43
+        employment_income: 100_000
+      person2:
+        age: 63
+        social_security_retirement: 10_000
+    tax_units:
+      tax_unit1:
+        members: [person1]
+      tax_unit2:
+        members: [person2]
+    spm_units:
+      spm_unit1:
+        members: [person1]
+      spm_unit2:
+        members: [person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 48  # TX
+  output:
+    marginal_tax_rate: [0.3165, 0]
+
+- name: marginal_tax_rate test 2 in a two tax-unit household
+  absolute_error_margin: 0.0001
+  period: 2021
+  input:
+    simulation.marginal_tax_rate_adults: 2
+    people:
+      person1:
+        age: 43
+        employment_income: 100_000
+      person2:
+        age: 63
+        social_security_retirement: 10_000
+    tax_units:
+      tax_unit1:
+        members: [person1]
+      tax_unit2:
+        members: [person2]
+    spm_units:
+      spm_unit1:
+        members: [person1]
+      spm_unit2:
+        members: [person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 48  # TX
+  output:
+    marginal_tax_rate: [0.3165, -0.0765]
+
+# Three single roommates in Texas in 2024, each filing alone. Taxable income is
+# earnings less the $14,600 standard deduction, so the $90,000 earner is in the
+# 22% bracket and the $60,000 and $30,000 earners are in the 12% bracket; each
+# also pays 7.65% employee payroll tax. The federal and FICA components check the
+# shared component helper, which has its own copy of the adult loop.
+# The same household with the cap raised to 3 is in
+# tests/core/test_marginal_tax_rate_coverage.py, which avoids another cached
+# tax-benefit system in the batched YAML runner.
+- name: Third earner in a household gets a placeholder zero under the default cap
+  absolute_error_margin: 0.0001
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 40
+        employment_income: 90_000
+      person2:
+        age: 35
+        employment_income: 60_000
+      person3:
+        age: 30
+        employment_income: 30_000
+    tax_units:
+      tax_unit1:
+        members: [person1]
+      tax_unit2:
+        members: [person2]
+      tax_unit3:
+        members: [person3]
+    spm_units:
+      spm_unit1:
+        members: [person1]
+      spm_unit2:
+        members: [person2]
+      spm_unit3:
+        members: [person3]
+    households:
+      household:
+        members: [person1, person2, person3]
+        state_code: TX
+  output:
+    marginal_tax_rate: [0.2965, 0.1965, 0]
+    marginal_tax_rate_computed: [true, true, false]
+    federal_marginal_tax_rate: [0.22, 0.12, 0]
+    fica_marginal_tax_rate: [0.0765, 0.0765, 0]

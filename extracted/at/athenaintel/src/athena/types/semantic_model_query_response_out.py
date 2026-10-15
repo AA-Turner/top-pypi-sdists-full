@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .semantic_model_source_snapshot_out import SemanticModelSourceSnapshotOut
 
 
 class SemanticModelQueryResponseOut(UniversalBaseModel):
@@ -11,9 +12,19 @@ class SemanticModelQueryResponseOut(UniversalBaseModel):
     Response from a semantic model query.
     """
 
+    as_of_kind: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    'snapshot' when 'data_as_of' comes from the source tables' Iceberg snapshots (lakehouse-backed models); 'query_time' when the data is as current as the moment the warehouse answered ('queried_at').
+    """
+
     data: typing.List[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field()
     """
     Query result rows
+    """
+
+    data_as_of: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    ISO-8601 UTC time the data is current as of. For a lakehouse-backed model: the oldest last-commit time across the model's source tables. Null for models over other engines (Snowflake, Databricks, BigQuery, Postgres), which expose no snapshot, and for rows the engine served from a cache computed before a source table's latest commit — use 'queried_at' instead.
     """
 
     elapsed_ms: typing.Optional[int] = pydantic.Field(default=None)
@@ -21,9 +32,19 @@ class SemanticModelQueryResponseOut(UniversalBaseModel):
     Server-side execution time in milliseconds (semantic layer + engine, excluding network) — surface it to show how fast the engine answered
     """
 
+    queried_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    ISO-8601 UTC time the engine computed the result (an earlier time when it was served from the engine's cache).
+    """
+
     row_count: int = pydantic.Field()
     """
     Number of rows returned
+    """
+
+    source_snapshots: typing.Optional[typing.List[SemanticModelSourceSnapshotOut]] = pydantic.Field(default=None)
+    """
+    For a lakehouse-backed model, the Iceberg snapshot of each source table the returned rows reflect; empty for models over other engines and when the rows were computed before a source table's latest commit.
     """
 
     truncated: typing.Optional[bool] = pydantic.Field(default=None)

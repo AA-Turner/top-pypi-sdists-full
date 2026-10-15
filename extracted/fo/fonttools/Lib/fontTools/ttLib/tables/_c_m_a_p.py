@@ -672,6 +672,10 @@ class cmap_format_2(CmapSubtable):
 
                     gids.append(gid)
 
+        for gid in gids:
+            if not 0 <= gid <= 0xFFFF:
+                raise struct.error(f"cmap format 2 cannot represent glyph ID {gid}")
+
         # Process the (char code to gid) item list in char code order.
         # By definition, all one byte char codes map to subheader 0.
         # For all the two byte char codes, we assume that the first byte maps maps to the empty subhead (with an entry count of 0,
@@ -689,7 +693,9 @@ class cmap_format_2(CmapSubtable):
         # with the result that the subhead 0 would not get created just by processing the item list.
         # The same is true for an entirely empty (all-notdef) cmap, where there
         # are no char codes to process at all.
-        if not charCodes or charCodes[0] > 255:
+        # Char codes mapped to .notdef are left unencoded.
+        items = [(code, gid) for code, gid in zip(charCodes, gids) if gid != 0]
+        if not items or items[0][0] > 255:
             subHeader = SubHeader()
             subHeader.firstCode = 0
             subHeader.entryCount = 0
@@ -698,10 +704,7 @@ class cmap_format_2(CmapSubtable):
             subHeaderList.append(subHeader)
 
         lastFirstByte = -1
-        items = zip(charCodes, gids)
         for charCode, gid in items:
-            if gid == 0:
-                continue
             firstbyte = charCode >> 8
             secondByte = charCode & 0x00FF
 
@@ -740,6 +743,10 @@ class cmap_format_2(CmapSubtable):
 
         # fix GI's and iDelta of last subheader that we we added to the subheader array.
         self.setIDDelta(subHeader)
+        if lastFirstByte == 0:
+            for index in range(subHeader.entryCount):
+                charCode = subHeader.firstCode + index
+                subHeaderKeys[charCode] = 0
 
         # Now we add a final subheader for the subHeaderKeys which maps to empty two byte charcode ranges.
         subHeader = SubHeader()
@@ -1033,6 +1040,8 @@ class cmap_format_4(CmapSubtable):
                         gids.append(gid)
             cmap = {}  # code:glyphID mapping
             for code, gid in zip(charCodes, gids):
+                if not 0 <= gid <= 0xFFFF:
+                    raise struct.error(f"cmap format 4 cannot represent glyph ID {gid}")
                 cmap[code] = gid
 
             # Build startCode and endCode lists.
@@ -1296,6 +1305,10 @@ class cmap_format_12_or_13(CmapSubtable):
                 + self.data
             )
         charCodes = list(self.cmap.keys())
+        if not charCodes:
+            return struct.pack(
+                ">HHLLL", self.format, self.reserved, 16, self.language, 0
+            )
         names = list(self.cmap.values())
         nameMap = ttFont.getReverseGlyphMap()
         try:
@@ -1598,7 +1611,7 @@ class cmap_format_14(CmapSubtable):
                 defRecs = []
                 for defEntry in defList:
                     cnt += 1
-                    if (lastUV + cnt) != defEntry:
+                    if (lastUV + cnt) != defEntry or cnt > 255:
                         rec = struct.pack(">3sB", cvtFromUVS(lastUV), cnt - 1)
                         lastUV = defEntry
                         defRecs.append(rec)

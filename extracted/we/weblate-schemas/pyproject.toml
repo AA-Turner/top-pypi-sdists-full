@@ -24,7 +24,7 @@ test = [
   "jsonschema[format]"
 ]
 types = [
-  "ty==0.0.86"
+  "ty==0.0.87"
 ]
 
 [project]
@@ -60,7 +60,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate_schemas"
 requires-python = ">=3.10"
-version = "2026.11"
+version = "2026.12"
 
 [[project.authors]]
 email = "michal@weblate.org"

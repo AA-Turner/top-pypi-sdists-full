@@ -4,6 +4,16 @@ import types
 
 import ulid
 
+pytest_configs: list = []
+
+
+def is_xdist_controller() -> bool:
+    """Whether this process is a pytest-xdist controller: it distributes
+    tests to worker processes and runs none itself."""
+    return bool(pytest_configs) and pytest_configs[-1].pluginmanager.hasplugin(
+        "dsession"
+    )
+
 
 def pytest_generated_filter(frame: types.FrameType, event: str, arg: object) -> bool:
     """
@@ -31,11 +41,14 @@ def process_pytest(frame, event, arg, context):  # pragma: no cover
     # location is a (filename, lineno, testname) tuple
     # https://docs.pytest.org/en/7.1.x/reference/reference.html#pytest.hookspec.pytest_runtest_logstart
     location = frame.f_locals["location"]
+    # The node id names the test in both hooks. The location tuple is not
+    # always the same object in both.
+    nodeid = frame.f_locals["nodeid"]
     if co_name == "pytest_runtest_logstart":
         frame_id = f"frm_{ulid.new()}"
-        frame_ids[id(location)] = frame_id
+        frame_ids[nodeid] = frame_id
     else:
-        frame_id = frame_ids[id(location)]
+        frame_id = frame_ids.pop(nodeid, None) or f"frm_{ulid.new()}"
 
     _filename, _lineno, test = location
     test_class, _sep, test_name = test.rpartition(".")
@@ -47,6 +60,10 @@ def process_pytest(frame, event, arg, context):  # pragma: no cover
 
 
 def call_pytest(frame, event, arg, context):
+    # The xdist controller runs these hooks for its workers' tests, overlapping in time.
+    # A rejected hook stays unwatched by sys.monitoring for the rest of the trace.
+    if is_xdist_controller():
+        return False
     return (  # pragma: no cover
         event == "call" and frame.f_code.co_name == "pytest_runtest_logstart"
     ) or (event == "return" and frame.f_code.co_name == "pytest_runtest_logfinish")

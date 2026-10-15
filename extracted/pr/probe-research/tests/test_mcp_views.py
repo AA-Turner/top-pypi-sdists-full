@@ -21,6 +21,8 @@ from probe.mcp import service as service_module
 from probe.mcp.service import _VIEWS, ResearchReadService
 from probe.mcp.source import ResearchOSSource
 from probe.sdk import errors
+from tests.conftest import make_client
+from tests.mcp_catalog_fake import McpCatalogApp, seed_catalog
 
 
 def _service(client) -> ResearchReadService:
@@ -472,7 +474,7 @@ def test_every_run_view_returns_a_materially_different_payload(client, app):
     assert payloads["reproduce"] != payloads["handoff"]
 
 
-def test_no_view_reports_missing_unconditionally(client, app):
+def test_no_view_reports_missing_unconditionally(client, app, tmp_path):
     """THE honest-envelope guard, and the one tests/test_parity.py cannot give us:
     parity guards HTTP reachability, not whether a view is a lie.
 
@@ -497,9 +499,15 @@ def test_no_view_reports_missing_unconditionally(client, app):
         "sub_note": f"sub_note:{_SUB_NOTE_ID}",
     }
     service = _service(client)
+    # The data catalog's kinds read their own routes, which the catalog fake
+    # serves beside everything `FakeApp` does (tests/mcp_catalog_fake.py).
+    catalog_app = McpCatalogApp()
+    catalog_refs = seed_catalog(catalog_app)
+    refs.update(catalog_refs)
+    catalog_service = _service(make_client(catalog_app, tmp_spool=tmp_path / "catalog-spool"))
 
     for kind, view in sorted(_VIEWS):
-        result = service.get_entity(
+        result = (catalog_service if kind in catalog_refs else service).get_entity(
             refs[kind],
             view=view,
             token_budget=100_000,

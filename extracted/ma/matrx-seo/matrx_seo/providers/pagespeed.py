@@ -702,6 +702,7 @@ def _cache_facts(audits: Mapping[str, Any]) -> dict[str, Any]:
     """
     static_bytes = 0.0
     static_requests = 0
+    bytes_by_host: dict[str, float] = {}
     requests = _audit_items(audits.get("network-requests"))
     for item in requests:
         resource = str(_mapping(item).get("resourceType") or "")
@@ -710,8 +711,12 @@ def _cache_facts(audits: Mapping[str, Any]) -> dict[str, Any]:
         transferred = _number(_mapping(item).get("transferSize")) or 0.0
         static_bytes += transferred
         static_requests += 1
+        host = urlsplit(str(_mapping(item).get("url") or "")).netloc.lower()
+        if host:
+            bytes_by_host[host] = bytes_by_host.get(host, 0.0) + transferred
     offenders: list[dict[str, Any]] = []
-    for item in _audit_items(audits.get("cache-insight"))[:_CACHE_OFFENDER_LIMIT]:
+    cache_items = _audit_items(audits.get("cache-insight"))
+    for item in cache_items[:_CACHE_OFFENDER_LIMIT]:
         entry = _mapping(item)
         lifetime = _number(entry.get("cacheLifetimeMs"))
         total = _number(entry.get("totalBytes"))
@@ -731,6 +736,11 @@ def _cache_facts(audits: Mapping[str, Any]) -> dict[str, Any]:
         "static_bytes": static_bytes,
         "static_requests": static_requests,
         "short_ttl_resources": offenders,
+        # The list above is cut at `_CACHE_OFFENDER_LIMIT`; a consumer must say
+        # "at least N" when this is true, never present the cap as a count.
+        "short_ttl_truncated": len(cache_items) > _CACHE_OFFENDER_LIMIT,
+        "short_ttl_total": len(cache_items),
+        "static_bytes_by_host": bytes_by_host,
     }
 
 

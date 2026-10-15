@@ -1,0 +1,20 @@
+description: The IRS allows an itemized deduction for interest paid on home acquisition debt incurred on or before December 15, 2017, up to this mortgage balance less any grandfathered debt, based on filing status.
+SINGLE:
+  1900-01-01: 1_000_000
+JOINT:
+  1900-01-01: 1_000_000
+SEPARATE:
+  1900-01-01: 500_000
+HEAD_OF_HOUSEHOLD:
+  1900-01-01: 1_000_000
+SURVIVING_SPOUSE:
+  1900-01-01: 1_000_000
+metadata:
+  propagate_metadata_to_children: true
+  breakdown: filing_status
+  unit: currency-USD
+  period: year
+  label: IRS pre-TCJA home mortgage value cap
+  reference:
+    - title: 26 U.S. Code § 163 - Interest, (h)(3)(B)(ii), (D)(ii) and (F)
+      href: https://www.law.cornell.edu/uscode/text/26/163#h_3

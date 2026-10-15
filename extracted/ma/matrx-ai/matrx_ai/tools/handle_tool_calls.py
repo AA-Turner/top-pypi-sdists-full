@@ -131,6 +131,90 @@ async def initialize_tool_system() -> int:
     return count + catalog_count
 
 
+TOOL_SYSTEM_NOT_READY_AT_TURN_KIND = "tool_system_not_ready_at_turn"
+#: How long a turn waits for an on-demand registry load before giving up.
+TOOL_SYSTEM_READY_TIMEOUT_S = 30.0
+_ready_lock: Any = None
+
+
+def tool_system_ready() -> bool:
+    registry = ToolRegistry.get_instance()
+    return registry.loaded and registry.count > 0
+
+
+async def ensure_tool_system_ready(
+    *, timeout_s: float = TOOL_SYSTEM_READY_TIMEOUT_S, route: str = "turn"
+) -> bool:
+    """Make sure this process's tool registry is loaded before a turn uses it.
+
+    The one readiness gate for every turn entry. When the registry is ready it
+    returns at once. When it is not (the process skipped boot's
+    ``initialize_tool_system`` — e.g. ``uvicorn --lifespan off`` — or boot's load
+    failed), it records the wiring gap through the platform error system and
+    loads the registry now, bounded by ``timeout_s``. Concurrent turns share one
+    load. Returns whether the registry is ready; a False here means the
+    provider boundary will refuse the turn (``ToolSystemNotReadyError``) rather
+    than send it with zero tools.
+    """
+    import asyncio
+
+    global _ready_lock
+    if tool_system_ready():
+        return True
+    if _ready_lock is None:
+        _ready_lock = asyncio.Lock()
+    async with _ready_lock:
+        if tool_system_ready():
+            return True
+        registry = ToolRegistry.get_instance()
+        vcprint(
+            {"registry_loaded": registry.loaded, "registry_count": registry.count, "route": route},
+            "[Tool System] A turn arrived before this process loaded its tools "
+            "(boot never ran initialize_tool_system, or it failed). Loading now, "
+            f"bounded at {timeout_s:.0f}s.",
+            color="red",
+        )
+        failure: Exception | None = None
+        try:
+            await asyncio.wait_for(initialize_tool_system(), timeout=timeout_s)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — recorded below, never swallowed silently
+            failure = exc
+        ready = tool_system_ready()
+        try:
+            from matrx_connect.streaming.error_capture import capture_error
+
+            await capture_error(
+                failure
+                or RuntimeError(
+                    "tool registry was not loaded when a turn arrived; "
+                    + ("loaded on demand" if ready else "on-demand load produced 0 tools")
+                ),
+                kind=TOOL_SYSTEM_NOT_READY_AT_TURN_KIND,
+                route=f"tool_system.ensure_ready.{route}",
+                error_type=type(failure).__name__ if failure else "ToolSystemNotLoadedAtBoot",
+                context={
+                    "loaded_on_demand": ready,
+                    "registry_count": registry.count,
+                    "timeout_s": timeout_s,
+                },
+            )
+        except Exception as capture_exc:  # noqa: BLE001 — capture must never break a turn
+            vcprint(f"[Tool System] readiness capture failed: {capture_exc!r}", color="red")
+        if ready:
+            vcprint(
+                f"[Tool System] Loaded {registry.count} tools on demand.", color="yellow"
+            )
+        else:
+            vcprint(
+                f"[Tool System] On-demand load did not make tools ready ({failure!r}). "
+                "Turns that need tools will be refused.",
+                color="red",
+            )
+        return ready
+
+
 def initialize_tool_system_sync() -> int:
     """Call once at app startup to load tools from the database (sync).
 

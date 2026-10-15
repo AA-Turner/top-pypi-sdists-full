@@ -13,7 +13,7 @@ from . import lines as lines_mod  # noqa: F401
 from . import shop  # noqa: F401
 from . import theme  # noqa: F401
 from .petbase import *  # noqa: F401,F403  (constants resolve HERE, per mixin)
-from .petbase import GCELL_PROTEIN
+from .petbase import GCELL_PROTEIN, WEIGHT_LIMIT_MULTIPLE
 
 
 def _live_memory(mem):
@@ -122,7 +122,8 @@ class CareMixin:
         F menu picks MEAT or PILL; the whole DVPet food catalog -- taste
         tiers, nutrition macros, calories, food evolutions -- left with it.
         Kept as the meat entry so the assistant and old callers still feed."""
-        return self.feed_meat()
+        # care audit 2026-10-14: compatibility callers keep the serving type.
+        return self.feed_meat(assisted=assisted)
 
     def feed_meat(self, assisted=False):
         """Meat: hunger +1, weight +1.  The source's refusal gates (canon
@@ -147,17 +148,10 @@ class CareMixin:
             self._set_anim("refuse", 1.0)
             return "Clean up first!"
         if self.hunger >= FULL_HUNGER:
-            # THE OVERFEED PENALTY (D2, 2026-07-23): canon overeatPenalty
-            # bills a stuffed pet -- weight piles on and it counts as a
-            # care slip.  This branch was "penalty-free", which made
-            # feeding the one care verb you could not get wrong; a vpet's
-            # food has to be a decision.  The pet head-shakes FIRST, so
-            # nothing is charged before you have been warned.  (The bag's
-            # own foods refuse at a full belly and the assistant only
-            # serves at hunger 0, so this is the single stuffing door.)
+            # care audit 2026-10-14: Joel's three-call ruling excludes
+            # overfeeding; its weight and evolution OF penalties still stand.
             self.overeat += 1                    # the OF-gate signal (evolution)
             self._set_weight(self.weight + 1)
-            self.care_mistakes += 1
             self._set_anim("refuse", 1.0)
             return f"{self.name} is too full! (✗ overfed)"
         # (a HIRED assistant is never blown off -- you paid for that
@@ -238,7 +232,8 @@ class CareMixin:
         (from the pre-strip discipline audit)."""
         if (_g := self._guard()) is not None:
             return _g
-        if self.world_seconds <= getattr(self, "praise_window", 0.0):
+        # care audit 2026-10-14: zero is the absent-window sentinel.
+        if 0 < getattr(self, "praise_window", 0.0) >= self.world_seconds:
             self.praise_window = 0.0
             self._set_obedience(self.obedience + 10)
             self._set_anim("happy", 1.8)
@@ -336,6 +331,12 @@ class CareMixin:
                               # give Beast), the X-Program is an elite drop,
                               # and a gift is supposed to be NICE
                               "x_program", "burnt_food", "hedonism_101",
+                              # progression skips and boss-only rewards are
+                              # never gift-wrapped (shop/loot audit 2026-10-14)
+                              "grow_capsule", "time_gear", "hp_chip", "hp_chip_g",
+                              "omni_chip_g", "horn_helmet", "grey_claws",
+                              "water_bottle", "torn_tatter", "white_wings",
+                              "black_wings", "metal_armor", "flaming_wings",
                               "prank_capsule_a", "prank_capsule_b",
                               "human_fire_spirit", "human_light_spirit",
                               "human_ice_spirit", "human_wind_spirit",
@@ -541,13 +542,21 @@ class CareMixin:
         # anything else DISTURBS -- then applies.  The FUTON joins the exempt
         # set (2026-07-26): it is the sleep family's fourth member -- sliding
         # a bed under a sleeper is the opposite of a disturbance.
+        if key in self._ONCE_PER_LIFE and key in (getattr(self, "once_used", None) or []):
+            # the care erasers work once per generation (shop/loot audit
+            # 2026-10-14): a repeatable eraser rewrote the care record
+            return _Refused("It won't work twice in one life.")  # noqa: F405
         if self.asleep and key not in ("music_player", "sleeping_pill",
                                        "futon"):
             self._disturbed()
         out = fx()
         if not isinstance(out, _Refused) and out is not None:
             self.take_item(key)
+            if key in self._ONCE_PER_LIFE:
+                self.once_used = list(getattr(self, "once_used", None) or []) + [key]
         return out
+
+    _ONCE_PER_LIFE = frozenset({"cold_compress", "miracle_drink"})
 
     def _crest_egg(self, key):
         """A crest egg -> the classic Digimental item-evolution flow."""
@@ -790,7 +799,8 @@ class CareMixin:
         if have >= MAX_DNA_INVENTORY:
             return _Refused("That Field's bank is full.")
         self.dna_owned[field] = min(MAX_DNA_INVENTORY, have + 10)
-        return f"+{self.dna_owned[field] - have} {field} DNA banked!"
+        # DNA audit 2026-10-14: show the same Field name as the DNA menu.
+        return f"+{self.dna_owned[field] - have} {data.pretty_field(field)} DNA banked!"
 
     def _toy(self, weight=0, energy=0, msg="Fun!", obedience=0, strength=0,
              dp=0):
@@ -800,6 +810,11 @@ class CareMixin:
         trampoline's bounce is light training (effort, 0-4 gauge).
         ⭐`dp` is the play shelf's payout since the item refactor 2026-08-02 --
         the jogress meter, which only a night's sleep otherwise fills."""
+        # final sweep 2026-10-14: keep exercise toys when every dial is full.
+        floor = max(1, self._base_weight() - round(self._base_weight() * WEIGHT_LIMIT_MULTIPLE))
+        if (weight < 0 and self.weight <= floor and not energy
+                and not obedience and not dp and (not strength or self.strength >= 4)):
+            return _Refused("Nothing left to train or trim.")  # noqa: F405
         if dp:
             from .petbase import DP_MAX
             if self.dp >= DP_MAX:
@@ -922,9 +937,15 @@ class CareMixin:
         7200, but dt is game-minutes 1:1 -- 2.5x the longest stage in the
         game, from one 500b bottle."""
         from . import digicore
-        dur = self.STAGE_DURATION.get(self.stage, 0)
+        # final sweep 2026-10-14: read the same finite clock as growth/DigiCore.
+        dur = self._evolve_after()
         if not dur or dur >= 9e8 or not digicore.has_next(self):
             return _Refused(f"{self.name} has nothing left to hurry.")  # noqa: F405
+        here = f"{self.num}:{self.stage}"
+        if getattr(self, "grow_used", "") == here:
+            # one capsule per stage (shop/loot audit 2026-10-14): a stack
+            # compressed egg->Mega's ~2h of timers into seconds
+            return _Refused(f"{self.name} already took one this stage.")  # noqa: F405
         ceiling = dur - 1.0                       # never reaches the gate
         target = min(self.stage_seconds + dur * GROW_CAPSULE_FRACTION,  # noqa: F405
                      ceiling)
@@ -932,6 +953,7 @@ class CareMixin:
             return _Refused("The growth clock is already full.")  # noqa: F405
         moved = target - self.stage_seconds
         self.stage_seconds = target
+        self.grow_used = here
         return f"Time lurches forward. (+{int(moved)}min)"
 
     def _anti_evo(self):
@@ -959,6 +981,9 @@ class CareMixin:
     def _training_pack(self):
         """The Dumbbell: +10 stage trainings, capped 999 (the source's canon
         value -- the +5 was unexplained drift; TUIPET catalog 2026-07-18)."""
+        # final sweep 2026-10-14: a capped counter must not burn a dose.
+        if self.stage_trainings >= 999:
+            return _Refused("Training is already full.")  # noqa: F405
         self.stage_trainings = min(999, self.stage_trainings + 10)
         return "Training +10."
 
@@ -1022,7 +1047,9 @@ class CareMixin:
         return f"{mem.get('name', 'The ancestor')}'s power lives on!"
 
     def _super_carrot(self):
-        if self.weight <= 1:
+        # final sweep 2026-10-14: _set_weight's species floor is above 1.
+        floor = max(1, self._base_weight() - round(self._base_weight() * WEIGHT_LIMIT_MULTIPLE))
+        if self.weight <= floor:
             return _Refused("Nothing left to trim.")
         self._set_weight(max(1, self.weight - 10))
         return "Feather-light!"
@@ -1059,6 +1086,11 @@ class CareMixin:
         processFoodEvol (evolution.food_select) sat with zero callers.
         Eating a new-table food now asks it; the meal is an extra gate,
         never a bypass."""
+        # final sweep 2026-10-14: these nonmeals have only one capped dial.
+        if key == "ai_supplement" and self.strength >= 4:
+            return _Refused("Effort is already full.")  # noqa: F405
+        if key == "bitter_herbs" and self.obedience >= MAX_OBEDIENCE:  # noqa: F405
+            return _Refused("Manners are already full.")  # noqa: F405
         out = self._snack(**self._SNACK_FX[key])
         if isinstance(out, _Refused):  # noqa: F405
             return out
@@ -1275,6 +1307,18 @@ class CareMixin:
             target = evolution.item_select(self, item_id)
         else:
             target = evolution.item_direct(self, self._DIRECT_EVO_TARGET[key])
+            if target is not None:
+                # "if the body is ready" means it now (shop/loot audit
+                # 2026-10-14): an Agumon with 19 care mistakes at 0 seconds
+                # wore Grey Claws into Greymon.  The relic opens the door
+                # only for a body that meets the form's own care gates and
+                # has lived half its stage.
+                dur = self.STAGE_DURATION.get(self.stage, 0)
+                if (not evolution.check(self, target, item=evolution.item_gate(target),
+                                        roll=False)
+                        or (dur and dur < 9e8
+                            and self.stage_seconds < dur * RELIC_STAGE_FRACTION)):  # noqa: F405
+                    target = None
         if target is None:
             self._set_anim("refuse", 1.0)
             return _Refused(f"{self.name} can't use that yet.")  # noqa: F405

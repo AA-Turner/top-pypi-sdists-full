@@ -10,14 +10,14 @@
             ]
         ],
         "depends": [
-            "/tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayobject.h",
-            "/tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayscalars.h",
-            "/tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
-            "/tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
-            "/tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/_core/include/numpy/ufuncobject.h"
+            "/tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayobject.h",
+            "/tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/_core/include/numpy/arrayscalars.h",
+            "/tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
+            "/tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
+            "/tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/_core/include/numpy/ufuncobject.h"
         ],
         "include_dirs": [
-            "/tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/_core/include"
+            "/tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "cftime._cftime",
         "sources": [
@@ -1541,7 +1541,7 @@ static const char * const __pyx_cfilenm = __FILE__;
 
 static const char* const __pyx_f[] = {
   "src/cftime/_cftime.pyx",
-  "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd",
+  "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd",
   "cpython/type.pxd",
 };
 /* #### Code section: utility_code_proto_before_types ### */
@@ -1716,7 +1716,7 @@ static const char* const __pyx_f[] = {
 
 /* #### Code section: numeric_typedefs ### */
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":761
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":761
  * # in Cython to enable them only on the right systems.
  * 
  * ctypedef npy_int8       int8_t             # <<<<<<<<<<<<<<
@@ -1725,7 +1725,7 @@ static const char* const __pyx_f[] = {
 */
 typedef npy_int8 __pyx_t_5numpy_int8_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":762
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":762
  * 
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t             # <<<<<<<<<<<<<<
@@ -1734,7 +1734,7 @@ typedef npy_int8 __pyx_t_5numpy_int8_t;
 */
 typedef npy_int16 __pyx_t_5numpy_int16_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":763
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":763
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t             # <<<<<<<<<<<<<<
@@ -1743,7 +1743,7 @@ typedef npy_int16 __pyx_t_5numpy_int16_t;
 */
 typedef npy_int32 __pyx_t_5numpy_int32_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":764
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":764
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t
  * ctypedef npy_int64      int64_t             # <<<<<<<<<<<<<<
@@ -1752,7 +1752,7 @@ typedef npy_int32 __pyx_t_5numpy_int32_t;
 */
 typedef npy_int64 __pyx_t_5numpy_int64_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":766
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":766
  * ctypedef npy_int64      int64_t
  * 
  * ctypedef npy_uint8      uint8_t             # <<<<<<<<<<<<<<
@@ -1761,7 +1761,7 @@ typedef npy_int64 __pyx_t_5numpy_int64_t;
 */
 typedef npy_uint8 __pyx_t_5numpy_uint8_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":767
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":767
  * 
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t             # <<<<<<<<<<<<<<
@@ -1770,7 +1770,7 @@ typedef npy_uint8 __pyx_t_5numpy_uint8_t;
 */
 typedef npy_uint16 __pyx_t_5numpy_uint16_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":768
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":768
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t             # <<<<<<<<<<<<<<
@@ -1779,7 +1779,7 @@ typedef npy_uint16 __pyx_t_5numpy_uint16_t;
 */
 typedef npy_uint32 __pyx_t_5numpy_uint32_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":769
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":769
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t
  * ctypedef npy_uint64     uint64_t             # <<<<<<<<<<<<<<
@@ -1788,7 +1788,7 @@ typedef npy_uint32 __pyx_t_5numpy_uint32_t;
 */
 typedef npy_uint64 __pyx_t_5numpy_uint64_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":771
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":771
  * ctypedef npy_uint64     uint64_t
  * 
  * ctypedef npy_float32    float32_t             # <<<<<<<<<<<<<<
@@ -1797,7 +1797,7 @@ typedef npy_uint64 __pyx_t_5numpy_uint64_t;
 */
 typedef npy_float32 __pyx_t_5numpy_float32_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":772
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":772
  * 
  * ctypedef npy_float32    float32_t
  * ctypedef npy_float64    float64_t             # <<<<<<<<<<<<<<
@@ -1806,7 +1806,7 @@ typedef npy_float32 __pyx_t_5numpy_float32_t;
 */
 typedef npy_float64 __pyx_t_5numpy_float64_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":779
  * ctypedef double complex complex128_t
  * 
  * ctypedef npy_longlong   longlong_t             # <<<<<<<<<<<<<<
@@ -1815,7 +1815,7 @@ typedef npy_float64 __pyx_t_5numpy_float64_t;
 */
 typedef npy_longlong __pyx_t_5numpy_longlong_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":780
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":780
  * 
  * ctypedef npy_longlong   longlong_t
  * ctypedef npy_ulonglong  ulonglong_t             # <<<<<<<<<<<<<<
@@ -1824,7 +1824,7 @@ typedef npy_longlong __pyx_t_5numpy_longlong_t;
 */
 typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":782
  * ctypedef npy_ulonglong  ulonglong_t
  * 
  * ctypedef npy_intp       intp_t             # <<<<<<<<<<<<<<
@@ -1833,7 +1833,7 @@ typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
 */
 typedef npy_intp __pyx_t_5numpy_intp_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":783
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":783
  * 
  * ctypedef npy_intp       intp_t
  * ctypedef npy_uintp      uintp_t             # <<<<<<<<<<<<<<
@@ -1842,7 +1842,7 @@ typedef npy_intp __pyx_t_5numpy_intp_t;
 */
 typedef npy_uintp __pyx_t_5numpy_uintp_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":785
  * ctypedef npy_uintp      uintp_t
  * 
  * ctypedef npy_double     float_t             # <<<<<<<<<<<<<<
@@ -1851,7 +1851,7 @@ typedef npy_uintp __pyx_t_5numpy_uintp_t;
 */
 typedef npy_double __pyx_t_5numpy_float_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":786
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":786
  * 
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t             # <<<<<<<<<<<<<<
@@ -1860,7 +1860,7 @@ typedef npy_double __pyx_t_5numpy_float_t;
 */
 typedef npy_double __pyx_t_5numpy_double_t;
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":787
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":787
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t
  * ctypedef npy_longdouble longdouble_t             # <<<<<<<<<<<<<<
@@ -1922,7 +1922,7 @@ struct __pyx_opt_args_6cftime_7_cftime_assert_valid_date;
 struct __pyx_opt_args_6cftime_7_cftime__is_leap;
 struct __pyx_opt_args_6cftime_7_cftime__IntJulianDayFromDate;
 
-/* "cftime/_cftime.pyx":1779
+/* "cftime/_cftime.pyx":1782
  *         return _dayspermonth
  * 
  * cdef void assert_valid_date(datetime dt, bint (*is_leap)(int, bint),             # <<<<<<<<<<<<<<
@@ -1935,7 +1935,7 @@ struct __pyx_opt_args_6cftime_7_cftime_assert_valid_date {
   int is_360_day;
 };
 
-/* "cftime/_cftime.pyx":1955
+/* "cftime/_cftime.pyx":1958
  *     return _is_leap(year, calendar, has_year_zero=has_year_zero)
  * 
  * cdef _is_leap(int year, calendar, has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -1947,7 +1947,7 @@ struct __pyx_opt_args_6cftime_7_cftime__is_leap {
   PyObject *has_year_zero;
 };
 
-/* "cftime/_cftime.pyx":2010
+/* "cftime/_cftime.pyx":2013
  * 
  * 
  * cdef _IntJulianDayFromDate(int year,int month,int day,calendar,skip_transition=False,has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -1986,7 +1986,7 @@ struct __pyx_obj_6cftime_7_cftime_datetime {
 };
 
 
-/* "cftime/_cftime.pyx":2109
+/* "cftime/_cftime.pyx":2112
  * # legacy calendar specific sub-classes (may be removed in a future release).
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -1998,7 +1998,7 @@ struct __pyx_obj_6cftime_7_cftime_DatetimeNoLeap {
 };
 
 
-/* "cftime/_cftime.pyx":2119
+/* "cftime/_cftime.pyx":2122
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2010,7 +2010,7 @@ struct __pyx_obj_6cftime_7_cftime_DatetimeAllLeap {
 };
 
 
-/* "cftime/_cftime.pyx":2129
+/* "cftime/_cftime.pyx":2132
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2022,7 +2022,7 @@ struct __pyx_obj_6cftime_7_cftime_Datetime360Day {
 };
 
 
-/* "cftime/_cftime.pyx":2139
+/* "cftime/_cftime.pyx":2142
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2034,7 +2034,7 @@ struct __pyx_obj_6cftime_7_cftime_DatetimeJulian {
 };
 
 
-/* "cftime/_cftime.pyx":2149
+/* "cftime/_cftime.pyx":2152
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2046,7 +2046,7 @@ struct __pyx_obj_6cftime_7_cftime_DatetimeGregorian {
 };
 
 
-/* "cftime/_cftime.pyx":2159
+/* "cftime/_cftime.pyx":2162
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2058,7 +2058,7 @@ struct __pyx_obj_6cftime_7_cftime_DatetimeProlepticGregorian {
 };
 
 
-/* "cftime/_cftime.pyx":2169
+/* "cftime/_cftime.pyx":2172
  *         super().__init__( *args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2070,7 +2070,7 @@ struct __pyx_obj_6cftime_7_cftime_DatetimeTAI {
 };
 
 
-/* "cftime/_cftime.pyx":1272
+/* "cftime/_cftime.pyx":1275
  *         return _strftime(self, format)
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -2083,7 +2083,7 @@ struct __pyx_obj_6cftime_7_cftime___pyx_scope_struct__strptime {
 };
 
 
-/* "cftime/_cftime.pyx":1299
+/* "cftime/_cftime.pyx":1302
  *              (pydatetime.year == 1582 and pydatetime.month > 10) or \
  *              (pydatetime.year == 1582 and pydatetime.month == 10 and pydatetime.day > 15)))
  *             if not compatible_date and any(x in special_fd for x in fd):             # <<<<<<<<<<<<<<
@@ -2115,7 +2115,7 @@ struct __pyx_vtabstruct_6cftime_7_cftime_datetime {
 static struct __pyx_vtabstruct_6cftime_7_cftime_datetime *__pyx_vtabptr_6cftime_7_cftime_datetime;
 
 
-/* "cftime/_cftime.pyx":2109
+/* "cftime/_cftime.pyx":2112
  * # legacy calendar specific sub-classes (may be removed in a future release).
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2129,7 +2129,7 @@ struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeNoLeap {
 static struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeNoLeap *__pyx_vtabptr_6cftime_7_cftime_DatetimeNoLeap;
 
 
-/* "cftime/_cftime.pyx":2119
+/* "cftime/_cftime.pyx":2122
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2143,7 +2143,7 @@ struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeAllLeap {
 static struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeAllLeap *__pyx_vtabptr_6cftime_7_cftime_DatetimeAllLeap;
 
 
-/* "cftime/_cftime.pyx":2129
+/* "cftime/_cftime.pyx":2132
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2157,7 +2157,7 @@ struct __pyx_vtabstruct_6cftime_7_cftime_Datetime360Day {
 static struct __pyx_vtabstruct_6cftime_7_cftime_Datetime360Day *__pyx_vtabptr_6cftime_7_cftime_Datetime360Day;
 
 
-/* "cftime/_cftime.pyx":2139
+/* "cftime/_cftime.pyx":2142
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2171,7 +2171,7 @@ struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeJulian {
 static struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeJulian *__pyx_vtabptr_6cftime_7_cftime_DatetimeJulian;
 
 
-/* "cftime/_cftime.pyx":2149
+/* "cftime/_cftime.pyx":2152
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2185,7 +2185,7 @@ struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeGregorian {
 static struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeGregorian *__pyx_vtabptr_6cftime_7_cftime_DatetimeGregorian;
 
 
-/* "cftime/_cftime.pyx":2159
+/* "cftime/_cftime.pyx":2162
  *         super().__init__(*args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -2199,7 +2199,7 @@ struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeProlepticGregorian {
 static struct __pyx_vtabstruct_6cftime_7_cftime_DatetimeProlepticGregorian *__pyx_vtabptr_6cftime_7_cftime_DatetimeProlepticGregorian;
 
 
-/* "cftime/_cftime.pyx":2169
+/* "cftime/_cftime.pyx":2172
  *         super().__init__( *args, **kwargs)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -5229,7 +5229,7 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":230
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":230
  * 
  *     ctypedef class numpy.dtype [object PyArray_Descr, check_size ignore]:
  *         @property             # <<<<<<<<<<<<<<
@@ -5240,7 +5240,7 @@ return 0;
 static CYTHON_INLINE PyTypeObject *__pyx_f_5numpy_5dtype_7typeobj___get__(PyArray_Descr *__pyx_v_self) {
   PyTypeObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":232
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":232
  *         @property
  *         cdef inline PyTypeObject* typeobj(self) noexcept nogil:
  *             return PyDataType_TYPEOBJ(self)             # <<<<<<<<<<<<<<
@@ -5253,7 +5253,7 @@ static CYTHON_INLINE PyTypeObject *__pyx_f_5numpy_5dtype_7typeobj___get__(PyArra
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":230
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":230
  * 
  *     ctypedef class numpy.dtype [object PyArray_Descr, check_size ignore]:
  *         @property             # <<<<<<<<<<<<<<
@@ -5266,7 +5266,7 @@ static CYTHON_INLINE PyTypeObject *__pyx_f_5numpy_5dtype_7typeobj___get__(PyArra
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":234
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":234
  *             return PyDataType_TYPEOBJ(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5277,7 +5277,7 @@ static CYTHON_INLINE PyTypeObject *__pyx_f_5numpy_5dtype_7typeobj___get__(PyArra
 static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4kind___get__(PyArray_Descr *__pyx_v_self) {
   char __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":236
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":236
  *         @property
  *         cdef inline char kind(self) noexcept nogil:
  *             return PyDataType_KIND(self)             # <<<<<<<<<<<<<<
@@ -5290,7 +5290,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4kind___get__(PyArray_Descr *__p
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":234
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":234
  *             return PyDataType_TYPEOBJ(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5303,7 +5303,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4kind___get__(PyArray_Descr *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":238
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":238
  *             return PyDataType_KIND(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5314,7 +5314,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4kind___get__(PyArray_Descr *__p
 static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4type___get__(PyArray_Descr *__pyx_v_self) {
   char __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":240
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":240
  *         @property
  *         cdef inline char type(self) noexcept nogil:
  *             return PyDataType_TYPE(self)             # <<<<<<<<<<<<<<
@@ -5327,7 +5327,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4type___get__(PyArray_Descr *__p
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":238
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":238
  *             return PyDataType_KIND(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5340,7 +5340,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4type___get__(PyArray_Descr *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":247
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":247
  *         # PyArray_IsNativeByteOrder(dtype.byteorder) instead of
  *         # directly accessing this field.
  *         @property             # <<<<<<<<<<<<<<
@@ -5351,7 +5351,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4type___get__(PyArray_Descr *__p
 static CYTHON_INLINE char __pyx_f_5numpy_5dtype_9byteorder___get__(PyArray_Descr *__pyx_v_self) {
   char __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":249
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":249
  *         @property
  *         cdef inline char byteorder(self) noexcept nogil:
  *             return PyDataType_BYTEORDER(self)             # <<<<<<<<<<<<<<
@@ -5364,7 +5364,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_9byteorder___get__(PyArray_Descr
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":247
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":247
  *         # PyArray_IsNativeByteOrder(dtype.byteorder) instead of
  *         # directly accessing this field.
  *         @property             # <<<<<<<<<<<<<<
@@ -5377,7 +5377,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_9byteorder___get__(PyArray_Descr
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":251
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":251
  *             return PyDataType_BYTEORDER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5388,7 +5388,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_9byteorder___get__(PyArray_Descr
 static CYTHON_INLINE int __pyx_f_5numpy_5dtype_8type_num___get__(PyArray_Descr *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":253
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":253
  *         @property
  *         cdef inline int type_num(self) noexcept nogil:
  *             return PyDataType_TYPENUM(self)             # <<<<<<<<<<<<<<
@@ -5401,7 +5401,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5dtype_8type_num___get__(PyArray_Descr *
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":251
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":251
  *             return PyDataType_BYTEORDER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5414,7 +5414,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5dtype_8type_num___get__(PyArray_Descr *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":255
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":255
  *             return PyDataType_TYPENUM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5425,7 +5425,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5dtype_8type_num___get__(PyArray_Descr *
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize___get__(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":257
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":257
  *         @property
  *         cdef inline npy_intp itemsize(self) noexcept nogil:
  *             return PyDataType_ELSIZE(self)             # <<<<<<<<<<<<<<
@@ -5438,7 +5438,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize___get__(PyArray_De
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":255
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":255
  *             return PyDataType_TYPENUM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5451,7 +5451,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize___get__(PyArray_De
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":259
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":259
  *             return PyDataType_ELSIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5462,7 +5462,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize___get__(PyArray_De
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment___get__(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":261
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":261
  *         @property
  *         cdef inline npy_intp alignment(self) noexcept nogil:
  *             return PyDataType_ALIGNMENT(self)             # <<<<<<<<<<<<<<
@@ -5475,7 +5475,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment___get__(PyArray_D
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":259
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":259
  *             return PyDataType_ELSIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5488,7 +5488,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment___get__(PyArray_D
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":265
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":265
  *         # Use fields/names with care as they may be NULL.  You must check
  *         # for this using PyDataType_HASFIELDS.
  *         @property             # <<<<<<<<<<<<<<
@@ -5502,7 +5502,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields___get__(PyArray_Des
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":267
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":267
  *         @property
  *         cdef inline object fields(self):
  *             return <object>PyDataType_FIELDS(self)             # <<<<<<<<<<<<<<
@@ -5523,7 +5523,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields___get__(PyArray_Des
 
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":265
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":265
  *         # Use fields/names with care as they may be NULL.  You must check
  *         # for this using PyDataType_HASFIELDS.
  *         @property             # <<<<<<<<<<<<<<
@@ -5538,7 +5538,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields___get__(PyArray_Des
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":269
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":269
  *             return <object>PyDataType_FIELDS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5552,7 +5552,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names___get__(PyArray_Desc
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":271
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":271
  *         @property
  *         cdef inline tuple names(self):
  *             return <tuple>PyDataType_NAMES(self)             # <<<<<<<<<<<<<<
@@ -5573,7 +5573,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names___get__(PyArray_Desc
 
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":269
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":269
  *             return <object>PyDataType_FIELDS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5588,7 +5588,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names___get__(PyArray_Desc
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":276
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":276
  *         # valid (the pointer can be NULL). Most users should access
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property             # <<<<<<<<<<<<<<
@@ -5599,7 +5599,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names___get__(PyArray_Desc
 static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray___get__(PyArray_Descr *__pyx_v_self) {
   PyArray_ArrayDescr *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":278
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":278
  *         @property
  *         cdef inline PyArray_ArrayDescr* subarray(self) noexcept nogil:
  *             return PyDataType_SUBARRAY(self)             # <<<<<<<<<<<<<<
@@ -5612,7 +5612,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray___get__
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":276
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":276
  *         # valid (the pointer can be NULL). Most users should access
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property             # <<<<<<<<<<<<<<
@@ -5625,7 +5625,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray___get__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":280
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":280
  *             return PyDataType_SUBARRAY(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5636,7 +5636,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray___get__
 static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags___get__(PyArray_Descr *__pyx_v_self) {
   npy_uint64 __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":283
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":283
  *         cdef inline npy_uint64 flags(self) noexcept nogil:
  *             """The data types flags."""
  *             return PyDataType_FLAGS(self)             # <<<<<<<<<<<<<<
@@ -5649,7 +5649,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags___get__(PyArray_Des
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":280
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":280
  *             return PyDataType_SUBARRAY(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5662,7 +5662,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags___get__(PyArray_Des
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":292
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":292
  *     ctypedef class numpy.broadcast [object PyArrayMultiIterObject, check_size ignore]:
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5673,7 +5673,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags___get__(PyArray_Des
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter___get__(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":295
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":295
  *         cdef inline int numiter(self) noexcept nogil:
  *             """The number of arrays that need to be broadcast to the same shape."""
  *             return PyArray_MultiIter_NUMITER(self)             # <<<<<<<<<<<<<<
@@ -5686,7 +5686,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter___get__(PyArrayMulti
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":292
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":292
  *     ctypedef class numpy.broadcast [object PyArrayMultiIterObject, check_size ignore]:
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5699,7 +5699,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter___get__(PyArrayMulti
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":297
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":297
  *             return PyArray_MultiIter_NUMITER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5710,7 +5710,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter___get__(PyArrayMulti
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size___get__(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":300
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":300
  *         cdef inline npy_intp size(self) noexcept nogil:
  *             """The total broadcasted size."""
  *             return PyArray_MultiIter_SIZE(self)             # <<<<<<<<<<<<<<
@@ -5723,7 +5723,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size___get__(PyArrayMul
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":297
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":297
  *             return PyArray_MultiIter_NUMITER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5736,7 +5736,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size___get__(PyArrayMul
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":302
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":302
  *             return PyArray_MultiIter_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5747,7 +5747,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size___get__(PyArrayMul
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index___get__(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":305
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":305
  *         cdef inline npy_intp index(self) noexcept nogil:
  *             """The current (1-d) index into the broadcasted result."""
  *             return PyArray_MultiIter_INDEX(self)             # <<<<<<<<<<<<<<
@@ -5760,7 +5760,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index___get__(PyArrayMu
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":302
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":302
  *             return PyArray_MultiIter_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5773,7 +5773,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index___get__(PyArrayMu
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":307
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":307
  *             return PyArray_MultiIter_INDEX(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5784,7 +5784,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index___get__(PyArrayMu
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd___get__(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":310
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":310
  *         cdef inline int nd(self) noexcept nogil:
  *             """The number of dimensions in the broadcasted result."""
  *             return PyArray_MultiIter_NDIM(self)             # <<<<<<<<<<<<<<
@@ -5797,7 +5797,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd___get__(PyArrayMultiIterO
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":307
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":307
  *             return PyArray_MultiIter_INDEX(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5810,7 +5810,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd___get__(PyArrayMultiIterO
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":312
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":312
  *             return PyArray_MultiIter_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5821,7 +5821,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd___get__(PyArrayMultiIterO
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions___get__(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":315
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":315
  *         cdef inline npy_intp* dimensions(self) noexcept nogil:
  *             """The shape of the broadcasted result."""
  *             return PyArray_MultiIter_DIMS(self)             # <<<<<<<<<<<<<<
@@ -5834,7 +5834,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions___get__(Py
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":312
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":312
  *             return PyArray_MultiIter_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5847,7 +5847,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions___get__(Py
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":317
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":317
  *             return PyArray_MultiIter_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5858,7 +5858,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions___get__(Py
 static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters___get__(PyArrayMultiIterObject *__pyx_v_self) {
   void **__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":321
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":321
  *             """An array of iterator objects that holds the iterators for the arrays to be broadcast together.
  *             On return, the iterators are adjusted for broadcasting."""
  *             return PyArray_MultiIter_ITERS(self)             # <<<<<<<<<<<<<<
@@ -5871,7 +5871,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters___get__(PyArrayMult
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":317
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":317
  *             return PyArray_MultiIter_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5884,7 +5884,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters___get__(PyArrayMult
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":335
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":335
  *         # Instead, we use properties that map to the corresponding C-API functions.
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5895,7 +5895,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters___get__(PyArrayMult
 static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base___get__(PyArrayObject *__pyx_v_self) {
   PyObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":339
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":339
  *             """Returns a borrowed reference to the object owning the data/memory.
  *             """
  *             return PyArray_BASE(self)             # <<<<<<<<<<<<<<
@@ -5908,7 +5908,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base___get__(PyArrayObje
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":335
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":335
  *         # Instead, we use properties that map to the corresponding C-API functions.
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5921,7 +5921,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base___get__(PyArrayObje
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":341
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":341
  *             return PyArray_BASE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5935,7 +5935,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr___get__(PyArr
   PyArray_Descr *__pyx_t_1;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":345
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":345
  *             """Returns an owned reference to the dtype of the array.
  *             """
  *             return <dtype>PyArray_DESCR(self)             # <<<<<<<<<<<<<<
@@ -5956,7 +5956,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr___get__(PyArr
 
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":341
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":341
  *             return PyArray_BASE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5971,7 +5971,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr___get__(PyArr
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":347
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":347
  *             return <dtype>PyArray_DESCR(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5982,7 +5982,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr___get__(PyArr
 static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim___get__(PyArrayObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":351
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":351
  *             """Returns the number of dimensions in the array.
  *             """
  *             return PyArray_NDIM(self)             # <<<<<<<<<<<<<<
@@ -5995,7 +5995,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim___get__(PyArrayObject *__
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":347
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":347
  *             return <dtype>PyArray_DESCR(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6008,7 +6008,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim___get__(PyArrayObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":353
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":353
  *             return PyArray_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6019,7 +6019,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim___get__(PyArrayObject *__
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape___get__(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":359
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":359
  *             Can return NULL for 0-dimensional arrays.
  *             """
  *             return PyArray_DIMS(self)             # <<<<<<<<<<<<<<
@@ -6032,7 +6032,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape___get__(PyArrayObj
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":353
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":353
  *             return PyArray_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6045,7 +6045,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape___get__(PyArrayObj
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":361
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":361
  *             return PyArray_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6056,7 +6056,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape___get__(PyArrayObj
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides___get__(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":366
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":366
  *             The number of elements matches the number of dimensions of the array (ndim).
  *             """
  *             return PyArray_STRIDES(self)             # <<<<<<<<<<<<<<
@@ -6069,7 +6069,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides___get__(PyArrayO
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":361
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":361
  *             return PyArray_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6082,7 +6082,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides___get__(PyArrayO
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":368
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":368
  *             return PyArray_STRIDES(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6093,7 +6093,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides___get__(PyArrayO
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size___get__(PyArrayObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":372
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":372
  *             """Returns the total size (in number of elements) of the array.
  *             """
  *             return PyArray_SIZE(self)             # <<<<<<<<<<<<<<
@@ -6106,7 +6106,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size___get__(PyArrayObjec
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":368
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":368
  *             return PyArray_STRIDES(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6119,7 +6119,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size___get__(PyArrayObjec
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":374
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":374
  *             return PyArray_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6130,7 +6130,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size___get__(PyArrayObjec
 static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data___get__(PyArrayObject *__pyx_v_self) {
   char *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":381
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":381
  *             of `PyArray_DATA()` instead, which returns a 'void*'.
  *             """
  *             return PyArray_BYTES(self)             # <<<<<<<<<<<<<<
@@ -6143,7 +6143,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data___get__(PyArrayObject *
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":374
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":374
  *             return PyArray_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6156,7 +6156,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data___get__(PyArrayObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":794
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":794
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -6173,7 +6173,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew1", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":795
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":795
  * 
  * cdef inline object PyArray_MultiIterNew1(a):
  *     return PyArray_MultiIterNew(1, <void*>a)             # <<<<<<<<<<<<<<
@@ -6193,7 +6193,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":794
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":794
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -6212,7 +6212,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":797
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":797
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -6229,7 +6229,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew2", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":798
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":798
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)             # <<<<<<<<<<<<<<
@@ -6249,7 +6249,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":797
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":797
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -6268,7 +6268,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":800
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":800
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -6285,7 +6285,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew3", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":801
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":801
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)             # <<<<<<<<<<<<<<
@@ -6305,7 +6305,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":800
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":800
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -6324,7 +6324,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":803
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":803
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -6341,7 +6341,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew4", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":804
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":804
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)             # <<<<<<<<<<<<<<
@@ -6361,7 +6361,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":803
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":803
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -6380,7 +6380,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":806
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":806
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -6397,7 +6397,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew5", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":807
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":807
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)             # <<<<<<<<<<<<<<
@@ -6417,7 +6417,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":806
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":806
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -6436,7 +6436,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":809
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":809
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -6451,7 +6451,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   PyObject *__pyx_t_2;
   __Pyx_RefNannySetupContext("PyDataType_SHAPE", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":810
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":810
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -6463,7 +6463,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   if (__pyx_t_1) {
 
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":811
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":811
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):
  *         return <tuple>d.subarray.shape             # <<<<<<<<<<<<<<
@@ -6484,7 +6484,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
 
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":810
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":810
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -6493,7 +6493,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
 */
   }
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":813
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":813
  *         return <tuple>d.subarray.shape
  *     else:
  *         return ()             # <<<<<<<<<<<<<<
@@ -6513,7 +6513,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
     goto __pyx_L0;
   }
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":809
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":809
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -6528,7 +6528,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":947
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":947
  * 
  *     ctypedef class numpy.ufunc [object PyUFuncObject, check_size ignore]:
  *         @property             # <<<<<<<<<<<<<<
@@ -6539,7 +6539,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
 static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_3nin___get__(PyUFuncObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":949
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":949
  *         @property
  *         cdef inline int nin(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nin             # <<<<<<<<<<<<<<
@@ -6552,7 +6552,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_3nin___get__(PyUFuncObject *__pyx
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":947
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":947
  * 
  *     ctypedef class numpy.ufunc [object PyUFuncObject, check_size ignore]:
  *         @property             # <<<<<<<<<<<<<<
@@ -6565,7 +6565,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_3nin___get__(PyUFuncObject *__pyx
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":951
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":951
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nin
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6576,7 +6576,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_3nin___get__(PyUFuncObject *__pyx
 static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_4nout___get__(PyUFuncObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":953
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":953
  *         @property
  *         cdef inline int nout(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nout             # <<<<<<<<<<<<<<
@@ -6589,7 +6589,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_4nout___get__(PyUFuncObject *__py
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":951
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":951
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nin
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6602,7 +6602,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_4nout___get__(PyUFuncObject *__py
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":955
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":955
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nout
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6613,7 +6613,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_4nout___get__(PyUFuncObject *__py
 static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_5nargs___get__(PyUFuncObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":957
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":957
  *         @property
  *         cdef inline int nargs(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nargs             # <<<<<<<<<<<<<<
@@ -6626,7 +6626,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_5nargs___get__(PyUFuncObject *__p
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":955
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":955
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nout
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6639,7 +6639,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_5nargs___get__(PyUFuncObject *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":959
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":959
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nargs
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6650,7 +6650,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_5nargs___get__(PyUFuncObject *__p
 static CYTHON_INLINE PyUFuncGenericFunction *__pyx_f_5numpy_5ufunc_9functions___get__(PyUFuncObject *__pyx_v_self) {
   PyUFuncGenericFunction *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":961
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":961
  *         @property
  *         cdef inline PyUFuncGenericFunction* functions(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).functions             # <<<<<<<<<<<<<<
@@ -6663,7 +6663,7 @@ static CYTHON_INLINE PyUFuncGenericFunction *__pyx_f_5numpy_5ufunc_9functions___
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":959
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":959
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nargs
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6676,7 +6676,7 @@ static CYTHON_INLINE PyUFuncGenericFunction *__pyx_f_5numpy_5ufunc_9functions___
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":963
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":963
  *             return _PyUFuncObject_GET_ITEM_DATA(self).functions
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6687,7 +6687,7 @@ static CYTHON_INLINE PyUFuncGenericFunction *__pyx_f_5numpy_5ufunc_9functions___
 static CYTHON_INLINE void **__pyx_f_5numpy_5ufunc_4data___get__(PyUFuncObject *__pyx_v_self) {
   void **__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":965
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":965
  *         @property
  *         cdef inline void ** data(self) noexcept nogil:
  *             return <void **>_PyUFuncObject_GET_ITEM_DATA(self).data             # <<<<<<<<<<<<<<
@@ -6700,7 +6700,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_5ufunc_4data___get__(PyUFuncObject *_
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":963
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":963
  *             return _PyUFuncObject_GET_ITEM_DATA(self).functions
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6713,7 +6713,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_5ufunc_4data___get__(PyUFuncObject *_
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":967
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":967
  *             return <void **>_PyUFuncObject_GET_ITEM_DATA(self).data
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6724,7 +6724,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_5ufunc_4data___get__(PyUFuncObject *_
 static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_6ntypes___get__(PyUFuncObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":969
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":969
  *         @property
  *         cdef inline int ntypes(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ntypes             # <<<<<<<<<<<<<<
@@ -6737,7 +6737,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_6ntypes___get__(PyUFuncObject *__
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":967
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":967
  *             return <void **>_PyUFuncObject_GET_ITEM_DATA(self).data
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6750,7 +6750,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_6ntypes___get__(PyUFuncObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":971
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":971
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ntypes
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6761,7 +6761,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_6ntypes___get__(PyUFuncObject *__
 static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_4name___get__(PyUFuncObject *__pyx_v_self) {
   char const *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":973
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":973
  *         @property
  *         cdef inline const char* name(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).name             # <<<<<<<<<<<<<<
@@ -6774,7 +6774,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_4name___get__(PyUFuncObje
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":971
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":971
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ntypes
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6787,7 +6787,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_4name___get__(PyUFuncObje
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":975
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":975
  *             return _PyUFuncObject_GET_ITEM_DATA(self).name
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6798,7 +6798,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_4name___get__(PyUFuncObje
 static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_3doc___get__(PyUFuncObject *__pyx_v_self) {
   char const *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":977
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":977
  *         @property
  *         cdef inline const char* doc(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).doc             # <<<<<<<<<<<<<<
@@ -6811,7 +6811,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_3doc___get__(PyUFuncObjec
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":975
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":975
  *             return _PyUFuncObject_GET_ITEM_DATA(self).name
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6824,7 +6824,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_3doc___get__(PyUFuncObjec
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":979
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":979
  *             return _PyUFuncObject_GET_ITEM_DATA(self).doc
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6835,7 +6835,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_3doc___get__(PyUFuncObjec
 static CYTHON_INLINE void *__pyx_f_5numpy_5ufunc_3ptr___get__(PyUFuncObject *__pyx_v_self) {
   void *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":981
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":981
  *         @property
  *         cdef inline void* ptr(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ptr             # <<<<<<<<<<<<<<
@@ -6848,7 +6848,7 @@ static CYTHON_INLINE void *__pyx_f_5numpy_5ufunc_3ptr___get__(PyUFuncObject *__p
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":979
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":979
  *             return _PyUFuncObject_GET_ITEM_DATA(self).doc
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6861,7 +6861,7 @@ static CYTHON_INLINE void *__pyx_f_5numpy_5ufunc_3ptr___get__(PyUFuncObject *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":983
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":983
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ptr
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6872,7 +6872,7 @@ static CYTHON_INLINE void *__pyx_f_5numpy_5ufunc_3ptr___get__(PyUFuncObject *__p
 static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_3obj___get__(PyUFuncObject *__pyx_v_self) {
   PyObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":985
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":985
  *         @property
  *         cdef inline PyObject* obj(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).obj             # <<<<<<<<<<<<<<
@@ -6885,7 +6885,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_3obj___get__(PyUFuncObject 
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":983
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":983
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ptr
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6898,7 +6898,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_3obj___get__(PyUFuncObject 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":987
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":987
  *             return _PyUFuncObject_GET_ITEM_DATA(self).obj
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6909,7 +6909,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_3obj___get__(PyUFuncObject 
 static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_9userloops___get__(PyUFuncObject *__pyx_v_self) {
   PyObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":989
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":989
  *         @property
  *         cdef inline PyObject* userloops(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).userloops             # <<<<<<<<<<<<<<
@@ -6922,7 +6922,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_9userloops___get__(PyUFuncO
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":987
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":987
  *             return _PyUFuncObject_GET_ITEM_DATA(self).obj
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -6935,7 +6935,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_9userloops___get__(PyUFuncO
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -6949,7 +6949,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1066
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1066
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!             # <<<<<<<<<<<<<<
@@ -6958,7 +6958,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
 */
   Py_INCREF(__pyx_v_base);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1067
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1067
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!
  *     PyArray_SetBaseObject(arr, base)             # <<<<<<<<<<<<<<
@@ -6968,7 +6968,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   __pyx_t_1 = PyArray_SetBaseObject(__pyx_v_arr, __pyx_v_base); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(1, 1067, __pyx_L1_error)
 
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1065
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -6984,7 +6984,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
 
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1069
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1069
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -6999,7 +6999,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   int __pyx_t_1;
   __Pyx_RefNannySetupContext("get_array_base", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1070
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1070
  * 
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)             # <<<<<<<<<<<<<<
@@ -7008,7 +7008,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
 */
   __pyx_v_base = PyArray_BASE(__pyx_v_arr);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1071
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1071
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -7020,7 +7020,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   if (__pyx_t_1) {
 
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1072
  *     base = PyArray_BASE(arr)
  *     if base is NULL:
  *         return None             # <<<<<<<<<<<<<<
@@ -7037,7 +7037,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
     }
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1071
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1071
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -7046,7 +7046,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
 */
   }
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1073
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1073
  *     if base is NULL:
  *         return None
  *     return <object>base             # <<<<<<<<<<<<<<
@@ -7064,7 +7064,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1069
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1069
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -7080,7 +7080,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1077
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1077
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -7106,7 +7106,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_array", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1078
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1078
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7122,7 +7122,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1079
+      /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1079
  * cdef inline int import_array() except -1:
  *     try:
  *         __pyx_import_array()             # <<<<<<<<<<<<<<
@@ -7132,7 +7132,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
       __pyx_t_4 = _import_array(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 1079, __pyx_L3_error)
 
 
-      /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1078
+      /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1078
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7146,7 +7146,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1080
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1080
  *     try:
  *         __pyx_import_array()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -7161,7 +7161,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1081
+      /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1081
  *         __pyx_import_array()
  *     except Exception:
  *         raise ImportError("numpy._core.multiarray failed to import")             # <<<<<<<<<<<<<<
@@ -7183,7 +7183,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1078
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1078
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7199,7 +7199,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1077
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1077
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -7224,7 +7224,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1083
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1083
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -7250,7 +7250,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_umath", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1084
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1084
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7266,7 +7266,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1085
+      /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1085
  * cdef inline int import_umath() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -7276,7 +7276,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 1085, __pyx_L3_error)
 
 
-      /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1084
+      /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1084
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7290,7 +7290,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1086
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1086
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -7305,7 +7305,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1087
+      /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1087
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -7327,7 +7327,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1084
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1084
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7343,7 +7343,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1083
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1083
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -7368,7 +7368,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1089
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1089
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -7394,7 +7394,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_ufunc", 0);
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1090
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1090
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7410,7 +7410,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1091
+      /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1091
  * cdef inline int import_ufunc() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -7420,7 +7420,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 1091, __pyx_L3_error)
 
 
-      /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1090
+      /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1090
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7434,7 +7434,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1092
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1092
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -7449,7 +7449,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1093
+      /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1093
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -7471,7 +7471,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1090
+    /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1090
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -7487,7 +7487,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1089
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1089
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -7512,7 +7512,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1096
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1096
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -7523,7 +7523,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
 static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1108
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1108
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyTimedeltaArrType_Type)             # <<<<<<<<<<<<<<
@@ -7536,7 +7536,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1096
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1096
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -7550,7 +7550,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1111
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1111
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -7561,7 +7561,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
 static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1123
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1123
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyDatetimeArrType_Type)             # <<<<<<<<<<<<<<
@@ -7574,7 +7574,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1111
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1111
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -7588,7 +7588,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1126
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1126
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7599,7 +7599,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
 static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *__pyx_v_obj) {
   npy_datetime __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1133
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1133
  *     also needed.  That can be found using `get_datetime64_unit`.
  *     """
  *     return _PyDatetimeScalarObject_GetValue(obj)             # <<<<<<<<<<<<<<
@@ -7612,7 +7612,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1126
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1126
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7625,7 +7625,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1136
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1136
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7636,7 +7636,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
 static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject *__pyx_v_obj) {
   npy_timedelta __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1140
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1140
  *     returns the int64 value underlying scalar numpy timedelta64 object
  *     """
  *     return _PyTimedeltaScalarObject_GetValue(obj)             # <<<<<<<<<<<<<<
@@ -7649,7 +7649,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1136
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1136
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7662,7 +7662,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1143
+/* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1143
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -7673,7 +7673,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
 static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObject *__pyx_v_obj) {
   NPY_DATETIMEUNIT __pyx_r;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1147
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1147
  *     returns the unit part of the dtype for a numpy datetime64 object.
  *     """
  *     return _PyDatetimeScalarObject_GetMetadata(obj).base             # <<<<<<<<<<<<<<
@@ -7686,7 +7686,7 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
   }
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-rrp92fjd/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1143
+  /* "../../../../../tmp/build-env-gg3qam4s/lib/python3.12/site-packages/numpy/__init__.cython-30.pxd":1143
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -24127,7 +24127,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_34_create_datetime(CYTHON_UNUSED PyOb
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1131
+/* "cftime/_cftime.pyx":1132
  *     cdef readonly bint datetime_compatible
  * 
  *     def __init__(self, int year, int month, int day, int hour=0, int minute=0,             # <<<<<<<<<<<<<<
@@ -24183,61 +24183,61 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_year,&__pyx_mstate_global->__pyx_n_u_month,&__pyx_mstate_global->__pyx_n_u_day,&__pyx_mstate_global->__pyx_n_u_hour,&__pyx_mstate_global->__pyx_n_u_minute,&__pyx_mstate_global->__pyx_n_u_second,&__pyx_mstate_global->__pyx_n_u_microsecond,&__pyx_mstate_global->__pyx_n_u_dayofwk,&__pyx_mstate_global->__pyx_n_u_dayofyr,&__pyx_mstate_global->__pyx_n_u_calendar,&__pyx_mstate_global->__pyx_n_u_has_year_zero,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL_TPNEW(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1131, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1132, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case 11:
         values[10] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 1131, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 1132, __pyx_L3_error)
       if (!values[9]) values[9] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_n_u_standard));
 
-      /* "cftime/_cftime.pyx":1133
+      /* "cftime/_cftime.pyx":1134
  *     def __init__(self, int year, int month, int day, int hour=0, int minute=0,
  *                        int second=0, int microsecond=0, int dayofwk=-1,
  *                        int dayofyr = -1, calendar='standard', has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -24246,85 +24246,85 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[10]) values[10] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 11, i); __PYX_ERR(0, 1131, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 11, i); __PYX_ERR(0, 1132, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case 11:
         values[10] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1132, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1132, __pyx_L3_error)
         values[1] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1132, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1132, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
       if (!values[9]) values[9] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_n_u_standard));
       if (!values[10]) values[10] = __Pyx_NewRef(((PyObject *)Py_None));
     }
-    __pyx_v_year = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_year == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1131, __pyx_L3_error)
-    __pyx_v_month = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_month == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1131, __pyx_L3_error)
-    __pyx_v_day = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_day == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1131, __pyx_L3_error)
+    __pyx_v_year = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_year == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1132, __pyx_L3_error)
+    __pyx_v_month = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_month == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1132, __pyx_L3_error)
+    __pyx_v_day = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_day == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1132, __pyx_L3_error)
     if (values[3]) {
-      __pyx_v_hour = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_hour == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1131, __pyx_L3_error)
+      __pyx_v_hour = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_hour == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1132, __pyx_L3_error)
     } else {
       __pyx_v_hour = ((int)0);
     }
     if (values[4]) {
-      __pyx_v_minute = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_minute == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1131, __pyx_L3_error)
+      __pyx_v_minute = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_minute == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1132, __pyx_L3_error)
     } else {
       __pyx_v_minute = ((int)0);
     }
     if (values[5]) {
-      __pyx_v_second = __Pyx_PyLong_As_int(values[5]); if (unlikely((__pyx_v_second == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1132, __pyx_L3_error)
+      __pyx_v_second = __Pyx_PyLong_As_int(values[5]); if (unlikely((__pyx_v_second == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1133, __pyx_L3_error)
     } else {
       __pyx_v_second = ((int)0);
     }
     if (values[6]) {
-      __pyx_v_microsecond = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_microsecond == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1132, __pyx_L3_error)
+      __pyx_v_microsecond = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_microsecond == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1133, __pyx_L3_error)
     } else {
       __pyx_v_microsecond = ((int)0);
     }
     if (values[7]) {
-      __pyx_v_dayofwk = __Pyx_PyLong_As_int(values[7]); if (unlikely((__pyx_v_dayofwk == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1132, __pyx_L3_error)
+      __pyx_v_dayofwk = __Pyx_PyLong_As_int(values[7]); if (unlikely((__pyx_v_dayofwk == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1133, __pyx_L3_error)
     } else {
       __pyx_v_dayofwk = ((int)-1);
     }
     if (values[8]) {
-      __pyx_v_dayofyr = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_dayofyr == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1133, __pyx_L3_error)
+      __pyx_v_dayofyr = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_dayofyr == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1134, __pyx_L3_error)
     } else {
       __pyx_v_dayofyr = ((int)-1);
     }
@@ -24333,7 +24333,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 11, __pyx_nargs); __PYX_ERR(0, 1131, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 3, 11, __pyx_nargs); __PYX_ERR(0, 1132, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -24346,7 +24346,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_6cftime_7_cftime_8datetime___init__(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_v_year, __pyx_v_month, __pyx_v_day, __pyx_v_hour, __pyx_v_minute, __pyx_v_second, __pyx_v_microsecond, __pyx_v_dayofwk, __pyx_v_dayofyr, __pyx_v_calendar, __pyx_v_has_year_zero);
 
-  /* "cftime/_cftime.pyx":1131
+  /* "cftime/_cftime.pyx":1132
  *     cdef readonly bint datetime_compatible
  * 
  *     def __init__(self, int year, int month, int day, int hour=0, int minute=0,             # <<<<<<<<<<<<<<
@@ -24396,7 +24396,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   __Pyx_INCREF(__pyx_v_calendar);
   __Pyx_INCREF(__pyx_v_has_year_zero);
 
-  /* "cftime/_cftime.pyx":1135
+  /* "cftime/_cftime.pyx":1136
  *                        int dayofyr = -1, calendar='standard', has_year_zero=None):
  * 
  *         self.year = year             # <<<<<<<<<<<<<<
@@ -24405,7 +24405,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __pyx_v_self->year = __pyx_v_year;
 
-  /* "cftime/_cftime.pyx":1136
+  /* "cftime/_cftime.pyx":1137
  * 
  *         self.year = year
  *         self.month = month             # <<<<<<<<<<<<<<
@@ -24414,7 +24414,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __pyx_v_self->month = __pyx_v_month;
 
-  /* "cftime/_cftime.pyx":1137
+  /* "cftime/_cftime.pyx":1138
  *         self.year = year
  *         self.month = month
  *         self.day = day             # <<<<<<<<<<<<<<
@@ -24423,7 +24423,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __pyx_v_self->day = __pyx_v_day;
 
-  /* "cftime/_cftime.pyx":1138
+  /* "cftime/_cftime.pyx":1139
  *         self.month = month
  *         self.day = day
  *         self.hour = hour             # <<<<<<<<<<<<<<
@@ -24432,7 +24432,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __pyx_v_self->hour = __pyx_v_hour;
 
-  /* "cftime/_cftime.pyx":1139
+  /* "cftime/_cftime.pyx":1140
  *         self.day = day
  *         self.hour = hour
  *         self.minute = minute             # <<<<<<<<<<<<<<
@@ -24441,7 +24441,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __pyx_v_self->minute = __pyx_v_minute;
 
-  /* "cftime/_cftime.pyx":1140
+  /* "cftime/_cftime.pyx":1141
  *         self.hour = hour
  *         self.minute = minute
  *         self.second = second             # <<<<<<<<<<<<<<
@@ -24450,7 +24450,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __pyx_v_self->second = __pyx_v_second;
 
-  /* "cftime/_cftime.pyx":1141
+  /* "cftime/_cftime.pyx":1142
  *         self.minute = minute
  *         self.second = second
  *         self.microsecond = microsecond             # <<<<<<<<<<<<<<
@@ -24459,7 +24459,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __pyx_v_self->microsecond = __pyx_v_microsecond;
 
-  /* "cftime/_cftime.pyx":1142
+  /* "cftime/_cftime.pyx":1143
  *         self.second = second
  *         self.microsecond = microsecond
  *         self._dayofwk = dayofwk             # <<<<<<<<<<<<<<
@@ -24468,7 +24468,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __pyx_v_self->_dayofwk = __pyx_v_dayofwk;
 
-  /* "cftime/_cftime.pyx":1143
+  /* "cftime/_cftime.pyx":1144
  *         self.microsecond = microsecond
  *         self._dayofwk = dayofwk
  *         self._dayofyr = dayofyr             # <<<<<<<<<<<<<<
@@ -24477,7 +24477,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __pyx_v_self->_dayofyr = __pyx_v_dayofyr;
 
-  /* "cftime/_cftime.pyx":1144
+  /* "cftime/_cftime.pyx":1145
  *         self._dayofwk = dayofwk
  *         self._dayofyr = dayofyr
  *         self.tzinfo = None             # <<<<<<<<<<<<<<
@@ -24490,18 +24490,18 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   __Pyx_DECREF(__pyx_v_self->tzinfo);
   __pyx_v_self->tzinfo = Py_None;
 
-  /* "cftime/_cftime.pyx":1145
+  /* "cftime/_cftime.pyx":1146
  *         self._dayofyr = dayofyr
  *         self.tzinfo = None
  *         if calendar:             # <<<<<<<<<<<<<<
  *             calendar = calendar.lower()
  *         # set calendar-specific defaults for has_year_zero
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_calendar); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1145, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_calendar); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1146, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1146
+    /* "cftime/_cftime.pyx":1147
  *         self.tzinfo = None
  *         if calendar:
  *             calendar = calendar.lower()             # <<<<<<<<<<<<<<
@@ -24515,13 +24515,13 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1146, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF_SET(__pyx_v_calendar, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1145
+    /* "cftime/_cftime.pyx":1146
  *         self._dayofyr = dayofyr
  *         self.tzinfo = None
  *         if calendar:             # <<<<<<<<<<<<<<
@@ -24530,7 +24530,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   }
 
-  /* "cftime/_cftime.pyx":1148
+  /* "cftime/_cftime.pyx":1149
  *             calendar = calendar.lower()
  *         # set calendar-specific defaults for has_year_zero
  *         if has_year_zero is None:             # <<<<<<<<<<<<<<
@@ -24541,7 +24541,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1149
+    /* "cftime/_cftime.pyx":1150
  *         # set calendar-specific defaults for has_year_zero
  *         if has_year_zero is None:
  *             if year == 0:             # <<<<<<<<<<<<<<
@@ -24553,7 +24553,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     if (__pyx_t_1) {
 
 
-      /* "cftime/_cftime.pyx":1153
+      /* "cftime/_cftime.pyx":1154
  *                 # include the year zero (issue #248)
  *                 # warn if calendar is being set to non-CF calendar
  *                 msg="year=0 was specified - this date/calendar/year zero convention is not supported by CF"             # <<<<<<<<<<<<<<
@@ -24563,7 +24563,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_year_0_was_specified_this_date_c);
       __pyx_v_msg = __pyx_mstate_global->__pyx_kp_u_year_0_was_specified_this_date_c;
 
-      /* "cftime/_cftime.pyx":1154
+      /* "cftime/_cftime.pyx":1155
  *                 # warn if calendar is being set to non-CF calendar
  *                 msg="year=0 was specified - this date/calendar/year zero convention is not supported by CF"
  *                 if calendar is not None and not _year_zero_defaults(calendar):             # <<<<<<<<<<<<<<
@@ -24579,9 +24579,9 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 
         goto __pyx_L7_bool_binop_done;
       }
-      __pyx_t_2 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1154, __pyx_L1_error)
+      __pyx_t_2 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1155, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1154, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1155, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_6 = (!__pyx_t_5);
 
@@ -24593,7 +24593,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       if (__pyx_t_1) {
 
 
-        /* "cftime/_cftime.pyx":1155
+        /* "cftime/_cftime.pyx":1156
  *                 msg="year=0 was specified - this date/calendar/year zero convention is not supported by CF"
  *                 if calendar is not None and not _year_zero_defaults(calendar):
  *                     warnings.warn(msg,category=CFWarning)             # <<<<<<<<<<<<<<
@@ -24601,12 +24601,12 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
  *             else:
 */
         __pyx_t_3 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1155, __pyx_L1_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1156, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1155, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1156, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_CFWarning); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1155, __pyx_L1_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_CFWarning); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1156, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __pyx_t_4 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -24624,13 +24624,13 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
           PyObject *__pyx_callargs[3] = {__pyx_t_3, __pyx_v_msg, __pyx_t_7};
           #if CYTHON_VECTORCALL
           __pyx_t_9 = __pyx_mstate_global->__pyx_tuple[13];
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1155, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1156, __pyx_L1_error)
           __Pyx_INCREF(__pyx_t_9);
           #else
           {
             PyObject *__pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_category};
             __pyx_t_9 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 1);
-            if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1155, __pyx_L1_error)
+            if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1156, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_9);
           }
           #endif
@@ -24639,12 +24639,12 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1155, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1156, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-        /* "cftime/_cftime.pyx":1154
+        /* "cftime/_cftime.pyx":1155
  *                 # warn if calendar is being set to non-CF calendar
  *                 msg="year=0 was specified - this date/calendar/year zero convention is not supported by CF"
  *                 if calendar is not None and not _year_zero_defaults(calendar):             # <<<<<<<<<<<<<<
@@ -24653,7 +24653,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
       }
 
-      /* "cftime/_cftime.pyx":1156
+      /* "cftime/_cftime.pyx":1157
  *                 if calendar is not None and not _year_zero_defaults(calendar):
  *                     warnings.warn(msg,category=CFWarning)
  *                 has_year_zero=True             # <<<<<<<<<<<<<<
@@ -24663,7 +24663,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       __Pyx_INCREF(Py_True);
       __Pyx_DECREF_SET(__pyx_v_has_year_zero, Py_True);
 
-      /* "cftime/_cftime.pyx":1149
+      /* "cftime/_cftime.pyx":1150
  *         # set calendar-specific defaults for has_year_zero
  *         if has_year_zero is None:
  *             if year == 0:             # <<<<<<<<<<<<<<
@@ -24673,7 +24673,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       goto __pyx_L5;
     }
 
-    /* "cftime/_cftime.pyx":1158
+    /* "cftime/_cftime.pyx":1159
  *                 has_year_zero=True
  *             else:
  *                 has_year_zero = _year_zero_defaults(calendar)             # <<<<<<<<<<<<<<
@@ -24681,14 +24681,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
  *         # (no years < 1 in mixed Julian/Gregorian calendar).
 */
     /*else*/ {
-      __pyx_t_2 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1158, __pyx_L1_error)
+      __pyx_t_2 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1159, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF_SET(__pyx_v_has_year_zero, __pyx_t_2);
       __pyx_t_2 = 0;
     }
     __pyx_L5:;
 
-    /* "cftime/_cftime.pyx":1148
+    /* "cftime/_cftime.pyx":1149
  *             calendar = calendar.lower()
  *         # set calendar-specific defaults for has_year_zero
  *         if has_year_zero is None:             # <<<<<<<<<<<<<<
@@ -24697,7 +24697,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   }
 
-  /* "cftime/_cftime.pyx":1164
+  /* "cftime/_cftime.pyx":1165
  *         # for the proleptic_gregorian calendar. IS0 8601 uses proleptic_gregorian
  *         # and has a year zero, so for now this is the default in cftime.
  *         if calendar in ['julian','gregorian','standard'] and year <= 0:             # <<<<<<<<<<<<<<
@@ -24706,7 +24706,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   __Pyx_INCREF(__pyx_v_calendar);
   __pyx_t_2 = __pyx_v_calendar;
-  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1164, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1165, __pyx_L1_error)
   if (!__pyx_t_5) {
 
   } else {
@@ -24715,7 +24715,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 
     goto __pyx_L12_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1164, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1165, __pyx_L1_error)
   if (!__pyx_t_5) {
 
   } else {
@@ -24724,7 +24724,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 
     goto __pyx_L12_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1164, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1165, __pyx_L1_error)
 
   __pyx_t_6 = __pyx_t_5;
 
@@ -24750,7 +24750,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1165
+    /* "cftime/_cftime.pyx":1166
  *         # and has a year zero, so for now this is the default in cftime.
  *         if calendar in ['julian','gregorian','standard'] and year <= 0:
  *             warnings.warn(cfwarnmsg,category=CFWarning)             # <<<<<<<<<<<<<<
@@ -24758,14 +24758,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
  *         if calendar == 'tai':
 */
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1165, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1165, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_cfwarnmsg); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1165, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_cfwarnmsg); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_CFWarning); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1165, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_CFWarning); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -24783,13 +24783,13 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       PyObject *__pyx_callargs[3] = {__pyx_t_8, __pyx_t_9, __pyx_t_3};
       #if CYTHON_VECTORCALL
       __pyx_t_10 = __pyx_mstate_global->__pyx_tuple[13];
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1165, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1166, __pyx_L1_error)
       __Pyx_INCREF(__pyx_t_10);
       #else
       {
         PyObject *__pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_category};
         __pyx_t_10 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 1);
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1165, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1166, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       #endif
@@ -24799,12 +24799,12 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1165, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1166, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1164
+    /* "cftime/_cftime.pyx":1165
  *         # for the proleptic_gregorian calendar. IS0 8601 uses proleptic_gregorian
  *         # and has a year zero, so for now this is the default in cftime.
  *         if calendar in ['julian','gregorian','standard'] and year <= 0:             # <<<<<<<<<<<<<<
@@ -24813,18 +24813,18 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
   }
 
-  /* "cftime/_cftime.pyx":1167
+  /* "cftime/_cftime.pyx":1168
  *             warnings.warn(cfwarnmsg,category=CFWarning)
  *         # raise exception if date before 1958-01-01 requested for tai calendar.
  *         if calendar == 'tai':             # <<<<<<<<<<<<<<
  *             if year < 1958:
  *                 raise ValueError('dates before 1958-01-01 not allowed in TAI calendar')
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1167, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1168, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1168
+    /* "cftime/_cftime.pyx":1169
  *         # raise exception if date before 1958-01-01 requested for tai calendar.
  *         if calendar == 'tai':
  *             if year < 1958:             # <<<<<<<<<<<<<<
@@ -24836,7 +24836,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     if (unlikely(__pyx_t_1)) {
 
 
-      /* "cftime/_cftime.pyx":1169
+      /* "cftime/_cftime.pyx":1170
  *         if calendar == 'tai':
  *             if year < 1958:
  *                 raise ValueError('dates before 1958-01-01 not allowed in TAI calendar')             # <<<<<<<<<<<<<<
@@ -24849,14 +24849,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_kp_u_dates_before_1958_01_01_not_allo};
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1169, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1170, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 1169, __pyx_L1_error)
+      __PYX_ERR(0, 1170, __pyx_L1_error)
 
-      /* "cftime/_cftime.pyx":1168
+      /* "cftime/_cftime.pyx":1169
  *         # raise exception if date before 1958-01-01 requested for tai calendar.
  *         if calendar == 'tai':
  *             if year < 1958:             # <<<<<<<<<<<<<<
@@ -24865,23 +24865,23 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     }
 
-    /* "cftime/_cftime.pyx":1170
+    /* "cftime/_cftime.pyx":1171
  *             if year < 1958:
  *                 raise ValueError('dates before 1958-01-01 not allowed in TAI calendar')
  *             if has_year_zero:             # <<<<<<<<<<<<<<
  *                 raise ValueError('year zero not allowed in TAI calendar')
- *         # raise exception if year zero requested but has_year_zero set
+ *         # Idealized calendars always have a year zero, even if False is passed.
 */
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1170, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1171, __pyx_L1_error)
     if (unlikely(__pyx_t_1)) {
 
 
-      /* "cftime/_cftime.pyx":1171
+      /* "cftime/_cftime.pyx":1172
  *                 raise ValueError('dates before 1958-01-01 not allowed in TAI calendar')
  *             if has_year_zero:
  *                 raise ValueError('year zero not allowed in TAI calendar')             # <<<<<<<<<<<<<<
- *         # raise exception if year zero requested but has_year_zero set
- *         # to False (issue #248).
+ *         # Idealized calendars always have a year zero, even if False is passed.
+ *         if not has_year_zero and calendar in _idealized_calendars:
 */
       __pyx_t_7 = NULL;
       __pyx_t_4 = 1;
@@ -24889,23 +24889,23 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_kp_u_year_zero_not_allowed_in_TAI_cal};
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1171, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1172, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 1171, __pyx_L1_error)
+      __PYX_ERR(0, 1172, __pyx_L1_error)
 
-      /* "cftime/_cftime.pyx":1170
+      /* "cftime/_cftime.pyx":1171
  *             if year < 1958:
  *                 raise ValueError('dates before 1958-01-01 not allowed in TAI calendar')
  *             if has_year_zero:             # <<<<<<<<<<<<<<
  *                 raise ValueError('year zero not allowed in TAI calendar')
- *         # raise exception if year zero requested but has_year_zero set
+ *         # Idealized calendars always have a year zero, even if False is passed.
 */
     }
 
-    /* "cftime/_cftime.pyx":1167
+    /* "cftime/_cftime.pyx":1168
  *             warnings.warn(cfwarnmsg,category=CFWarning)
  *         # raise exception if date before 1958-01-01 requested for tai calendar.
  *         if calendar == 'tai':             # <<<<<<<<<<<<<<
@@ -24915,77 +24915,13 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   }
 
   /* "cftime/_cftime.pyx":1174
- *         # raise exception if year zero requested but has_year_zero set
- *         # to False (issue #248).
- *         if year == 0 and has_year_zero==False:             # <<<<<<<<<<<<<<
- *             msg='year zero requested, but has_year_zero=False'
- *             raise ValueError(msg)
-*/
-  __pyx_t_5 = (__pyx_v_year == 0);
-
-  if (__pyx_t_5) {
-
-  } else {
-
-    __pyx_t_1 = __pyx_t_5;
-
-    goto __pyx_L19_bool_binop_done;
-  }
-  __pyx_t_5 = __Pyx_PyObject_RichCompareBool(__pyx_v_has_year_zero, Py_False, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1174, __pyx_L1_error)
-
-  __pyx_t_1 = __pyx_t_5;
-
-  __pyx_L19_bool_binop_done:;
-  if (unlikely(__pyx_t_1)) {
-
-
-    /* "cftime/_cftime.pyx":1175
- *         # to False (issue #248).
- *         if year == 0 and has_year_zero==False:
- *             msg='year zero requested, but has_year_zero=False'             # <<<<<<<<<<<<<<
- *             raise ValueError(msg)
- *         if not has_year_zero and calendar in _idealized_calendars:
-*/
-    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_year_zero_requested_but_has_year);
-    __Pyx_XDECREF_SET(__pyx_v_msg, __pyx_mstate_global->__pyx_kp_u_year_zero_requested_but_has_year);
-
-    /* "cftime/_cftime.pyx":1176
- *         if year == 0 and has_year_zero==False:
- *             msg='year zero requested, but has_year_zero=False'
- *             raise ValueError(msg)             # <<<<<<<<<<<<<<
- *         if not has_year_zero and calendar in _idealized_calendars:
- *             warnings.warn('has_year_zero kwarg ignored for idealized calendars (always True)')
-*/
-    __pyx_t_7 = NULL;
-    __pyx_t_4 = 1;
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_msg};
-      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1176, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
-    }
-    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1176, __pyx_L1_error)
-
-    /* "cftime/_cftime.pyx":1174
- *         # raise exception if year zero requested but has_year_zero set
- *         # to False (issue #248).
- *         if year == 0 and has_year_zero==False:             # <<<<<<<<<<<<<<
- *             msg='year zero requested, but has_year_zero=False'
- *             raise ValueError(msg)
-*/
-  }
-
-  /* "cftime/_cftime.pyx":1177
- *             msg='year zero requested, but has_year_zero=False'
- *             raise ValueError(msg)
+ *                 raise ValueError('year zero not allowed in TAI calendar')
+ *         # Idealized calendars always have a year zero, even if False is passed.
  *         if not has_year_zero and calendar in _idealized_calendars:             # <<<<<<<<<<<<<<
  *             warnings.warn('has_year_zero kwarg ignored for idealized calendars (always True)')
- *         self.has_year_zero = has_year_zero
+ *             has_year_zero = True
 */
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1177, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1174, __pyx_L1_error)
   __pyx_t_6 = (!__pyx_t_5);
 
 
@@ -24995,30 +24931,30 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 
     __pyx_t_1 = __pyx_t_6;
 
-    goto __pyx_L22_bool_binop_done;
+    goto __pyx_L19_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1177, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_v_calendar, __pyx_t_2, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1177, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_v_calendar, __pyx_t_2, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1174, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   __pyx_t_1 = __pyx_t_6;
 
-  __pyx_L22_bool_binop_done:;
+  __pyx_L19_bool_binop_done:;
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1178
- *             raise ValueError(msg)
+    /* "cftime/_cftime.pyx":1175
+ *         # Idealized calendars always have a year zero, even if False is passed.
  *         if not has_year_zero and calendar in _idealized_calendars:
  *             warnings.warn('has_year_zero kwarg ignored for idealized calendars (always True)')             # <<<<<<<<<<<<<<
- *         self.has_year_zero = has_year_zero
- *         if calendar == 'gregorian' or calendar == 'standard':
+ *             has_year_zero = True
+ *         # raise exception if year zero requested but has_year_zero set
 */
     __pyx_t_7 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1178, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1178, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __pyx_t_4 = 1;
@@ -25038,38 +24974,112 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1178, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1175, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1177
- *             msg='year zero requested, but has_year_zero=False'
- *             raise ValueError(msg)
+    /* "cftime/_cftime.pyx":1176
+ *         if not has_year_zero and calendar in _idealized_calendars:
+ *             warnings.warn('has_year_zero kwarg ignored for idealized calendars (always True)')
+ *             has_year_zero = True             # <<<<<<<<<<<<<<
+ *         # raise exception if year zero requested but has_year_zero set
+ *         # to False (issue #248).
+*/
+    __Pyx_INCREF(Py_True);
+    __Pyx_DECREF_SET(__pyx_v_has_year_zero, Py_True);
+
+    /* "cftime/_cftime.pyx":1174
+ *                 raise ValueError('year zero not allowed in TAI calendar')
+ *         # Idealized calendars always have a year zero, even if False is passed.
  *         if not has_year_zero and calendar in _idealized_calendars:             # <<<<<<<<<<<<<<
  *             warnings.warn('has_year_zero kwarg ignored for idealized calendars (always True)')
- *         self.has_year_zero = has_year_zero
+ *             has_year_zero = True
 */
   }
 
   /* "cftime/_cftime.pyx":1179
- *         if not has_year_zero and calendar in _idealized_calendars:
- *             warnings.warn('has_year_zero kwarg ignored for idealized calendars (always True)')
+ *         # raise exception if year zero requested but has_year_zero set
+ *         # to False (issue #248).
+ *         if year == 0 and has_year_zero==False:             # <<<<<<<<<<<<<<
+ *             msg='year zero requested, but has_year_zero=False'
+ *             raise ValueError(msg)
+*/
+  __pyx_t_6 = (__pyx_v_year == 0);
+
+  if (__pyx_t_6) {
+
+  } else {
+
+    __pyx_t_1 = __pyx_t_6;
+
+    goto __pyx_L22_bool_binop_done;
+  }
+  __pyx_t_6 = __Pyx_PyObject_RichCompareBool(__pyx_v_has_year_zero, Py_False, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1179, __pyx_L1_error)
+
+  __pyx_t_1 = __pyx_t_6;
+
+  __pyx_L22_bool_binop_done:;
+  if (unlikely(__pyx_t_1)) {
+
+
+    /* "cftime/_cftime.pyx":1180
+ *         # to False (issue #248).
+ *         if year == 0 and has_year_zero==False:
+ *             msg='year zero requested, but has_year_zero=False'             # <<<<<<<<<<<<<<
+ *             raise ValueError(msg)
+ *         self.has_year_zero = has_year_zero
+*/
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_year_zero_requested_but_has_year);
+    __Pyx_XDECREF_SET(__pyx_v_msg, __pyx_mstate_global->__pyx_kp_u_year_zero_requested_but_has_year);
+
+    /* "cftime/_cftime.pyx":1181
+ *         if year == 0 and has_year_zero==False:
+ *             msg='year zero requested, but has_year_zero=False'
+ *             raise ValueError(msg)             # <<<<<<<<<<<<<<
+ *         self.has_year_zero = has_year_zero
+ *         if calendar == 'gregorian' or calendar == 'standard':
+*/
+    __pyx_t_3 = NULL;
+    __pyx_t_4 = 1;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_msg};
+      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1181, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+    }
+    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __PYX_ERR(0, 1181, __pyx_L1_error)
+
+    /* "cftime/_cftime.pyx":1179
+ *         # raise exception if year zero requested but has_year_zero set
+ *         # to False (issue #248).
+ *         if year == 0 and has_year_zero==False:             # <<<<<<<<<<<<<<
+ *             msg='year zero requested, but has_year_zero=False'
+ *             raise ValueError(msg)
+*/
+  }
+
+  /* "cftime/_cftime.pyx":1182
+ *             msg='year zero requested, but has_year_zero=False'
+ *             raise ValueError(msg)
  *         self.has_year_zero = has_year_zero             # <<<<<<<<<<<<<<
  *         if calendar == 'gregorian' or calendar == 'standard':
  *             # dates after 1582-10-15 can be converted to and compared to
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1179, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1182, __pyx_L1_error)
   __pyx_v_self->has_year_zero = __pyx_t_1;
 
-  /* "cftime/_cftime.pyx":1180
- *             warnings.warn('has_year_zero kwarg ignored for idealized calendars (always True)')
+  /* "cftime/_cftime.pyx":1183
+ *             raise ValueError(msg)
  *         self.has_year_zero = has_year_zero
  *         if calendar == 'gregorian' or calendar == 'standard':             # <<<<<<<<<<<<<<
  *             # dates after 1582-10-15 can be converted to and compared to
  *             # proleptic Gregorian dates
 */
-  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1180, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1183, __pyx_L1_error)
   if (!__pyx_t_6) {
 
   } else {
@@ -25078,7 +25088,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 
     goto __pyx_L25_bool_binop_done;
   }
-  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1180, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1183, __pyx_L1_error)
 
   __pyx_t_1 = __pyx_t_6;
 
@@ -25086,7 +25096,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1183
+    /* "cftime/_cftime.pyx":1186
  *             # dates after 1582-10-15 can be converted to and compared to
  *             # proleptic Gregorian dates
  *             self.calendar = 'standard'             # <<<<<<<<<<<<<<
@@ -25099,7 +25109,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     __Pyx_DECREF(__pyx_v_self->calendar);
     __pyx_v_self->calendar = __pyx_mstate_global->__pyx_n_u_standard;
 
-    /* "cftime/_cftime.pyx":1184
+    /* "cftime/_cftime.pyx":1187
  *             # proleptic Gregorian dates
  *             self.calendar = 'standard'
  *             if self.to_tuple() >= (1582, 10, 15, 0, 0, 0, 0):             # <<<<<<<<<<<<<<
@@ -25113,15 +25123,15 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_to_tuple, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1184, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1187, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    __pyx_t_1 = __Pyx_PyObject_RichCompareBool(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[14], Py_GE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1184, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_RichCompareBool(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[14], Py_GE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1187, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (__pyx_t_1) {
 
 
-      /* "cftime/_cftime.pyx":1185
+      /* "cftime/_cftime.pyx":1188
  *             self.calendar = 'standard'
  *             if self.to_tuple() >= (1582, 10, 15, 0, 0, 0, 0):
  *                 self.datetime_compatible = True             # <<<<<<<<<<<<<<
@@ -25130,7 +25140,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
       __pyx_v_self->datetime_compatible = 1;
 
-      /* "cftime/_cftime.pyx":1184
+      /* "cftime/_cftime.pyx":1187
  *             # proleptic Gregorian dates
  *             self.calendar = 'standard'
  *             if self.to_tuple() >= (1582, 10, 15, 0, 0, 0, 0):             # <<<<<<<<<<<<<<
@@ -25140,7 +25150,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       goto __pyx_L27;
     }
 
-    /* "cftime/_cftime.pyx":1187
+    /* "cftime/_cftime.pyx":1190
  *                 self.datetime_compatible = True
  *             else:
  *                 self.datetime_compatible = False             # <<<<<<<<<<<<<<
@@ -25152,21 +25162,21 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     }
     __pyx_L27:;
 
-    /* "cftime/_cftime.pyx":1188
+    /* "cftime/_cftime.pyx":1191
  *             else:
  *                 self.datetime_compatible = False
  *             assert_valid_date(self, is_leap_gregorian, True, has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  *         elif calendar == 'noleap' or calendar == '365_day':
  *             self.calendar = 'noleap'
 */
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1188, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1191, __pyx_L1_error)
     __pyx_t_11.__pyx_n = 1;
     __pyx_t_11.has_year_zero = __pyx_t_1;
-    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_is_leap_gregorian, 1, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1188, __pyx_L1_error)
+    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_is_leap_gregorian, 1, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1191, __pyx_L1_error)
 
 
-    /* "cftime/_cftime.pyx":1180
- *             warnings.warn('has_year_zero kwarg ignored for idealized calendars (always True)')
+    /* "cftime/_cftime.pyx":1183
+ *             raise ValueError(msg)
  *         self.has_year_zero = has_year_zero
  *         if calendar == 'gregorian' or calendar == 'standard':             # <<<<<<<<<<<<<<
  *             # dates after 1582-10-15 can be converted to and compared to
@@ -25175,14 +25185,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     goto __pyx_L24;
   }
 
-  /* "cftime/_cftime.pyx":1189
+  /* "cftime/_cftime.pyx":1192
  *                 self.datetime_compatible = False
  *             assert_valid_date(self, is_leap_gregorian, True, has_year_zero=has_year_zero)
  *         elif calendar == 'noleap' or calendar == '365_day':             # <<<<<<<<<<<<<<
  *             self.calendar = 'noleap'
  *             self.datetime_compatible = False
 */
-  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_noleap, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1189, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_noleap, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1192, __pyx_L1_error)
   if (!__pyx_t_6) {
 
   } else {
@@ -25191,7 +25201,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 
     goto __pyx_L28_bool_binop_done;
   }
-  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_365_day, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1189, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_365_day, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1192, __pyx_L1_error)
 
   __pyx_t_1 = __pyx_t_6;
 
@@ -25199,7 +25209,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1190
+    /* "cftime/_cftime.pyx":1193
  *             assert_valid_date(self, is_leap_gregorian, True, has_year_zero=has_year_zero)
  *         elif calendar == 'noleap' or calendar == '365_day':
  *             self.calendar = 'noleap'             # <<<<<<<<<<<<<<
@@ -25212,7 +25222,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     __Pyx_DECREF(__pyx_v_self->calendar);
     __pyx_v_self->calendar = __pyx_mstate_global->__pyx_n_u_noleap;
 
-    /* "cftime/_cftime.pyx":1191
+    /* "cftime/_cftime.pyx":1194
  *         elif calendar == 'noleap' or calendar == '365_day':
  *             self.calendar = 'noleap'
  *             self.datetime_compatible = False             # <<<<<<<<<<<<<<
@@ -25221,7 +25231,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_v_self->datetime_compatible = 0;
 
-    /* "cftime/_cftime.pyx":1192
+    /* "cftime/_cftime.pyx":1195
  *             self.calendar = 'noleap'
  *             self.datetime_compatible = False
  *             assert_valid_date(self, no_leap, False, has_year_zero=True)             # <<<<<<<<<<<<<<
@@ -25230,9 +25240,9 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_t_11.__pyx_n = 1;
     __pyx_t_11.has_year_zero = 1;
-    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_no_leap, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1192, __pyx_L1_error)
+    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_no_leap, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1195, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1189
+    /* "cftime/_cftime.pyx":1192
  *                 self.datetime_compatible = False
  *             assert_valid_date(self, is_leap_gregorian, True, has_year_zero=has_year_zero)
  *         elif calendar == 'noleap' or calendar == '365_day':             # <<<<<<<<<<<<<<
@@ -25242,14 +25252,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     goto __pyx_L24;
   }
 
-  /* "cftime/_cftime.pyx":1193
+  /* "cftime/_cftime.pyx":1196
  *             self.datetime_compatible = False
  *             assert_valid_date(self, no_leap, False, has_year_zero=True)
  *         elif calendar == 'all_leap' or calendar == '366_day':             # <<<<<<<<<<<<<<
  *             self.calendar = 'all_leap'
  *             self.datetime_compatible = False
 */
-  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_all_leap, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1193, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_all_leap, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1196, __pyx_L1_error)
   if (!__pyx_t_6) {
 
   } else {
@@ -25258,7 +25268,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 
     goto __pyx_L30_bool_binop_done;
   }
-  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_366_day, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1193, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_366_day, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1196, __pyx_L1_error)
 
   __pyx_t_1 = __pyx_t_6;
 
@@ -25266,7 +25276,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1194
+    /* "cftime/_cftime.pyx":1197
  *             assert_valid_date(self, no_leap, False, has_year_zero=True)
  *         elif calendar == 'all_leap' or calendar == '366_day':
  *             self.calendar = 'all_leap'             # <<<<<<<<<<<<<<
@@ -25279,7 +25289,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     __Pyx_DECREF(__pyx_v_self->calendar);
     __pyx_v_self->calendar = __pyx_mstate_global->__pyx_n_u_all_leap;
 
-    /* "cftime/_cftime.pyx":1195
+    /* "cftime/_cftime.pyx":1198
  *         elif calendar == 'all_leap' or calendar == '366_day':
  *             self.calendar = 'all_leap'
  *             self.datetime_compatible = False             # <<<<<<<<<<<<<<
@@ -25288,7 +25298,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_v_self->datetime_compatible = 0;
 
-    /* "cftime/_cftime.pyx":1196
+    /* "cftime/_cftime.pyx":1199
  *             self.calendar = 'all_leap'
  *             self.datetime_compatible = False
  *             assert_valid_date(self, all_leap, False, has_year_zero=True)             # <<<<<<<<<<<<<<
@@ -25297,9 +25307,9 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_t_11.__pyx_n = 1;
     __pyx_t_11.has_year_zero = 1;
-    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_all_leap, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1196, __pyx_L1_error)
+    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_all_leap, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1199, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1193
+    /* "cftime/_cftime.pyx":1196
  *             self.datetime_compatible = False
  *             assert_valid_date(self, no_leap, False, has_year_zero=True)
  *         elif calendar == 'all_leap' or calendar == '366_day':             # <<<<<<<<<<<<<<
@@ -25309,18 +25319,18 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     goto __pyx_L24;
   }
 
-  /* "cftime/_cftime.pyx":1197
+  /* "cftime/_cftime.pyx":1200
  *             self.datetime_compatible = False
  *             assert_valid_date(self, all_leap, False, has_year_zero=True)
  *         elif calendar == '360_day':             # <<<<<<<<<<<<<<
  *             self.calendar = calendar
  *             self.datetime_compatible = False
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1197, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1200, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1198
+    /* "cftime/_cftime.pyx":1201
  *             assert_valid_date(self, all_leap, False, has_year_zero=True)
  *         elif calendar == '360_day':
  *             self.calendar = calendar             # <<<<<<<<<<<<<<
@@ -25329,14 +25339,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_t_2 = __pyx_v_calendar;
     __Pyx_INCREF(__pyx_t_2);
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1198, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1201, __pyx_L1_error)
     __Pyx_GIVEREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_v_self->calendar);
     __Pyx_DECREF(__pyx_v_self->calendar);
     __pyx_v_self->calendar = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1199
+    /* "cftime/_cftime.pyx":1202
  *         elif calendar == '360_day':
  *             self.calendar = calendar
  *             self.datetime_compatible = False             # <<<<<<<<<<<<<<
@@ -25345,7 +25355,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_v_self->datetime_compatible = 0;
 
-    /* "cftime/_cftime.pyx":1200
+    /* "cftime/_cftime.pyx":1203
  *             self.calendar = calendar
  *             self.datetime_compatible = False
  *             assert_valid_date(self, no_leap, False, has_year_zero=True, is_360_day=True)             # <<<<<<<<<<<<<<
@@ -25355,9 +25365,9 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     __pyx_t_11.__pyx_n = 2;
     __pyx_t_11.has_year_zero = 1;
     __pyx_t_11.is_360_day = 1;
-    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_no_leap, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1200, __pyx_L1_error)
+    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_no_leap, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1203, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1197
+    /* "cftime/_cftime.pyx":1200
  *             self.datetime_compatible = False
  *             assert_valid_date(self, all_leap, False, has_year_zero=True)
  *         elif calendar == '360_day':             # <<<<<<<<<<<<<<
@@ -25367,18 +25377,18 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     goto __pyx_L24;
   }
 
-  /* "cftime/_cftime.pyx":1201
+  /* "cftime/_cftime.pyx":1204
  *             self.datetime_compatible = False
  *             assert_valid_date(self, no_leap, False, has_year_zero=True, is_360_day=True)
  *         elif calendar == 'julian':             # <<<<<<<<<<<<<<
  *             self.calendar = calendar
  *             self.datetime_compatible = False
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1201, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1204, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1202
+    /* "cftime/_cftime.pyx":1205
  *             assert_valid_date(self, no_leap, False, has_year_zero=True, is_360_day=True)
  *         elif calendar == 'julian':
  *             self.calendar = calendar             # <<<<<<<<<<<<<<
@@ -25387,14 +25397,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_t_2 = __pyx_v_calendar;
     __Pyx_INCREF(__pyx_t_2);
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1202, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1205, __pyx_L1_error)
     __Pyx_GIVEREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_v_self->calendar);
     __Pyx_DECREF(__pyx_v_self->calendar);
     __pyx_v_self->calendar = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1203
+    /* "cftime/_cftime.pyx":1206
  *         elif calendar == 'julian':
  *             self.calendar = calendar
  *             self.datetime_compatible = False             # <<<<<<<<<<<<<<
@@ -25403,20 +25413,20 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_v_self->datetime_compatible = 0;
 
-    /* "cftime/_cftime.pyx":1204
+    /* "cftime/_cftime.pyx":1207
  *             self.calendar = calendar
  *             self.datetime_compatible = False
  *             assert_valid_date(self, is_leap_julian, False, has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *             self.calendar = calendar
 */
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1204, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1207, __pyx_L1_error)
     __pyx_t_11.__pyx_n = 1;
     __pyx_t_11.has_year_zero = __pyx_t_1;
-    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_is_leap_julian, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1204, __pyx_L1_error)
+    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_is_leap_julian, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1207, __pyx_L1_error)
 
 
-    /* "cftime/_cftime.pyx":1201
+    /* "cftime/_cftime.pyx":1204
  *             self.datetime_compatible = False
  *             assert_valid_date(self, no_leap, False, has_year_zero=True, is_360_day=True)
  *         elif calendar == 'julian':             # <<<<<<<<<<<<<<
@@ -25426,14 +25436,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     goto __pyx_L24;
   }
 
-  /* "cftime/_cftime.pyx":1205
+  /* "cftime/_cftime.pyx":1208
  *             self.datetime_compatible = False
  *             assert_valid_date(self, is_leap_julian, False, has_year_zero=has_year_zero)
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':             # <<<<<<<<<<<<<<
  *             self.calendar = calendar
  *             self.datetime_compatible = True
 */
-  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1205, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1208, __pyx_L1_error)
   if (!__pyx_t_6) {
 
   } else {
@@ -25442,7 +25452,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 
     goto __pyx_L32_bool_binop_done;
   }
-  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1205, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1208, __pyx_L1_error)
 
   __pyx_t_1 = __pyx_t_6;
 
@@ -25450,7 +25460,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1206
+    /* "cftime/_cftime.pyx":1209
  *             assert_valid_date(self, is_leap_julian, False, has_year_zero=has_year_zero)
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *             self.calendar = calendar             # <<<<<<<<<<<<<<
@@ -25459,14 +25469,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_t_2 = __pyx_v_calendar;
     __Pyx_INCREF(__pyx_t_2);
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1206, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1209, __pyx_L1_error)
     __Pyx_GIVEREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_v_self->calendar);
     __Pyx_DECREF(__pyx_v_self->calendar);
     __pyx_v_self->calendar = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1207
+    /* "cftime/_cftime.pyx":1210
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *             self.calendar = calendar
  *             self.datetime_compatible = True             # <<<<<<<<<<<<<<
@@ -25475,20 +25485,20 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_v_self->datetime_compatible = 1;
 
-    /* "cftime/_cftime.pyx":1208
+    /* "cftime/_cftime.pyx":1211
  *             self.calendar = calendar
  *             self.datetime_compatible = True
  *             assert_valid_date(self, is_leap_proleptic_gregorian, False, has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  *         elif calendar == '' or calendar is None:
  *             # instance not calendar-aware, some method will not work
 */
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1208, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1211, __pyx_L1_error)
     __pyx_t_11.__pyx_n = 1;
     __pyx_t_11.has_year_zero = __pyx_t_1;
-    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1208, __pyx_L1_error)
+    __pyx_f_6cftime_7_cftime_assert_valid_date(__pyx_v_self, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, &__pyx_t_11); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1211, __pyx_L1_error)
 
 
-    /* "cftime/_cftime.pyx":1205
+    /* "cftime/_cftime.pyx":1208
  *             self.datetime_compatible = False
  *             assert_valid_date(self, is_leap_julian, False, has_year_zero=has_year_zero)
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':             # <<<<<<<<<<<<<<
@@ -25498,14 +25508,14 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     goto __pyx_L24;
   }
 
-  /* "cftime/_cftime.pyx":1209
+  /* "cftime/_cftime.pyx":1212
  *             self.datetime_compatible = True
  *             assert_valid_date(self, is_leap_proleptic_gregorian, False, has_year_zero=has_year_zero)
  *         elif calendar == '' or calendar is None:             # <<<<<<<<<<<<<<
  *             # instance not calendar-aware, some method will not work
  *             self.calendar = ''
 */
-  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1209, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1212, __pyx_L1_error)
   if (!__pyx_t_6) {
 
   } else {
@@ -25522,7 +25532,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   if (likely(__pyx_t_1)) {
 
 
-    /* "cftime/_cftime.pyx":1211
+    /* "cftime/_cftime.pyx":1214
  *         elif calendar == '' or calendar is None:
  *             # instance not calendar-aware, some method will not work
  *             self.calendar = ''             # <<<<<<<<<<<<<<
@@ -25535,7 +25545,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     __Pyx_DECREF(__pyx_v_self->calendar);
     __pyx_v_self->calendar = __pyx_mstate_global->__pyx_kp_u__3;
 
-    /* "cftime/_cftime.pyx":1212
+    /* "cftime/_cftime.pyx":1215
  *             # instance not calendar-aware, some method will not work
  *             self.calendar = ''
  *             self.datetime_compatible = False             # <<<<<<<<<<<<<<
@@ -25544,7 +25554,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
 */
     __pyx_v_self->datetime_compatible = 0;
 
-    /* "cftime/_cftime.pyx":1209
+    /* "cftime/_cftime.pyx":1212
  *             self.datetime_compatible = True
  *             assert_valid_date(self, is_leap_proleptic_gregorian, False, has_year_zero=has_year_zero)
  *         elif calendar == '' or calendar is None:             # <<<<<<<<<<<<<<
@@ -25554,7 +25564,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     goto __pyx_L24;
   }
 
-  /* "cftime/_cftime.pyx":1214
+  /* "cftime/_cftime.pyx":1217
  *             self.datetime_compatible = False
  *         else:
  *             raise ValueError(             # <<<<<<<<<<<<<<
@@ -25564,19 +25574,19 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   /*else*/ {
     __pyx_t_3 = NULL;
 
-    /* "cftime/_cftime.pyx":1215
+    /* "cftime/_cftime.pyx":1218
  *         else:
  *             raise ValueError(
  *                 "calendar must be one of %s, got '%s'" % (str(_calendars), calendar))             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_calendars); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1215, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_calendars); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1218, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_10 = __Pyx_PyObject_Unicode(__pyx_t_7); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1215, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_Unicode(__pyx_t_7); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1218, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_calendar), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1215, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_calendar), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1218, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_12[0] = __pyx_mstate_global->__pyx_kp_u_calendar_must_be_one_of;
     __pyx_t_12[1] = __pyx_t_10;
@@ -25592,7 +25602,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
     __pyx_t_14 |= __Pyx_PyUnicode_KIND_04(__pyx_t_12[1]) | __Pyx_PyUnicode_KIND_04(__pyx_t_12[3]);
     #endif
     __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_12, 5, __pyx_t_13, __pyx_t_14);
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1215, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1218, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -25602,16 +25612,16 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1214, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1217, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1214, __pyx_L1_error)
+    __PYX_ERR(0, 1217, __pyx_L1_error)
   }
   __pyx_L24:;
 
-  /* "cftime/_cftime.pyx":1131
+  /* "cftime/_cftime.pyx":1132
  *     cdef readonly bint datetime_compatible
  * 
  *     def __init__(self, int year, int month, int day, int hour=0, int minute=0,             # <<<<<<<<<<<<<<
@@ -25640,7 +25650,7 @@ static int __pyx_pf_6cftime_7_cftime_8datetime___init__(struct __pyx_obj_6cftime
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1217
+/* "cftime/_cftime.pyx":1220
  *                 "calendar must be one of %s, got '%s'" % (str(_calendars), calendar))
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -25668,7 +25678,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6format___get__(CYTHON_UNUS
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "cftime/_cftime.pyx":1219
+  /* "cftime/_cftime.pyx":1222
  *     @property
  *     def format(self):
  *         return '%Y-%m-%d %H:%M:%S'             # <<<<<<<<<<<<<<
@@ -25686,7 +25696,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6format___get__(CYTHON_UNUS
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1217
+  /* "cftime/_cftime.pyx":1220
  *                 "calendar must be one of %s, got '%s'" % (str(_calendars), calendar))
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -25701,7 +25711,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6format___get__(CYTHON_UNUS
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1221
+/* "cftime/_cftime.pyx":1224
  *         return '%Y-%m-%d %H:%M:%S'
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -25740,7 +25750,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofwk___get__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "cftime/_cftime.pyx":1223
+  /* "cftime/_cftime.pyx":1226
  *     @property
  *     def dayofwk(self):
  *         if self._dayofwk < 0 and self.calendar:             # <<<<<<<<<<<<<<
@@ -25761,7 +25771,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofwk___get__(struct __p
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_self->calendar);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 1223, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 1226, __pyx_L1_error)
     __pyx_t_2 = (__pyx_temp != 0);
   }
 
@@ -25772,7 +25782,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofwk___get__(struct __p
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1224
+    /* "cftime/_cftime.pyx":1227
  *     def dayofwk(self):
  *         if self._dayofwk < 0 and self.calendar:
  *             jd = self.toordinal()             # <<<<<<<<<<<<<<
@@ -25786,64 +25796,64 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofwk___get__(struct __p
       PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_toordinal, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1224, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1227, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_v_jd = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1225
+    /* "cftime/_cftime.pyx":1228
  *         if self._dayofwk < 0 and self.calendar:
  *             jd = self.toordinal()
  *             dayofwk = (jd + 1) % 7             # <<<<<<<<<<<<<<
  *             # convert to ISO 8601 (0 = Monday, 6 = Sunday), like python datetime
  *             dayofwk -= 1
 */
-    __pyx_t_3 = __Pyx_PyLong_AddObjC(__pyx_v_jd, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1225, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_AddObjC(__pyx_v_jd, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1228, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyLong_RemainderObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_7, 7, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1225, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_RemainderObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_7, 7, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1228, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_dayofwk = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "cftime/_cftime.pyx":1227
+    /* "cftime/_cftime.pyx":1230
  *             dayofwk = (jd + 1) % 7
  *             # convert to ISO 8601 (0 = Monday, 6 = Sunday), like python datetime
  *             dayofwk -= 1             # <<<<<<<<<<<<<<
  *             if dayofwk == -1: dayofwk = 6
  *             # cache results for dayofwk
 */
-    __pyx_t_4 = __Pyx_PyLong_SubtractObjC(__pyx_v_dayofwk, __pyx_mstate_global->__pyx_int_1, 1, 1, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1227, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_SubtractObjC(__pyx_v_dayofwk, __pyx_mstate_global->__pyx_int_1, 1, 1, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1230, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF_SET(__pyx_v_dayofwk, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "cftime/_cftime.pyx":1228
+    /* "cftime/_cftime.pyx":1231
  *             # convert to ISO 8601 (0 = Monday, 6 = Sunday), like python datetime
  *             dayofwk -= 1
  *             if dayofwk == -1: dayofwk = 6             # <<<<<<<<<<<<<<
  *             # cache results for dayofwk
  *             self._dayofwk = dayofwk
 */
-    __pyx_t_1 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_dayofwk, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1228, __pyx_L1_error)
+    __pyx_t_1 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_dayofwk, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1231, __pyx_L1_error)
     if (__pyx_t_1) {
 
       __Pyx_INCREF(__pyx_mstate_global->__pyx_int_6);
       __Pyx_DECREF_SET(__pyx_v_dayofwk, __pyx_mstate_global->__pyx_int_6);
     }
 
-    /* "cftime/_cftime.pyx":1230
+    /* "cftime/_cftime.pyx":1233
  *             if dayofwk == -1: dayofwk = 6
  *             # cache results for dayofwk
  *             self._dayofwk = dayofwk             # <<<<<<<<<<<<<<
  *             return dayofwk
  *         else:
 */
-    __pyx_t_6 = __Pyx_PyLong_As_int(__pyx_v_dayofwk); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1230, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_As_int(__pyx_v_dayofwk); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1233, __pyx_L1_error)
     __pyx_v_self->_dayofwk = __pyx_t_6;
 
-    /* "cftime/_cftime.pyx":1231
+    /* "cftime/_cftime.pyx":1234
  *             # cache results for dayofwk
  *             self._dayofwk = dayofwk
  *             return dayofwk             # <<<<<<<<<<<<<<
@@ -25861,7 +25871,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofwk___get__(struct __p
     }
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1223
+    /* "cftime/_cftime.pyx":1226
  *     @property
  *     def dayofwk(self):
  *         if self._dayofwk < 0 and self.calendar:             # <<<<<<<<<<<<<<
@@ -25870,7 +25880,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofwk___get__(struct __p
 */
   }
 
-  /* "cftime/_cftime.pyx":1233
+  /* "cftime/_cftime.pyx":1236
  *             return dayofwk
  *         else:
  *             return self._dayofwk             # <<<<<<<<<<<<<<
@@ -25878,7 +25888,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofwk___get__(struct __p
  *     @property
 */
   /*else*/ {
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofwk); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1233, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofwk); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     {
       PyObject *__pyx_temp;
@@ -25892,7 +25902,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofwk___get__(struct __p
     goto __pyx_L0;
   }
 
-  /* "cftime/_cftime.pyx":1221
+  /* "cftime/_cftime.pyx":1224
  *         return '%Y-%m-%d %H:%M:%S'
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -25914,7 +25924,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofwk___get__(struct __p
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1235
+/* "cftime/_cftime.pyx":1238
  *             return self._dayofwk
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -25952,7 +25962,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "cftime/_cftime.pyx":1237
+  /* "cftime/_cftime.pyx":1240
  *     @property
  *     def dayofyr(self):
  *         if self._dayofyr < 0 and self.calendar:             # <<<<<<<<<<<<<<
@@ -25973,7 +25983,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_self->calendar);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 1237, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 1240, __pyx_L1_error)
     __pyx_t_2 = (__pyx_temp != 0);
   }
 
@@ -25984,18 +25994,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1238
+    /* "cftime/_cftime.pyx":1241
  *     def dayofyr(self):
  *         if self._dayofyr < 0 and self.calendar:
  *             if self.calendar == '360_day':             # <<<<<<<<<<<<<<
  *                 dayofyr = (self.month-1)*30+self.day
  *             else:
 */
-    __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_str_str(__pyx_v_self->calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1238, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_str_str(__pyx_v_self->calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1241, __pyx_L1_error)
     if (__pyx_t_1) {
 
 
-      /* "cftime/_cftime.pyx":1239
+      /* "cftime/_cftime.pyx":1242
  *         if self._dayofyr < 0 and self.calendar:
  *             if self.calendar == '360_day':
  *                 dayofyr = (self.month-1)*30+self.day             # <<<<<<<<<<<<<<
@@ -26004,7 +26014,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
 */
       __pyx_v_dayofyr = (((__pyx_v_self->month - 1) * 30) + __pyx_v_self->day);
 
-      /* "cftime/_cftime.pyx":1238
+      /* "cftime/_cftime.pyx":1241
  *     def dayofyr(self):
  *         if self._dayofyr < 0 and self.calendar:
  *             if self.calendar == '360_day':             # <<<<<<<<<<<<<<
@@ -26014,7 +26024,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
       goto __pyx_L6;
     }
 
-    /* "cftime/_cftime.pyx":1241
+    /* "cftime/_cftime.pyx":1244
  *                 dayofyr = (self.month-1)*30+self.day
  *             else:
  *                 if _is_leap(self.year,self.calendar,has_year_zero=self.has_year_zero):             # <<<<<<<<<<<<<<
@@ -26024,20 +26034,20 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
     /*else*/ {
       __pyx_t_3 = __pyx_v_self->calendar;
       __Pyx_INCREF(__pyx_t_3);
-      __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1241, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1244, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_t_6.__pyx_n = 1;
       __pyx_t_6.has_year_zero = __pyx_t_4;
-      __pyx_t_5 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_self->year, __pyx_t_3, &__pyx_t_6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1241, __pyx_L1_error)
+      __pyx_t_5 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_self->year, __pyx_t_3, &__pyx_t_6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1244, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1241, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1244, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       if (__pyx_t_1) {
 
 
-        /* "cftime/_cftime.pyx":1242
+        /* "cftime/_cftime.pyx":1245
  *             else:
  *                 if _is_leap(self.year,self.calendar,has_year_zero=self.has_year_zero):
  *                     dayofyr = _cumdayspermonth_leap[self.month-1]+self.day             # <<<<<<<<<<<<<<
@@ -26046,7 +26056,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
 */
         __pyx_v_dayofyr = ((__pyx_v_6cftime_7_cftime__cumdayspermonth_leap[(__pyx_v_self->month - 1)]) + __pyx_v_self->day);
 
-        /* "cftime/_cftime.pyx":1241
+        /* "cftime/_cftime.pyx":1244
  *                 dayofyr = (self.month-1)*30+self.day
  *             else:
  *                 if _is_leap(self.year,self.calendar,has_year_zero=self.has_year_zero):             # <<<<<<<<<<<<<<
@@ -26056,7 +26066,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
         goto __pyx_L7;
       }
 
-      /* "cftime/_cftime.pyx":1244
+      /* "cftime/_cftime.pyx":1247
  *                     dayofyr = _cumdayspermonth_leap[self.month-1]+self.day
  *                 else:
  *                     dayofyr = _cumdayspermonth[self.month-1]+self.day             # <<<<<<<<<<<<<<
@@ -26070,7 +26080,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
     }
     __pyx_L6:;
 
-    /* "cftime/_cftime.pyx":1246
+    /* "cftime/_cftime.pyx":1249
  *                     dayofyr = _cumdayspermonth[self.month-1]+self.day
  *             # cache results for dayofyr
  *             self._dayofyr = dayofyr             # <<<<<<<<<<<<<<
@@ -26079,14 +26089,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
 */
     __pyx_v_self->_dayofyr = __pyx_v_dayofyr;
 
-    /* "cftime/_cftime.pyx":1247
+    /* "cftime/_cftime.pyx":1250
  *             # cache results for dayofyr
  *             self._dayofyr = dayofyr
  *             return dayofyr             # <<<<<<<<<<<<<<
  *         else:
  *             return self._dayofyr
 */
-    __pyx_t_5 = __Pyx_PyLong_From_long(__pyx_v_dayofyr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1247, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_long(__pyx_v_dayofyr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1250, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     {
       PyObject *__pyx_temp;
@@ -26099,7 +26109,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
     __pyx_t_5 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1237
+    /* "cftime/_cftime.pyx":1240
  *     @property
  *     def dayofyr(self):
  *         if self._dayofyr < 0 and self.calendar:             # <<<<<<<<<<<<<<
@@ -26108,7 +26118,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
 */
   }
 
-  /* "cftime/_cftime.pyx":1249
+  /* "cftime/_cftime.pyx":1252
  *             return dayofyr
  *         else:
  *             return self._dayofyr             # <<<<<<<<<<<<<<
@@ -26116,7 +26126,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
  *     @property
 */
   /*else*/ {
-    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofyr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1249, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofyr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1252, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     {
       PyObject *__pyx_temp;
@@ -26130,7 +26140,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
     goto __pyx_L0;
   }
 
-  /* "cftime/_cftime.pyx":1235
+  /* "cftime/_cftime.pyx":1238
  *             return self._dayofwk
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -26152,7 +26162,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_7dayofyr___get__(struct __p
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1251
+/* "cftime/_cftime.pyx":1254
  *             return self._dayofyr
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -26188,18 +26198,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "cftime/_cftime.pyx":1253
+  /* "cftime/_cftime.pyx":1256
  *     @property
  *     def daysinmonth(self):
  *         if self.calendar == '360_day':             # <<<<<<<<<<<<<<
  *             return 30
  *         else:
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_str_str(__pyx_v_self->calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1253, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_str_str(__pyx_v_self->calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1256, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1254
+    /* "cftime/_cftime.pyx":1257
  *     def daysinmonth(self):
  *         if self.calendar == '360_day':
  *             return 30             # <<<<<<<<<<<<<<
@@ -26217,7 +26227,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
     }
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1253
+    /* "cftime/_cftime.pyx":1256
  *     @property
  *     def daysinmonth(self):
  *         if self.calendar == '360_day':             # <<<<<<<<<<<<<<
@@ -26226,7 +26236,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
 */
   }
 
-  /* "cftime/_cftime.pyx":1256
+  /* "cftime/_cftime.pyx":1259
  *             return 30
  *         else:
  *             if _is_leap(self.year,self.calendar,             # <<<<<<<<<<<<<<
@@ -26237,17 +26247,17 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
     __pyx_t_2 = __pyx_v_self->calendar;
     __Pyx_INCREF(__pyx_t_2);
 
-    /* "cftime/_cftime.pyx":1257
+    /* "cftime/_cftime.pyx":1260
  *         else:
  *             if _is_leap(self.year,self.calendar,
  *                     has_year_zero=self.has_year_zero):             # <<<<<<<<<<<<<<
  *                 return _dayspermonth_leap[self.month-1]
  *             else:
 */
-    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1257, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1260, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
 
-    /* "cftime/_cftime.pyx":1256
+    /* "cftime/_cftime.pyx":1259
  *             return 30
  *         else:
  *             if _is_leap(self.year,self.calendar,             # <<<<<<<<<<<<<<
@@ -26256,23 +26266,23 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
 */
     __pyx_t_5.__pyx_n = 1;
     __pyx_t_5.has_year_zero = __pyx_t_3;
-    __pyx_t_4 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_self->year, __pyx_t_2, &__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1256, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_self->year, __pyx_t_2, &__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1259, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1256, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1259, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (__pyx_t_1) {
 
 
-      /* "cftime/_cftime.pyx":1258
+      /* "cftime/_cftime.pyx":1261
  *             if _is_leap(self.year,self.calendar,
  *                     has_year_zero=self.has_year_zero):
  *                 return _dayspermonth_leap[self.month-1]             # <<<<<<<<<<<<<<
  *             else:
  *                 return _dayspermonth[self.month-1]
 */
-      __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_6cftime_7_cftime__dayspermonth_leap[(__pyx_v_self->month - 1)])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1258, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_6cftime_7_cftime__dayspermonth_leap[(__pyx_v_self->month - 1)])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1261, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       {
         PyObject *__pyx_temp;
@@ -26285,7 +26295,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
       __pyx_t_4 = 0;
       goto __pyx_L0;
 
-      /* "cftime/_cftime.pyx":1256
+      /* "cftime/_cftime.pyx":1259
  *             return 30
  *         else:
  *             if _is_leap(self.year,self.calendar,             # <<<<<<<<<<<<<<
@@ -26294,7 +26304,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
 */
     }
 
-    /* "cftime/_cftime.pyx":1260
+    /* "cftime/_cftime.pyx":1263
  *                 return _dayspermonth_leap[self.month-1]
  *             else:
  *                 return _dayspermonth[self.month-1]             # <<<<<<<<<<<<<<
@@ -26302,7 +26312,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
  *     def strftime(self, format=None):
 */
     /*else*/ {
-      __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_6cftime_7_cftime__dayspermonth[(__pyx_v_self->month - 1)])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1260, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_6cftime_7_cftime__dayspermonth[(__pyx_v_self->month - 1)])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1263, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       {
         PyObject *__pyx_temp;
@@ -26317,7 +26327,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
     }
   }
 
-  /* "cftime/_cftime.pyx":1251
+  /* "cftime/_cftime.pyx":1254
  *             return self._dayofyr
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -26338,7 +26348,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11daysinmonth___get__(struc
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1262
+/* "cftime/_cftime.pyx":1265
  *                 return _dayspermonth[self.month-1]
  * 
  *     def strftime(self, format=None):             # <<<<<<<<<<<<<<
@@ -26386,24 +26396,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_format,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1262, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1265, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1262, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1265, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "strftime", 0) < (0)) __PYX_ERR(0, 1262, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "strftime", 0) < (0)) __PYX_ERR(0, 1265, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1262, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1265, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -26414,7 +26424,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("strftime", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 1262, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("strftime", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 1265, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -26446,7 +26456,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_2strftime(struct __pyx_obj_
   __Pyx_RefNannySetupContext("strftime", 0);
   __Pyx_INCREF(__pyx_v_format);
 
-  /* "cftime/_cftime.pyx":1268
+  /* "cftime/_cftime.pyx":1271
  *         'strftime() and strptime() Behavior' in the base Python documentation.
  *         """
  *         if format is None:             # <<<<<<<<<<<<<<
@@ -26457,19 +26467,19 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_2strftime(struct __pyx_obj_
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1269
+    /* "cftime/_cftime.pyx":1272
  *         """
  *         if format is None:
  *             format = self.format             # <<<<<<<<<<<<<<
  *         return _strftime(self, format)
  * 
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1269, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1272, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF_SET(__pyx_v_format, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1268
+    /* "cftime/_cftime.pyx":1271
  *         'strftime() and strptime() Behavior' in the base Python documentation.
  *         """
  *         if format is None:             # <<<<<<<<<<<<<<
@@ -26478,14 +26488,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_2strftime(struct __pyx_obj_
 */
   }
 
-  /* "cftime/_cftime.pyx":1270
+  /* "cftime/_cftime.pyx":1273
  *         if format is None:
  *             format = self.format
  *         return _strftime(self, format)             # <<<<<<<<<<<<<<
  * 
  *     @staticmethod
 */
-  __pyx_t_2 = __pyx_f_6cftime_7_cftime__strftime(__pyx_v_self, __pyx_v_format); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1270, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_6cftime_7_cftime__strftime(__pyx_v_self, __pyx_v_format); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1273, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject *__pyx_temp;
@@ -26498,7 +26508,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_2strftime(struct __pyx_obj_
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1262
+  /* "cftime/_cftime.pyx":1265
  *                 return _dayspermonth[self.month-1]
  * 
  *     def strftime(self, format=None):             # <<<<<<<<<<<<<<
@@ -26518,7 +26528,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_2strftime(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1272
+/* "cftime/_cftime.pyx":1275
  *         return _strftime(self, format)
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -26569,33 +26579,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_datestring,&__pyx_mstate_global->__pyx_n_u_format,&__pyx_mstate_global->__pyx_n_u_calendar,&__pyx_mstate_global->__pyx_n_u_has_year_zero,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1272, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1275, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1275, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1275, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1275, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1275, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "strptime", 0) < (0)) __PYX_ERR(0, 1272, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "strptime", 0) < (0)) __PYX_ERR(0, 1275, __pyx_L3_error)
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_n_u_standard));
 
-      /* "cftime/_cftime.pyx":1273
+      /* "cftime/_cftime.pyx":1276
  * 
  *     @staticmethod
  *     def strptime(datestring, format, calendar='standard', has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -26604,23 +26614,23 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("strptime", 0, 2, 4, i); __PYX_ERR(0, 1272, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("strptime", 0, 2, 4, i); __PYX_ERR(0, 1275, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1275, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1275, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1275, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1275, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -26634,7 +26644,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("strptime", 0, 2, 4, __pyx_nargs); __PYX_ERR(0, 1272, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("strptime", 0, 2, 4, __pyx_nargs); __PYX_ERR(0, 1275, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -26647,7 +26657,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_6cftime_7_cftime_8datetime_4strptime(__pyx_v_datestring, __pyx_v_format, __pyx_v_calendar, __pyx_v_has_year_zero);
 
-  /* "cftime/_cftime.pyx":1272
+  /* "cftime/_cftime.pyx":1275
  *         return _strftime(self, format)
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -26664,7 +26674,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6cftime_7_cftime_8datetime_8strptime_2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "cftime/_cftime.pyx":1299
+/* "cftime/_cftime.pyx":1302
  *              (pydatetime.year == 1582 and pydatetime.month > 10) or \
  *              (pydatetime.year == 1582 and pydatetime.month == 10 and pydatetime.day > 15)))
  *             if not compatible_date and any(x in special_fd for x in fd):             # <<<<<<<<<<<<<<
@@ -26684,7 +26694,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8strptime_genexpr(PyObject 
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6cftime_7_cftime___pyx_scope_struct_1_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 1299, __pyx_L1_error)
+    __PYX_ERR(0, 1302, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -26695,7 +26705,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8strptime_genexpr(PyObject 
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6cftime_7_cftime_8datetime_8strptime_2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_strptime_locals_genexpr, __pyx_mstate_global->__pyx_n_u_cftime__cftime); if (unlikely(!gen)) __PYX_ERR(0, 1299, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6cftime_7_cftime_8datetime_8strptime_2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_strptime_locals_genexpr, __pyx_mstate_global->__pyx_n_u_cftime__cftime); if (unlikely(!gen)) __PYX_ERR(0, 1302, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -26731,28 +26741,28 @@ static PyObject *__pyx_gb_6cftime_7_cftime_8datetime_8strptime_2generator(__pyx_
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 1299, __pyx_L1_error)
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 1299, __pyx_L1_error) }
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 1302, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 1302, __pyx_L1_error) }
   __pyx_t_1 = __pyx_cur_scope->__pyx_genexpr_arg_0; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_2 = 0;
   for (;;) {
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1299, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1302, __pyx_L1_error)
       #endif
       if (__pyx_t_2 >= __pyx_temp) break;
     }
     __pyx_t_3 = __Pyx_PyList_GET_ITEM_REF(__pyx_t_1, __pyx_t_2, __Pyx_ReferenceSharing_OwnStrongReference);
     ++__pyx_t_2;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1299, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1302, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_x);
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_x, __pyx_t_3);
     __Pyx_GIVEREF(__pyx_t_3);
     __pyx_t_3 = 0;
-    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_special_fd)) { __Pyx_RaiseClosureNameError("special_fd"); __PYX_ERR(0, 1299, __pyx_L1_error) }
-    __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_cur_scope->__pyx_v_x, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_special_fd, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1299, __pyx_L1_error)
+    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_special_fd)) { __Pyx_RaiseClosureNameError("special_fd"); __PYX_ERR(0, 1302, __pyx_L1_error) }
+    __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_cur_scope->__pyx_v_x, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_special_fd, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1302, __pyx_L1_error)
     if (__pyx_t_4) {
 
       {
@@ -26803,7 +26813,7 @@ static PyObject *__pyx_gb_6cftime_7_cftime_8datetime_8strptime_2generator(__pyx_
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1272
+/* "cftime/_cftime.pyx":1275
  *         return _strftime(self, format)
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -26859,12 +26869,12 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6cftime_7_cftime___pyx_scope_struct__strptime *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 1272, __pyx_L1_error)
+    __PYX_ERR(0, 1275, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
 
-  /* "cftime/_cftime.pyx":1286
+  /* "cftime/_cftime.pyx":1289
  *         # if possible use python's datetime.strptime to get a python datetime instance
  *         # (works for dates in proleptic_gregorian calendar)
  *         fd = [d[0] for d in format.split('%') if d] # extract format descriptors             # <<<<<<<<<<<<<<
@@ -26872,7 +26882,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
  *         special_fd = ['a', 'A', 'w', 'j', 'U', 'W', 'G', 'u', 'V']
 */
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1286, __pyx_L5_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1289, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = __pyx_v_format;
     __Pyx_INCREF(__pyx_t_3);
@@ -26881,7 +26891,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u__5};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_split, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1286, __pyx_L5_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1289, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
@@ -26889,9 +26899,9 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       __pyx_t_5 = 0;
       __pyx_t_6 = NULL;
     } else {
-      __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1286, __pyx_L5_error)
+      __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1289, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1286, __pyx_L5_error)
+      __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1289, __pyx_L5_error)
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     for (;;) {
@@ -26900,7 +26910,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1286, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1289, __pyx_L5_error)
             #endif
             if (__pyx_t_5 >= __pyx_temp) break;
           }
@@ -26910,7 +26920,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1286, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1289, __pyx_L5_error)
             #endif
             if (__pyx_t_5 >= __pyx_temp) break;
           }
@@ -26921,13 +26931,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
           #endif
           ++__pyx_t_5;
         }
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1286, __pyx_L5_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1289, __pyx_L5_error)
       } else {
         __pyx_t_2 = __pyx_t_6(__pyx_t_3);
         if (unlikely(!__pyx_t_2)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1286, __pyx_L5_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1289, __pyx_L5_error)
             PyErr_Clear();
           }
           break;
@@ -26936,13 +26946,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_XDECREF_SET(__pyx_8genexpr4__pyx_v_d, __pyx_t_2);
       __pyx_t_2 = 0;
-      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_8genexpr4__pyx_v_d); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1286, __pyx_L5_error)
+      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_8genexpr4__pyx_v_d); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1289, __pyx_L5_error)
       if (__pyx_t_7) {
 
-        __pyx_t_2 = __Pyx_GetItemInt(__pyx_8genexpr4__pyx_v_d, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1286, __pyx_L5_error)
+        __pyx_t_2 = __Pyx_GetItemInt(__pyx_8genexpr4__pyx_v_d, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1289, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_GIVEREF(__pyx_t_2);
-        if (unlikely(__Pyx_ListComp_AppendAndDecref(__pyx_t_1, __pyx_t_2))) __PYX_ERR(0, 1286, __pyx_L5_error)
+        if (unlikely(__Pyx_ListComp_AppendAndDecref(__pyx_t_1, __pyx_t_2))) __PYX_ERR(0, 1289, __pyx_L5_error)
         __pyx_t_2 = 0;
       }
     }
@@ -26957,47 +26967,47 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
   __pyx_v_fd = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1288
+  /* "cftime/_cftime.pyx":1291
  *         fd = [d[0] for d in format.split('%') if d] # extract format descriptors
  *         # calendar specific format descriptors that won't work will all calendars
  *         special_fd = ['a', 'A', 'w', 'j', 'U', 'W', 'G', 'u', 'V']             # <<<<<<<<<<<<<<
  *         try:
  *             pydatetime = datetime_python.strptime(datestring, format)
 */
-  __pyx_t_1 = PyList_New(9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1288, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1291, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_a);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_a);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_a) != (0)) __PYX_ERR(0, 1288, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_a) != (0)) __PYX_ERR(0, 1291, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_A);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_A);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 1, __pyx_mstate_global->__pyx_n_u_A) != (0)) __PYX_ERR(0, 1288, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 1, __pyx_mstate_global->__pyx_n_u_A) != (0)) __PYX_ERR(0, 1291, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_w);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_w);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 2, __pyx_mstate_global->__pyx_n_u_w) != (0)) __PYX_ERR(0, 1288, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 2, __pyx_mstate_global->__pyx_n_u_w) != (0)) __PYX_ERR(0, 1291, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_j);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_j);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 3, __pyx_mstate_global->__pyx_n_u_j) != (0)) __PYX_ERR(0, 1288, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 3, __pyx_mstate_global->__pyx_n_u_j) != (0)) __PYX_ERR(0, 1291, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_U);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_U);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 4, __pyx_mstate_global->__pyx_n_u_U) != (0)) __PYX_ERR(0, 1288, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 4, __pyx_mstate_global->__pyx_n_u_U) != (0)) __PYX_ERR(0, 1291, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_W);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_W);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 5, __pyx_mstate_global->__pyx_n_u_W) != (0)) __PYX_ERR(0, 1288, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 5, __pyx_mstate_global->__pyx_n_u_W) != (0)) __PYX_ERR(0, 1291, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_G);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_G);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 6, __pyx_mstate_global->__pyx_n_u_G) != (0)) __PYX_ERR(0, 1288, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 6, __pyx_mstate_global->__pyx_n_u_G) != (0)) __PYX_ERR(0, 1291, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_u);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_u);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 7, __pyx_mstate_global->__pyx_n_u_u) != (0)) __PYX_ERR(0, 1288, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 7, __pyx_mstate_global->__pyx_n_u_u) != (0)) __PYX_ERR(0, 1291, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_V);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_V);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 8, __pyx_mstate_global->__pyx_n_u_V) != (0)) __PYX_ERR(0, 1288, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 8, __pyx_mstate_global->__pyx_n_u_V) != (0)) __PYX_ERR(0, 1291, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_special_fd = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1289
+  /* "cftime/_cftime.pyx":1292
  *         # calendar specific format descriptors that won't work will all calendars
  *         special_fd = ['a', 'A', 'w', 'j', 'U', 'W', 'G', 'u', 'V']
  *         try:             # <<<<<<<<<<<<<<
@@ -27013,7 +27023,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
     __Pyx_XGOTREF(__pyx_t_10);
     /*try:*/ {
 
-      /* "cftime/_cftime.pyx":1290
+      /* "cftime/_cftime.pyx":1293
  *         special_fd = ['a', 'A', 'w', 'j', 'U', 'W', 'G', 'u', 'V']
  *         try:
  *             pydatetime = datetime_python.strptime(datestring, format)             # <<<<<<<<<<<<<<
@@ -27021,9 +27031,9 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
  *             if getattr(pydatetime, 'tzinfo',None) is not None:
 */
       __pyx_t_3 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime_python); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1290, __pyx_L11_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime_python); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1293, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_strptime); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1290, __pyx_L11_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_strptime); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1293, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_4 = 1;
@@ -27043,27 +27053,27 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1290, __pyx_L11_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1293, __pyx_L11_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_pydatetime = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "cftime/_cftime.pyx":1292
+      /* "cftime/_cftime.pyx":1295
  *             pydatetime = datetime_python.strptime(datestring, format)
  *             # remove time zone offset
  *             if getattr(pydatetime, 'tzinfo',None) is not None:             # <<<<<<<<<<<<<<
  *                  pydatetime = pydatetime.replace(tzinfo=None) - pydatetime.utcoffset()
  *             compatible_date =\
 */
-      __pyx_t_1 = __Pyx_GetAttr3(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_tzinfo, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1292, __pyx_L11_error)
+      __pyx_t_1 = __Pyx_GetAttr3(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_tzinfo, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1295, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_7 = (__pyx_t_1 != Py_None);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       if (__pyx_t_7) {
 
 
-        /* "cftime/_cftime.pyx":1293
+        /* "cftime/_cftime.pyx":1296
  *             # remove time zone offset
  *             if getattr(pydatetime, 'tzinfo',None) is not None:
  *                  pydatetime = pydatetime.replace(tzinfo=None) - pydatetime.utcoffset()             # <<<<<<<<<<<<<<
@@ -27077,20 +27087,20 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
           PyObject *__pyx_callargs[2] = {__pyx_t_11, Py_None};
           #if CYTHON_VECTORCALL
           __pyx_t_3 = __pyx_mstate_global->__pyx_tuple[6];
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1293, __pyx_L11_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1296, __pyx_L11_error)
           __Pyx_INCREF(__pyx_t_3);
           #else
           {
             PyObject *__pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_tzinfo};
             __pyx_t_3 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+1, 1);
-            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1293, __pyx_L11_error)
+            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1296, __pyx_L11_error)
             __Pyx_GOTREF(__pyx_t_3);
           }
           #endif
           __pyx_t_1 = __Pyx_Object_VectorcallMethodKwds((PyObject*)__pyx_mstate_global->__pyx_n_u_replace, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_3);
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1293, __pyx_L11_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1296, __pyx_L11_error)
           __Pyx_GOTREF(__pyx_t_1);
         }
         __pyx_t_11 = __pyx_v_pydatetime;
@@ -27100,17 +27110,17 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
           PyObject *__pyx_callargs[2] = {__pyx_t_11, NULL};
           __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_utcoffset, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1293, __pyx_L11_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1296, __pyx_L11_error)
           __Pyx_GOTREF(__pyx_t_3);
         }
-        __pyx_t_11 = __Pyx_PyNumber_Subtract_object_object(__pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1293, __pyx_L11_error)
+        __pyx_t_11 = __Pyx_PyNumber_Subtract_object_object(__pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1296, __pyx_L11_error)
         __Pyx_GOTREF(__pyx_t_11);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF_SET(__pyx_v_pydatetime, __pyx_t_11);
         __pyx_t_11 = 0;
 
-        /* "cftime/_cftime.pyx":1292
+        /* "cftime/_cftime.pyx":1295
  *             pydatetime = datetime_python.strptime(datestring, format)
  *             # remove time zone offset
  *             if getattr(pydatetime, 'tzinfo',None) is not None:             # <<<<<<<<<<<<<<
@@ -27119,15 +27129,15 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1295
+      /* "cftime/_cftime.pyx":1298
  *                  pydatetime = pydatetime.replace(tzinfo=None) - pydatetime.utcoffset()
  *             compatible_date =\
  *             calendar == 'proleptic_gregorian' or calendar == 'tai' or \             # <<<<<<<<<<<<<<
  *             (calendar in ['gregorian','standard'] and (pydatetime.year > 1582 or \
  *              (pydatetime.year == 1582 and pydatetime.month > 10) or \
 */
-      __pyx_t_3 = __Pyx_PyObject_CompareEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1295, __pyx_L11_error)
-      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1295, __pyx_L11_error)
+      __pyx_t_3 = __Pyx_PyObject_CompareEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1298, __pyx_L11_error)
       if (!__pyx_t_7) {
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       } else {
@@ -27136,8 +27146,8 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         goto __pyx_L18_bool_binop_done;
       }
-      __pyx_t_3 = __Pyx_PyObject_CompareEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1295, __pyx_L11_error)
-      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1295, __pyx_L11_error)
+      __pyx_t_3 = __Pyx_PyObject_CompareEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1298, __pyx_L11_error)
       if (!__pyx_t_7) {
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       } else {
@@ -27147,7 +27157,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         goto __pyx_L18_bool_binop_done;
       }
 
-      /* "cftime/_cftime.pyx":1296
+      /* "cftime/_cftime.pyx":1299
  *             compatible_date =\
  *             calendar == 'proleptic_gregorian' or calendar == 'tai' or \
  *             (calendar in ['gregorian','standard'] and (pydatetime.year > 1582 or \             # <<<<<<<<<<<<<<
@@ -27156,7 +27166,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
 */
       __Pyx_INCREF(__pyx_v_calendar);
       __pyx_t_3 = __pyx_v_calendar;
-      __pyx_t_12 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1296, __pyx_L11_error)
+      __pyx_t_12 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1299, __pyx_L11_error)
       if (!__pyx_t_12) {
 
       } else {
@@ -27165,7 +27175,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
 
         goto __pyx_L22_bool_binop_done;
       }
-      __pyx_t_12 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1296, __pyx_L11_error)
+      __pyx_t_12 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1299, __pyx_L11_error)
 
       __pyx_t_7 = __pyx_t_12;
 
@@ -27177,18 +27187,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       if (__pyx_t_12) {
 
       } else {
-        __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_12); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1296, __pyx_L11_error)
+        __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_12); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1299, __pyx_L11_error)
         __Pyx_GOTREF(__pyx_t_3);
         __pyx_t_11 = __pyx_t_3;
         __pyx_t_3 = 0;
 
         goto __pyx_L18_bool_binop_done;
       }
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1296, __pyx_L11_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1299, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyObject_CompareGt_object_int(__pyx_t_3, __pyx_mstate_global->__pyx_int_1582, Py_GT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1296, __pyx_L11_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareGt_object_int(__pyx_t_3, __pyx_mstate_global->__pyx_int_1582, Py_GT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1299, __pyx_L11_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1296, __pyx_L11_error)
+      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1299, __pyx_L11_error)
       if (!__pyx_t_12) {
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       } else {
@@ -27198,29 +27208,29 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         goto __pyx_L18_bool_binop_done;
       }
 
-      /* "cftime/_cftime.pyx":1297
+      /* "cftime/_cftime.pyx":1300
  *             calendar == 'proleptic_gregorian' or calendar == 'tai' or \
  *             (calendar in ['gregorian','standard'] and (pydatetime.year > 1582 or \
  *              (pydatetime.year == 1582 and pydatetime.month > 10) or \             # <<<<<<<<<<<<<<
  *              (pydatetime.year == 1582 and pydatetime.month == 10 and pydatetime.day > 15)))
  *             if not compatible_date and any(x in special_fd for x in fd):
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1297, __pyx_L11_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1300, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = __Pyx_PyLong_EqObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_1582, 0x62E, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1297, __pyx_L11_error)
+      __pyx_t_3 = __Pyx_PyLong_EqObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_1582, 0x62E, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1300, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1297, __pyx_L11_error)
+      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1300, __pyx_L11_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       if (!__pyx_t_12) {
         goto __pyx_L25_next_or;
       } else {
       }
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_month); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1297, __pyx_L11_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_month); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1300, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyObject_CompareGt_object_int(__pyx_t_3, __pyx_mstate_global->__pyx_int_10, Py_GT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1297, __pyx_L11_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareGt_object_int(__pyx_t_3, __pyx_mstate_global->__pyx_int_10, Py_GT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1300, __pyx_L11_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1297, __pyx_L11_error)
+      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1300, __pyx_L11_error)
       if (!__pyx_t_12) {
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       } else {
@@ -27231,19 +27241,19 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       }
       __pyx_L25_next_or:;
 
-      /* "cftime/_cftime.pyx":1298
+      /* "cftime/_cftime.pyx":1301
  *             (calendar in ['gregorian','standard'] and (pydatetime.year > 1582 or \
  *              (pydatetime.year == 1582 and pydatetime.month > 10) or \
  *              (pydatetime.year == 1582 and pydatetime.month == 10 and pydatetime.day > 15)))             # <<<<<<<<<<<<<<
  *             if not compatible_date and any(x in special_fd for x in fd):
  *                 msg='one of the supplied format directives may not be consistent with the chosen calendar'
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1301, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = __Pyx_PyLong_EqObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_1582, 0x62E, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_3 = __Pyx_PyLong_EqObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_1582, 0x62E, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1301, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1301, __pyx_L11_error)
       if (__pyx_t_12) {
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       } else {
@@ -27252,12 +27262,12 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         goto __pyx_L18_bool_binop_done;
       }
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_month); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_month); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1301, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyLong_EqObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_10, 10, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_1 = __Pyx_PyLong_EqObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_10, 10, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1301, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 1301, __pyx_L11_error)
       if (__pyx_t_12) {
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       } else {
@@ -27266,9 +27276,9 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         goto __pyx_L18_bool_binop_done;
       }
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_day); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_day); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1301, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = __Pyx_PyObject_CompareGt_object_int(__pyx_t_1, __pyx_mstate_global->__pyx_int_15, Py_GT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1298, __pyx_L11_error)
+      __pyx_t_3 = __Pyx_PyObject_CompareGt_object_int(__pyx_t_1, __pyx_mstate_global->__pyx_int_15, Py_GT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1301, __pyx_L11_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_INCREF(__pyx_t_3);
       __pyx_t_11 = __pyx_t_3;
@@ -27277,14 +27287,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       __pyx_v_compatible_date = __pyx_t_11;
       __pyx_t_11 = 0;
 
-      /* "cftime/_cftime.pyx":1299
+      /* "cftime/_cftime.pyx":1302
  *              (pydatetime.year == 1582 and pydatetime.month > 10) or \
  *              (pydatetime.year == 1582 and pydatetime.month == 10 and pydatetime.day > 15)))
  *             if not compatible_date and any(x in special_fd for x in fd):             # <<<<<<<<<<<<<<
  *                 msg='one of the supplied format directives may not be consistent with the chosen calendar'
  *                 raise KeyError(msg)
 */
-      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_compatible_date); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1299, __pyx_L11_error)
+      __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_compatible_date); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1302, __pyx_L11_error)
       __pyx_t_13 = (!__pyx_t_7);
 
 
@@ -27296,12 +27306,12 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
 
         goto __pyx_L30_bool_binop_done;
       }
-      __pyx_t_11 = __pyx_pf_6cftime_7_cftime_8datetime_8strptime_genexpr(((PyObject*)__pyx_cur_scope), __pyx_v_fd); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1299, __pyx_L11_error)
+      __pyx_t_11 = __pyx_pf_6cftime_7_cftime_8datetime_8strptime_genexpr(((PyObject*)__pyx_cur_scope), __pyx_v_fd); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1302, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_11);
-      __pyx_t_3 = __Pyx_Generator_GetInlinedResult(__pyx_t_11); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1299, __pyx_L11_error)
+      __pyx_t_3 = __Pyx_Generator_GetInlinedResult(__pyx_t_11); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1302, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 1299, __pyx_L11_error)
+      __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 1302, __pyx_L11_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
       __pyx_t_12 = __pyx_t_13;
@@ -27310,7 +27320,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       if (unlikely(__pyx_t_12)) {
 
 
-        /* "cftime/_cftime.pyx":1300
+        /* "cftime/_cftime.pyx":1303
  *              (pydatetime.year == 1582 and pydatetime.month == 10 and pydatetime.day > 15)))
  *             if not compatible_date and any(x in special_fd for x in fd):
  *                 msg='one of the supplied format directives may not be consistent with the chosen calendar'             # <<<<<<<<<<<<<<
@@ -27320,7 +27330,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_one_of_the_supplied_format_direc);
         __pyx_v_msg = __pyx_mstate_global->__pyx_kp_u_one_of_the_supplied_format_direc;
 
-        /* "cftime/_cftime.pyx":1301
+        /* "cftime/_cftime.pyx":1304
  *             if not compatible_date and any(x in special_fd for x in fd):
  *                 msg='one of the supplied format directives may not be consistent with the chosen calendar'
  *                 raise KeyError(msg)             # <<<<<<<<<<<<<<
@@ -27333,14 +27343,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
           PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_v_msg};
           __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_KeyError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1301, __pyx_L11_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1304, __pyx_L11_error)
           __Pyx_GOTREF(__pyx_t_3);
         }
         __Pyx_Raise(__pyx_t_3, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __PYX_ERR(0, 1301, __pyx_L11_error)
+        __PYX_ERR(0, 1304, __pyx_L11_error)
 
-        /* "cftime/_cftime.pyx":1299
+        /* "cftime/_cftime.pyx":1302
  *              (pydatetime.year == 1582 and pydatetime.month > 10) or \
  *              (pydatetime.year == 1582 and pydatetime.month == 10 and pydatetime.day > 15)))
  *             if not compatible_date and any(x in special_fd for x in fd):             # <<<<<<<<<<<<<<
@@ -27349,7 +27359,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1303
+      /* "cftime/_cftime.pyx":1306
  *                 raise KeyError(msg)
  *             # convert the cftime datetime instance
  *             return datetime(pydatetime.year, pydatetime.month, pydatetime.day,             # <<<<<<<<<<<<<<
@@ -27357,38 +27367,38 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
  *                             pydatetime.microsecond, calendar=calendar, has_year_zero=has_year_zero)
 */
       __pyx_t_11 = NULL;
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1303, __pyx_L11_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1306, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1303, __pyx_L11_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1306, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_day); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1303, __pyx_L11_error)
+      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_day); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1306, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_14);
 
-      /* "cftime/_cftime.pyx":1304
+      /* "cftime/_cftime.pyx":1307
  *             # convert the cftime datetime instance
  *             return datetime(pydatetime.year, pydatetime.month, pydatetime.day,
  *                             pydatetime.hour, pydatetime.minute, pydatetime.second,             # <<<<<<<<<<<<<<
  *                             pydatetime.microsecond, calendar=calendar, has_year_zero=has_year_zero)
  *         # otherwise use a stripped-down version of C-python's _strptime.py
 */
-      __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_hour); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 1304, __pyx_L11_error)
+      __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_hour); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 1307, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_15);
-      __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_minute); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 1304, __pyx_L11_error)
+      __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_minute); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 1307, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_16);
-      __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_second); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 1304, __pyx_L11_error)
+      __pyx_t_17 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_second); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 1307, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_17);
 
-      /* "cftime/_cftime.pyx":1305
+      /* "cftime/_cftime.pyx":1308
  *             return datetime(pydatetime.year, pydatetime.month, pydatetime.day,
  *                             pydatetime.hour, pydatetime.minute, pydatetime.second,
  *                             pydatetime.microsecond, calendar=calendar, has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  *         # otherwise use a stripped-down version of C-python's _strptime.py
  *         # (doesn't understand all possible formats, just
 */
-      __pyx_t_18 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_microsecond); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 1305, __pyx_L11_error)
+      __pyx_t_18 = __Pyx_PyObject_GetAttrStr(__pyx_v_pydatetime, __pyx_mstate_global->__pyx_n_u_microsecond); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 1308, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_18);
 
-      /* "cftime/_cftime.pyx":1303
+      /* "cftime/_cftime.pyx":1306
  *                 raise KeyError(msg)
  *             # convert the cftime datetime instance
  *             return datetime(pydatetime.year, pydatetime.month, pydatetime.day,             # <<<<<<<<<<<<<<
@@ -27400,13 +27410,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         PyObject *__pyx_callargs[10] = {__pyx_t_11, __pyx_t_1, __pyx_t_2, __pyx_t_14, __pyx_t_15, __pyx_t_16, __pyx_t_17, __pyx_t_18, __pyx_v_calendar, __pyx_v_has_year_zero};
         #if CYTHON_VECTORCALL
         __pyx_t_19 = __pyx_mstate_global->__pyx_tuple[1];
-        if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 1303, __pyx_L11_error)
+        if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 1306, __pyx_L11_error)
         __Pyx_INCREF(__pyx_t_19);
         #else
         {
           PyObject *__pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_has_year_zero};
           __pyx_t_19 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+8, 2);
-          if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 1303, __pyx_L11_error)
+          if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 1306, __pyx_L11_error)
           __Pyx_GOTREF(__pyx_t_19);
         }
         #endif
@@ -27420,7 +27430,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
         __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
         __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1303, __pyx_L11_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1306, __pyx_L11_error)
         __Pyx_GOTREF((PyObject *)__pyx_t_3);
       }
       {
@@ -27434,7 +27444,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       __pyx_t_3 = 0;
       goto __pyx_L15_try_return;
 
-      /* "cftime/_cftime.pyx":1289
+      /* "cftime/_cftime.pyx":1292
  *         # calendar specific format descriptors that won't work will all calendars
  *         special_fd = ['a', 'A', 'w', 'j', 'U', 'W', 'G', 'u', 'V']
  *         try:             # <<<<<<<<<<<<<<
@@ -27454,7 +27464,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1309
+    /* "cftime/_cftime.pyx":1312
  *         # (doesn't understand all possible formats, just
  *         # 'y','Y','m','B','b','d','H','M','S' and 'f')
  *         except ValueError:             # <<<<<<<<<<<<<<
@@ -27464,12 +27474,12 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
     __pyx_t_20 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_ValueError))));
     if (__pyx_t_20) {
       __Pyx_AddTraceback("cftime._cftime.datetime.strptime", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_19, &__pyx_t_18) < 0) __PYX_ERR(0, 1309, __pyx_L13_except_error)
+      if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_19, &__pyx_t_18) < 0) __PYX_ERR(0, 1312, __pyx_L13_except_error)
       __Pyx_XGOTREF(__pyx_t_3);
       __Pyx_XGOTREF(__pyx_t_19);
       __Pyx_XGOTREF(__pyx_t_18);
 
-      /* "cftime/_cftime.pyx":1310
+      /* "cftime/_cftime.pyx":1313
  *         # 'y','Y','m','B','b','d','H','M','S' and 'f')
  *         except ValueError:
  *             year,month,day,hour,minute,second,microsecond = _strptime(datestring,format)             # <<<<<<<<<<<<<<
@@ -27477,7 +27487,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
  *                             calendar=calendar,has_year_zero=has_year_zero)
 */
       __pyx_t_16 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_strptime_2); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_strptime_2); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
       __Pyx_GOTREF(__pyx_t_15);
       __pyx_t_4 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -27496,7 +27506,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         __pyx_t_17 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_15, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-        if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+        if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
         __Pyx_GOTREF(__pyx_t_17);
       }
       if ((likely(PyTuple_CheckExact(__pyx_t_17))) || (PyList_CheckExact(__pyx_t_17))) {
@@ -27505,7 +27515,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         if (unlikely(size != 7)) {
           if (size > 7) __Pyx_RaiseTooManyValuesError(7);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 1310, __pyx_L13_except_error)
+          __PYX_ERR(0, 1313, __pyx_L13_except_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -27525,25 +27535,25 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
           __Pyx_INCREF(__pyx_t_21);
         } else {
           __pyx_t_15 = __Pyx_PyList_GET_ITEM_REF(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+          if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_15);
           __pyx_t_16 = __Pyx_PyList_GET_ITEM_REF(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+          if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_16);
           __pyx_t_14 = __Pyx_PyList_GET_ITEM_REF(sequence, 2, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_14);
           __pyx_t_2 = __Pyx_PyList_GET_ITEM_REF(sequence, 3, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_2);
           __pyx_t_1 = __Pyx_PyList_GET_ITEM_REF(sequence, 4, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_1);
           __pyx_t_11 = __Pyx_PyList_GET_ITEM_REF(sequence, 5, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_11);
           __pyx_t_21 = __Pyx_PyList_GET_ITEM_REF(sequence, 6, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+          if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_21);
         }
         #else
@@ -27551,7 +27561,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
           Py_ssize_t i;
           PyObject** temps[7] = {&__pyx_t_15,&__pyx_t_16,&__pyx_t_14,&__pyx_t_2,&__pyx_t_1,&__pyx_t_11,&__pyx_t_21};
           for (i=0; i < 7; i++) {
-            PyObject* item = __Pyx_PySequence_ITEM(sequence, i); if (unlikely(!item)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+            PyObject* item = __Pyx_PySequence_ITEM(sequence, i); if (unlikely(!item)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
             __Pyx_GOTREF(item);
             *(temps[i]) = item;
           }
@@ -27561,7 +27571,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       } else {
         Py_ssize_t index = -1;
         PyObject** temps[7] = {&__pyx_t_15,&__pyx_t_16,&__pyx_t_14,&__pyx_t_2,&__pyx_t_1,&__pyx_t_11,&__pyx_t_21};
-        __pyx_t_22 = PyObject_GetIter(__pyx_t_17); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+        __pyx_t_22 = PyObject_GetIter(__pyx_t_17); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
         __Pyx_GOTREF(__pyx_t_22);
         __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
         __pyx_t_23 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_22);
@@ -27570,7 +27580,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
           __Pyx_GOTREF(item);
           *(temps[index]) = item;
         }
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_23(__pyx_t_22), 7) < (0)) __PYX_ERR(0, 1310, __pyx_L13_except_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_23(__pyx_t_22), 7) < (0)) __PYX_ERR(0, 1313, __pyx_L13_except_error)
         __pyx_t_23 = NULL;
         __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
         goto __pyx_L35_unpacking_done;
@@ -27578,7 +27588,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
         __pyx_t_23 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 1310, __pyx_L13_except_error)
+        __PYX_ERR(0, 1313, __pyx_L13_except_error)
         __pyx_L35_unpacking_done:;
       }
       __pyx_v_year = __pyx_t_15;
@@ -27596,7 +27606,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
       __pyx_v_microsecond = __pyx_t_21;
       __pyx_t_21 = 0;
 
-      /* "cftime/_cftime.pyx":1311
+      /* "cftime/_cftime.pyx":1314
  *         except ValueError:
  *             year,month,day,hour,minute,second,microsecond = _strptime(datestring,format)
  *             return datetime(year,month,day,hour,minute,second,microsecond,             # <<<<<<<<<<<<<<
@@ -27605,7 +27615,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
 */
       __pyx_t_21 = NULL;
 
-      /* "cftime/_cftime.pyx":1312
+      /* "cftime/_cftime.pyx":1315
  *             year,month,day,hour,minute,second,microsecond = _strptime(datestring,format)
  *             return datetime(year,month,day,hour,minute,second,microsecond,
  *                             calendar=calendar,has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
@@ -27617,20 +27627,20 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
         PyObject *__pyx_callargs[10] = {__pyx_t_21, __pyx_v_year, __pyx_v_month, __pyx_v_day, __pyx_v_hour, __pyx_v_minute, __pyx_v_second, __pyx_v_microsecond, __pyx_v_calendar, __pyx_v_has_year_zero};
         #if CYTHON_VECTORCALL
         __pyx_t_11 = __pyx_mstate_global->__pyx_tuple[1];
-        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1311, __pyx_L13_except_error)
+        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1314, __pyx_L13_except_error)
         __Pyx_INCREF(__pyx_t_11);
         #else
         {
           PyObject *__pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_has_year_zero};
           __pyx_t_11 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+8, 2);
-          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1311, __pyx_L13_except_error)
+          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1314, __pyx_L13_except_error)
           __Pyx_GOTREF(__pyx_t_11);
         }
         #endif
         __pyx_t_17 = __Pyx_Object_VectorcallKwds((PyObject*)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_callargs+__pyx_t_4, (8-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_11);
         __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 1311, __pyx_L13_except_error)
+        if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 1314, __pyx_L13_except_error)
         __Pyx_GOTREF((PyObject *)__pyx_t_17);
       }
       {
@@ -27649,7 +27659,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
     }
     goto __pyx_L13_except_error;
 
-    /* "cftime/_cftime.pyx":1289
+    /* "cftime/_cftime.pyx":1292
  *         # calendar specific format descriptors that won't work will all calendars
  *         special_fd = ['a', 'A', 'w', 'j', 'U', 'W', 'G', 'u', 'V']
  *         try:             # <<<<<<<<<<<<<<
@@ -27676,7 +27686,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
     goto __pyx_L0;
   }
 
-  /* "cftime/_cftime.pyx":1272
+  /* "cftime/_cftime.pyx":1275
  *         return _strftime(self, format)
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -27720,7 +27730,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4strptime(PyObject *__pyx_v
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1314
+/* "cftime/_cftime.pyx":1317
  *                             calendar=calendar,has_year_zero=has_year_zero)
  * 
  *     def __format__(self, format):             # <<<<<<<<<<<<<<
@@ -27768,32 +27778,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_format,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1314, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1317, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1314, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1317, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__format__", 0) < (0)) __PYX_ERR(0, 1314, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__format__", 0) < (0)) __PYX_ERR(0, 1317, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__format__", 1, 1, 1, i); __PYX_ERR(0, 1314, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__format__", 1, 1, 1, i); __PYX_ERR(0, 1317, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1314, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1317, __pyx_L3_error)
     }
     __pyx_v_format = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__format__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1314, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__format__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1317, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -27827,18 +27837,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6__format__(struct __pyx_ob
   __Pyx_RefNannySetupContext("__format__", 0);
   __Pyx_INCREF(__pyx_v_format);
 
-  /* "cftime/_cftime.pyx":1318
+  /* "cftime/_cftime.pyx":1321
  *         # without an explicit format gives an empty string (format='')
  *         # so set this to None to get the default strftime behaviour
  *         if format == '':             # <<<<<<<<<<<<<<
  *             format = None
  *         return self.strftime(format)
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_format, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1318, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_format, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1321, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1319
+    /* "cftime/_cftime.pyx":1322
  *         # so set this to None to get the default strftime behaviour
  *         if format == '':
  *             format = None             # <<<<<<<<<<<<<<
@@ -27848,7 +27858,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6__format__(struct __pyx_ob
     __Pyx_INCREF(Py_None);
     __Pyx_DECREF_SET(__pyx_v_format, Py_None);
 
-    /* "cftime/_cftime.pyx":1318
+    /* "cftime/_cftime.pyx":1321
  *         # without an explicit format gives an empty string (format='')
  *         # so set this to None to get the default strftime behaviour
  *         if format == '':             # <<<<<<<<<<<<<<
@@ -27857,7 +27867,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6__format__(struct __pyx_ob
 */
   }
 
-  /* "cftime/_cftime.pyx":1320
+  /* "cftime/_cftime.pyx":1323
  *         if format == '':
  *             format = None
  *         return self.strftime(format)             # <<<<<<<<<<<<<<
@@ -27871,7 +27881,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6__format__(struct __pyx_ob
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_format};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strftime, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1320, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   {
@@ -27885,7 +27895,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6__format__(struct __pyx_ob
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1314
+  /* "cftime/_cftime.pyx":1317
  *                             calendar=calendar,has_year_zero=has_year_zero)
  * 
  *     def __format__(self, format):             # <<<<<<<<<<<<<<
@@ -27906,7 +27916,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6__format__(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1322
+/* "cftime/_cftime.pyx":1325
  *         return self.strftime(format)
  * 
  *     def replace(self, **kwargs):             # <<<<<<<<<<<<<<
@@ -27989,123 +27999,123 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("replace", 0);
 
-  /* "cftime/_cftime.pyx":1324
+  /* "cftime/_cftime.pyx":1327
  *     def replace(self, **kwargs):
  *         """Return datetime with new specified fields."""
  *         args = {"year": self.year,             # <<<<<<<<<<<<<<
  *                 "month": self.month,
  *                 "day": self.day,
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_year, __pyx_t_2) < (0)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_year, __pyx_t_2) < (0)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1325
+  /* "cftime/_cftime.pyx":1328
  *         """Return datetime with new specified fields."""
  *         args = {"year": self.year,
  *                 "month": self.month,             # <<<<<<<<<<<<<<
  *                 "day": self.day,
  *                 "hour": self.hour,
 */
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1325, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1328, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_month, __pyx_t_2) < (0)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_month, __pyx_t_2) < (0)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1326
+  /* "cftime/_cftime.pyx":1329
  *         args = {"year": self.year,
  *                 "month": self.month,
  *                 "day": self.day,             # <<<<<<<<<<<<<<
  *                 "hour": self.hour,
  *                 "minute": self.minute,
 */
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1326, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1329, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_day, __pyx_t_2) < (0)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_day, __pyx_t_2) < (0)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1327
+  /* "cftime/_cftime.pyx":1330
  *                 "month": self.month,
  *                 "day": self.day,
  *                 "hour": self.hour,             # <<<<<<<<<<<<<<
  *                 "minute": self.minute,
  *                 "second": self.second,
 */
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1327, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_hour, __pyx_t_2) < (0)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_hour, __pyx_t_2) < (0)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1328
+  /* "cftime/_cftime.pyx":1331
  *                 "day": self.day,
  *                 "hour": self.hour,
  *                 "minute": self.minute,             # <<<<<<<<<<<<<<
  *                 "second": self.second,
  *                 "microsecond": self.microsecond,
 */
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1328, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1331, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_minute, __pyx_t_2) < (0)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_minute, __pyx_t_2) < (0)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1329
+  /* "cftime/_cftime.pyx":1332
  *                 "hour": self.hour,
  *                 "minute": self.minute,
  *                 "second": self.second,             # <<<<<<<<<<<<<<
  *                 "microsecond": self.microsecond,
  *                 "has_year_zero": self.has_year_zero,
 */
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1329, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1332, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_second, __pyx_t_2) < (0)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_second, __pyx_t_2) < (0)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1330
+  /* "cftime/_cftime.pyx":1333
  *                 "minute": self.minute,
  *                 "second": self.second,
  *                 "microsecond": self.microsecond,             # <<<<<<<<<<<<<<
  *                 "has_year_zero": self.has_year_zero,
  *                 "calendar": self.calendar}
 */
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1330, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1333, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_microsecond, __pyx_t_2) < (0)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_microsecond, __pyx_t_2) < (0)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1331
+  /* "cftime/_cftime.pyx":1334
  *                 "second": self.second,
  *                 "microsecond": self.microsecond,
  *                 "has_year_zero": self.has_year_zero,             # <<<<<<<<<<<<<<
  *                 "calendar": self.calendar}
  * 
 */
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1331, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1334, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_2) < (0)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_2) < (0)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1332
+  /* "cftime/_cftime.pyx":1335
  *                 "microsecond": self.microsecond,
  *                 "has_year_zero": self.has_year_zero,
  *                 "calendar": self.calendar}             # <<<<<<<<<<<<<<
  * 
  *         if 'dayofyr' in kwargs or 'dayofwk' in kwargs:
 */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_v_self->calendar) < (0)) __PYX_ERR(0, 1324, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_v_self->calendar) < (0)) __PYX_ERR(0, 1327, __pyx_L1_error)
   __pyx_v_args = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1334
+  /* "cftime/_cftime.pyx":1337
  *                 "calendar": self.calendar}
  * 
  *         if 'dayofyr' in kwargs or 'dayofwk' in kwargs:             # <<<<<<<<<<<<<<
  *             raise ValueError('Replacing the dayofyr or dayofwk of a datetime is '
  *                              'not supported.')
 */
-  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_dayofyr, __pyx_v_kwargs, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1334, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_dayofyr, __pyx_v_kwargs, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1337, __pyx_L1_error)
   if (!__pyx_t_4) {
 
   } else {
@@ -28114,7 +28124,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
 
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_dayofwk, __pyx_v_kwargs, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1334, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_dayofwk, __pyx_v_kwargs, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1337, __pyx_L1_error)
 
   __pyx_t_3 = __pyx_t_4;
 
@@ -28122,7 +28132,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
   if (unlikely(__pyx_t_3)) {
 
 
-    /* "cftime/_cftime.pyx":1335
+    /* "cftime/_cftime.pyx":1338
  * 
  *         if 'dayofyr' in kwargs or 'dayofwk' in kwargs:
  *             raise ValueError('Replacing the dayofyr or dayofwk of a datetime is '             # <<<<<<<<<<<<<<
@@ -28135,14 +28145,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Replacing_the_dayofyr_or_dayofwk};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1335, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1338, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 1335, __pyx_L1_error)
+    __PYX_ERR(0, 1338, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1334
+    /* "cftime/_cftime.pyx":1337
  *                 "calendar": self.calendar}
  * 
  *         if 'dayofyr' in kwargs or 'dayofwk' in kwargs:             # <<<<<<<<<<<<<<
@@ -28151,18 +28161,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
 */
   }
 
-  /* "cftime/_cftime.pyx":1338
+  /* "cftime/_cftime.pyx":1341
  *                              'not supported.')
  * 
  *         if 'calendar' in kwargs:             # <<<<<<<<<<<<<<
  *             raise ValueError('Replacing the calendar of a datetime is '
  *                              'not supported.')
 */
-  __pyx_t_3 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_calendar, __pyx_v_kwargs, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1338, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_calendar, __pyx_v_kwargs, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1341, __pyx_L1_error)
   if (unlikely(__pyx_t_3)) {
 
 
-    /* "cftime/_cftime.pyx":1339
+    /* "cftime/_cftime.pyx":1342
  * 
  *         if 'calendar' in kwargs:
  *             raise ValueError('Replacing the calendar of a datetime is '             # <<<<<<<<<<<<<<
@@ -28175,14 +28185,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Replacing_the_calendar_of_a_date};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1339, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1342, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 1339, __pyx_L1_error)
+    __PYX_ERR(0, 1342, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1338
+    /* "cftime/_cftime.pyx":1341
  *                              'not supported.')
  * 
  *         if 'calendar' in kwargs:             # <<<<<<<<<<<<<<
@@ -28191,27 +28201,27 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
 */
   }
 
-  /* "cftime/_cftime.pyx":1344
+  /* "cftime/_cftime.pyx":1347
  *         # if attempting to set year to zero, also set has_year_zero=True
  *         # (issue #248)
  *         if 'year' in kwargs:             # <<<<<<<<<<<<<<
  *             if kwargs['year']==0 and 'has_year_zero' not in kwargs:
  *                 kwargs['has_year_zero']=True
 */
-  __pyx_t_3 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_year, __pyx_v_kwargs, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1344, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_year, __pyx_v_kwargs, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1347, __pyx_L1_error)
   if (__pyx_t_3) {
 
 
-    /* "cftime/_cftime.pyx":1345
+    /* "cftime/_cftime.pyx":1348
  *         # (issue #248)
  *         if 'year' in kwargs:
  *             if kwargs['year']==0 and 'has_year_zero' not in kwargs:             # <<<<<<<<<<<<<<
  *                 kwargs['has_year_zero']=True
  * 
 */
-    __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1345, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1348, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1345, __pyx_L1_error)
+    __pyx_t_4 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1348, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_4) {
 
@@ -28221,7 +28231,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
 
       goto __pyx_L9_bool_binop_done;
     }
-    __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_v_kwargs, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1345, __pyx_L1_error)
+    __pyx_t_4 = (__Pyx_PyDict_ContainsTF(__pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_v_kwargs, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1348, __pyx_L1_error)
 
     __pyx_t_3 = __pyx_t_4;
 
@@ -28229,16 +28239,16 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
     if (__pyx_t_3) {
 
 
-      /* "cftime/_cftime.pyx":1346
+      /* "cftime/_cftime.pyx":1349
  *         if 'year' in kwargs:
  *             if kwargs['year']==0 and 'has_year_zero' not in kwargs:
  *                 kwargs['has_year_zero']=True             # <<<<<<<<<<<<<<
  * 
  *         for name, value in kwargs.items():
 */
-      if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_has_year_zero, Py_True) < 0))) __PYX_ERR(0, 1346, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_has_year_zero, Py_True) < 0))) __PYX_ERR(0, 1349, __pyx_L1_error)
 
-      /* "cftime/_cftime.pyx":1345
+      /* "cftime/_cftime.pyx":1348
  *         # (issue #248)
  *         if 'year' in kwargs:
  *             if kwargs['year']==0 and 'has_year_zero' not in kwargs:             # <<<<<<<<<<<<<<
@@ -28247,7 +28257,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
 */
     }
 
-    /* "cftime/_cftime.pyx":1344
+    /* "cftime/_cftime.pyx":1347
  *         # if attempting to set year to zero, also set has_year_zero=True
  *         # (issue #248)
  *         if 'year' in kwargs:             # <<<<<<<<<<<<<<
@@ -28256,7 +28266,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
 */
   }
 
-  /* "cftime/_cftime.pyx":1348
+  /* "cftime/_cftime.pyx":1351
  *                 kwargs['has_year_zero']=True
  * 
  *         for name, value in kwargs.items():             # <<<<<<<<<<<<<<
@@ -28264,7 +28274,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
  * 
 */
   __pyx_t_6 = 0;
-  __pyx_t_2 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1348, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_dict_iterator(__pyx_v_kwargs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1351, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_2;
@@ -28272,7 +28282,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
   while (1) {
     __pyx_t_10 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_7, &__pyx_t_6, &__pyx_t_2, &__pyx_t_9, NULL, __pyx_t_8);
     if (unlikely(__pyx_t_10 == 0)) break;
-    if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 1348, __pyx_L1_error)
+    if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 1351, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_XDECREF_SET(__pyx_v_name, __pyx_t_2);
@@ -28280,29 +28290,29 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
     __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_9);
     __pyx_t_9 = 0;
 
-    /* "cftime/_cftime.pyx":1349
+    /* "cftime/_cftime.pyx":1352
  * 
  *         for name, value in kwargs.items():
  *             args[name] = value             # <<<<<<<<<<<<<<
  * 
  *         return self.__class__(**args)
 */
-    if (unlikely((PyDict_SetItem(__pyx_v_args, __pyx_v_name, __pyx_v_value) < 0))) __PYX_ERR(0, 1349, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_args, __pyx_v_name, __pyx_v_value) < 0))) __PYX_ERR(0, 1352, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1351
+  /* "cftime/_cftime.pyx":1354
  *             args[name] = value
  * 
  *         return self.__class__(**args)             # <<<<<<<<<<<<<<
  * 
  *     def timetuple(self):
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1351, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_9 = PyDict_Copy(__pyx_v_args); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1351, __pyx_L1_error)
+  __pyx_t_9 = PyDict_Copy(__pyx_v_args); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1351, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_9); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -28317,7 +28327,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1322
+  /* "cftime/_cftime.pyx":1325
  *         return self.strftime(format)
  * 
  *     def replace(self, **kwargs):             # <<<<<<<<<<<<<<
@@ -28341,7 +28351,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8replace(struct __pyx_obj_6
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1353
+/* "cftime/_cftime.pyx":1356
  *         return self.__class__(**args)
  * 
  *     def timetuple(self):             # <<<<<<<<<<<<<<
@@ -28413,7 +28423,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_10timetuple(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("timetuple", 0);
 
-  /* "cftime/_cftime.pyx":1361
+  /* "cftime/_cftime.pyx":1364
  *         day number within the current year starting with 1 for January 1st.
  *         """
  *         return time.struct_time((self.year, self.month, self.day, self.hour,             # <<<<<<<<<<<<<<
@@ -28421,64 +28431,64 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_10timetuple(struct __pyx_ob
  * 
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1361, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_struct_time); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1361, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_struct_time); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1361, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1361, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1361, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1361, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
 
-  /* "cftime/_cftime.pyx":1362
+  /* "cftime/_cftime.pyx":1365
  *         """
  *         return time.struct_time((self.year, self.month, self.day, self.hour,
  *                 self.minute, self.second, self.dayofwk, self.dayofyr, -1))             # <<<<<<<<<<<<<<
  * 
  *     cpdef _to_real_datetime(self):
 */
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1362, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1365, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1362, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1365, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dayofwk); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1362, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dayofwk); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1365, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dayofyr); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1362, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dayofyr); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1365, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
 
-  /* "cftime/_cftime.pyx":1361
+  /* "cftime/_cftime.pyx":1364
  *         day number within the current year starting with 1 for January 1st.
  *         """
  *         return time.struct_time((self.year, self.month, self.day, self.hour,             # <<<<<<<<<<<<<<
  *                 self.minute, self.second, self.dayofwk, self.dayofyr, -1))
  * 
 */
-  __pyx_t_12 = PyTuple_New(9); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1361, __pyx_L1_error)
+  __pyx_t_12 = PyTuple_New(9); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1364, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 0, __pyx_t_3) != (0)) __PYX_ERR(0, 1361, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 0, __pyx_t_3) != (0)) __PYX_ERR(0, 1364, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 1361, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 1364, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 2, __pyx_t_6) != (0)) __PYX_ERR(0, 1361, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 2, __pyx_t_6) != (0)) __PYX_ERR(0, 1364, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 3, __pyx_t_7) != (0)) __PYX_ERR(0, 1361, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 3, __pyx_t_7) != (0)) __PYX_ERR(0, 1364, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 4, __pyx_t_8) != (0)) __PYX_ERR(0, 1361, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 4, __pyx_t_8) != (0)) __PYX_ERR(0, 1364, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 5, __pyx_t_9) != (0)) __PYX_ERR(0, 1361, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 5, __pyx_t_9) != (0)) __PYX_ERR(0, 1364, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_10);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 6, __pyx_t_10) != (0)) __PYX_ERR(0, 1361, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 6, __pyx_t_10) != (0)) __PYX_ERR(0, 1364, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_11);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 7, __pyx_t_11) != (0)) __PYX_ERR(0, 1361, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 7, __pyx_t_11) != (0)) __PYX_ERR(0, 1364, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_neg_1);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_neg_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 8, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1361, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 8, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1364, __pyx_L1_error);
   __pyx_t_3 = 0;
   __pyx_t_5 = 0;
   __pyx_t_6 = 0;
@@ -28505,7 +28515,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_10timetuple(struct __pyx_ob
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1361, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1364, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   {
@@ -28519,7 +28529,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_10timetuple(struct __pyx_ob
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1353
+  /* "cftime/_cftime.pyx":1356
  *         return self.__class__(**args)
  * 
  *     def timetuple(self):             # <<<<<<<<<<<<<<
@@ -28549,7 +28559,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_10timetuple(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1364
+/* "cftime/_cftime.pyx":1367
  *                 self.minute, self.second, self.dayofwk, self.dayofyr, -1))
  * 
  *     cpdef _to_real_datetime(self):             # <<<<<<<<<<<<<<
@@ -28598,7 +28608,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__to_real_datetime(struct __p
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_to_real_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1364, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_to_real_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1367, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_6cftime_7_cftime_8datetime_13_to_real_datetime)) {
         __pyx_t_3 = NULL;
@@ -28621,7 +28631,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__to_real_datetime(struct __p
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1364, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1367, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         {
@@ -28649,7 +28659,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__to_real_datetime(struct __p
     #endif
   }
 
-  /* "cftime/_cftime.pyx":1365
+  /* "cftime/_cftime.pyx":1368
  * 
  *     cpdef _to_real_datetime(self):
  *         return real_datetime(self.year, self.month, self.day,             # <<<<<<<<<<<<<<
@@ -28657,37 +28667,37 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__to_real_datetime(struct __p
  *                              self.microsecond)
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_real_datetime); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1365, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_real_datetime); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1368, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1365, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1368, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1365, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1368, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1365, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1368, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
 
-  /* "cftime/_cftime.pyx":1366
+  /* "cftime/_cftime.pyx":1369
  *     cpdef _to_real_datetime(self):
  *         return real_datetime(self.year, self.month, self.day,
  *                              self.hour, self.minute, self.second,             # <<<<<<<<<<<<<<
  *                              self.microsecond)
  * 
 */
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1366, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1369, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1366, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1369, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1366, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1369, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
 
-  /* "cftime/_cftime.pyx":1367
+  /* "cftime/_cftime.pyx":1370
  *         return real_datetime(self.year, self.month, self.day,
  *                              self.hour, self.minute, self.second,
  *                              self.microsecond)             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self):
 */
-  __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1367, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1370, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -28713,7 +28723,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__to_real_datetime(struct __p
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1365, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1368, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   {
@@ -28727,7 +28737,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__to_real_datetime(struct __p
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1364
+  /* "cftime/_cftime.pyx":1367
  *                 self.minute, self.second, self.dayofwk, self.dayofyr, -1))
  * 
  *     cpdef _to_real_datetime(self):             # <<<<<<<<<<<<<<
@@ -28806,7 +28816,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_12_to_real_datetime(struct 
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_to_real_datetime", 0);
-  __pyx_t_1 = __pyx_f_6cftime_7_cftime_8datetime__to_real_datetime(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1364, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6cftime_7_cftime_8datetime__to_real_datetime(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1367, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -28830,7 +28840,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_12_to_real_datetime(struct 
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1369
+/* "cftime/_cftime.pyx":1372
  *                              self.microsecond)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -28874,24 +28884,24 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "cftime/_cftime.pyx":1370
+  /* "cftime/_cftime.pyx":1373
  * 
  *     def __repr__(self):
  *         if self.__class__.__name__ != 'datetime': # a calendar-specific sub-class             # <<<<<<<<<<<<<<
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, has_year_zero={9})".format('cftime',
  *             self.__class__.__name__,
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1370, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1373, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1370, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1373, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolNe_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime, Py_NE); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1370, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolNe_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime, Py_NE); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1373, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_3) {
 
 
-    /* "cftime/_cftime.pyx":1371
+    /* "cftime/_cftime.pyx":1374
  *     def __repr__(self):
  *         if self.__class__.__name__ != 'datetime': # a calendar-specific sub-class
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, has_year_zero={9})".format('cftime',             # <<<<<<<<<<<<<<
@@ -28901,41 +28911,41 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
     __pyx_t_1 = __pyx_mstate_global->__pyx_kp_u_0_1_2_3_4_5_6_7_8_has_year_zero;
     __Pyx_INCREF(__pyx_t_1);
 
-    /* "cftime/_cftime.pyx":1372
+    /* "cftime/_cftime.pyx":1375
  *         if self.__class__.__name__ != 'datetime': # a calendar-specific sub-class
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, has_year_zero={9})".format('cftime',
  *             self.__class__.__name__,             # <<<<<<<<<<<<<<
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.has_year_zero)
  *         if self.calendar == None:
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1372, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1375, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1372, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1375, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "cftime/_cftime.pyx":1373
+    /* "cftime/_cftime.pyx":1376
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, has_year_zero={9})".format('cftime',
  *             self.__class__.__name__,
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.has_year_zero)             # <<<<<<<<<<<<<<
  *         if self.calendar == None:
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar={9}, has_year_zero={10})".format('cftime',
 */
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1373, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1373, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1373, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1373, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1373, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1373, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1373, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_12 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1373, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __pyx_t_13 = 0;
     {
@@ -28951,18 +28961,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1371, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1374, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
 
-    /* "cftime/_cftime.pyx":1371
+    /* "cftime/_cftime.pyx":1374
  *     def __repr__(self):
  *         if self.__class__.__name__ != 'datetime': # a calendar-specific sub-class
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, has_year_zero={9})".format('cftime',             # <<<<<<<<<<<<<<
  *             self.__class__.__name__,
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.has_year_zero)
 */
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1371, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1374, __pyx_L1_error)
     {
       PyObject *__pyx_temp;
       {
@@ -28974,7 +28984,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1370
+    /* "cftime/_cftime.pyx":1373
  * 
  *     def __repr__(self):
  *         if self.__class__.__name__ != 'datetime': # a calendar-specific sub-class             # <<<<<<<<<<<<<<
@@ -28983,18 +28993,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
 */
   }
 
-  /* "cftime/_cftime.pyx":1374
+  /* "cftime/_cftime.pyx":1377
  *             self.__class__.__name__,
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.has_year_zero)
  *         if self.calendar == None:             # <<<<<<<<<<<<<<
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar={9}, has_year_zero={10})".format('cftime',
  *             self.__class__.__name__,
 */
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_str_object(__pyx_v_self->calendar, Py_None, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1374, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_str_object(__pyx_v_self->calendar, Py_None, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1377, __pyx_L1_error)
   if (__pyx_t_3) {
 
 
-    /* "cftime/_cftime.pyx":1375
+    /* "cftime/_cftime.pyx":1378
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.has_year_zero)
  *         if self.calendar == None:
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar={9}, has_year_zero={10})".format('cftime',             # <<<<<<<<<<<<<<
@@ -29004,41 +29014,41 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
     __pyx_t_12 = __pyx_mstate_global->__pyx_kp_u_0_1_2_3_4_5_6_7_8_calendar_9_ha;
     __Pyx_INCREF(__pyx_t_12);
 
-    /* "cftime/_cftime.pyx":1376
+    /* "cftime/_cftime.pyx":1379
  *         if self.calendar == None:
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar={9}, has_year_zero={10})".format('cftime',
  *             self.__class__.__name__,             # <<<<<<<<<<<<<<
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)
  *         else:
 */
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1376, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1379, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1376, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1379, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-    /* "cftime/_cftime.pyx":1377
+    /* "cftime/_cftime.pyx":1380
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar={9}, has_year_zero={10})".format('cftime',
  *             self.__class__.__name__,
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)             # <<<<<<<<<<<<<<
  *         else:
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar='{9}', has_year_zero={10})".format('cftime',
 */
-    __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1377, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1377, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1377, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1377, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1377, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1377, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1377, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1377, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_13 = 0;
     {
@@ -29054,18 +29064,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1375, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1378, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
 
-    /* "cftime/_cftime.pyx":1375
+    /* "cftime/_cftime.pyx":1378
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.has_year_zero)
  *         if self.calendar == None:
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar={9}, has_year_zero={10})".format('cftime',             # <<<<<<<<<<<<<<
  *             self.__class__.__name__,
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)
 */
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1375, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1378, __pyx_L1_error)
     {
       PyObject *__pyx_temp;
       {
@@ -29077,7 +29087,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1374
+    /* "cftime/_cftime.pyx":1377
  *             self.__class__.__name__,
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.has_year_zero)
  *         if self.calendar == None:             # <<<<<<<<<<<<<<
@@ -29086,7 +29096,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
 */
   }
 
-  /* "cftime/_cftime.pyx":1379
+  /* "cftime/_cftime.pyx":1382
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)
  *         else:
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar='{9}', has_year_zero={10})".format('cftime',             # <<<<<<<<<<<<<<
@@ -29097,41 +29107,41 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
     __pyx_t_1 = __pyx_mstate_global->__pyx_kp_u_0_1_2_3_4_5_6_7_8_calendar_9_ha_2;
     __Pyx_INCREF(__pyx_t_1);
 
-    /* "cftime/_cftime.pyx":1380
+    /* "cftime/_cftime.pyx":1383
  *         else:
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar='{9}', has_year_zero={10})".format('cftime',
  *             self.__class__.__name__,             # <<<<<<<<<<<<<<
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)
  * 
 */
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1380, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1383, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1380, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1383, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "cftime/_cftime.pyx":1381
+    /* "cftime/_cftime.pyx":1384
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar='{9}', has_year_zero={10})".format('cftime',
  *             self.__class__.__name__,
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)             # <<<<<<<<<<<<<<
  * 
  *     def __str__(self):
 */
-    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1381, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1384, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1381, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1384, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1381, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1384, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1381, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1384, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1381, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1384, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1381, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1384, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1381, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1384, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_12 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1381, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1384, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __pyx_t_13 = 0;
     {
@@ -29147,18 +29157,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1379, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1382, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
 
-    /* "cftime/_cftime.pyx":1379
+    /* "cftime/_cftime.pyx":1382
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)
  *         else:
  *             return "{0}.{1}({2}, {3}, {4}, {5}, {6}, {7}, {8}, calendar='{9}', has_year_zero={10})".format('cftime',             # <<<<<<<<<<<<<<
  *             self.__class__.__name__,
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)
 */
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1379, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1382, __pyx_L1_error)
     {
       PyObject *__pyx_temp;
       {
@@ -29171,7 +29181,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
     goto __pyx_L0;
   }
 
-  /* "cftime/_cftime.pyx":1369
+  /* "cftime/_cftime.pyx":1372
  *                              self.microsecond)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -29200,7 +29210,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_14__repr__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1383
+/* "cftime/_cftime.pyx":1386
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
@@ -29234,7 +29244,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_16__str__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__str__", 0);
 
-  /* "cftime/_cftime.pyx":1384
+  /* "cftime/_cftime.pyx":1387
  * 
  *     def __str__(self):
  *         return self.isoformat(' ')             # <<<<<<<<<<<<<<
@@ -29248,7 +29258,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_16__str__(struct __pyx_obj_
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u__6};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_isoformat, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1384, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1387, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   {
@@ -29262,7 +29272,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_16__str__(struct __pyx_obj_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1383
+  /* "cftime/_cftime.pyx":1386
  *             self.year,self.month,self.day,self.hour,self.minute,self.second,self.microsecond,self.calendar,self.has_year_zero)
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
@@ -29282,7 +29292,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_16__str__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1386
+/* "cftime/_cftime.pyx":1389
  *         return self.isoformat(' ')
  * 
  *     def isoformat(self, sep='T', timespec='auto'):             # <<<<<<<<<<<<<<
@@ -29331,33 +29341,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_sep,&__pyx_mstate_global->__pyx_n_u_timespec,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1386, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1389, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1386, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1389, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1386, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1389, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "isoformat", 0) < (0)) __PYX_ERR(0, 1386, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "isoformat", 0) < (0)) __PYX_ERR(0, 1389, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_n_u_T));
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_n_u_auto));
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1386, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1389, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1386, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1389, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -29370,7 +29380,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("isoformat", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 1386, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("isoformat", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 1389, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -29414,7 +29424,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("isoformat", 0);
 
-  /* "cftime/_cftime.pyx":1391
+  /* "cftime/_cftime.pyx":1394
  * 
  *         """
  *         if self.year < 0:             # <<<<<<<<<<<<<<
@@ -29426,7 +29436,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1392
+    /* "cftime/_cftime.pyx":1395
  *         """
  *         if self.year < 0:
  *             form0 = '{:05d}-{:02d}-{:02d}'             # <<<<<<<<<<<<<<
@@ -29436,7 +29446,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_05d_02d_02d);
     __pyx_v_form0 = __pyx_mstate_global->__pyx_kp_u_05d_02d_02d;
 
-    /* "cftime/_cftime.pyx":1391
+    /* "cftime/_cftime.pyx":1394
  * 
  *         """
  *         if self.year < 0:             # <<<<<<<<<<<<<<
@@ -29446,7 +29456,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
     goto __pyx_L3;
   }
 
-  /* "cftime/_cftime.pyx":1394
+  /* "cftime/_cftime.pyx":1397
  *             form0 = '{:05d}-{:02d}-{:02d}'
  *         else:
  *             form0 = '{:04d}-{:02d}-{:02d}'             # <<<<<<<<<<<<<<
@@ -29459,18 +29469,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
   }
   __pyx_L3:;
 
-  /* "cftime/_cftime.pyx":1395
+  /* "cftime/_cftime.pyx":1398
  *         else:
  *             form0 = '{:04d}-{:02d}-{:02d}'
  *         if timespec == 'days':             # <<<<<<<<<<<<<<
  *             form = form0
  *             return form.format(self.year, self.month, self.day)
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_days, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1395, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_days, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1398, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1396
+    /* "cftime/_cftime.pyx":1399
  *             form0 = '{:04d}-{:02d}-{:02d}'
  *         if timespec == 'days':
  *             form = form0             # <<<<<<<<<<<<<<
@@ -29480,7 +29490,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
     __Pyx_INCREF(__pyx_v_form0);
     __pyx_v_form = __pyx_v_form0;
 
-    /* "cftime/_cftime.pyx":1397
+    /* "cftime/_cftime.pyx":1400
  *         if timespec == 'days':
  *             form = form0
  *             return form.format(self.year, self.month, self.day)             # <<<<<<<<<<<<<<
@@ -29489,11 +29499,11 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
     __pyx_t_3 = __pyx_v_form;
     __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1397, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1400, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1397, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1400, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1397, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1400, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = 0;
     {
@@ -29503,98 +29513,9 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1397, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
-    }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1397, __pyx_L1_error)
-    {
-      PyObject *__pyx_temp;
-      {
-        __pyx_temp = __pyx_r;
-        __pyx_r = __pyx_t_2;
-      }
-      __Pyx_XDECREF(__pyx_temp);
-    }
-    __pyx_t_2 = 0;
-    goto __pyx_L0;
-
-    /* "cftime/_cftime.pyx":1395
- *         else:
- *             form0 = '{:04d}-{:02d}-{:02d}'
- *         if timespec == 'days':             # <<<<<<<<<<<<<<
- *             form = form0
- *             return form.format(self.year, self.month, self.day)
-*/
-  }
-
-  /* "cftime/_cftime.pyx":1398
- *             form = form0
- *             return form.format(self.year, self.month, self.day)
- *         elif timespec == 'hours':             # <<<<<<<<<<<<<<
- *             form = form0 + '{:s}{:02d}'
- *             return form.format(self.year, self.month, self.day, sep,
-*/
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_hours, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1398, __pyx_L1_error)
-  if (__pyx_t_1) {
-
-
-    /* "cftime/_cftime.pyx":1399
- *             return form.format(self.year, self.month, self.day)
- *         elif timespec == 'hours':
- *             form = form0 + '{:s}{:02d}'             # <<<<<<<<<<<<<<
- *             return form.format(self.year, self.month, self.day, sep,
- *                                self.hour)
-*/
-    __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_form0, __pyx_mstate_global->__pyx_kp_u_s_02d); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1399, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_v_form = ((PyObject*)__pyx_t_2);
-    __pyx_t_2 = 0;
-
-    /* "cftime/_cftime.pyx":1400
- *         elif timespec == 'hours':
- *             form = form0 + '{:s}{:02d}'
- *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
- *                                self.hour)
- *         elif timespec == 'minutes':
-*/
-    __pyx_t_6 = __pyx_v_form;
-    __Pyx_INCREF(__pyx_t_6);
-    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1400, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1400, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1400, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-
-    /* "cftime/_cftime.pyx":1401
- *             form = form0 + '{:s}{:02d}'
- *             return form.format(self.year, self.month, self.day, sep,
- *                                self.hour)             # <<<<<<<<<<<<<<
- *         elif timespec == 'minutes':
- *             form = form0 + '{:s}{:02d}:{:02d}'
-*/
-    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1401, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_7 = 0;
-    {
-      PyObject *__pyx_callargs[6] = {__pyx_t_6, __pyx_t_5, __pyx_t_4, __pyx_t_3, __pyx_v_sep, __pyx_t_8};
-      __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_7, (6-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1400, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-
-    /* "cftime/_cftime.pyx":1400
- *         elif timespec == 'hours':
- *             form = form0 + '{:s}{:02d}'
- *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
- *                                self.hour)
- *         elif timespec == 'minutes':
-*/
     if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1400, __pyx_L1_error)
     {
       PyObject *__pyx_temp;
@@ -29608,86 +29529,83 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
     goto __pyx_L0;
 
     /* "cftime/_cftime.pyx":1398
+ *         else:
+ *             form0 = '{:04d}-{:02d}-{:02d}'
+ *         if timespec == 'days':             # <<<<<<<<<<<<<<
+ *             form = form0
+ *             return form.format(self.year, self.month, self.day)
+*/
+  }
+
+  /* "cftime/_cftime.pyx":1401
  *             form = form0
  *             return form.format(self.year, self.month, self.day)
  *         elif timespec == 'hours':             # <<<<<<<<<<<<<<
  *             form = form0 + '{:s}{:02d}'
  *             return form.format(self.year, self.month, self.day, sep,
 */
-  }
-
-  /* "cftime/_cftime.pyx":1402
- *             return form.format(self.year, self.month, self.day, sep,
- *                                self.hour)
- *         elif timespec == 'minutes':             # <<<<<<<<<<<<<<
- *             form = form0 + '{:s}{:02d}:{:02d}'
- *             return form.format(self.year, self.month, self.day, sep,
-*/
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_minutes, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1402, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_hours, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1401, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1403
- *                                self.hour)
- *         elif timespec == 'minutes':
- *             form = form0 + '{:s}{:02d}:{:02d}'             # <<<<<<<<<<<<<<
+    /* "cftime/_cftime.pyx":1402
+ *             return form.format(self.year, self.month, self.day)
+ *         elif timespec == 'hours':
+ *             form = form0 + '{:s}{:02d}'             # <<<<<<<<<<<<<<
  *             return form.format(self.year, self.month, self.day, sep,
- *                                self.hour, self.minute)
+ *                                self.hour)
 */
-    __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_form0, __pyx_mstate_global->__pyx_kp_u_s_02d_02d); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1403, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_form0, __pyx_mstate_global->__pyx_kp_u_s_02d); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1402, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_form = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
+    /* "cftime/_cftime.pyx":1403
+ *         elif timespec == 'hours':
+ *             form = form0 + '{:s}{:02d}'
+ *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
+ *                                self.hour)
+ *         elif timespec == 'minutes':
+*/
+    __pyx_t_6 = __pyx_v_form;
+    __Pyx_INCREF(__pyx_t_6);
+    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1403, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1403, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1403, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+
     /* "cftime/_cftime.pyx":1404
+ *             form = form0 + '{:s}{:02d}'
+ *             return form.format(self.year, self.month, self.day, sep,
+ *                                self.hour)             # <<<<<<<<<<<<<<
  *         elif timespec == 'minutes':
  *             form = form0 + '{:s}{:02d}:{:02d}'
- *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
- *                                self.hour, self.minute)
- *         elif timespec == 'seconds':
 */
-    __pyx_t_8 = __pyx_v_form;
-    __Pyx_INCREF(__pyx_t_8);
-    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1404, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1404, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1404, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-
-    /* "cftime/_cftime.pyx":1405
- *             form = form0 + '{:s}{:02d}:{:02d}'
- *             return form.format(self.year, self.month, self.day, sep,
- *                                self.hour, self.minute)             # <<<<<<<<<<<<<<
- *         elif timespec == 'seconds':
- *             form = form0 + '{:s}{:02d}:{:02d}:{:02d}'
-*/
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1405, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1405, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1404, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_7 = 0;
     {
-      PyObject *__pyx_callargs[7] = {__pyx_t_8, __pyx_t_3, __pyx_t_4, __pyx_t_5, __pyx_v_sep, __pyx_t_6, __pyx_t_9};
-      __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_7, (7-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      PyObject *__pyx_callargs[6] = {__pyx_t_6, __pyx_t_5, __pyx_t_4, __pyx_t_3, __pyx_v_sep, __pyx_t_8};
+      __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_7, (6-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1404, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1403, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
 
-    /* "cftime/_cftime.pyx":1404
- *         elif timespec == 'minutes':
- *             form = form0 + '{:s}{:02d}:{:02d}'
+    /* "cftime/_cftime.pyx":1403
+ *         elif timespec == 'hours':
+ *             form = form0 + '{:s}{:02d}'
  *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
- *                                self.hour, self.minute)
- *         elif timespec == 'seconds':
+ *                                self.hour)
+ *         elif timespec == 'minutes':
 */
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1404, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1403, __pyx_L1_error)
     {
       PyObject *__pyx_temp;
       {
@@ -29699,7 +29617,99 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1402
+    /* "cftime/_cftime.pyx":1401
+ *             form = form0
+ *             return form.format(self.year, self.month, self.day)
+ *         elif timespec == 'hours':             # <<<<<<<<<<<<<<
+ *             form = form0 + '{:s}{:02d}'
+ *             return form.format(self.year, self.month, self.day, sep,
+*/
+  }
+
+  /* "cftime/_cftime.pyx":1405
+ *             return form.format(self.year, self.month, self.day, sep,
+ *                                self.hour)
+ *         elif timespec == 'minutes':             # <<<<<<<<<<<<<<
+ *             form = form0 + '{:s}{:02d}:{:02d}'
+ *             return form.format(self.year, self.month, self.day, sep,
+*/
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_minutes, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1405, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+
+    /* "cftime/_cftime.pyx":1406
+ *                                self.hour)
+ *         elif timespec == 'minutes':
+ *             form = form0 + '{:s}{:02d}:{:02d}'             # <<<<<<<<<<<<<<
+ *             return form.format(self.year, self.month, self.day, sep,
+ *                                self.hour, self.minute)
+*/
+    __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_form0, __pyx_mstate_global->__pyx_kp_u_s_02d_02d); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1406, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_v_form = ((PyObject*)__pyx_t_2);
+    __pyx_t_2 = 0;
+
+    /* "cftime/_cftime.pyx":1407
+ *         elif timespec == 'minutes':
+ *             form = form0 + '{:s}{:02d}:{:02d}'
+ *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
+ *                                self.hour, self.minute)
+ *         elif timespec == 'seconds':
+*/
+    __pyx_t_8 = __pyx_v_form;
+    __Pyx_INCREF(__pyx_t_8);
+    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1407, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1407, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1407, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+
+    /* "cftime/_cftime.pyx":1408
+ *             form = form0 + '{:s}{:02d}:{:02d}'
+ *             return form.format(self.year, self.month, self.day, sep,
+ *                                self.hour, self.minute)             # <<<<<<<<<<<<<<
+ *         elif timespec == 'seconds':
+ *             form = form0 + '{:s}{:02d}:{:02d}:{:02d}'
+*/
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1408, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1408, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_7 = 0;
+    {
+      PyObject *__pyx_callargs[7] = {__pyx_t_8, __pyx_t_3, __pyx_t_4, __pyx_t_5, __pyx_v_sep, __pyx_t_6, __pyx_t_9};
+      __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_7, (7-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1407, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+    }
+
+    /* "cftime/_cftime.pyx":1407
+ *         elif timespec == 'minutes':
+ *             form = form0 + '{:s}{:02d}:{:02d}'
+ *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
+ *                                self.hour, self.minute)
+ *         elif timespec == 'seconds':
+*/
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1407, __pyx_L1_error)
+    {
+      PyObject *__pyx_temp;
+      {
+        __pyx_temp = __pyx_r;
+        __pyx_r = __pyx_t_2;
+      }
+      __Pyx_XDECREF(__pyx_temp);
+    }
+    __pyx_t_2 = 0;
+    goto __pyx_L0;
+
+    /* "cftime/_cftime.pyx":1405
  *             return form.format(self.year, self.month, self.day, sep,
  *                                self.hour)
  *         elif timespec == 'minutes':             # <<<<<<<<<<<<<<
@@ -29708,30 +29718,30 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
   }
 
-  /* "cftime/_cftime.pyx":1406
+  /* "cftime/_cftime.pyx":1409
  *             return form.format(self.year, self.month, self.day, sep,
  *                                self.hour, self.minute)
  *         elif timespec == 'seconds':             # <<<<<<<<<<<<<<
  *             form = form0 + '{:s}{:02d}:{:02d}:{:02d}'
  *             return form.format(self.year, self.month, self.day, sep,
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_seconds, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1406, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_seconds, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1409, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1407
+    /* "cftime/_cftime.pyx":1410
  *                                self.hour, self.minute)
  *         elif timespec == 'seconds':
  *             form = form0 + '{:s}{:02d}:{:02d}:{:02d}'             # <<<<<<<<<<<<<<
  *             return form.format(self.year, self.month, self.day, sep,
  *                                self.hour, self.minute, self.second)
 */
-    __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_form0, __pyx_mstate_global->__pyx_kp_u_s_02d_02d_02d); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1407, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_form0, __pyx_mstate_global->__pyx_kp_u_s_02d_02d_02d); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1410, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_form = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1408
+    /* "cftime/_cftime.pyx":1411
  *         elif timespec == 'seconds':
  *             form = form0 + '{:s}{:02d}:{:02d}:{:02d}'
  *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
@@ -29740,25 +29750,25 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
     __pyx_t_9 = __pyx_v_form;
     __Pyx_INCREF(__pyx_t_9);
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1408, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1411, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1408, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1411, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1408, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1411, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
 
-    /* "cftime/_cftime.pyx":1409
+    /* "cftime/_cftime.pyx":1412
  *             form = form0 + '{:s}{:02d}:{:02d}:{:02d}'
  *             return form.format(self.year, self.month, self.day, sep,
  *                                self.hour, self.minute, self.second)             # <<<<<<<<<<<<<<
  *         elif timespec in ['auto', 'microseconds', 'milliseconds']:
  *             second = '{:02d}'.format(self.second)
 */
-    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1409, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1412, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1409, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1412, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1409, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1412, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __pyx_t_7 = 0;
     {
@@ -29771,18 +29781,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1408, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1411, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
 
-    /* "cftime/_cftime.pyx":1408
+    /* "cftime/_cftime.pyx":1411
  *         elif timespec == 'seconds':
  *             form = form0 + '{:s}{:02d}:{:02d}:{:02d}'
  *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
  *                                self.hour, self.minute, self.second)
  *         elif timespec in ['auto', 'microseconds', 'milliseconds']:
 */
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1408, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1411, __pyx_L1_error)
     {
       PyObject *__pyx_temp;
       {
@@ -29794,7 +29804,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1406
+    /* "cftime/_cftime.pyx":1409
  *             return form.format(self.year, self.month, self.day, sep,
  *                                self.hour, self.minute)
  *         elif timespec == 'seconds':             # <<<<<<<<<<<<<<
@@ -29803,7 +29813,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
   }
 
-  /* "cftime/_cftime.pyx":1410
+  /* "cftime/_cftime.pyx":1413
  *             return form.format(self.year, self.month, self.day, sep,
  *                                self.hour, self.minute, self.second)
  *         elif timespec in ['auto', 'microseconds', 'milliseconds']:             # <<<<<<<<<<<<<<
@@ -29812,7 +29822,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
   __Pyx_INCREF(__pyx_v_timespec);
   __pyx_t_2 = __pyx_v_timespec;
-  __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_auto, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1410, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_auto, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1413, __pyx_L1_error)
   if (!__pyx_t_11) {
 
   } else {
@@ -29821,7 +29831,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_microseconds, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1410, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_microseconds, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1413, __pyx_L1_error)
   if (!__pyx_t_11) {
 
   } else {
@@ -29830,7 +29840,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_milliseconds, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1410, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_milliseconds, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1413, __pyx_L1_error)
 
   __pyx_t_1 = __pyx_t_11;
 
@@ -29842,7 +29852,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
   if (likely(__pyx_t_11)) {
 
 
-    /* "cftime/_cftime.pyx":1411
+    /* "cftime/_cftime.pyx":1414
  *                                self.hour, self.minute, self.second)
  *         elif timespec in ['auto', 'microseconds', 'milliseconds']:
  *             second = '{:02d}'.format(self.second)             # <<<<<<<<<<<<<<
@@ -29851,7 +29861,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
     __pyx_t_10 = __pyx_mstate_global->__pyx_kp_u_02d;
     __Pyx_INCREF(__pyx_t_10);
-    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1411, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1414, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_7 = 0;
     {
@@ -29859,25 +29869,25 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1411, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1414, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1411, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1414, __pyx_L1_error)
     __pyx_v_second = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1412
+    /* "cftime/_cftime.pyx":1415
  *         elif timespec in ['auto', 'microseconds', 'milliseconds']:
  *             second = '{:02d}'.format(self.second)
  *             if timespec == 'milliseconds':             # <<<<<<<<<<<<<<
  *                 millisecs = int(round(self.microsecond / 1000, 0))
  *                 second += '.{:03d}'.format(millisecs)
 */
-    __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_milliseconds, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1412, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_milliseconds, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1415, __pyx_L1_error)
     if (__pyx_t_11) {
 
 
-      /* "cftime/_cftime.pyx":1413
+      /* "cftime/_cftime.pyx":1416
  *             second = '{:02d}'.format(self.second)
  *             if timespec == 'milliseconds':
  *                 millisecs = int(round(self.microsecond / 1000, 0))             # <<<<<<<<<<<<<<
@@ -29885,7 +29895,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
  *             elif timespec == 'microseconds':
 */
       __pyx_t_8 = NULL;
-      __pyx_t_10 = PyFloat_FromDouble((((double)__pyx_v_self->microsecond) / 1000.0)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1413, __pyx_L1_error)
+      __pyx_t_10 = PyFloat_FromDouble((((double)__pyx_v_self->microsecond) / 1000.0)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1416, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __pyx_t_7 = 1;
       {
@@ -29893,16 +29903,16 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_round, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1413, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1416, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
-      __pyx_t_10 = __Pyx_PyNumber_Int(__pyx_t_2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1413, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyNumber_Int(__pyx_t_2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1416, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_v_millisecs = ((PyObject*)__pyx_t_10);
       __pyx_t_10 = 0;
 
-      /* "cftime/_cftime.pyx":1414
+      /* "cftime/_cftime.pyx":1417
  *             if timespec == 'milliseconds':
  *                 millisecs = int(round(self.microsecond / 1000, 0))
  *                 second += '.{:03d}'.format(millisecs)             # <<<<<<<<<<<<<<
@@ -29916,17 +29926,17 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
         PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_millisecs};
         __pyx_t_10 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1414, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1417, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_10))||((__pyx_t_10) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_10))) __PYX_ERR(0, 1414, __pyx_L1_error)
-      __pyx_t_2 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe(__pyx_v_second, __pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1414, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_10))||((__pyx_t_10) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_10))) __PYX_ERR(0, 1417, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe(__pyx_v_second, __pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1417, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF_SET(__pyx_v_second, ((PyObject*)__pyx_t_2));
       __pyx_t_2 = 0;
 
-      /* "cftime/_cftime.pyx":1412
+      /* "cftime/_cftime.pyx":1415
  *         elif timespec in ['auto', 'microseconds', 'milliseconds']:
  *             second = '{:02d}'.format(self.second)
  *             if timespec == 'milliseconds':             # <<<<<<<<<<<<<<
@@ -29936,18 +29946,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
       goto __pyx_L8;
     }
 
-    /* "cftime/_cftime.pyx":1415
+    /* "cftime/_cftime.pyx":1418
  *                 millisecs = int(round(self.microsecond / 1000, 0))
  *                 second += '.{:03d}'.format(millisecs)
  *             elif timespec == 'microseconds':             # <<<<<<<<<<<<<<
  *                 second += '.{:06d}'.format(self.microsecond)
  *             else:
 */
-    __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_microseconds, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1415, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_timespec, __pyx_mstate_global->__pyx_n_u_microseconds, Py_EQ); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1418, __pyx_L1_error)
     if (__pyx_t_11) {
 
 
-      /* "cftime/_cftime.pyx":1416
+      /* "cftime/_cftime.pyx":1419
  *                 second += '.{:03d}'.format(millisecs)
  *             elif timespec == 'microseconds':
  *                 second += '.{:06d}'.format(self.microsecond)             # <<<<<<<<<<<<<<
@@ -29956,7 +29966,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
       __pyx_t_10 = __pyx_mstate_global->__pyx_kp_u_06d;
       __Pyx_INCREF(__pyx_t_10);
-      __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1416, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1419, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __pyx_t_7 = 0;
       {
@@ -29964,17 +29974,17 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
         __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1416, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1419, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1416, __pyx_L1_error)
-      __pyx_t_8 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe(__pyx_v_second, __pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1416, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1419, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe(__pyx_v_second, __pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1419, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF_SET(__pyx_v_second, ((PyObject*)__pyx_t_8));
       __pyx_t_8 = 0;
 
-      /* "cftime/_cftime.pyx":1415
+      /* "cftime/_cftime.pyx":1418
  *                 millisecs = int(round(self.microsecond / 1000, 0))
  *                 second += '.{:03d}'.format(millisecs)
  *             elif timespec == 'microseconds':             # <<<<<<<<<<<<<<
@@ -29984,7 +29994,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
       goto __pyx_L8;
     }
 
-    /* "cftime/_cftime.pyx":1418
+    /* "cftime/_cftime.pyx":1421
  *                 second += '.{:06d}'.format(self.microsecond)
  *             else:
  *                 if self.microsecond > 0:             # <<<<<<<<<<<<<<
@@ -29997,7 +30007,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
       if (__pyx_t_11) {
 
 
-        /* "cftime/_cftime.pyx":1419
+        /* "cftime/_cftime.pyx":1422
  *             else:
  *                 if self.microsecond > 0:
  *                     second += '.{:06d}'.format(self.microsecond)             # <<<<<<<<<<<<<<
@@ -30006,7 +30016,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
         __pyx_t_2 = __pyx_mstate_global->__pyx_kp_u_06d;
         __Pyx_INCREF(__pyx_t_2);
-        __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1419, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1422, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __pyx_t_7 = 0;
         {
@@ -30014,17 +30024,17 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
           __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1419, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1422, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
         }
-        if (!(likely(PyUnicode_CheckExact(__pyx_t_8))||((__pyx_t_8) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_8))) __PYX_ERR(0, 1419, __pyx_L1_error)
-        __pyx_t_10 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe(__pyx_v_second, __pyx_t_8); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1419, __pyx_L1_error)
+        if (!(likely(PyUnicode_CheckExact(__pyx_t_8))||((__pyx_t_8) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_8))) __PYX_ERR(0, 1422, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe(__pyx_v_second, __pyx_t_8); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1422, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF_SET(__pyx_v_second, ((PyObject*)__pyx_t_10));
         __pyx_t_10 = 0;
 
-        /* "cftime/_cftime.pyx":1418
+        /* "cftime/_cftime.pyx":1421
  *                 second += '.{:06d}'.format(self.microsecond)
  *             else:
  *                 if self.microsecond > 0:             # <<<<<<<<<<<<<<
@@ -30035,19 +30045,19 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
     }
     __pyx_L8:;
 
-    /* "cftime/_cftime.pyx":1420
+    /* "cftime/_cftime.pyx":1423
  *                 if self.microsecond > 0:
  *                     second += '.{:06d}'.format(self.microsecond)
  *             form = form0 + '{:s}{:02d}:{:02d}:{:s}'             # <<<<<<<<<<<<<<
  *             return form.format(self.year, self.month, self.day, sep,
  *                                self.hour, self.minute, second)
 */
-    __pyx_t_10 = __Pyx_PyUnicode_Concat(__pyx_v_form0, __pyx_mstate_global->__pyx_kp_u_s_02d_02d_s); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1420, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyUnicode_Concat(__pyx_v_form0, __pyx_mstate_global->__pyx_kp_u_s_02d_02d_s); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1423, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __pyx_v_form = ((PyObject*)__pyx_t_10);
     __pyx_t_10 = 0;
 
-    /* "cftime/_cftime.pyx":1421
+    /* "cftime/_cftime.pyx":1424
  *                     second += '.{:06d}'.format(self.microsecond)
  *             form = form0 + '{:s}{:02d}:{:02d}:{:s}'
  *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
@@ -30056,23 +30066,23 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
     __pyx_t_8 = __pyx_v_form;
     __Pyx_INCREF(__pyx_t_8);
-    __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1421, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1424, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1421, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1424, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1421, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1424, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
 
-    /* "cftime/_cftime.pyx":1422
+    /* "cftime/_cftime.pyx":1425
  *             form = form0 + '{:s}{:02d}:{:02d}:{:s}'
  *             return form.format(self.year, self.month, self.day, sep,
  *                                self.hour, self.minute, second)             # <<<<<<<<<<<<<<
  *         else:
  *             raise ValueError('illegal timespec')
 */
-    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1422, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1425, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1422, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1425, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = 0;
     {
@@ -30084,18 +30094,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1421, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1424, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
     }
 
-    /* "cftime/_cftime.pyx":1421
+    /* "cftime/_cftime.pyx":1424
  *                     second += '.{:06d}'.format(self.microsecond)
  *             form = form0 + '{:s}{:02d}:{:02d}:{:s}'
  *             return form.format(self.year, self.month, self.day, sep,             # <<<<<<<<<<<<<<
  *                                self.hour, self.minute, second)
  *         else:
 */
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_10))||((__pyx_t_10) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_10))) __PYX_ERR(0, 1421, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_10))||((__pyx_t_10) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_10))) __PYX_ERR(0, 1424, __pyx_L1_error)
     {
       PyObject *__pyx_temp;
       {
@@ -30107,7 +30117,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
     __pyx_t_10 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1410
+    /* "cftime/_cftime.pyx":1413
  *             return form.format(self.year, self.month, self.day, sep,
  *                                self.hour, self.minute, self.second)
  *         elif timespec in ['auto', 'microseconds', 'milliseconds']:             # <<<<<<<<<<<<<<
@@ -30116,7 +30126,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
 */
   }
 
-  /* "cftime/_cftime.pyx":1424
+  /* "cftime/_cftime.pyx":1427
  *                                self.hour, self.minute, second)
  *         else:
  *             raise ValueError('illegal timespec')             # <<<<<<<<<<<<<<
@@ -30130,15 +30140,15 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
       PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_illegal_timespec};
       __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1424, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1427, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
     }
     __Pyx_Raise(__pyx_t_10, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __PYX_ERR(0, 1424, __pyx_L1_error)
+    __PYX_ERR(0, 1427, __pyx_L1_error)
   }
 
-  /* "cftime/_cftime.pyx":1386
+  /* "cftime/_cftime.pyx":1389
  *         return self.isoformat(' ')
  * 
  *     def isoformat(self, sep='T', timespec='auto'):             # <<<<<<<<<<<<<<
@@ -30168,7 +30178,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_18isoformat(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1426
+/* "cftime/_cftime.pyx":1429
  *             raise ValueError('illegal timespec')
  * 
  *     def __hash__(self):             # <<<<<<<<<<<<<<
@@ -30211,7 +30221,7 @@ static Py_hash_t __pyx_pf_6cftime_7_cftime_8datetime_20__hash__(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__hash__", 0);
 
-  /* "cftime/_cftime.pyx":1427
+  /* "cftime/_cftime.pyx":1430
  * 
  *     def __hash__(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -30227,19 +30237,19 @@ static Py_hash_t __pyx_pf_6cftime_7_cftime_8datetime_20__hash__(struct __pyx_obj
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "cftime/_cftime.pyx":1428
+      /* "cftime/_cftime.pyx":1431
  *     def __hash__(self):
  *         try:
  *             d = self._to_real_datetime()             # <<<<<<<<<<<<<<
  *         except ValueError:
  *             return hash(self.timetuple())
 */
-      __pyx_t_4 = ((struct __pyx_vtabstruct_6cftime_7_cftime_datetime *)__pyx_v_self->__pyx_vtab)->_to_real_datetime(__pyx_v_self, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1428, __pyx_L3_error)
+      __pyx_t_4 = ((struct __pyx_vtabstruct_6cftime_7_cftime_datetime *)__pyx_v_self->__pyx_vtab)->_to_real_datetime(__pyx_v_self, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1431, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_v_d = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "cftime/_cftime.pyx":1427
+      /* "cftime/_cftime.pyx":1430
  * 
  *     def __hash__(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -30254,7 +30264,7 @@ static Py_hash_t __pyx_pf_6cftime_7_cftime_8datetime_20__hash__(struct __pyx_obj
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "cftime/_cftime.pyx":1429
+    /* "cftime/_cftime.pyx":1432
  *         try:
  *             d = self._to_real_datetime()
  *         except ValueError:             # <<<<<<<<<<<<<<
@@ -30264,12 +30274,12 @@ static Py_hash_t __pyx_pf_6cftime_7_cftime_8datetime_20__hash__(struct __pyx_obj
     __pyx_t_5 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_ValueError))));
     if (__pyx_t_5) {
       __Pyx_AddTraceback("cftime._cftime.datetime.__hash__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 1429, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 1432, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "cftime/_cftime.pyx":1430
+      /* "cftime/_cftime.pyx":1433
  *             d = self._to_real_datetime()
  *         except ValueError:
  *             return hash(self.timetuple())             # <<<<<<<<<<<<<<
@@ -30283,10 +30293,10 @@ static Py_hash_t __pyx_pf_6cftime_7_cftime_8datetime_20__hash__(struct __pyx_obj
         PyObject *__pyx_callargs[2] = {__pyx_t_9, NULL};
         __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_timetuple, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1430, __pyx_L5_except_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1433, __pyx_L5_except_error)
         __Pyx_GOTREF(__pyx_t_8);
       }
-      __pyx_t_11 = PyObject_Hash(__pyx_t_8); if (unlikely(__pyx_t_11 == ((Py_hash_t)-1))) __PYX_ERR(0, 1430, __pyx_L5_except_error)
+      __pyx_t_11 = PyObject_Hash(__pyx_t_8); if (unlikely(__pyx_t_11 == ((Py_hash_t)-1))) __PYX_ERR(0, 1433, __pyx_L5_except_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       {
         __pyx_r = __pyx_t_11;
@@ -30298,7 +30308,7 @@ static Py_hash_t __pyx_pf_6cftime_7_cftime_8datetime_20__hash__(struct __pyx_obj
     }
     goto __pyx_L5_except_error;
 
-    /* "cftime/_cftime.pyx":1427
+    /* "cftime/_cftime.pyx":1430
  * 
  *     def __hash__(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -30320,20 +30330,20 @@ static Py_hash_t __pyx_pf_6cftime_7_cftime_8datetime_20__hash__(struct __pyx_obj
     __pyx_L8_try_end:;
   }
 
-  /* "cftime/_cftime.pyx":1431
+  /* "cftime/_cftime.pyx":1434
  *         except ValueError:
  *             return hash(self.timetuple())
  *         return hash(d)             # <<<<<<<<<<<<<<
  * 
  *     def to_tuple(self):
 */
-  __pyx_t_11 = PyObject_Hash(__pyx_v_d); if (unlikely(__pyx_t_11 == ((Py_hash_t)-1))) __PYX_ERR(0, 1431, __pyx_L1_error)
+  __pyx_t_11 = PyObject_Hash(__pyx_v_d); if (unlikely(__pyx_t_11 == ((Py_hash_t)-1))) __PYX_ERR(0, 1434, __pyx_L1_error)
   {
     __pyx_r = __pyx_t_11;
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1426
+  /* "cftime/_cftime.pyx":1429
  *             raise ValueError('illegal timespec')
  * 
  *     def __hash__(self):             # <<<<<<<<<<<<<<
@@ -30358,7 +30368,7 @@ static Py_hash_t __pyx_pf_6cftime_7_cftime_8datetime_20__hash__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1433
+/* "cftime/_cftime.pyx":1436
  *         return hash(d)
  * 
  *     def to_tuple(self):             # <<<<<<<<<<<<<<
@@ -30425,59 +30435,59 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_22to_tuple(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_tuple", 0);
 
-  /* "cftime/_cftime.pyx":1434
+  /* "cftime/_cftime.pyx":1437
  * 
  *     def to_tuple(self):
  *         return (self.year, self.month, self.day, self.hour, self.minute,             # <<<<<<<<<<<<<<
  *                 self.second, self.microsecond)
  * 
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1434, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1437, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1434, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1437, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1434, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1437, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1434, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1437, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1434, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1437, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "cftime/_cftime.pyx":1435
+  /* "cftime/_cftime.pyx":1438
  *     def to_tuple(self):
  *         return (self.year, self.month, self.day, self.hour, self.minute,
  *                 self.second, self.microsecond)             # <<<<<<<<<<<<<<
  * 
  *     def __richcmp__(self, other, int op):
 */
-  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1435, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1438, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1435, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1438, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
 
-  /* "cftime/_cftime.pyx":1434
+  /* "cftime/_cftime.pyx":1437
  * 
  *     def to_tuple(self):
  *         return (self.year, self.month, self.day, self.hour, self.minute,             # <<<<<<<<<<<<<<
  *                 self.second, self.microsecond)
  * 
 */
-  __pyx_t_8 = PyTuple_New(7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1434, __pyx_L1_error)
+  __pyx_t_8 = PyTuple_New(7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1437, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1434, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1437, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_2) != (0)) __PYX_ERR(0, 1434, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_2) != (0)) __PYX_ERR(0, 1437, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 2, __pyx_t_3) != (0)) __PYX_ERR(0, 1434, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 2, __pyx_t_3) != (0)) __PYX_ERR(0, 1437, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 3, __pyx_t_4) != (0)) __PYX_ERR(0, 1434, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 3, __pyx_t_4) != (0)) __PYX_ERR(0, 1437, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 4, __pyx_t_5) != (0)) __PYX_ERR(0, 1434, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 4, __pyx_t_5) != (0)) __PYX_ERR(0, 1437, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 5, __pyx_t_6) != (0)) __PYX_ERR(0, 1434, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 5, __pyx_t_6) != (0)) __PYX_ERR(0, 1437, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 6, __pyx_t_7) != (0)) __PYX_ERR(0, 1434, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 6, __pyx_t_7) != (0)) __PYX_ERR(0, 1437, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
@@ -30496,7 +30506,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_22to_tuple(struct __pyx_obj
   __pyx_t_8 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1433
+  /* "cftime/_cftime.pyx":1436
  *         return hash(d)
  * 
  *     def to_tuple(self):             # <<<<<<<<<<<<<<
@@ -30522,7 +30532,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_22to_tuple(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1437
+/* "cftime/_cftime.pyx":1440
  *                 self.second, self.microsecond)
  * 
  *     def __richcmp__(self, other, int op):             # <<<<<<<<<<<<<<
@@ -30564,7 +30574,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__richcmp__", 0);
 
-  /* "cftime/_cftime.pyx":1439
+  /* "cftime/_cftime.pyx":1442
  *     def __richcmp__(self, other, int op):
  *         cdef datetime dt, dt_other, d1, d2
  *         dt = self             # <<<<<<<<<<<<<<
@@ -30574,7 +30584,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
   __Pyx_INCREF((PyObject *)__pyx_v_self);
   __pyx_v_dt = __pyx_v_self;
 
-  /* "cftime/_cftime.pyx":1440
+  /* "cftime/_cftime.pyx":1443
  *         cdef datetime dt, dt_other, d1, d2
  *         dt = self
  *         if isinstance(other, datetime):             # <<<<<<<<<<<<<<
@@ -30585,7 +30595,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1441
+    /* "cftime/_cftime.pyx":1444
  *         dt = self
  *         if isinstance(other, datetime):
  *             dt_other = other             # <<<<<<<<<<<<<<
@@ -30594,18 +30604,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
 */
     __pyx_t_2 = __pyx_v_other;
     __Pyx_INCREF(__pyx_t_2);
-    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1441, __pyx_L1_error)
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1444, __pyx_L1_error)
     __pyx_v_dt_other = ((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1443
+    /* "cftime/_cftime.pyx":1446
  *             dt_other = other
  *             # comparing two datetime instances
  *             if dt.calendar == dt_other.calendar and dt.has_year_zero == dt_other.has_year_zero:             # <<<<<<<<<<<<<<
  *                 return PyObject_RichCompare(dt.to_tuple(), dt_other.to_tuple(), op)
  *             else:
 */
-    __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_str_str(__pyx_v_dt->calendar, __pyx_v_dt_other->calendar, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1443, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_str_str(__pyx_v_dt->calendar, __pyx_v_dt_other->calendar, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1446, __pyx_L1_error)
     if (__pyx_t_3) {
 
     } else {
@@ -30623,7 +30633,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
     if (__pyx_t_1) {
 
 
-      /* "cftime/_cftime.pyx":1444
+      /* "cftime/_cftime.pyx":1447
  *             # comparing two datetime instances
  *             if dt.calendar == dt_other.calendar and dt.has_year_zero == dt_other.has_year_zero:
  *                 return PyObject_RichCompare(dt.to_tuple(), dt_other.to_tuple(), op)             # <<<<<<<<<<<<<<
@@ -30637,7 +30647,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
         PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
         __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_to_tuple, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1444, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1447, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __pyx_t_6 = ((PyObject *)__pyx_v_dt_other);
@@ -30647,10 +30657,10 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
         PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_to_tuple, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1444, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1447, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      __pyx_t_6 = PyObject_RichCompare(__pyx_t_2, __pyx_t_4, __pyx_v_op); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1444, __pyx_L1_error)
+      __pyx_t_6 = PyObject_RichCompare(__pyx_t_2, __pyx_t_4, __pyx_v_op); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1447, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -30665,7 +30675,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
       __pyx_t_6 = 0;
       goto __pyx_L0;
 
-      /* "cftime/_cftime.pyx":1443
+      /* "cftime/_cftime.pyx":1446
  *             dt_other = other
  *             # comparing two datetime instances
  *             if dt.calendar == dt_other.calendar and dt.has_year_zero == dt_other.has_year_zero:             # <<<<<<<<<<<<<<
@@ -30674,7 +30684,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
 */
     }
 
-    /* "cftime/_cftime.pyx":1447
+    /* "cftime/_cftime.pyx":1450
  *             else:
  *                 # raise an error if either is an idealized calendar (comparison not valid)
  *                 if dt.calendar in _idealized_calendars or other.calendar in _idealized_calendars:             # <<<<<<<<<<<<<<
@@ -30682,9 +30692,9 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
  *                 # convert one to match calendar of the other.
 */
     /*else*/ {
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1447, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1450, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_3 = (__Pyx_PySequence_ContainsTF(__pyx_v_dt->calendar, __pyx_t_6, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1447, __pyx_L1_error)
+      __pyx_t_3 = (__Pyx_PySequence_ContainsTF(__pyx_v_dt->calendar, __pyx_t_6, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1450, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       if (!__pyx_t_3) {
 
@@ -30694,11 +30704,11 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
 
         goto __pyx_L8_bool_binop_done;
       }
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1447, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1450, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1447, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1450, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_3 = (__Pyx_PySequence_ContainsTF(__pyx_t_6, __pyx_t_4, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1447, __pyx_L1_error)
+      __pyx_t_3 = (__Pyx_PySequence_ContainsTF(__pyx_t_6, __pyx_t_4, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1450, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
@@ -30708,7 +30718,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
       if (unlikely(__pyx_t_1)) {
 
 
-        /* "cftime/_cftime.pyx":1448
+        /* "cftime/_cftime.pyx":1451
  *                 # raise an error if either is an idealized calendar (comparison not valid)
  *                 if dt.calendar in _idealized_calendars or other.calendar in _idealized_calendars:
  *                     raise TypeError("cannot compare {0!r} and {1!r}".format(dt, other))             # <<<<<<<<<<<<<<
@@ -30723,24 +30733,24 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
           PyObject *__pyx_callargs[3] = {__pyx_t_7, ((PyObject *)__pyx_v_dt), __pyx_v_other};
           __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1448, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1451, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1448, __pyx_L1_error)
+        if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 1451, __pyx_L1_error)
         __pyx_t_5 = 1;
         {
           PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_t_2};
           __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1448, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1451, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
         }
         __Pyx_Raise(__pyx_t_4, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __PYX_ERR(0, 1448, __pyx_L1_error)
+        __PYX_ERR(0, 1451, __pyx_L1_error)
 
-        /* "cftime/_cftime.pyx":1447
+        /* "cftime/_cftime.pyx":1450
  *             else:
  *                 # raise an error if either is an idealized calendar (comparison not valid)
  *                 if dt.calendar in _idealized_calendars or other.calendar in _idealized_calendars:             # <<<<<<<<<<<<<<
@@ -30749,7 +30759,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
 */
       }
 
-      /* "cftime/_cftime.pyx":1450
+      /* "cftime/_cftime.pyx":1453
  *                     raise TypeError("cannot compare {0!r} and {1!r}".format(dt, other))
  *                 # convert one to match calendar of the other.
  *                 other2 = other.change_calendar(dt.calendar,has_year_zero=dt.has_year_zero)             # <<<<<<<<<<<<<<
@@ -30758,20 +30768,20 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
 */
       __pyx_t_2 = __pyx_v_other;
       __Pyx_INCREF(__pyx_t_2);
-      __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_dt->has_year_zero); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1450, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_dt->has_year_zero); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1453, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_5 = 0;
       {
         PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_v_dt->calendar, __pyx_t_6};
         #if CYTHON_VECTORCALL
         __pyx_t_7 = __pyx_mstate_global->__pyx_tuple[5];
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1450, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1453, __pyx_L1_error)
         __Pyx_INCREF(__pyx_t_7);
         #else
         {
           PyObject *__pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_has_year_zero};
           __pyx_t_7 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 1);
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1450, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1453, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
         }
         #endif
@@ -30779,13 +30789,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1450, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1453, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_v_other2 = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "cftime/_cftime.pyx":1451
+      /* "cftime/_cftime.pyx":1454
  *                 # convert one to match calendar of the other.
  *                 other2 = other.change_calendar(dt.calendar,has_year_zero=dt.has_year_zero)
  *                 return PyObject_RichCompare(dt.to_tuple(), other2.to_tuple(), op)             # <<<<<<<<<<<<<<
@@ -30799,7 +30809,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
         PyObject *__pyx_callargs[2] = {__pyx_t_7, NULL};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_to_tuple, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1451, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1454, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_t_6 = __pyx_v_other2;
@@ -30809,10 +30819,10 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
         PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
         __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_to_tuple, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1451, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1454, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
-      __pyx_t_6 = PyObject_RichCompare(__pyx_t_4, __pyx_t_7, __pyx_v_op); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1451, __pyx_L1_error)
+      __pyx_t_6 = PyObject_RichCompare(__pyx_t_4, __pyx_t_7, __pyx_v_op); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1454, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -30828,7 +30838,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
       goto __pyx_L0;
     }
 
-    /* "cftime/_cftime.pyx":1440
+    /* "cftime/_cftime.pyx":1443
  *         cdef datetime dt, dt_other, d1, d2
  *         dt = self
  *         if isinstance(other, datetime):             # <<<<<<<<<<<<<<
@@ -30837,21 +30847,21 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
 */
   }
 
-  /* "cftime/_cftime.pyx":1452
+  /* "cftime/_cftime.pyx":1455
  *                 other2 = other.change_calendar(dt.calendar,has_year_zero=dt.has_year_zero)
  *                 return PyObject_RichCompare(dt.to_tuple(), other2.to_tuple(), op)
  *         elif isinstance(other, datetime_python):             # <<<<<<<<<<<<<<
  *             # comparing datetime and real_datetime
  *             if not dt.datetime_compatible:
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_datetime_python); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1452, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_datetime_python); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1455, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_1 = PyObject_IsInstance(__pyx_v_other, __pyx_t_6); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 1452, __pyx_L1_error)
+  __pyx_t_1 = PyObject_IsInstance(__pyx_v_other, __pyx_t_6); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 1455, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1454
+    /* "cftime/_cftime.pyx":1457
  *         elif isinstance(other, datetime_python):
  *             # comparing datetime and real_datetime
  *             if not dt.datetime_compatible:             # <<<<<<<<<<<<<<
@@ -30863,7 +30873,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
     if (unlikely(__pyx_t_1)) {
 
 
-      /* "cftime/_cftime.pyx":1455
+      /* "cftime/_cftime.pyx":1458
  *             # comparing datetime and real_datetime
  *             if not dt.datetime_compatible:
  *                 raise TypeError("cannot compare {0!r} and {1!r} (different calendars)".format(self, other))             # <<<<<<<<<<<<<<
@@ -30878,24 +30888,24 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
         PyObject *__pyx_callargs[3] = {__pyx_t_2, ((PyObject *)__pyx_v_self), __pyx_v_other};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1455, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1458, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1455, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1458, __pyx_L1_error)
       __pyx_t_5 = 1;
       {
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_4};
         __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1455, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1458, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
       __Pyx_Raise(__pyx_t_6, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __PYX_ERR(0, 1455, __pyx_L1_error)
+      __PYX_ERR(0, 1458, __pyx_L1_error)
 
-      /* "cftime/_cftime.pyx":1454
+      /* "cftime/_cftime.pyx":1457
  *         elif isinstance(other, datetime_python):
  *             # comparing datetime and real_datetime
  *             if not dt.datetime_compatible:             # <<<<<<<<<<<<<<
@@ -30904,7 +30914,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
 */
     }
 
-    /* "cftime/_cftime.pyx":1456
+    /* "cftime/_cftime.pyx":1459
  *             if not dt.datetime_compatible:
  *                 raise TypeError("cannot compare {0!r} and {1!r} (different calendars)".format(self, other))
  *             return PyObject_RichCompare(dt.to_tuple(), to_tuple(other), op)             # <<<<<<<<<<<<<<
@@ -30918,11 +30928,11 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
       PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
       __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_to_tuple, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1456, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1459, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
     __pyx_t_7 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_to_tuple); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1456, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_to_tuple); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1459, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -30941,10 +30951,10 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
       __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1456, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1459, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_2 = PyObject_RichCompare(__pyx_t_6, __pyx_t_4, __pyx_v_op); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1456, __pyx_L1_error)
+    __pyx_t_2 = PyObject_RichCompare(__pyx_t_6, __pyx_t_4, __pyx_v_op); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1459, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -30959,7 +30969,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1452
+    /* "cftime/_cftime.pyx":1455
  *                 other2 = other.change_calendar(dt.calendar,has_year_zero=dt.has_year_zero)
  *                 return PyObject_RichCompare(dt.to_tuple(), other2.to_tuple(), op)
  *         elif isinstance(other, datetime_python):             # <<<<<<<<<<<<<<
@@ -30968,7 +30978,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
 */
   }
 
-  /* "cftime/_cftime.pyx":1459
+  /* "cftime/_cftime.pyx":1462
  *         else:
  *             # Delegate responsibility of comparison to the other object.
  *             return NotImplemented             # <<<<<<<<<<<<<<
@@ -30988,7 +30998,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
     goto __pyx_L0;
   }
 
-  /* "cftime/_cftime.pyx":1437
+  /* "cftime/_cftime.pyx":1440
  *                 self.second, self.microsecond)
  * 
  *     def __richcmp__(self, other, int op):             # <<<<<<<<<<<<<<
@@ -31013,7 +31023,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_24__richcmp__(struct __pyx_
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1461
+/* "cftime/_cftime.pyx":1464
  *             return NotImplemented
  * 
  *     cdef _getstate(self):             # <<<<<<<<<<<<<<
@@ -31035,145 +31045,145 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__getstate(struct __pyx_obj_6
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_getstate", 0);
 
-  /* "cftime/_cftime.pyx":1463
+  /* "cftime/_cftime.pyx":1466
  *     cdef _getstate(self):
  *         """return args and kwargs needed to create class instance"""
  *         args = (self.year, self.month, self.day)             # <<<<<<<<<<<<<<
  *         kwargs = {'hour': self.hour,
  *                   'minute': self.minute,
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1463, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1466, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1463, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1466, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1463, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1466, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyTuple_New(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1463, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1466, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1463, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1466, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_2) != (0)) __PYX_ERR(0, 1463, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_2) != (0)) __PYX_ERR(0, 1466, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 2, __pyx_t_3) != (0)) __PYX_ERR(0, 1463, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 2, __pyx_t_3) != (0)) __PYX_ERR(0, 1466, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
   __pyx_v_args = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":1464
+  /* "cftime/_cftime.pyx":1467
  *         """return args and kwargs needed to create class instance"""
  *         args = (self.year, self.month, self.day)
  *         kwargs = {'hour': self.hour,             # <<<<<<<<<<<<<<
  *                   'minute': self.minute,
  *                   'second': self.second,
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1467, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1467, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_hour, __pyx_t_3) < (0)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_hour, __pyx_t_3) < (0)) __PYX_ERR(0, 1467, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "cftime/_cftime.pyx":1465
+  /* "cftime/_cftime.pyx":1468
  *         args = (self.year, self.month, self.day)
  *         kwargs = {'hour': self.hour,
  *                   'minute': self.minute,             # <<<<<<<<<<<<<<
  *                   'second': self.second,
  *                   'microsecond': self.microsecond,
 */
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1465, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1468, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_minute, __pyx_t_3) < (0)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_minute, __pyx_t_3) < (0)) __PYX_ERR(0, 1467, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "cftime/_cftime.pyx":1466
+  /* "cftime/_cftime.pyx":1469
  *         kwargs = {'hour': self.hour,
  *                   'minute': self.minute,
  *                   'second': self.second,             # <<<<<<<<<<<<<<
  *                   'microsecond': self.microsecond,
  *                   'dayofwk': self._dayofwk,
 */
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1466, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1469, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_second, __pyx_t_3) < (0)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_second, __pyx_t_3) < (0)) __PYX_ERR(0, 1467, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "cftime/_cftime.pyx":1467
+  /* "cftime/_cftime.pyx":1470
  *                   'minute': self.minute,
  *                   'second': self.second,
  *                   'microsecond': self.microsecond,             # <<<<<<<<<<<<<<
  *                   'dayofwk': self._dayofwk,
  *                   'dayofyr': self._dayofyr,
 */
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1467, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1470, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_microsecond, __pyx_t_3) < (0)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_microsecond, __pyx_t_3) < (0)) __PYX_ERR(0, 1467, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "cftime/_cftime.pyx":1468
+  /* "cftime/_cftime.pyx":1471
  *                   'second': self.second,
  *                   'microsecond': self.microsecond,
  *                   'dayofwk': self._dayofwk,             # <<<<<<<<<<<<<<
  *                   'dayofyr': self._dayofyr,
  *                   'calendar': self.calendar,
 */
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofwk); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1468, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofwk); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1471, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_dayofwk, __pyx_t_3) < (0)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_dayofwk, __pyx_t_3) < (0)) __PYX_ERR(0, 1467, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "cftime/_cftime.pyx":1469
+  /* "cftime/_cftime.pyx":1472
  *                   'microsecond': self.microsecond,
  *                   'dayofwk': self._dayofwk,
  *                   'dayofyr': self._dayofyr,             # <<<<<<<<<<<<<<
  *                   'calendar': self.calendar,
  *                   'has_year_zero': self.has_year_zero}
 */
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofyr); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1469, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofyr); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1472, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_dayofyr, __pyx_t_3) < (0)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_dayofyr, __pyx_t_3) < (0)) __PYX_ERR(0, 1467, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "cftime/_cftime.pyx":1470
+  /* "cftime/_cftime.pyx":1473
  *                   'dayofwk': self._dayofwk,
  *                   'dayofyr': self._dayofyr,
  *                   'calendar': self.calendar,             # <<<<<<<<<<<<<<
  *                   'has_year_zero': self.has_year_zero}
  *         return args, kwargs
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_v_self->calendar) < (0)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_v_self->calendar) < (0)) __PYX_ERR(0, 1467, __pyx_L1_error)
 
-  /* "cftime/_cftime.pyx":1471
+  /* "cftime/_cftime.pyx":1474
  *                   'dayofyr': self._dayofyr,
  *                   'calendar': self.calendar,
  *                   'has_year_zero': self.has_year_zero}             # <<<<<<<<<<<<<<
  *         return args, kwargs
  * 
 */
-  __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1471, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1474, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_3) < (0)) __PYX_ERR(0, 1464, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_3) < (0)) __PYX_ERR(0, 1467, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_kwargs = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":1472
+  /* "cftime/_cftime.pyx":1475
  *                   'calendar': self.calendar,
  *                   'has_year_zero': self.has_year_zero}
  *         return args, kwargs             # <<<<<<<<<<<<<<
  * 
  *     def __reduce__(self):
 */
-  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1472, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1475, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_INCREF(__pyx_v_args);
   __Pyx_GIVEREF(__pyx_v_args);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_v_args) != (0)) __PYX_ERR(0, 1472, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_v_args) != (0)) __PYX_ERR(0, 1475, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_kwargs);
   __Pyx_GIVEREF(__pyx_v_kwargs);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_v_kwargs) != (0)) __PYX_ERR(0, 1472, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_v_kwargs) != (0)) __PYX_ERR(0, 1475, __pyx_L1_error);
   {
     PyObject *__pyx_temp;
     {
@@ -31185,7 +31195,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__getstate(struct __pyx_obj_6
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1461
+  /* "cftime/_cftime.pyx":1464
  *             return NotImplemented
  * 
  *     cdef _getstate(self):             # <<<<<<<<<<<<<<
@@ -31209,7 +31219,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__getstate(struct __pyx_obj_6
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1474
+/* "cftime/_cftime.pyx":1477
  *         return args, kwargs
  * 
  *     def __reduce__(self):             # <<<<<<<<<<<<<<
@@ -31276,14 +31286,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_26__reduce__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__reduce__", 0);
 
-  /* "cftime/_cftime.pyx":1476
+  /* "cftime/_cftime.pyx":1479
  *     def __reduce__(self):
  *         """special method that allows instance to be pickled"""
  *         args, kwargs = self._getstate()             # <<<<<<<<<<<<<<
  *         date_type = type(self)
  *         return (_create_datetime, (date_type, args, kwargs))
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_6cftime_7_cftime_datetime *)__pyx_v_self->__pyx_vtab)->_getstate(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1476, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_6cftime_7_cftime_datetime *)__pyx_v_self->__pyx_vtab)->_getstate(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1479, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
     PyObject* sequence = __pyx_t_1;
@@ -31291,7 +31301,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_26__reduce__(struct __pyx_o
     if (unlikely(size != 2)) {
       if (size > 2) __Pyx_RaiseTooManyValuesError(2);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 1476, __pyx_L1_error)
+      __PYX_ERR(0, 1479, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -31301,22 +31311,22 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_26__reduce__(struct __pyx_o
       __Pyx_INCREF(__pyx_t_3);
     } else {
       __pyx_t_2 = __Pyx_PyList_GET_ITEM_REF(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1476, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1479, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_2);
       __pyx_t_3 = __Pyx_PyList_GET_ITEM_REF(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1476, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1479, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_3);
     }
     #else
-    __pyx_t_2 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1476, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1479, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1476, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1479, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1476, __pyx_L1_error)
+    __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1479, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4);
@@ -31324,7 +31334,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_26__reduce__(struct __pyx_o
     __Pyx_GOTREF(__pyx_t_2);
     index = 1; __pyx_t_3 = __pyx_t_5(__pyx_t_4); if (unlikely(!__pyx_t_3)) goto __pyx_L3_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_3);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_5(__pyx_t_4), 2) < (0)) __PYX_ERR(0, 1476, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_5(__pyx_t_4), 2) < (0)) __PYX_ERR(0, 1479, __pyx_L1_error)
     __pyx_t_5 = NULL;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     goto __pyx_L4_unpacking_done;
@@ -31332,7 +31342,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_26__reduce__(struct __pyx_o
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_5 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 1476, __pyx_L1_error)
+    __PYX_ERR(0, 1479, __pyx_L1_error)
     __pyx_L4_unpacking_done:;
   }
   __pyx_v_args = __pyx_t_2;
@@ -31340,7 +31350,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_26__reduce__(struct __pyx_o
   __pyx_v_kwargs = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "cftime/_cftime.pyx":1477
+  /* "cftime/_cftime.pyx":1480
  *         """special method that allows instance to be pickled"""
  *         args, kwargs = self._getstate()
  *         date_type = type(self)             # <<<<<<<<<<<<<<
@@ -31350,32 +31360,32 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_26__reduce__(struct __pyx_o
   __Pyx_INCREF(((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
   __pyx_v_date_type = ((PyTypeObject*)((PyObject *)Py_TYPE(((PyObject *)__pyx_v_self))));
 
-  /* "cftime/_cftime.pyx":1478
+  /* "cftime/_cftime.pyx":1481
  *         args, kwargs = self._getstate()
  *         date_type = type(self)
  *         return (_create_datetime, (date_type, args, kwargs))             # <<<<<<<<<<<<<<
  * 
  *     cdef _add_timedelta(self, other):
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_create_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1478, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_create_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1481, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyTuple_New(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1478, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1481, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF((PyObject *)__pyx_v_date_type);
   __Pyx_GIVEREF((PyObject *)__pyx_v_date_type);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, ((PyObject *)__pyx_v_date_type)) != (0)) __PYX_ERR(0, 1478, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, ((PyObject *)__pyx_v_date_type)) != (0)) __PYX_ERR(0, 1481, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_args);
   __Pyx_GIVEREF(__pyx_v_args);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_v_args) != (0)) __PYX_ERR(0, 1478, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_v_args) != (0)) __PYX_ERR(0, 1481, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_kwargs);
   __Pyx_GIVEREF(__pyx_v_kwargs);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_v_kwargs) != (0)) __PYX_ERR(0, 1478, __pyx_L1_error);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1478, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_v_kwargs) != (0)) __PYX_ERR(0, 1481, __pyx_L1_error);
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1481, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1478, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1481, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 1478, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 1481, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_3 = 0;
   {
@@ -31389,7 +31399,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_26__reduce__(struct __pyx_o
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1474
+  /* "cftime/_cftime.pyx":1477
  *         return args, kwargs
  * 
  *     def __reduce__(self):             # <<<<<<<<<<<<<<
@@ -31414,7 +31424,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_26__reduce__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1480
+/* "cftime/_cftime.pyx":1483
  *         return (_create_datetime, (date_type, args, kwargs))
  * 
  *     cdef _add_timedelta(self, other):             # <<<<<<<<<<<<<<
@@ -31427,7 +31437,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__add_timedelta(CYTHON_UNUSED
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("_add_timedelta", 0);
 
-  /* "cftime/_cftime.pyx":1481
+  /* "cftime/_cftime.pyx":1484
  * 
  *     cdef _add_timedelta(self, other):
  *         return NotImplemented             # <<<<<<<<<<<<<<
@@ -31445,7 +31455,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__add_timedelta(CYTHON_UNUSED
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1480
+  /* "cftime/_cftime.pyx":1483
  *         return (_create_datetime, (date_type, args, kwargs))
  * 
  *     cdef _add_timedelta(self, other):             # <<<<<<<<<<<<<<
@@ -31460,7 +31470,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_8datetime__add_timedelta(CYTHON_UNUSED
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1483
+/* "cftime/_cftime.pyx":1486
  *         return NotImplemented
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -31510,29 +31520,29 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_jday,&__pyx_mstate_global->__pyx_n_u_calendar,&__pyx_mstate_global->__pyx_n_u_has_year_zero,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1483, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1486, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1483, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1486, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1483, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1486, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1483, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1486, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "fromordinal", 0) < (0)) __PYX_ERR(0, 1483, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "fromordinal", 0) < (0)) __PYX_ERR(0, 1486, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_n_u_standard));
 
-      /* "cftime/_cftime.pyx":1484
+      /* "cftime/_cftime.pyx":1487
  * 
  *     @staticmethod
  *     def fromordinal(jday,calendar='standard',has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -31541,21 +31551,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("fromordinal", 0, 1, 3, i); __PYX_ERR(0, 1483, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("fromordinal", 0, 1, 3, i); __PYX_ERR(0, 1486, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1483, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1486, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1483, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1486, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1483, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1486, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -31568,7 +31578,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("fromordinal", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 1483, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("fromordinal", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 1486, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -31581,7 +31591,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(__pyx_v_jday, __pyx_v_calendar, __pyx_v_has_year_zero);
 
-  /* "cftime/_cftime.pyx":1483
+  /* "cftime/_cftime.pyx":1486
  *         return NotImplemented
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -31622,7 +31632,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
   __Pyx_INCREF(__pyx_v_calendar);
   __Pyx_INCREF(__pyx_v_has_year_zero);
 
-  /* "cftime/_cftime.pyx":1491
+  /* "cftime/_cftime.pyx":1494
  *         in the proleptic gregorian calendar that includes the year zero). For
  *         idealized calendars, the origin is noon UTC of the year zero."""
  *         calendar = calendar.lower()             # <<<<<<<<<<<<<<
@@ -31636,13 +31646,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1491, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1494, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF_SET(__pyx_v_calendar, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1493
+  /* "cftime/_cftime.pyx":1496
  *         calendar = calendar.lower()
  *         # set calendar-specific defaults for has_year_zero
  *         if has_year_zero is None:             # <<<<<<<<<<<<<<
@@ -31653,19 +31663,19 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
   if (__pyx_t_4) {
 
 
-    /* "cftime/_cftime.pyx":1494
+    /* "cftime/_cftime.pyx":1497
  *         # set calendar-specific defaults for has_year_zero
  *         if has_year_zero is None:
  *             has_year_zero = _year_zero_defaults(calendar)             # <<<<<<<<<<<<<<
  *         if calendar in ['standard','julian','gregorian']:
  *             if has_year_zero:
 */
-    __pyx_t_1 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1494, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1497, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_has_year_zero, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "cftime/_cftime.pyx":1493
+    /* "cftime/_cftime.pyx":1496
  *         calendar = calendar.lower()
  *         # set calendar-specific defaults for has_year_zero
  *         if has_year_zero is None:             # <<<<<<<<<<<<<<
@@ -31674,7 +31684,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
 */
   }
 
-  /* "cftime/_cftime.pyx":1495
+  /* "cftime/_cftime.pyx":1498
  *         if has_year_zero is None:
  *             has_year_zero = _year_zero_defaults(calendar)
  *         if calendar in ['standard','julian','gregorian']:             # <<<<<<<<<<<<<<
@@ -31683,7 +31693,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
 */
   __Pyx_INCREF(__pyx_v_calendar);
   __pyx_t_1 = __pyx_v_calendar;
-  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1495, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1498, __pyx_L1_error)
   if (!__pyx_t_5) {
 
   } else {
@@ -31692,7 +31702,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
 
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1495, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1498, __pyx_L1_error)
   if (!__pyx_t_5) {
 
   } else {
@@ -31701,7 +31711,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
 
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1495, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1498, __pyx_L1_error)
 
   __pyx_t_4 = __pyx_t_5;
 
@@ -31713,18 +31723,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
   if (__pyx_t_5) {
 
 
-    /* "cftime/_cftime.pyx":1496
+    /* "cftime/_cftime.pyx":1499
  *             has_year_zero = _year_zero_defaults(calendar)
  *         if calendar in ['standard','julian','gregorian']:
  *             if has_year_zero:             # <<<<<<<<<<<<<<
  *                units = 'days since -4712-1-1-12'
  *             else:
 */
-    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1496, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1499, __pyx_L1_error)
     if (__pyx_t_5) {
 
 
-      /* "cftime/_cftime.pyx":1497
+      /* "cftime/_cftime.pyx":1500
  *         if calendar in ['standard','julian','gregorian']:
  *             if has_year_zero:
  *                units = 'days since -4712-1-1-12'             # <<<<<<<<<<<<<<
@@ -31734,7 +31744,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
       __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_days_since_4712_1_1_12);
       __pyx_v_units = __pyx_mstate_global->__pyx_kp_u_days_since_4712_1_1_12;
 
-      /* "cftime/_cftime.pyx":1496
+      /* "cftime/_cftime.pyx":1499
  *             has_year_zero = _year_zero_defaults(calendar)
  *         if calendar in ['standard','julian','gregorian']:
  *             if has_year_zero:             # <<<<<<<<<<<<<<
@@ -31744,7 +31754,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
       goto __pyx_L8;
     }
 
-    /* "cftime/_cftime.pyx":1499
+    /* "cftime/_cftime.pyx":1502
  *                units = 'days since -4712-1-1-12'
  *             else:
  *                units = 'days since -4713-1-1-12'             # <<<<<<<<<<<<<<
@@ -31757,7 +31767,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
     }
     __pyx_L8:;
 
-    /* "cftime/_cftime.pyx":1495
+    /* "cftime/_cftime.pyx":1498
  *         if has_year_zero is None:
  *             has_year_zero = _year_zero_defaults(calendar)
  *         if calendar in ['standard','julian','gregorian']:             # <<<<<<<<<<<<<<
@@ -31767,14 +31777,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
     goto __pyx_L4;
   }
 
-  /* "cftime/_cftime.pyx":1500
+  /* "cftime/_cftime.pyx":1503
  *             else:
  *                units = 'days since -4713-1-1-12'
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':             # <<<<<<<<<<<<<<
  *             if has_year_zero:
  *                 units = 'days since -4713-11-24-12'
 */
-  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1500, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1503, __pyx_L1_error)
   if (!__pyx_t_4) {
 
   } else {
@@ -31783,7 +31793,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
 
     goto __pyx_L9_bool_binop_done;
   }
-  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1500, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1503, __pyx_L1_error)
 
   __pyx_t_5 = __pyx_t_4;
 
@@ -31791,18 +31801,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
   if (__pyx_t_5) {
 
 
-    /* "cftime/_cftime.pyx":1501
+    /* "cftime/_cftime.pyx":1504
  *                units = 'days since -4713-1-1-12'
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *             if has_year_zero:             # <<<<<<<<<<<<<<
  *                 units = 'days since -4713-11-24-12'
  *             else:
 */
-    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1501, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1504, __pyx_L1_error)
     if (__pyx_t_5) {
 
 
-      /* "cftime/_cftime.pyx":1502
+      /* "cftime/_cftime.pyx":1505
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *             if has_year_zero:
  *                 units = 'days since -4713-11-24-12'             # <<<<<<<<<<<<<<
@@ -31812,7 +31822,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
       __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_days_since_4713_11_24_12);
       __pyx_v_units = __pyx_mstate_global->__pyx_kp_u_days_since_4713_11_24_12;
 
-      /* "cftime/_cftime.pyx":1501
+      /* "cftime/_cftime.pyx":1504
  *                units = 'days since -4713-1-1-12'
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *             if has_year_zero:             # <<<<<<<<<<<<<<
@@ -31822,7 +31832,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
       goto __pyx_L11;
     }
 
-    /* "cftime/_cftime.pyx":1504
+    /* "cftime/_cftime.pyx":1507
  *                 units = 'days since -4713-11-24-12'
  *             else:
  *                 units = 'days since -4714-11-24-12'             # <<<<<<<<<<<<<<
@@ -31835,7 +31845,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
     }
     __pyx_L11:;
 
-    /* "cftime/_cftime.pyx":1500
+    /* "cftime/_cftime.pyx":1503
  *             else:
  *                units = 'days since -4713-1-1-12'
  *         elif calendar == 'proleptic_gregorian' or calendar == 'tai':             # <<<<<<<<<<<<<<
@@ -31845,7 +31855,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
     goto __pyx_L4;
   }
 
-  /* "cftime/_cftime.pyx":1506
+  /* "cftime/_cftime.pyx":1509
  *                 units = 'days since -4714-11-24-12'
  *         else:
  *             units = 'days since 0-1-1-12'             # <<<<<<<<<<<<<<
@@ -31858,7 +31868,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
   }
   __pyx_L4:;
 
-  /* "cftime/_cftime.pyx":1508
+  /* "cftime/_cftime.pyx":1511
  *             units = 'days since 0-1-1-12'
  *         # suppress warning about invalid CF date (year <= 0)
  *         with warnings.catch_warnings():             # <<<<<<<<<<<<<<
@@ -31867,9 +31877,9 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
 */
   /*with:*/ {
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1508, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1511, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_catch_warnings); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1508, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_catch_warnings); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1511, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_3 = 1;
@@ -31889,13 +31899,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1508, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1511, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_8 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1508, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1511, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_2 = NULL;
-    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1508, __pyx_L12_error)
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1511, __pyx_L12_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_3 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -31914,7 +31924,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
       __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1508, __pyx_L12_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1511, __pyx_L12_error)
       __Pyx_GOTREF(__pyx_t_7);
     }
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -31929,7 +31939,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
         __Pyx_XGOTREF(__pyx_t_11);
         /*try:*/ {
 
-          /* "cftime/_cftime.pyx":1509
+          /* "cftime/_cftime.pyx":1512
  *         # suppress warning about invalid CF date (year <= 0)
  *         with warnings.catch_warnings():
  *             warnings.simplefilter("ignore",category=CFWarning)             # <<<<<<<<<<<<<<
@@ -31937,12 +31947,12 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
  *         return jd
 */
           __pyx_t_7 = NULL;
-          __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1509, __pyx_L16_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1512, __pyx_L16_error)
           __Pyx_GOTREF(__pyx_t_6);
-          __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_simplefilter); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1509, __pyx_L16_error)
+          __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_simplefilter); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1512, __pyx_L16_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_CFWarning); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1509, __pyx_L16_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_CFWarning); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1512, __pyx_L16_error)
           __Pyx_GOTREF(__pyx_t_6);
           __pyx_t_3 = 1;
           #if CYTHON_UNPACK_METHODS
@@ -31960,13 +31970,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
             PyObject *__pyx_callargs[3] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ignore, __pyx_t_6};
             #if CYTHON_VECTORCALL
             __pyx_t_12 = __pyx_mstate_global->__pyx_tuple[13];
-            if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1509, __pyx_L16_error)
+            if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1512, __pyx_L16_error)
             __Pyx_INCREF(__pyx_t_12);
             #else
             {
               PyObject *__pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_category};
               __pyx_t_12 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 1);
-              if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1509, __pyx_L16_error)
+              if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1512, __pyx_L16_error)
               __Pyx_GOTREF(__pyx_t_12);
             }
             #endif
@@ -31975,12 +31985,12 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
             __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
             __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1509, __pyx_L16_error)
+            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1512, __pyx_L16_error)
             __Pyx_GOTREF(__pyx_t_1);
           }
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-          /* "cftime/_cftime.pyx":1510
+          /* "cftime/_cftime.pyx":1513
  *         with warnings.catch_warnings():
  *             warnings.simplefilter("ignore",category=CFWarning)
  *             jd = num2date(jday,units=units,calendar=calendar,has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
@@ -31988,7 +31998,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
  * 
 */
           __pyx_t_2 = NULL;
-          __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_num2date); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1510, __pyx_L16_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_num2date); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1513, __pyx_L16_error)
           __Pyx_GOTREF(__pyx_t_12);
           __pyx_t_3 = 1;
           #if CYTHON_UNPACK_METHODS
@@ -32006,13 +32016,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
             PyObject *__pyx_callargs[5] = {__pyx_t_2, __pyx_v_jday, __pyx_v_units, __pyx_v_calendar, __pyx_v_has_year_zero};
             #if CYTHON_VECTORCALL
             __pyx_t_6 = __pyx_mstate_global->__pyx_tuple[15];
-            if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1510, __pyx_L16_error)
+            if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1513, __pyx_L16_error)
             __Pyx_INCREF(__pyx_t_6);
             #else
             {
               PyObject *__pyx_temp[3] = {__pyx_mstate_global->__pyx_n_u_units_2, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_has_year_zero};
               __pyx_t_6 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 3);
-              if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1510, __pyx_L16_error)
+              if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1513, __pyx_L16_error)
               __Pyx_GOTREF(__pyx_t_6);
             }
             #endif
@@ -32020,13 +32030,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
             __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
             __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1510, __pyx_L16_error)
+            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1513, __pyx_L16_error)
             __Pyx_GOTREF(__pyx_t_1);
           }
           __pyx_v_jd = __pyx_t_1;
           __pyx_t_1 = 0;
 
-          /* "cftime/_cftime.pyx":1508
+          /* "cftime/_cftime.pyx":1511
  *             units = 'days since 0-1-1-12'
  *         # suppress warning about invalid CF date (year <= 0)
  *         with warnings.catch_warnings():             # <<<<<<<<<<<<<<
@@ -32046,23 +32056,23 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("cftime._cftime.datetime.fromordinal", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_12, &__pyx_t_6) < 0) __PYX_ERR(0, 1508, __pyx_L18_except_error)
+          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_12, &__pyx_t_6) < 0) __PYX_ERR(0, 1511, __pyx_L18_except_error)
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_12);
           __Pyx_XGOTREF(__pyx_t_6);
           {
             PyObject* __pyx_temp[3] = {__pyx_t_1, __pyx_t_12, __pyx_t_6};
-            __pyx_t_2 = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1508, __pyx_L18_except_error)
+            __pyx_t_2 = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1511, __pyx_L18_except_error)
             __Pyx_GOTREF(__pyx_t_2);
           }
           __pyx_t_13 = __Pyx_PyObject_Call(__pyx_t_8, __pyx_t_2, NULL);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1508, __pyx_L18_except_error)
+          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1511, __pyx_L18_except_error)
           __Pyx_GOTREF(__pyx_t_13);
           __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_13);
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (__pyx_t_5 < (0)) __PYX_ERR(0, 1508, __pyx_L18_except_error)
+          if (__pyx_t_5 < (0)) __PYX_ERR(0, 1511, __pyx_L18_except_error)
           __pyx_t_4 = (!__pyx_t_5);
 
 
@@ -32073,7 +32083,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
             __Pyx_XGIVEREF(__pyx_t_6);
             __Pyx_ErrRestoreWithState(__pyx_t_1, __pyx_t_12, __pyx_t_6);
             __pyx_t_1 = 0;  __pyx_t_12 = 0;  __pyx_t_6 = 0; 
-            __PYX_ERR(0, 1508, __pyx_L18_except_error)
+            __PYX_ERR(0, 1511, __pyx_L18_except_error)
           }
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
@@ -32099,7 +32109,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
         if (__pyx_t_8) {
           __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_8, __pyx_mstate_global->__pyx_tuple[16], NULL);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1508, __pyx_L1_error)
+          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1511, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_11);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         }
@@ -32114,14 +32124,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
     __pyx_L25:;
   }
 
-  /* "cftime/_cftime.pyx":1511
+  /* "cftime/_cftime.pyx":1514
  *             warnings.simplefilter("ignore",category=CFWarning)
  *             jd = num2date(jday,units=units,calendar=calendar,has_year_zero=has_year_zero)
  *         return jd             # <<<<<<<<<<<<<<
  * 
  *     def toordinal(self,fractional=False):
 */
-  if (unlikely(!__pyx_v_jd)) { __Pyx_RaiseUnboundLocalError("jd"); __PYX_ERR(0, 1511, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_jd)) { __Pyx_RaiseUnboundLocalError("jd"); __PYX_ERR(0, 1514, __pyx_L1_error) }
   {
     PyObject *__pyx_temp;
     {
@@ -32133,7 +32143,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1483
+  /* "cftime/_cftime.pyx":1486
  *         return NotImplemented
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -32160,7 +32170,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_28fromordinal(PyObject *__p
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1513
+/* "cftime/_cftime.pyx":1516
  *         return jd
  * 
  *     def toordinal(self,fractional=False):             # <<<<<<<<<<<<<<
@@ -32208,24 +32218,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_fractional,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1513, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1516, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1513, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1516, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "toordinal", 0) < (0)) __PYX_ERR(0, 1513, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "toordinal", 0) < (0)) __PYX_ERR(0, 1516, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_False));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1513, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1516, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -32236,7 +32246,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("toordinal", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 1513, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("toordinal", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 1516, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -32278,7 +32288,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("toordinal", 0);
 
-  /* "cftime/_cftime.pyx":1528
+  /* "cftime/_cftime.pyx":1531
  *         If fractional=True, fractional part of day is included (default
  *         False)."""
  *         ijd = _IntJulianDayFromDate(self.year, self.month, self.day, self.calendar,             # <<<<<<<<<<<<<<
@@ -32288,17 +32298,17 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
   __pyx_t_1 = __pyx_v_self->calendar;
   __Pyx_INCREF(__pyx_t_1);
 
-  /* "cftime/_cftime.pyx":1529
+  /* "cftime/_cftime.pyx":1532
  *         False)."""
  *         ijd = _IntJulianDayFromDate(self.year, self.month, self.day, self.calendar,
  *                skip_transition=False,has_year_zero=self.has_year_zero)             # <<<<<<<<<<<<<<
  *         if fractional:
  *             fracday = self.hour / np.array(24.,np.longdouble) + \
 */
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1529, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "cftime/_cftime.pyx":1528
+  /* "cftime/_cftime.pyx":1531
  *         If fractional=True, fractional part of day is included (default
  *         False)."""
  *         ijd = _IntJulianDayFromDate(self.year, self.month, self.day, self.calendar,             # <<<<<<<<<<<<<<
@@ -32308,42 +32318,42 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
   __pyx_t_4.__pyx_n = 2;
   __pyx_t_4.skip_transition = Py_False;
   __pyx_t_4.has_year_zero = __pyx_t_2;
-  __pyx_t_3 = __pyx_f_6cftime_7_cftime__IntJulianDayFromDate(__pyx_v_self->year, __pyx_v_self->month, __pyx_v_self->day, __pyx_t_1, &__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1528, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_6cftime_7_cftime__IntJulianDayFromDate(__pyx_v_self->year, __pyx_v_self->month, __pyx_v_self->day, __pyx_t_1, &__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1531, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_ijd = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "cftime/_cftime.pyx":1530
+  /* "cftime/_cftime.pyx":1533
  *         ijd = _IntJulianDayFromDate(self.year, self.month, self.day, self.calendar,
  *                skip_transition=False,has_year_zero=self.has_year_zero)
  *         if fractional:             # <<<<<<<<<<<<<<
  *             fracday = self.hour / np.array(24.,np.longdouble) + \
  *                       self.minute / np.array(1440.0,np.longdouble) + \
 */
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_fractional); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1530, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_fractional); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 1533, __pyx_L1_error)
   if (__pyx_t_5) {
 
 
-    /* "cftime/_cftime.pyx":1531
+    /* "cftime/_cftime.pyx":1534
  *                skip_transition=False,has_year_zero=self.has_year_zero)
  *         if fractional:
  *             fracday = self.hour / np.array(24.,np.longdouble) + \             # <<<<<<<<<<<<<<
  *                       self.minute / np.array(1440.0,np.longdouble) + \
  *                       (self.second + self.microsecond/(np.array(1.e6,np.longdouble)))/\
 */
-    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1531, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1534, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1531, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1534, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1531, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1534, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1531, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1534, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_longdouble); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1531, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_longdouble); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1534, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_9 = 1;
@@ -32364,32 +32374,32 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1531, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1534, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    __pyx_t_7 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1531, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1534, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1532
+    /* "cftime/_cftime.pyx":1535
  *         if fractional:
  *             fracday = self.hour / np.array(24.,np.longdouble) + \
  *                       self.minute / np.array(1440.0,np.longdouble) + \             # <<<<<<<<<<<<<<
  *                       (self.second + self.microsecond/(np.array(1.e6,np.longdouble)))/\
  *                       np.array(86400.0,np.longdouble)
 */
-    __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1532, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1535, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1532, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1535, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1532, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1535, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1532, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1535, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_longdouble); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1532, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_longdouble); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1535, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_9 = 1;
@@ -32410,46 +32420,46 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1532, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1535, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
-    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1532, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1535, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1531
+    /* "cftime/_cftime.pyx":1534
  *                skip_transition=False,has_year_zero=self.has_year_zero)
  *         if fractional:
  *             fracday = self.hour / np.array(24.,np.longdouble) + \             # <<<<<<<<<<<<<<
  *                       self.minute / np.array(1440.0,np.longdouble) + \
  *                       (self.second + self.microsecond/(np.array(1.e6,np.longdouble)))/\
 */
-    __pyx_t_3 = __Pyx_PyNumber_Add_object_object(__pyx_t_7, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1531, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyNumber_Add_object_object(__pyx_t_7, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1534, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "cftime/_cftime.pyx":1533
+    /* "cftime/_cftime.pyx":1536
  *             fracday = self.hour / np.array(24.,np.longdouble) + \
  *                       self.minute / np.array(1440.0,np.longdouble) + \
  *                       (self.second + self.microsecond/(np.array(1.e6,np.longdouble)))/\             # <<<<<<<<<<<<<<
  *                       np.array(86400.0,np.longdouble)
  *             # at this point jd is an integer representing noon UTC on the given
 */
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1533, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1533, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_10 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1533, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1533, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1533, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_longdouble); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1533, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_longdouble); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_9 = 1;
@@ -32470,19 +32480,19 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
       __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1533, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1536, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_7, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1533, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_7, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyNumber_Add_int_object(__pyx_t_6, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1533, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyNumber_Add_int_object(__pyx_t_6, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "cftime/_cftime.pyx":1534
+    /* "cftime/_cftime.pyx":1537
  *                       self.minute / np.array(1440.0,np.longdouble) + \
  *                       (self.second + self.microsecond/(np.array(1.e6,np.longdouble)))/\
  *                       np.array(86400.0,np.longdouble)             # <<<<<<<<<<<<<<
@@ -32490,14 +32500,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
  *             # year,month,day.
 */
     __pyx_t_6 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1534, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1537, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1534, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1537, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1534, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1537, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_longdouble); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1534, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_longdouble); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1537, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_9 = 1;
@@ -32518,46 +32528,46 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1534, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1537, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
 
-    /* "cftime/_cftime.pyx":1533
+    /* "cftime/_cftime.pyx":1536
  *             fracday = self.hour / np.array(24.,np.longdouble) + \
  *                       self.minute / np.array(1440.0,np.longdouble) + \
  *                       (self.second + self.microsecond/(np.array(1.e6,np.longdouble)))/\             # <<<<<<<<<<<<<<
  *                       np.array(86400.0,np.longdouble)
  *             # at this point jd is an integer representing noon UTC on the given
 */
-    __pyx_t_11 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1533, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1536, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "cftime/_cftime.pyx":1532
+    /* "cftime/_cftime.pyx":1535
  *         if fractional:
  *             fracday = self.hour / np.array(24.,np.longdouble) + \
  *                       self.minute / np.array(1440.0,np.longdouble) + \             # <<<<<<<<<<<<<<
  *                       (self.second + self.microsecond/(np.array(1.e6,np.longdouble)))/\
  *                       np.array(86400.0,np.longdouble)
 */
-    __pyx_t_1 = __Pyx_PyNumber_Add_object_object(__pyx_t_3, __pyx_t_11); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1532, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Add_object_object(__pyx_t_3, __pyx_t_11); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1535, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __pyx_v_fracday = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "cftime/_cftime.pyx":1538
+    /* "cftime/_cftime.pyx":1541
  *             # year,month,day.
  *             # compute fractional day from hour,minute,second,microsecond
  *             return ijd - 0.5 + fracday             # <<<<<<<<<<<<<<
  *         else:
  *             return ijd
 */
-    __pyx_t_1 = __Pyx_PyFloat_SubtractObjC(__pyx_v_ijd, __pyx_mstate_global->__pyx_float_0_5, 0.5, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1538, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyFloat_SubtractObjC(__pyx_v_ijd, __pyx_mstate_global->__pyx_float_0_5, 0.5, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1541, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_11 = __Pyx_PyNumber_Add_object_object(__pyx_t_1, __pyx_v_fracday); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1538, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyNumber_Add_object_object(__pyx_t_1, __pyx_v_fracday); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1541, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     {
@@ -32571,7 +32581,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
     __pyx_t_11 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1530
+    /* "cftime/_cftime.pyx":1533
  *         ijd = _IntJulianDayFromDate(self.year, self.month, self.day, self.calendar,
  *                skip_transition=False,has_year_zero=self.has_year_zero)
  *         if fractional:             # <<<<<<<<<<<<<<
@@ -32580,7 +32590,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
 */
   }
 
-  /* "cftime/_cftime.pyx":1540
+  /* "cftime/_cftime.pyx":1543
  *             return ijd - 0.5 + fracday
  *         else:
  *             return ijd             # <<<<<<<<<<<<<<
@@ -32600,7 +32610,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
     goto __pyx_L0;
   }
 
-  /* "cftime/_cftime.pyx":1513
+  /* "cftime/_cftime.pyx":1516
  *         return jd
  * 
  *     def toordinal(self,fractional=False):             # <<<<<<<<<<<<<<
@@ -32628,7 +32638,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_30toordinal(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1542
+/* "cftime/_cftime.pyx":1545
  *             return ijd
  * 
  *     def change_calendar(self,calendar,has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -32677,35 +32687,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_calendar,&__pyx_mstate_global->__pyx_n_u_has_year_zero,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1542, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1545, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1542, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1545, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1542, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1545, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "change_calendar", 0) < (0)) __PYX_ERR(0, 1542, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "change_calendar", 0) < (0)) __PYX_ERR(0, 1545, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("change_calendar", 0, 1, 2, i); __PYX_ERR(0, 1542, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("change_calendar", 0, 1, 2, i); __PYX_ERR(0, 1545, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1542, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1545, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1542, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1545, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -32716,7 +32726,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("change_calendar", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 1542, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("change_calendar", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 1545, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -32753,16 +32763,16 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("change_calendar", 0);
 
-  /* "cftime/_cftime.pyx":1545
+  /* "cftime/_cftime.pyx":1548
  *         cdef datetime dt
  *         """return a new cftime.datetime instance with a different 'real-world' calendar."""
  *         if calendar in _idealized_calendars or self.calendar in _idealized_calendars:             # <<<<<<<<<<<<<<
  *             raise ValueError('change_calendar only works for real-world calendars')
  *         # fixed frame of reference is days since -4713-1-1 in the Julian calendar with no year zero
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1545, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1548, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = (__Pyx_PySequence_ContainsTF(__pyx_v_calendar, __pyx_t_2, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1545, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PySequence_ContainsTF(__pyx_v_calendar, __pyx_t_2, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1548, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (!__pyx_t_3) {
 
@@ -32772,9 +32782,9 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
 
     goto __pyx_L4_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1545, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_idealized_calendars); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1548, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = (__Pyx_PySequence_ContainsTF(__pyx_v_self->calendar, __pyx_t_2, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1545, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PySequence_ContainsTF(__pyx_v_self->calendar, __pyx_t_2, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1548, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   __pyx_t_1 = __pyx_t_3;
@@ -32783,7 +32793,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "cftime/_cftime.pyx":1546
+    /* "cftime/_cftime.pyx":1549
  *         """return a new cftime.datetime instance with a different 'real-world' calendar."""
  *         if calendar in _idealized_calendars or self.calendar in _idealized_calendars:
  *             raise ValueError('change_calendar only works for real-world calendars')             # <<<<<<<<<<<<<<
@@ -32796,14 +32806,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_change_calendar_only_works_for_r};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1546, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1549, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1546, __pyx_L1_error)
+    __PYX_ERR(0, 1549, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1545
+    /* "cftime/_cftime.pyx":1548
  *         cdef datetime dt
  *         """return a new cftime.datetime instance with a different 'real-world' calendar."""
  *         if calendar in _idealized_calendars or self.calendar in _idealized_calendars:             # <<<<<<<<<<<<<<
@@ -32812,7 +32822,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
 */
   }
 
-  /* "cftime/_cftime.pyx":1548
+  /* "cftime/_cftime.pyx":1551
  *             raise ValueError('change_calendar only works for real-world calendars')
  *         # fixed frame of reference is days since -4713-1-1 in the Julian calendar with no year zero
  *         return self.fromordinal(self.toordinal(fractional=True),             # <<<<<<<<<<<<<<
@@ -32828,24 +32838,24 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
     PyObject *__pyx_callargs[2] = {__pyx_t_7, Py_True};
     #if CYTHON_VECTORCALL
     __pyx_t_8 = __pyx_mstate_global->__pyx_tuple[17];
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1548, __pyx_L1_error)
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1551, __pyx_L1_error)
     __Pyx_INCREF(__pyx_t_8);
     #else
     {
       PyObject *__pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_fractional};
       __pyx_t_8 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+1, 1);
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1548, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1551, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
     #endif
     __pyx_t_6 = __Pyx_Object_VectorcallMethodKwds((PyObject*)__pyx_mstate_global->__pyx_n_u_toordinal, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1548, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1551, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
 
-  /* "cftime/_cftime.pyx":1549
+  /* "cftime/_cftime.pyx":1552
  *         # fixed frame of reference is days since -4713-1-1 in the Julian calendar with no year zero
  *         return self.fromordinal(self.toordinal(fractional=True),
  *                                 calendar=calendar,has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
@@ -32857,13 +32867,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
     PyObject *__pyx_callargs[4] = {__pyx_t_4, __pyx_t_6, __pyx_v_calendar, __pyx_v_has_year_zero};
     #if CYTHON_VECTORCALL
     __pyx_t_8 = __pyx_mstate_global->__pyx_tuple[1];
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1548, __pyx_L1_error)
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1551, __pyx_L1_error)
     __Pyx_INCREF(__pyx_t_8);
     #else
     {
       PyObject *__pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_has_year_zero};
       __pyx_t_8 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 2);
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1548, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1551, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
     #endif
@@ -32871,7 +32881,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1548, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1551, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   {
@@ -32885,7 +32895,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1542
+  /* "cftime/_cftime.pyx":1545
  *             return ijd
  * 
  *     def change_calendar(self,calendar,has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -32908,7 +32918,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_32change_calendar(struct __
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1551
+/* "cftime/_cftime.pyx":1554
  *                                 calendar=calendar,has_year_zero=has_year_zero)
  * 
  *     def __add__(self, other):             # <<<<<<<<<<<<<<
@@ -32948,7 +32958,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__add__", 0);
 
-  /* "cftime/_cftime.pyx":1554
+  /* "cftime/_cftime.pyx":1557
  *         cdef datetime dt
  *         cdef bint has_year_zero
  *         if isinstance(self, datetime) and isinstance(other, timedelta):             # <<<<<<<<<<<<<<
@@ -32964,9 +32974,9 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 
     goto __pyx_L4_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1554, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1557, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_other, __pyx_t_3); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 1554, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_other, __pyx_t_3); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 1557, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   __pyx_t_1 = __pyx_t_2;
@@ -32975,7 +32985,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1555
+    /* "cftime/_cftime.pyx":1558
  *         cdef bint has_year_zero
  *         if isinstance(self, datetime) and isinstance(other, timedelta):
  *             dt = self             # <<<<<<<<<<<<<<
@@ -32984,36 +32994,36 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 */
     __pyx_t_3 = __pyx_v_self;
     __Pyx_INCREF(__pyx_t_3);
-    if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1555, __pyx_L1_error)
+    if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1558, __pyx_L1_error)
     __pyx_v_dt = ((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1556
+    /* "cftime/_cftime.pyx":1559
  *         if isinstance(self, datetime) and isinstance(other, timedelta):
  *             dt = self
  *             calendar = self.calendar             # <<<<<<<<<<<<<<
  *             has_year_zero = self.has_year_zero
  *             delta = other
 */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1556, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1559, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_calendar = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1557
+    /* "cftime/_cftime.pyx":1560
  *             dt = self
  *             calendar = self.calendar
  *             has_year_zero = self.has_year_zero             # <<<<<<<<<<<<<<
  *             delta = other
  *         elif isinstance(self, timedelta) and isinstance(other, datetime):
 */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1557, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1560, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1557, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1560, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_has_year_zero = __pyx_t_1;
 
-    /* "cftime/_cftime.pyx":1558
+    /* "cftime/_cftime.pyx":1561
  *             calendar = self.calendar
  *             has_year_zero = self.has_year_zero
  *             delta = other             # <<<<<<<<<<<<<<
@@ -33023,7 +33033,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     __Pyx_INCREF(__pyx_v_other);
     __pyx_v_delta = __pyx_v_other;
 
-    /* "cftime/_cftime.pyx":1554
+    /* "cftime/_cftime.pyx":1557
  *         cdef datetime dt
  *         cdef bint has_year_zero
  *         if isinstance(self, datetime) and isinstance(other, timedelta):             # <<<<<<<<<<<<<<
@@ -33033,16 +33043,16 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     goto __pyx_L3;
   }
 
-  /* "cftime/_cftime.pyx":1559
+  /* "cftime/_cftime.pyx":1562
  *             has_year_zero = self.has_year_zero
  *             delta = other
  *         elif isinstance(self, timedelta) and isinstance(other, datetime):             # <<<<<<<<<<<<<<
  *             dt = other
  *             calendar = other.calendar
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1559, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1562, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_self, __pyx_t_3); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 1559, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_self, __pyx_t_3); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 1562, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_2) {
 
@@ -33060,7 +33070,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1560
+    /* "cftime/_cftime.pyx":1563
  *             delta = other
  *         elif isinstance(self, timedelta) and isinstance(other, datetime):
  *             dt = other             # <<<<<<<<<<<<<<
@@ -33069,36 +33079,36 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 */
     __pyx_t_3 = __pyx_v_other;
     __Pyx_INCREF(__pyx_t_3);
-    if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1560, __pyx_L1_error)
+    if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1563, __pyx_L1_error)
     __pyx_v_dt = ((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1561
+    /* "cftime/_cftime.pyx":1564
  *         elif isinstance(self, timedelta) and isinstance(other, datetime):
  *             dt = other
  *             calendar = other.calendar             # <<<<<<<<<<<<<<
  *             has_year_zero = other.has_year_zero
  *             delta = self
 */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1561, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1564, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_calendar = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1562
+    /* "cftime/_cftime.pyx":1565
  *             dt = other
  *             calendar = other.calendar
  *             has_year_zero = other.has_year_zero             # <<<<<<<<<<<<<<
  *             delta = self
  *         else:
 */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1562, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1565, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1562, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1565, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_has_year_zero = __pyx_t_1;
 
-    /* "cftime/_cftime.pyx":1563
+    /* "cftime/_cftime.pyx":1566
  *             calendar = other.calendar
  *             has_year_zero = other.has_year_zero
  *             delta = self             # <<<<<<<<<<<<<<
@@ -33108,7 +33118,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     __Pyx_INCREF(__pyx_v_self);
     __pyx_v_delta = __pyx_v_self;
 
-    /* "cftime/_cftime.pyx":1559
+    /* "cftime/_cftime.pyx":1562
  *             has_year_zero = self.has_year_zero
  *             delta = other
  *         elif isinstance(self, timedelta) and isinstance(other, datetime):             # <<<<<<<<<<<<<<
@@ -33118,7 +33128,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     goto __pyx_L3;
   }
 
-  /* "cftime/_cftime.pyx":1565
+  /* "cftime/_cftime.pyx":1568
  *             delta = self
  *         else:
  *             return NotImplemented             # <<<<<<<<<<<<<<
@@ -33139,31 +33149,31 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
   }
   __pyx_L3:;
 
-  /* "cftime/_cftime.pyx":1568
+  /* "cftime/_cftime.pyx":1571
  *         # return calendar-specific subclasses for backward compatibility,
  *         # even though after 1.3.0 this is no longer necessary.
  *         if calendar == '360_day':             # <<<<<<<<<<<<<<
  *             #return dt.__class__(*add_timedelta_360_day(dt, delta),calendar=calendar)
  *             return Datetime360Day(*add_timedelta_360_day(dt, delta))
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1568, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1571, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1570
+    /* "cftime/_cftime.pyx":1573
  *         if calendar == '360_day':
  *             #return dt.__class__(*add_timedelta_360_day(dt, delta),calendar=calendar)
  *             return Datetime360Day(*add_timedelta_360_day(dt, delta))             # <<<<<<<<<<<<<<
  *         elif calendar == 'noleap':
  *             #return dt.__class__(*add_timedelta(dt, delta, no_leap, False, True),calendar=calendar)
 */
-    __pyx_t_3 = __pyx_f_6cftime_7_cftime_add_timedelta_360_day(__pyx_v_dt, __pyx_v_delta); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1570, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_6cftime_7_cftime_add_timedelta_360_day(__pyx_v_dt, __pyx_v_delta); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1573, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     if (unlikely(__pyx_t_3 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-      __PYX_ERR(0, 1570, __pyx_L1_error)
+      __PYX_ERR(0, 1573, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_Datetime360Day), __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1570, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_Datetime360Day), __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1573, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     {
@@ -33177,7 +33187,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1568
+    /* "cftime/_cftime.pyx":1571
  *         # return calendar-specific subclasses for backward compatibility,
  *         # even though after 1.3.0 this is no longer necessary.
  *         if calendar == '360_day':             # <<<<<<<<<<<<<<
@@ -33186,31 +33196,31 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 */
   }
 
-  /* "cftime/_cftime.pyx":1571
+  /* "cftime/_cftime.pyx":1574
  *             #return dt.__class__(*add_timedelta_360_day(dt, delta),calendar=calendar)
  *             return Datetime360Day(*add_timedelta_360_day(dt, delta))
  *         elif calendar == 'noleap':             # <<<<<<<<<<<<<<
  *             #return dt.__class__(*add_timedelta(dt, delta, no_leap, False, True),calendar=calendar)
  *             return DatetimeNoLeap(*add_timedelta(dt, delta, no_leap, False, True))
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_noleap, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1571, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_noleap, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1574, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1573
+    /* "cftime/_cftime.pyx":1576
  *         elif calendar == 'noleap':
  *             #return dt.__class__(*add_timedelta(dt, delta, no_leap, False, True),calendar=calendar)
  *             return DatetimeNoLeap(*add_timedelta(dt, delta, no_leap, False, True))             # <<<<<<<<<<<<<<
  *         elif calendar == 'all_leap':
  *             #return dt.__class__(*add_timedelta(dt, delta, all_leap, False, True),calendar=calendar)
 */
-    __pyx_t_4 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_no_leap, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1573, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_no_leap, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1576, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     if (unlikely(__pyx_t_4 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-      __PYX_ERR(0, 1573, __pyx_L1_error)
+      __PYX_ERR(0, 1576, __pyx_L1_error)
     }
-    __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap), __pyx_t_4, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1573, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap), __pyx_t_4, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1576, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     {
@@ -33224,7 +33234,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1571
+    /* "cftime/_cftime.pyx":1574
  *             #return dt.__class__(*add_timedelta_360_day(dt, delta),calendar=calendar)
  *             return Datetime360Day(*add_timedelta_360_day(dt, delta))
  *         elif calendar == 'noleap':             # <<<<<<<<<<<<<<
@@ -33233,31 +33243,31 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 */
   }
 
-  /* "cftime/_cftime.pyx":1574
+  /* "cftime/_cftime.pyx":1577
  *             #return dt.__class__(*add_timedelta(dt, delta, no_leap, False, True),calendar=calendar)
  *             return DatetimeNoLeap(*add_timedelta(dt, delta, no_leap, False, True))
  *         elif calendar == 'all_leap':             # <<<<<<<<<<<<<<
  *             #return dt.__class__(*add_timedelta(dt, delta, all_leap, False, True),calendar=calendar)
  *             return DatetimeAllLeap(*add_timedelta(dt, delta, all_leap, False, True))
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_all_leap, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1574, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_all_leap, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1577, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1576
+    /* "cftime/_cftime.pyx":1579
  *         elif calendar == 'all_leap':
  *             #return dt.__class__(*add_timedelta(dt, delta, all_leap, False, True),calendar=calendar)
  *             return DatetimeAllLeap(*add_timedelta(dt, delta, all_leap, False, True))             # <<<<<<<<<<<<<<
  *         elif calendar == 'julian':
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_julian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
 */
-    __pyx_t_3 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_all_leap, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1576, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_all_leap, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1579, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     if (unlikely(__pyx_t_3 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-      __PYX_ERR(0, 1576, __pyx_L1_error)
+      __PYX_ERR(0, 1579, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap), __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1576, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap), __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1579, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     {
@@ -33271,7 +33281,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1574
+    /* "cftime/_cftime.pyx":1577
  *             #return dt.__class__(*add_timedelta(dt, delta, no_leap, False, True),calendar=calendar)
  *             return DatetimeNoLeap(*add_timedelta(dt, delta, no_leap, False, True))
  *         elif calendar == 'all_leap':             # <<<<<<<<<<<<<<
@@ -33280,37 +33290,37 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 */
   }
 
-  /* "cftime/_cftime.pyx":1577
+  /* "cftime/_cftime.pyx":1580
  *             #return dt.__class__(*add_timedelta(dt, delta, all_leap, False, True),calendar=calendar)
  *             return DatetimeAllLeap(*add_timedelta(dt, delta, all_leap, False, True))
  *         elif calendar == 'julian':             # <<<<<<<<<<<<<<
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_julian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeJulian(*add_timedelta(dt, delta, is_leap_julian, False, has_year_zero),has_year_zero=has_year_zero)
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1577, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1580, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1579
+    /* "cftime/_cftime.pyx":1582
  *         elif calendar == 'julian':
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_julian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeJulian(*add_timedelta(dt, delta, is_leap_julian, False, has_year_zero),has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  *         elif calendar == 'standard':
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_gregorian, True, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
 */
-    __pyx_t_4 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_is_leap_julian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1579, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_is_leap_julian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1582, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     if (unlikely(__pyx_t_4 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-      __PYX_ERR(0, 1579, __pyx_L1_error)
+      __PYX_ERR(0, 1582, __pyx_L1_error)
     }
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1579, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1582, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1579, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1582, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_5) < (0)) __PYX_ERR(0, 1579, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_5) < (0)) __PYX_ERR(0, 1582, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeJulian), __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1579, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeJulian), __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1582, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -33325,7 +33335,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     __pyx_t_5 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1577
+    /* "cftime/_cftime.pyx":1580
  *             #return dt.__class__(*add_timedelta(dt, delta, all_leap, False, True),calendar=calendar)
  *             return DatetimeAllLeap(*add_timedelta(dt, delta, all_leap, False, True))
  *         elif calendar == 'julian':             # <<<<<<<<<<<<<<
@@ -33334,37 +33344,37 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 */
   }
 
-  /* "cftime/_cftime.pyx":1580
+  /* "cftime/_cftime.pyx":1583
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_julian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeJulian(*add_timedelta(dt, delta, is_leap_julian, False, has_year_zero),has_year_zero=has_year_zero)
  *         elif calendar == 'standard':             # <<<<<<<<<<<<<<
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_gregorian, True, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeGregorian(*add_timedelta(dt, delta, is_leap_gregorian, True, has_year_zero),has_year_zero=has_year_zero)
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1580, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1583, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1582
+    /* "cftime/_cftime.pyx":1585
  *         elif calendar == 'standard':
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_gregorian, True, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeGregorian(*add_timedelta(dt, delta, is_leap_gregorian, True, has_year_zero),has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  *         elif calendar == 'proleptic_gregorian':
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
 */
-    __pyx_t_5 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_is_leap_gregorian, 1, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1582, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_is_leap_gregorian, 1, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1585, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     if (unlikely(__pyx_t_5 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-      __PYX_ERR(0, 1582, __pyx_L1_error)
+      __PYX_ERR(0, 1585, __pyx_L1_error)
     }
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1582, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1585, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1582, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1585, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_4) < (0)) __PYX_ERR(0, 1582, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_4) < (0)) __PYX_ERR(0, 1585, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian), __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1582, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian), __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1585, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -33379,7 +33389,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1580
+    /* "cftime/_cftime.pyx":1583
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_julian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeJulian(*add_timedelta(dt, delta, is_leap_julian, False, has_year_zero),has_year_zero=has_year_zero)
  *         elif calendar == 'standard':             # <<<<<<<<<<<<<<
@@ -33388,37 +33398,37 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 */
   }
 
-  /* "cftime/_cftime.pyx":1583
+  /* "cftime/_cftime.pyx":1586
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_gregorian, True, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeGregorian(*add_timedelta(dt, delta, is_leap_gregorian, True, has_year_zero),has_year_zero=has_year_zero)
  *         elif calendar == 'proleptic_gregorian':             # <<<<<<<<<<<<<<
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeProlepticGregorian(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=has_year_zero)
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1583, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1586, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1585
+    /* "cftime/_cftime.pyx":1588
  *         elif calendar == 'proleptic_gregorian':
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeProlepticGregorian(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  *         elif calendar == 'tai':
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
 */
-    __pyx_t_4 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1585, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1588, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     if (unlikely(__pyx_t_4 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-      __PYX_ERR(0, 1585, __pyx_L1_error)
+      __PYX_ERR(0, 1588, __pyx_L1_error)
     }
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1585, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1588, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1585, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1588, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_5) < (0)) __PYX_ERR(0, 1585, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_5) < (0)) __PYX_ERR(0, 1588, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian), __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1585, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian), __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1588, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -33433,7 +33443,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     __pyx_t_5 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1583
+    /* "cftime/_cftime.pyx":1586
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_gregorian, True, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeGregorian(*add_timedelta(dt, delta, is_leap_gregorian, True, has_year_zero),has_year_zero=has_year_zero)
  *         elif calendar == 'proleptic_gregorian':             # <<<<<<<<<<<<<<
@@ -33442,37 +33452,37 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 */
   }
 
-  /* "cftime/_cftime.pyx":1586
+  /* "cftime/_cftime.pyx":1589
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeProlepticGregorian(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=has_year_zero)
  *         elif calendar == 'tai':             # <<<<<<<<<<<<<<
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeTAI(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=has_year_zero)
 */
-  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1586, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1589, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1588
+    /* "cftime/_cftime.pyx":1591
  *         elif calendar == 'tai':
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeTAI(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  *         else:
  *             return NotImplemented
 */
-    __pyx_t_5 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1588, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_6cftime_7_cftime_add_timedelta(__pyx_v_dt, __pyx_v_delta, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1591, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     if (unlikely(__pyx_t_5 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-      __PYX_ERR(0, 1588, __pyx_L1_error)
+      __PYX_ERR(0, 1591, __pyx_L1_error)
     }
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1588, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1591, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1588, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1591, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_4) < (0)) __PYX_ERR(0, 1588, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_4) < (0)) __PYX_ERR(0, 1591, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeTAI), __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1588, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeTAI), __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1591, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -33487,7 +33497,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1586
+    /* "cftime/_cftime.pyx":1589
  *             #return dt.__class__(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),calendar=calendar,has_year_zero=has_year_zero)
  *             return DatetimeProlepticGregorian(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=has_year_zero)
  *         elif calendar == 'tai':             # <<<<<<<<<<<<<<
@@ -33496,7 +33506,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
 */
   }
 
-  /* "cftime/_cftime.pyx":1590
+  /* "cftime/_cftime.pyx":1593
  *             return DatetimeTAI(*add_timedelta(dt, delta, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=has_year_zero)
  *         else:
  *             return NotImplemented             # <<<<<<<<<<<<<<
@@ -33516,7 +33526,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
     goto __pyx_L0;
   }
 
-  /* "cftime/_cftime.pyx":1551
+  /* "cftime/_cftime.pyx":1554
  *                                 calendar=calendar,has_year_zero=has_year_zero)
  * 
  *     def __add__(self, other):             # <<<<<<<<<<<<<<
@@ -33541,7 +33551,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_34__add__(PyObject *__pyx_v
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1592
+/* "cftime/_cftime.pyx":1595
  *             return NotImplemented
  * 
  *     def __sub__(self, other):             # <<<<<<<<<<<<<<
@@ -33588,7 +33598,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__sub__", 0);
 
-  /* "cftime/_cftime.pyx":1595
+  /* "cftime/_cftime.pyx":1598
  *         cdef datetime dt
  *         cdef bint has_year_zero
  *         if isinstance(self, datetime): # left arg is a datetime instance             # <<<<<<<<<<<<<<
@@ -33599,7 +33609,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1596
+    /* "cftime/_cftime.pyx":1599
  *         cdef bint has_year_zero
  *         if isinstance(self, datetime): # left arg is a datetime instance
  *             dt = self             # <<<<<<<<<<<<<<
@@ -33608,11 +33618,11 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
     __pyx_t_2 = __pyx_v_self;
     __Pyx_INCREF(__pyx_t_2);
-    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1596, __pyx_L1_error)
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1599, __pyx_L1_error)
     __pyx_v_dt = ((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1597
+    /* "cftime/_cftime.pyx":1600
  *         if isinstance(self, datetime): # left arg is a datetime instance
  *             dt = self
  *             if isinstance(other, datetime):             # <<<<<<<<<<<<<<
@@ -33623,21 +33633,21 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
     if (__pyx_t_1) {
 
 
-      /* "cftime/_cftime.pyx":1599
+      /* "cftime/_cftime.pyx":1602
  *             if isinstance(other, datetime):
  *                 # datetime - datetime
  *                 if dt.calendar != other.calendar:             # <<<<<<<<<<<<<<
  *                     raise TypeError("cannot compute the time difference between dates with different calendars")
  *                 if dt.calendar == "":
 */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1599, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1602, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_1 = __Pyx_PyObject_CompareBoolNe_str_object(__pyx_v_dt->calendar, __pyx_t_2, Py_NE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1599, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareBoolNe_str_object(__pyx_v_dt->calendar, __pyx_t_2, Py_NE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1602, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       if (unlikely(__pyx_t_1)) {
 
 
-        /* "cftime/_cftime.pyx":1600
+        /* "cftime/_cftime.pyx":1603
  *                 # datetime - datetime
  *                 if dt.calendar != other.calendar:
  *                     raise TypeError("cannot compute the time difference between dates with different calendars")             # <<<<<<<<<<<<<<
@@ -33650,14 +33660,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
           PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_cannot_compute_the_time_differen};
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1600, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1603, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __Pyx_Raise(__pyx_t_2, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        __PYX_ERR(0, 1600, __pyx_L1_error)
+        __PYX_ERR(0, 1603, __pyx_L1_error)
 
-        /* "cftime/_cftime.pyx":1599
+        /* "cftime/_cftime.pyx":1602
  *             if isinstance(other, datetime):
  *                 # datetime - datetime
  *                 if dt.calendar != other.calendar:             # <<<<<<<<<<<<<<
@@ -33666,18 +33676,18 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1601
+      /* "cftime/_cftime.pyx":1604
  *                 if dt.calendar != other.calendar:
  *                     raise TypeError("cannot compute the time difference between dates with different calendars")
  *                 if dt.calendar == "":             # <<<<<<<<<<<<<<
  *                     raise TypeError("cannot compute the time difference between dates that are not calendar-aware")
  *                 if dt.has_year_zero != other.has_year_zero:
 */
-      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_str_str(__pyx_v_dt->calendar, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1601, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_str_str(__pyx_v_dt->calendar, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1604, __pyx_L1_error)
       if (unlikely(__pyx_t_1)) {
 
 
-        /* "cftime/_cftime.pyx":1602
+        /* "cftime/_cftime.pyx":1605
  *                     raise TypeError("cannot compute the time difference between dates with different calendars")
  *                 if dt.calendar == "":
  *                     raise TypeError("cannot compute the time difference between dates that are not calendar-aware")             # <<<<<<<<<<<<<<
@@ -33690,14 +33700,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
           PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_cannot_compute_the_time_differen_2};
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1602, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1605, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __Pyx_Raise(__pyx_t_2, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        __PYX_ERR(0, 1602, __pyx_L1_error)
+        __PYX_ERR(0, 1605, __pyx_L1_error)
 
-        /* "cftime/_cftime.pyx":1601
+        /* "cftime/_cftime.pyx":1604
  *                 if dt.calendar != other.calendar:
  *                     raise TypeError("cannot compute the time difference between dates with different calendars")
  *                 if dt.calendar == "":             # <<<<<<<<<<<<<<
@@ -33706,24 +33716,24 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1603
+      /* "cftime/_cftime.pyx":1606
  *                 if dt.calendar == "":
  *                     raise TypeError("cannot compute the time difference between dates that are not calendar-aware")
  *                 if dt.has_year_zero != other.has_year_zero:             # <<<<<<<<<<<<<<
  *                     raise TypeError("cannot compute the time difference between dates with year zero conventions")
  *                 ordinal_self = self.toordinal() # julian day
 */
-      __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_dt->has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1603, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_dt->has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1606, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1603, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1606, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyObject_RichCompareBool(__pyx_t_2, __pyx_t_3, Py_NE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1603, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_RichCompareBool(__pyx_t_2, __pyx_t_3, Py_NE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1606, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       if (unlikely(__pyx_t_1)) {
 
 
-        /* "cftime/_cftime.pyx":1604
+        /* "cftime/_cftime.pyx":1607
  *                     raise TypeError("cannot compute the time difference between dates that are not calendar-aware")
  *                 if dt.has_year_zero != other.has_year_zero:
  *                     raise TypeError("cannot compute the time difference between dates with year zero conventions")             # <<<<<<<<<<<<<<
@@ -33736,14 +33746,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
           PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_cannot_compute_the_time_differen_3};
           __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1604, __pyx_L1_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1607, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
         }
         __Pyx_Raise(__pyx_t_3, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __PYX_ERR(0, 1604, __pyx_L1_error)
+        __PYX_ERR(0, 1607, __pyx_L1_error)
 
-        /* "cftime/_cftime.pyx":1603
+        /* "cftime/_cftime.pyx":1606
  *                 if dt.calendar == "":
  *                     raise TypeError("cannot compute the time difference between dates that are not calendar-aware")
  *                 if dt.has_year_zero != other.has_year_zero:             # <<<<<<<<<<<<<<
@@ -33752,7 +33762,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1605
+      /* "cftime/_cftime.pyx":1608
  *                 if dt.has_year_zero != other.has_year_zero:
  *                     raise TypeError("cannot compute the time difference between dates with year zero conventions")
  *                 ordinal_self = self.toordinal() # julian day             # <<<<<<<<<<<<<<
@@ -33766,13 +33776,13 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
         __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_toordinal, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1605, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1608, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __pyx_v_ordinal_self = __pyx_t_3;
       __pyx_t_3 = 0;
 
-      /* "cftime/_cftime.pyx":1606
+      /* "cftime/_cftime.pyx":1609
  *                     raise TypeError("cannot compute the time difference between dates with year zero conventions")
  *                 ordinal_self = self.toordinal() # julian day
  *                 ordinal_other = other.toordinal()             # <<<<<<<<<<<<<<
@@ -33786,98 +33796,98 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
         __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_toordinal, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1606, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1609, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __pyx_v_ordinal_other = __pyx_t_3;
       __pyx_t_3 = 0;
 
-      /* "cftime/_cftime.pyx":1607
+      /* "cftime/_cftime.pyx":1610
  *                 ordinal_self = self.toordinal() # julian day
  *                 ordinal_other = other.toordinal()
  *                 days = ordinal_self - ordinal_other             # <<<<<<<<<<<<<<
  *                 seconds_self = dt.second + 60 * dt.minute + 3600 * dt.hour
  *                 seconds_other = other.second + 60 * other.minute + 3600 * other.hour
 */
-      __pyx_t_3 = __Pyx_PyNumber_Subtract_object_object(__pyx_v_ordinal_self, __pyx_v_ordinal_other); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1607, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyNumber_Subtract_object_object(__pyx_v_ordinal_self, __pyx_v_ordinal_other); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1610, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_v_days = __pyx_t_3;
       __pyx_t_3 = 0;
 
-      /* "cftime/_cftime.pyx":1608
+      /* "cftime/_cftime.pyx":1611
  *                 ordinal_other = other.toordinal()
  *                 days = ordinal_self - ordinal_other
  *                 seconds_self = dt.second + 60 * dt.minute + 3600 * dt.hour             # <<<<<<<<<<<<<<
  *                 seconds_other = other.second + 60 * other.minute + 3600 * other.hour
  *                 seconds = seconds_self - seconds_other
 */
-      __pyx_t_3 = __Pyx_PyLong_From_long(((__pyx_v_dt->second + (60 * __pyx_v_dt->minute)) + (0xE10 * __pyx_v_dt->hour))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1608, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyLong_From_long(((__pyx_v_dt->second + (60 * __pyx_v_dt->minute)) + (0xE10 * __pyx_v_dt->hour))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1611, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      if (__Pyx_PyInt_FromNumber(&__pyx_t_3, NULL, 0) < (0)) __PYX_ERR(0, 1608, __pyx_L1_error)
+      if (__Pyx_PyInt_FromNumber(&__pyx_t_3, NULL, 0) < (0)) __PYX_ERR(0, 1611, __pyx_L1_error)
       __pyx_v_seconds_self = ((PyObject*)__pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "cftime/_cftime.pyx":1609
+      /* "cftime/_cftime.pyx":1612
  *                 days = ordinal_self - ordinal_other
  *                 seconds_self = dt.second + 60 * dt.minute + 3600 * dt.hour
  *                 seconds_other = other.second + 60 * other.minute + 3600 * other.hour             # <<<<<<<<<<<<<<
  *                 seconds = seconds_self - seconds_other
  *                 microseconds = dt.microsecond - other.microsecond
 */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_second); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1609, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_second); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1612, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_minute); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1609, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_minute); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1612, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_5 = __Pyx_PyLong_MultiplyCObj(__pyx_mstate_global->__pyx_int_60, __pyx_t_2, 60, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1609, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_MultiplyCObj(__pyx_mstate_global->__pyx_int_60, __pyx_t_2, 60, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1612, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __pyx_t_2 = __Pyx_PyNumber_Add_object_object(__pyx_t_3, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1609, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyNumber_Add_object_object(__pyx_t_3, __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1612, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_hour); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1609, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_hour); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1612, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_3 = __Pyx_PyLong_MultiplyCObj(__pyx_mstate_global->__pyx_int_3600, __pyx_t_5, 0xE10, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1609, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyLong_MultiplyCObj(__pyx_mstate_global->__pyx_int_3600, __pyx_t_5, 0xE10, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1612, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyNumber_Add_object_object(__pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1609, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyNumber_Add_object_object(__pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1612, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_v_seconds_other = __pyx_t_5;
       __pyx_t_5 = 0;
 
-      /* "cftime/_cftime.pyx":1610
+      /* "cftime/_cftime.pyx":1613
  *                 seconds_self = dt.second + 60 * dt.minute + 3600 * dt.hour
  *                 seconds_other = other.second + 60 * other.minute + 3600 * other.hour
  *                 seconds = seconds_self - seconds_other             # <<<<<<<<<<<<<<
  *                 microseconds = dt.microsecond - other.microsecond
  *                 return timedelta(days, seconds, microseconds)
 */
-      __pyx_t_5 = __Pyx_PyNumber_Subtract_int_object(__pyx_v_seconds_self, __pyx_v_seconds_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1610, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyNumber_Subtract_int_object(__pyx_v_seconds_self, __pyx_v_seconds_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1613, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_v_seconds = __pyx_t_5;
       __pyx_t_5 = 0;
 
-      /* "cftime/_cftime.pyx":1611
+      /* "cftime/_cftime.pyx":1614
  *                 seconds_other = other.second + 60 * other.minute + 3600 * other.hour
  *                 seconds = seconds_self - seconds_other
  *                 microseconds = dt.microsecond - other.microsecond             # <<<<<<<<<<<<<<
  *                 return timedelta(days, seconds, microseconds)
  *             elif isinstance(other, datetime_python):
 */
-      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_dt->microsecond); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1611, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_dt->microsecond); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1614, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_microsecond); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1611, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_microsecond); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1614, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_2 = __Pyx_PyNumber_Subtract_int_object(__pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1611, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyNumber_Subtract_int_object(__pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1614, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_v_microseconds = __pyx_t_2;
       __pyx_t_2 = 0;
 
-      /* "cftime/_cftime.pyx":1612
+      /* "cftime/_cftime.pyx":1615
  *                 seconds = seconds_self - seconds_other
  *                 microseconds = dt.microsecond - other.microsecond
  *                 return timedelta(days, seconds, microseconds)             # <<<<<<<<<<<<<<
@@ -33885,7 +33895,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
  *                 # datetime - real_datetime
 */
       __pyx_t_3 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1612, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1615, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_4 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -33904,7 +33914,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_4, (4-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1612, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1615, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       {
@@ -33918,7 +33928,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
       __pyx_t_2 = 0;
       goto __pyx_L0;
 
-      /* "cftime/_cftime.pyx":1597
+      /* "cftime/_cftime.pyx":1600
  *         if isinstance(self, datetime): # left arg is a datetime instance
  *             dt = self
  *             if isinstance(other, datetime):             # <<<<<<<<<<<<<<
@@ -33927,21 +33937,21 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
     }
 
-    /* "cftime/_cftime.pyx":1613
+    /* "cftime/_cftime.pyx":1616
  *                 microseconds = dt.microsecond - other.microsecond
  *                 return timedelta(days, seconds, microseconds)
  *             elif isinstance(other, datetime_python):             # <<<<<<<<<<<<<<
  *                 # datetime - real_datetime
  *                 if not dt.datetime_compatible:
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime_python); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1613, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime_python); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1616, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_1 = PyObject_IsInstance(__pyx_v_other, __pyx_t_2); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 1613, __pyx_L1_error)
+    __pyx_t_1 = PyObject_IsInstance(__pyx_v_other, __pyx_t_2); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 1616, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (__pyx_t_1) {
 
 
-      /* "cftime/_cftime.pyx":1615
+      /* "cftime/_cftime.pyx":1618
  *             elif isinstance(other, datetime_python):
  *                 # datetime - real_datetime
  *                 if not dt.datetime_compatible:             # <<<<<<<<<<<<<<
@@ -33953,7 +33963,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
       if (unlikely(__pyx_t_1)) {
 
 
-        /* "cftime/_cftime.pyx":1616
+        /* "cftime/_cftime.pyx":1619
  *                 # datetime - real_datetime
  *                 if not dt.datetime_compatible:
  *                     msg="""             # <<<<<<<<<<<<<<
@@ -33963,7 +33973,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_Cannot_compute_the_time_differe);
         __pyx_v_msg = __pyx_mstate_global->__pyx_kp_u_Cannot_compute_the_time_differe;
 
-        /* "cftime/_cftime.pyx":1621
+        /* "cftime/_cftime.pyx":1624
  * datetime instance.  Try using only_use_cftime_datetimes=True when creating the
  * datetime object."""
  *                     raise TypeError(msg)             # <<<<<<<<<<<<<<
@@ -33976,14 +33986,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
           PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_msg};
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1621, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1624, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __Pyx_Raise(__pyx_t_2, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        __PYX_ERR(0, 1621, __pyx_L1_error)
+        __PYX_ERR(0, 1624, __pyx_L1_error)
 
-        /* "cftime/_cftime.pyx":1615
+        /* "cftime/_cftime.pyx":1618
  *             elif isinstance(other, datetime_python):
  *                 # datetime - real_datetime
  *                 if not dt.datetime_compatible:             # <<<<<<<<<<<<<<
@@ -33992,16 +34002,16 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1622
+      /* "cftime/_cftime.pyx":1625
  * datetime object."""
  *                     raise TypeError(msg)
  *                 return dt._to_real_datetime() - other             # <<<<<<<<<<<<<<
  *             elif isinstance(other, timedelta):
  *                 # datetime - timedelta
 */
-      __pyx_t_2 = ((struct __pyx_vtabstruct_6cftime_7_cftime_datetime *)__pyx_v_dt->__pyx_vtab)->_to_real_datetime(__pyx_v_dt, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1622, __pyx_L1_error)
+      __pyx_t_2 = ((struct __pyx_vtabstruct_6cftime_7_cftime_datetime *)__pyx_v_dt->__pyx_vtab)->_to_real_datetime(__pyx_v_dt, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1625, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_5 = __Pyx_PyNumber_Subtract_object_object(__pyx_t_2, __pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1622, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyNumber_Subtract_object_object(__pyx_t_2, __pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1625, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       {
@@ -34015,7 +34025,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
       __pyx_t_5 = 0;
       goto __pyx_L0;
 
-      /* "cftime/_cftime.pyx":1613
+      /* "cftime/_cftime.pyx":1616
  *                 microseconds = dt.microsecond - other.microsecond
  *                 return timedelta(days, seconds, microseconds)
  *             elif isinstance(other, datetime_python):             # <<<<<<<<<<<<<<
@@ -34024,119 +34034,65 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
     }
 
-    /* "cftime/_cftime.pyx":1623
+    /* "cftime/_cftime.pyx":1626
  *                     raise TypeError(msg)
  *                 return dt._to_real_datetime() - other
  *             elif isinstance(other, timedelta):             # <<<<<<<<<<<<<<
  *                 # datetime - timedelta
  *                 # return calendar-specific subclasses for backward compatibility,
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1623, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1626, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_1 = PyObject_IsInstance(__pyx_v_other, __pyx_t_5); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 1623, __pyx_L1_error)
+    __pyx_t_1 = PyObject_IsInstance(__pyx_v_other, __pyx_t_5); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 1626, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     if (__pyx_t_1) {
 
 
-      /* "cftime/_cftime.pyx":1627
+      /* "cftime/_cftime.pyx":1630
  *                 # return calendar-specific subclasses for backward compatibility,
  *                 # even though after 1.3.0 this is no longer necessary.
  *                 has_year_zero=self.has_year_zero             # <<<<<<<<<<<<<<
  *                 if self.calendar == '360_day':
  *                     #return self.__class__(*add_timedelta_360_day(self, -other),calendar=self.calendar)
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1627, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1630, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1627, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1630, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_v_has_year_zero = __pyx_t_1;
 
-      /* "cftime/_cftime.pyx":1628
+      /* "cftime/_cftime.pyx":1631
  *                 # even though after 1.3.0 this is no longer necessary.
  *                 has_year_zero=self.has_year_zero
  *                 if self.calendar == '360_day':             # <<<<<<<<<<<<<<
  *                     #return self.__class__(*add_timedelta_360_day(self, -other),calendar=self.calendar)
  *                     return Datetime360Day(*add_timedelta_360_day(self, -other))
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1628, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1631, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1628, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1631, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       if (__pyx_t_1) {
 
 
-        /* "cftime/_cftime.pyx":1630
+        /* "cftime/_cftime.pyx":1633
  *                 if self.calendar == '360_day':
  *                     #return self.__class__(*add_timedelta_360_day(self, -other),calendar=self.calendar)
  *                     return Datetime360Day(*add_timedelta_360_day(self, -other))             # <<<<<<<<<<<<<<
  *                 elif self.calendar == 'noleap':
  *                     #return self.__class__(*add_timedelta(self, -other, no_leap, False, True),calendar=self.calendar)
 */
-        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1630, __pyx_L1_error)
-        __pyx_t_5 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1630, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta_360_day(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1630, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_2);
-        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(__pyx_t_2 == Py_None)) {
-          PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-          __PYX_ERR(0, 1630, __pyx_L1_error)
-        }
-        __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_Datetime360Day), __pyx_t_2, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1630, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_5);
-        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        {
-          PyObject *__pyx_temp;
-          {
-            __pyx_temp = __pyx_r;
-            __pyx_r = __pyx_t_5;
-          }
-          __Pyx_XDECREF(__pyx_temp);
-        }
-        __pyx_t_5 = 0;
-        goto __pyx_L0;
-
-        /* "cftime/_cftime.pyx":1628
- *                 # even though after 1.3.0 this is no longer necessary.
- *                 has_year_zero=self.has_year_zero
- *                 if self.calendar == '360_day':             # <<<<<<<<<<<<<<
- *                     #return self.__class__(*add_timedelta_360_day(self, -other),calendar=self.calendar)
- *                     return Datetime360Day(*add_timedelta_360_day(self, -other))
-*/
-      }
-
-      /* "cftime/_cftime.pyx":1631
- *                     #return self.__class__(*add_timedelta_360_day(self, -other),calendar=self.calendar)
- *                     return Datetime360Day(*add_timedelta_360_day(self, -other))
- *                 elif self.calendar == 'noleap':             # <<<<<<<<<<<<<<
- *                     #return self.__class__(*add_timedelta(self, -other, no_leap, False, True),calendar=self.calendar)
- *                     return DatetimeNoLeap(*add_timedelta(self, -other, no_leap, False, True))
-*/
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1631, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_noleap, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1631, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (__pyx_t_1) {
-
-
-        /* "cftime/_cftime.pyx":1633
- *                 elif self.calendar == 'noleap':
- *                     #return self.__class__(*add_timedelta(self, -other, no_leap, False, True),calendar=self.calendar)
- *                     return DatetimeNoLeap(*add_timedelta(self, -other, no_leap, False, True))             # <<<<<<<<<<<<<<
- *                 elif self.calendar == 'all_leap':
- *                     #return self.__class__(*add_timedelta(self, -other, all_leap, False, True),calendar=self.calendar)
-*/
         if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1633, __pyx_L1_error)
         __pyx_t_5 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1633, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5, __pyx_f_6cftime_7_cftime_no_leap, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1633, __pyx_L1_error)
+        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta_360_day(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1633, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         if (unlikely(__pyx_t_2 == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
           __PYX_ERR(0, 1633, __pyx_L1_error)
         }
-        __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap), __pyx_t_2, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1633, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_Datetime360Day), __pyx_t_2, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1633, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         {
@@ -34151,46 +34107,46 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         goto __pyx_L0;
 
         /* "cftime/_cftime.pyx":1631
+ *                 # even though after 1.3.0 this is no longer necessary.
+ *                 has_year_zero=self.has_year_zero
+ *                 if self.calendar == '360_day':             # <<<<<<<<<<<<<<
+ *                     #return self.__class__(*add_timedelta_360_day(self, -other),calendar=self.calendar)
+ *                     return Datetime360Day(*add_timedelta_360_day(self, -other))
+*/
+      }
+
+      /* "cftime/_cftime.pyx":1634
  *                     #return self.__class__(*add_timedelta_360_day(self, -other),calendar=self.calendar)
  *                     return Datetime360Day(*add_timedelta_360_day(self, -other))
  *                 elif self.calendar == 'noleap':             # <<<<<<<<<<<<<<
  *                     #return self.__class__(*add_timedelta(self, -other, no_leap, False, True),calendar=self.calendar)
  *                     return DatetimeNoLeap(*add_timedelta(self, -other, no_leap, False, True))
 */
-      }
-
-      /* "cftime/_cftime.pyx":1634
- *                     #return self.__class__(*add_timedelta(self, -other, no_leap, False, True),calendar=self.calendar)
- *                     return DatetimeNoLeap(*add_timedelta(self, -other, no_leap, False, True))
- *                 elif self.calendar == 'all_leap':             # <<<<<<<<<<<<<<
- *                     #return self.__class__(*add_timedelta(self, -other, all_leap, False, True),calendar=self.calendar)
- *                     return DatetimeAllLeap(*add_timedelta(self, -other, all_leap, False, True))
-*/
       __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1634, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_all_leap, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1634, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_noleap, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1634, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       if (__pyx_t_1) {
 
 
         /* "cftime/_cftime.pyx":1636
+ *                 elif self.calendar == 'noleap':
+ *                     #return self.__class__(*add_timedelta(self, -other, no_leap, False, True),calendar=self.calendar)
+ *                     return DatetimeNoLeap(*add_timedelta(self, -other, no_leap, False, True))             # <<<<<<<<<<<<<<
  *                 elif self.calendar == 'all_leap':
  *                     #return self.__class__(*add_timedelta(self, -other, all_leap, False, True),calendar=self.calendar)
- *                     return DatetimeAllLeap(*add_timedelta(self, -other, all_leap, False, True))             # <<<<<<<<<<<<<<
- *                 elif self.calendar == 'julian':
- *                     #return self.__class__(*add_timedelta(self, -other,
 */
         if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1636, __pyx_L1_error)
         __pyx_t_5 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1636, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5, __pyx_f_6cftime_7_cftime_all_leap, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1636, __pyx_L1_error)
+        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5, __pyx_f_6cftime_7_cftime_no_leap, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1636, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         if (unlikely(__pyx_t_2 == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
           __PYX_ERR(0, 1636, __pyx_L1_error)
         }
-        __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap), __pyx_t_2, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1636, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap), __pyx_t_2, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1636, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         {
@@ -34205,6 +34161,60 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         goto __pyx_L0;
 
         /* "cftime/_cftime.pyx":1634
+ *                     #return self.__class__(*add_timedelta_360_day(self, -other),calendar=self.calendar)
+ *                     return Datetime360Day(*add_timedelta_360_day(self, -other))
+ *                 elif self.calendar == 'noleap':             # <<<<<<<<<<<<<<
+ *                     #return self.__class__(*add_timedelta(self, -other, no_leap, False, True),calendar=self.calendar)
+ *                     return DatetimeNoLeap(*add_timedelta(self, -other, no_leap, False, True))
+*/
+      }
+
+      /* "cftime/_cftime.pyx":1637
+ *                     #return self.__class__(*add_timedelta(self, -other, no_leap, False, True),calendar=self.calendar)
+ *                     return DatetimeNoLeap(*add_timedelta(self, -other, no_leap, False, True))
+ *                 elif self.calendar == 'all_leap':             # <<<<<<<<<<<<<<
+ *                     #return self.__class__(*add_timedelta(self, -other, all_leap, False, True),calendar=self.calendar)
+ *                     return DatetimeAllLeap(*add_timedelta(self, -other, all_leap, False, True))
+*/
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1637, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_all_leap, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1637, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (__pyx_t_1) {
+
+
+        /* "cftime/_cftime.pyx":1639
+ *                 elif self.calendar == 'all_leap':
+ *                     #return self.__class__(*add_timedelta(self, -other, all_leap, False, True),calendar=self.calendar)
+ *                     return DatetimeAllLeap(*add_timedelta(self, -other, all_leap, False, True))             # <<<<<<<<<<<<<<
+ *                 elif self.calendar == 'julian':
+ *                     #return self.__class__(*add_timedelta(self, -other,
+*/
+        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1639, __pyx_L1_error)
+        __pyx_t_5 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1639, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5, __pyx_f_6cftime_7_cftime_all_leap, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1639, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        if (unlikely(__pyx_t_2 == Py_None)) {
+          PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
+          __PYX_ERR(0, 1639, __pyx_L1_error)
+        }
+        __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap), __pyx_t_2, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1639, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+        {
+          PyObject *__pyx_temp;
+          {
+            __pyx_temp = __pyx_r;
+            __pyx_r = __pyx_t_5;
+          }
+          __Pyx_XDECREF(__pyx_temp);
+        }
+        __pyx_t_5 = 0;
+        goto __pyx_L0;
+
+        /* "cftime/_cftime.pyx":1637
  *                     #return self.__class__(*add_timedelta(self, -other, no_leap, False, True),calendar=self.calendar)
  *                     return DatetimeNoLeap(*add_timedelta(self, -other, no_leap, False, True))
  *                 elif self.calendar == 'all_leap':             # <<<<<<<<<<<<<<
@@ -34213,44 +34223,44 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1637
+      /* "cftime/_cftime.pyx":1640
  *                     #return self.__class__(*add_timedelta(self, -other, all_leap, False, True),calendar=self.calendar)
  *                     return DatetimeAllLeap(*add_timedelta(self, -other, all_leap, False, True))
  *                 elif self.calendar == 'julian':             # <<<<<<<<<<<<<<
  *                     #return self.__class__(*add_timedelta(self, -other,
  *                     #     is_leap_julian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1637, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1640, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1637, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1640, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       if (__pyx_t_1) {
 
 
-        /* "cftime/_cftime.pyx":1640
+        /* "cftime/_cftime.pyx":1643
  *                     #return self.__class__(*add_timedelta(self, -other,
  *                     #     is_leap_julian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeJulian(*add_timedelta(self, -other, is_leap_julian, False, has_year_zero),has_year_zero=self.has_year_zero)             # <<<<<<<<<<<<<<
  *                 elif self.calendar == 'standard':
  *                     #return self.__class__(*add_timedelta(self, -other,
 */
-        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1640, __pyx_L1_error)
-        __pyx_t_5 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1640, __pyx_L1_error)
+        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1643, __pyx_L1_error)
+        __pyx_t_5 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1643, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5, __pyx_f_6cftime_7_cftime_is_leap_julian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1640, __pyx_L1_error)
+        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5, __pyx_f_6cftime_7_cftime_is_leap_julian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1643, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         if (unlikely(__pyx_t_2 == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-          __PYX_ERR(0, 1640, __pyx_L1_error)
+          __PYX_ERR(0, 1643, __pyx_L1_error)
         }
-        __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1640, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1643, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1640, __pyx_L1_error)
+        __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1643, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
-        if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_3) < (0)) __PYX_ERR(0, 1640, __pyx_L1_error)
+        if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_3) < (0)) __PYX_ERR(0, 1643, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeJulian), __pyx_t_2, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1640, __pyx_L1_error)
+        __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeJulian), __pyx_t_2, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1643, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -34265,7 +34275,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         __pyx_t_3 = 0;
         goto __pyx_L0;
 
-        /* "cftime/_cftime.pyx":1637
+        /* "cftime/_cftime.pyx":1640
  *                     #return self.__class__(*add_timedelta(self, -other, all_leap, False, True),calendar=self.calendar)
  *                     return DatetimeAllLeap(*add_timedelta(self, -other, all_leap, False, True))
  *                 elif self.calendar == 'julian':             # <<<<<<<<<<<<<<
@@ -34274,44 +34284,44 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1641
+      /* "cftime/_cftime.pyx":1644
  *                     #     is_leap_julian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeJulian(*add_timedelta(self, -other, is_leap_julian, False, has_year_zero),has_year_zero=self.has_year_zero)
  *                 elif self.calendar == 'standard':             # <<<<<<<<<<<<<<
  *                     #return self.__class__(*add_timedelta(self, -other,
  *                     #     is_leap_gregorian, True, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
 */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1641, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1644, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1641, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1644, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       if (__pyx_t_1) {
 
 
-        /* "cftime/_cftime.pyx":1644
+        /* "cftime/_cftime.pyx":1647
  *                     #return self.__class__(*add_timedelta(self, -other,
  *                     #     is_leap_gregorian, True, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeGregorian(*add_timedelta(self, -other, is_leap_gregorian, True, has_year_zero),has_year_zero=self.has_year_zero)             # <<<<<<<<<<<<<<
  *                 elif self.calendar == 'proleptic_gregorian':
  *                     #return self.__class__(*add_timedelta(self, -other,
 */
-        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1644, __pyx_L1_error)
-        __pyx_t_3 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1644, __pyx_L1_error)
+        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1647, __pyx_L1_error)
+        __pyx_t_3 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
-        __pyx_t_5 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_3, __pyx_f_6cftime_7_cftime_is_leap_gregorian, 1, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1644, __pyx_L1_error)
+        __pyx_t_5 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_3, __pyx_f_6cftime_7_cftime_is_leap_gregorian, 1, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         if (unlikely(__pyx_t_5 == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-          __PYX_ERR(0, 1644, __pyx_L1_error)
+          __PYX_ERR(0, 1647, __pyx_L1_error)
         }
-        __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1644, __pyx_L1_error)
+        __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
-        __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1644, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
-        if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_2) < (0)) __PYX_ERR(0, 1644, __pyx_L1_error)
+        if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_2) < (0)) __PYX_ERR(0, 1647, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian), __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1644, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian), __pyx_t_5, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1647, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -34326,7 +34336,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         __pyx_t_2 = 0;
         goto __pyx_L0;
 
-        /* "cftime/_cftime.pyx":1641
+        /* "cftime/_cftime.pyx":1644
  *                     #     is_leap_julian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeJulian(*add_timedelta(self, -other, is_leap_julian, False, has_year_zero),has_year_zero=self.has_year_zero)
  *                 elif self.calendar == 'standard':             # <<<<<<<<<<<<<<
@@ -34335,44 +34345,44 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1645
+      /* "cftime/_cftime.pyx":1648
  *                     #     is_leap_gregorian, True, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeGregorian(*add_timedelta(self, -other, is_leap_gregorian, True, has_year_zero),has_year_zero=self.has_year_zero)
  *                 elif self.calendar == 'proleptic_gregorian':             # <<<<<<<<<<<<<<
  *                     #return self.__class__(*add_timedelta(self, -other,
  *                     #    is_leap_proleptic_gregorian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
 */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1645, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1648, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1645, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1648, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       if (__pyx_t_1) {
 
 
-        /* "cftime/_cftime.pyx":1648
+        /* "cftime/_cftime.pyx":1651
  *                     #return self.__class__(*add_timedelta(self, -other,
  *                     #    is_leap_proleptic_gregorian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeProlepticGregorian(*add_timedelta(self, -other, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=self.has_year_zero)             # <<<<<<<<<<<<<<
  *                 elif self.calendar == 'tai':
  *                     #return self.__class__(*add_timedelta(self, -other,
 */
-        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1648, __pyx_L1_error)
-        __pyx_t_2 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1648, __pyx_L1_error)
+        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1651, __pyx_L1_error)
+        __pyx_t_2 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1651, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
-        __pyx_t_3 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_2, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1648, __pyx_L1_error)
+        __pyx_t_3 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_2, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1651, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         if (unlikely(__pyx_t_3 == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-          __PYX_ERR(0, 1648, __pyx_L1_error)
+          __PYX_ERR(0, 1651, __pyx_L1_error)
         }
-        __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1648, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1651, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1648, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1651, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_5) < (0)) __PYX_ERR(0, 1648, __pyx_L1_error)
+        if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_5) < (0)) __PYX_ERR(0, 1651, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian), __pyx_t_3, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1648, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian), __pyx_t_3, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1651, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -34387,7 +34397,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         __pyx_t_5 = 0;
         goto __pyx_L0;
 
-        /* "cftime/_cftime.pyx":1645
+        /* "cftime/_cftime.pyx":1648
  *                     #     is_leap_gregorian, True, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeGregorian(*add_timedelta(self, -other, is_leap_gregorian, True, has_year_zero),has_year_zero=self.has_year_zero)
  *                 elif self.calendar == 'proleptic_gregorian':             # <<<<<<<<<<<<<<
@@ -34396,44 +34406,44 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1649
+      /* "cftime/_cftime.pyx":1652
  *                     #    is_leap_proleptic_gregorian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeProlepticGregorian(*add_timedelta(self, -other, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=self.has_year_zero)
  *                 elif self.calendar == 'tai':             # <<<<<<<<<<<<<<
  *                     #return self.__class__(*add_timedelta(self, -other,
  *                     #    is_leap_proleptic_gregorian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1649, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1652, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1649, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1652, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       if (__pyx_t_1) {
 
 
-        /* "cftime/_cftime.pyx":1652
+        /* "cftime/_cftime.pyx":1655
  *                     #return self.__class__(*add_timedelta(self, -other,
  *                     #    is_leap_proleptic_gregorian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeTAI(*add_timedelta(self, -other, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=self.has_year_zero)             # <<<<<<<<<<<<<<
  *                 else:
  *                     return NotImplemented
 */
-        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1652, __pyx_L1_error)
-        __pyx_t_5 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1652, __pyx_L1_error)
+        if (!(likely(((__pyx_v_self) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_self, __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime))))) __PYX_ERR(0, 1655, __pyx_L1_error)
+        __pyx_t_5 = PyNumber_Negative(__pyx_v_other); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1655, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1652, __pyx_L1_error)
+        __pyx_t_2 = __pyx_f_6cftime_7_cftime_add_timedelta(((struct __pyx_obj_6cftime_7_cftime_datetime *)__pyx_v_self), __pyx_t_5, __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian, 0, __pyx_v_has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1655, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         if (unlikely(__pyx_t_2 == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not iterable");
-          __PYX_ERR(0, 1652, __pyx_L1_error)
+          __PYX_ERR(0, 1655, __pyx_L1_error)
         }
-        __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1652, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1655, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1652, __pyx_L1_error)
+        __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_has_year_zero); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1655, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
-        if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_3) < (0)) __PYX_ERR(0, 1652, __pyx_L1_error)
+        if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_has_year_zero, __pyx_t_3) < (0)) __PYX_ERR(0, 1655, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeTAI), __pyx_t_2, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1652, __pyx_L1_error)
+        __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeTAI), __pyx_t_2, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1655, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -34448,7 +34458,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         __pyx_t_3 = 0;
         goto __pyx_L0;
 
-        /* "cftime/_cftime.pyx":1649
+        /* "cftime/_cftime.pyx":1652
  *                     #    is_leap_proleptic_gregorian, False, has_year_zero),calendar=self.calendar,has_year_zero=self.has_year_zero)
  *                     return DatetimeProlepticGregorian(*add_timedelta(self, -other, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=self.has_year_zero)
  *                 elif self.calendar == 'tai':             # <<<<<<<<<<<<<<
@@ -34457,7 +34467,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1654
+      /* "cftime/_cftime.pyx":1657
  *                     return DatetimeTAI(*add_timedelta(self, -other, is_leap_proleptic_gregorian, False, has_year_zero),has_year_zero=self.has_year_zero)
  *                 else:
  *                     return NotImplemented             # <<<<<<<<<<<<<<
@@ -34477,7 +34487,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         goto __pyx_L0;
       }
 
-      /* "cftime/_cftime.pyx":1623
+      /* "cftime/_cftime.pyx":1626
  *                     raise TypeError(msg)
  *                 return dt._to_real_datetime() - other
  *             elif isinstance(other, timedelta):             # <<<<<<<<<<<<<<
@@ -34486,7 +34496,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
     }
 
-    /* "cftime/_cftime.pyx":1656
+    /* "cftime/_cftime.pyx":1659
  *                     return NotImplemented
  *             else:
  *                 return NotImplemented             # <<<<<<<<<<<<<<
@@ -34506,7 +34516,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
       goto __pyx_L0;
     }
 
-    /* "cftime/_cftime.pyx":1595
+    /* "cftime/_cftime.pyx":1598
  *         cdef datetime dt
  *         cdef bint has_year_zero
  *         if isinstance(self, datetime): # left arg is a datetime instance             # <<<<<<<<<<<<<<
@@ -34515,7 +34525,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
   }
 
-  /* "cftime/_cftime.pyx":1658
+  /* "cftime/_cftime.pyx":1661
  *                 return NotImplemented
  *         else:
  *             if isinstance(self, datetime_python):             # <<<<<<<<<<<<<<
@@ -34523,23 +34533,23 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
  *                 if not other.datetime_compatible:
 */
   /*else*/ {
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_datetime_python); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1658, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_datetime_python); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1661, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_1 = PyObject_IsInstance(__pyx_v_self, __pyx_t_3); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 1658, __pyx_L1_error)
+    __pyx_t_1 = PyObject_IsInstance(__pyx_v_self, __pyx_t_3); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 1661, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     if (__pyx_t_1) {
 
 
-      /* "cftime/_cftime.pyx":1660
+      /* "cftime/_cftime.pyx":1663
  *             if isinstance(self, datetime_python):
  *                 # real_datetime - datetime
  *                 if not other.datetime_compatible:             # <<<<<<<<<<<<<<
  *                     msg="""
  * Cannot compute the time difference between dates with different calendars.
 */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_datetime_compatible); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1660, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_datetime_compatible); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1663, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1660, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1663, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_6 = (!__pyx_t_1);
 
@@ -34547,7 +34557,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
       if (unlikely(__pyx_t_6)) {
 
 
-        /* "cftime/_cftime.pyx":1661
+        /* "cftime/_cftime.pyx":1664
  *                 # real_datetime - datetime
  *                 if not other.datetime_compatible:
  *                     msg="""             # <<<<<<<<<<<<<<
@@ -34557,7 +34567,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_Cannot_compute_the_time_differe);
         __pyx_v_msg = __pyx_mstate_global->__pyx_kp_u_Cannot_compute_the_time_differe;
 
-        /* "cftime/_cftime.pyx":1666
+        /* "cftime/_cftime.pyx":1669
  * datetime instance.  Try using only_use_cftime_datetimes=True when creating the
  * datetime object."""
  *                     raise TypeError(msg)             # <<<<<<<<<<<<<<
@@ -34570,14 +34580,14 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
           PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_msg};
           __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1666, __pyx_L1_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1669, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
         }
         __Pyx_Raise(__pyx_t_3, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __PYX_ERR(0, 1666, __pyx_L1_error)
+        __PYX_ERR(0, 1669, __pyx_L1_error)
 
-        /* "cftime/_cftime.pyx":1660
+        /* "cftime/_cftime.pyx":1663
  *             if isinstance(self, datetime_python):
  *                 # real_datetime - datetime
  *                 if not other.datetime_compatible:             # <<<<<<<<<<<<<<
@@ -34586,7 +34596,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
       }
 
-      /* "cftime/_cftime.pyx":1667
+      /* "cftime/_cftime.pyx":1670
  * datetime object."""
  *                     raise TypeError(msg)
  *                 return self - other._to_real_datetime()             # <<<<<<<<<<<<<<
@@ -34600,10 +34610,10 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
         PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
         __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_to_real_datetime, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1667, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1670, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
-      __pyx_t_5 = __Pyx_PyNumber_Subtract_object_object(__pyx_v_self, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1667, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyNumber_Subtract_object_object(__pyx_v_self, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1670, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       {
@@ -34617,7 +34627,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
       __pyx_t_5 = 0;
       goto __pyx_L0;
 
-      /* "cftime/_cftime.pyx":1658
+      /* "cftime/_cftime.pyx":1661
  *                 return NotImplemented
  *         else:
  *             if isinstance(self, datetime_python):             # <<<<<<<<<<<<<<
@@ -34626,7 +34636,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
 */
     }
 
-    /* "cftime/_cftime.pyx":1669
+    /* "cftime/_cftime.pyx":1672
  *                 return self - other._to_real_datetime()
  *             else:
  *                 return NotImplemented             # <<<<<<<<<<<<<<
@@ -34647,7 +34657,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
     }
   }
 
-  /* "cftime/_cftime.pyx":1592
+  /* "cftime/_cftime.pyx":1595
  *             return NotImplemented
  * 
  *     def __sub__(self, other):             # <<<<<<<<<<<<<<
@@ -34678,7 +34688,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_36__sub__(PyObject *__pyx_v
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1118
+/* "cftime/_cftime.pyx":1119
  * (default %Y-%m-%d %H:%M:%S).
  *     """
  *     cdef readonly int year, month, day, hour, minute             # <<<<<<<<<<<<<<
@@ -34717,7 +34727,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4year___get__(struct __pyx_
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1118, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1119, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -34791,7 +34801,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_5month___get__(struct __pyx
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1118, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->month); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1119, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -34865,7 +34875,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_3day___get__(struct __pyx_o
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1118, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->day); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1119, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -34939,7 +34949,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_4hour___get__(struct __pyx_
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1118, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->hour); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1119, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -35013,7 +35023,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6minute___get__(struct __py
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1118, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->minute); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1119, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -35056,7 +35066,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6minute___get__(struct __py
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1119
+/* "cftime/_cftime.pyx":1120
  *     """
  *     cdef readonly int year, month, day, hour, minute
  *     cdef readonly int second, microsecond             # <<<<<<<<<<<<<<
@@ -35095,7 +35105,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6second___get__(struct __py
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1119, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->second); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1120, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -35169,7 +35179,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11microsecond___get__(struc
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1119, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->microsecond); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1120, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -35212,7 +35222,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_11microsecond___get__(struc
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1120
+/* "cftime/_cftime.pyx":1121
  *     cdef readonly int year, month, day, hour, minute
  *     cdef readonly int second, microsecond
  *     cdef readonly str calendar             # <<<<<<<<<<<<<<
@@ -35279,7 +35289,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8calendar___get__(struct __
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1121
+/* "cftime/_cftime.pyx":1122
  *     cdef readonly int second, microsecond
  *     cdef readonly str calendar
  *     cdef readonly int _dayofwk, _dayofyr             # <<<<<<<<<<<<<<
@@ -35318,7 +35328,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8_dayofwk___get__(struct __
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofwk); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1121, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofwk); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1122, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -35392,7 +35402,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8_dayofyr___get__(struct __
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofyr); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1121, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->_dayofyr); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1122, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -35435,7 +35445,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_8_dayofyr___get__(struct __
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1122
+/* "cftime/_cftime.pyx":1123
  *     cdef readonly str calendar
  *     cdef readonly int _dayofwk, _dayofyr
  *     cdef readonly bint has_year_zero             # <<<<<<<<<<<<<<
@@ -35474,7 +35484,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_13has_year_zero___get__(str
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1122, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->has_year_zero); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1123, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -35517,7 +35527,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_13has_year_zero___get__(str
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1123
+/* "cftime/_cftime.pyx":1124
  *     cdef readonly int _dayofwk, _dayofyr
  *     cdef readonly bint has_year_zero
  *     cdef readonly object tzinfo             # <<<<<<<<<<<<<<
@@ -35584,7 +35594,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_6tzinfo___get__(struct __py
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1129
+/* "cftime/_cftime.pyx":1130
  *     # cftime.datetime instance can be converted to
  *     # datetime.datetime.
  *     cdef readonly bint datetime_compatible             # <<<<<<<<<<<<<<
@@ -35623,7 +35633,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_19datetime_compatible___get
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->datetime_compatible); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1129, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->datetime_compatible); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1130, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -35666,7 +35676,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_8datetime_19datetime_compatible___get
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1674
+/* "cftime/_cftime.pyx":1677
  * 
  * 
  * cdef _findall(text, substr):             # <<<<<<<<<<<<<<
@@ -35690,19 +35700,19 @@ static PyObject *__pyx_f_6cftime_7_cftime__findall(PyObject *__pyx_v_text, PyObj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_findall", 0);
 
-  /* "cftime/_cftime.pyx":1676
+  /* "cftime/_cftime.pyx":1679
  * cdef _findall(text, substr):
  *     # Also finds overlaps
  *     sites = []             # <<<<<<<<<<<<<<
  *     i = 0
  *     while 1:
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1676, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1679, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_sites = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1677
+  /* "cftime/_cftime.pyx":1680
  *     # Also finds overlaps
  *     sites = []
  *     i = 0             # <<<<<<<<<<<<<<
@@ -35712,7 +35722,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__findall(PyObject *__pyx_v_text, PyObj
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
   __pyx_v_i = __pyx_mstate_global->__pyx_int_0;
 
-  /* "cftime/_cftime.pyx":1678
+  /* "cftime/_cftime.pyx":1681
  *     sites = []
  *     i = 0
  *     while 1:             # <<<<<<<<<<<<<<
@@ -35721,7 +35731,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__findall(PyObject *__pyx_v_text, PyObj
 */
   while (1) {
 
-    /* "cftime/_cftime.pyx":1679
+    /* "cftime/_cftime.pyx":1682
  *     i = 0
  *     while 1:
  *         j = text.find(substr, i)             # <<<<<<<<<<<<<<
@@ -35735,24 +35745,24 @@ static PyObject *__pyx_f_6cftime_7_cftime__findall(PyObject *__pyx_v_text, PyObj
       PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_v_substr, __pyx_v_i};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_find, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1679, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1682, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_XDECREF_SET(__pyx_v_j, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "cftime/_cftime.pyx":1680
+    /* "cftime/_cftime.pyx":1683
  *     while 1:
  *         j = text.find(substr, i)
  *         if j == -1:             # <<<<<<<<<<<<<<
  *             break
  *         sites.append(j)
 */
-    __pyx_t_4 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_j, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1680, __pyx_L1_error)
+    __pyx_t_4 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_j, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1683, __pyx_L1_error)
     if (__pyx_t_4) {
 
 
-      /* "cftime/_cftime.pyx":1681
+      /* "cftime/_cftime.pyx":1684
  *         j = text.find(substr, i)
  *         if j == -1:
  *             break             # <<<<<<<<<<<<<<
@@ -35761,7 +35771,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__findall(PyObject *__pyx_v_text, PyObj
 */
       goto __pyx_L4_break;
 
-      /* "cftime/_cftime.pyx":1680
+      /* "cftime/_cftime.pyx":1683
  *     while 1:
  *         j = text.find(substr, i)
  *         if j == -1:             # <<<<<<<<<<<<<<
@@ -35770,31 +35780,31 @@ static PyObject *__pyx_f_6cftime_7_cftime__findall(PyObject *__pyx_v_text, PyObj
 */
     }
 
-    /* "cftime/_cftime.pyx":1682
+    /* "cftime/_cftime.pyx":1685
  *         if j == -1:
  *             break
  *         sites.append(j)             # <<<<<<<<<<<<<<
  *         i = j + 1
  *     return sites
 */
-    __pyx_t_5 = __Pyx_PyList_Append(__pyx_v_sites, __pyx_v_j); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 1682, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyList_Append(__pyx_v_sites, __pyx_v_j); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 1685, __pyx_L1_error)
 
 
-    /* "cftime/_cftime.pyx":1683
+    /* "cftime/_cftime.pyx":1686
  *             break
  *         sites.append(j)
  *         i = j + 1             # <<<<<<<<<<<<<<
  *     return sites
  * 
 */
-    __pyx_t_1 = __Pyx_PyLong_AddObjC(__pyx_v_j, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1683, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyLong_AddObjC(__pyx_v_j, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1686, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_i, __pyx_t_1);
     __pyx_t_1 = 0;
   }
   __pyx_L4_break:;
 
-  /* "cftime/_cftime.pyx":1684
+  /* "cftime/_cftime.pyx":1687
  *         sites.append(j)
  *         i = j + 1
  *     return sites             # <<<<<<<<<<<<<<
@@ -35812,7 +35822,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__findall(PyObject *__pyx_v_text, PyObj
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1674
+  /* "cftime/_cftime.pyx":1677
  * 
  * 
  * cdef _findall(text, substr):             # <<<<<<<<<<<<<<
@@ -35835,7 +35845,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__findall(PyObject *__pyx_v_text, PyObj
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1691
+/* "cftime/_cftime.pyx":1694
  * # Make also 4-digit negative years
  * # Allow .%f for microseconds
  * cdef _strftime(datetime dt, fmt):             # <<<<<<<<<<<<<<
@@ -35879,7 +35889,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_strftime", 0);
 
-  /* "cftime/_cftime.pyx":1692
+  /* "cftime/_cftime.pyx":1695
  * # Allow .%f for microseconds
  * cdef _strftime(datetime dt, fmt):
  *     if _illegal_s.search(fmt):             # <<<<<<<<<<<<<<
@@ -35887,9 +35897,9 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
  *     # don't use strftime method at all.
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_illegal_s); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1692, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_illegal_s); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1695, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_search); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1692, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_search); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1695, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -35909,15 +35919,15 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1692, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1695, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1692, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1695, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (unlikely(__pyx_t_6)) {
 
 
-    /* "cftime/_cftime.pyx":1693
+    /* "cftime/_cftime.pyx":1696
  * cdef _strftime(datetime dt, fmt):
  *     if _illegal_s.search(fmt):
  *         raise TypeError("This strftime implementation does not handle %s")             # <<<<<<<<<<<<<<
@@ -35930,14 +35940,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_This_strftime_implementation_doe};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1693, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1696, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 1693, __pyx_L1_error)
+    __PYX_ERR(0, 1696, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1692
+    /* "cftime/_cftime.pyx":1695
  * # Allow .%f for microseconds
  * cdef _strftime(datetime dt, fmt):
  *     if _illegal_s.search(fmt):             # <<<<<<<<<<<<<<
@@ -35946,18 +35956,18 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
 */
   }
 
-  /* "cftime/_cftime.pyx":1697
+  /* "cftime/_cftime.pyx":1700
  *     # if dt.year > 1900:
  *     #    return dt.strftime(fmt)
  *     if '%f' in fmt:             # <<<<<<<<<<<<<<
  *         if not fmt.endswith('.%f'):
  *             raise TypeError('If %f is used for microseconds it must be the'
 */
-  __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_kp_u_f_2, __pyx_v_fmt, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1697, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_kp_u_f_2, __pyx_v_fmt, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1700, __pyx_L1_error)
   if (__pyx_t_6) {
 
 
-    /* "cftime/_cftime.pyx":1698
+    /* "cftime/_cftime.pyx":1701
  *     #    return dt.strftime(fmt)
  *     if '%f' in fmt:
  *         if not fmt.endswith('.%f'):             # <<<<<<<<<<<<<<
@@ -35971,10 +35981,10 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_f_3};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_endswith, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1698, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1701, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1698, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1701, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_7 = (!__pyx_t_6);
 
@@ -35982,7 +35992,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     if (unlikely(__pyx_t_7)) {
 
 
-      /* "cftime/_cftime.pyx":1699
+      /* "cftime/_cftime.pyx":1702
  *     if '%f' in fmt:
  *         if not fmt.endswith('.%f'):
  *             raise TypeError('If %f is used for microseconds it must be the'             # <<<<<<<<<<<<<<
@@ -35995,14 +36005,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
         PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_If_f_is_used_for_microseconds_it};
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1699, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1702, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 1699, __pyx_L1_error)
+      __PYX_ERR(0, 1702, __pyx_L1_error)
 
-      /* "cftime/_cftime.pyx":1698
+      /* "cftime/_cftime.pyx":1701
  *     #    return dt.strftime(fmt)
  *     if '%f' in fmt:
  *         if not fmt.endswith('.%f'):             # <<<<<<<<<<<<<<
@@ -36011,7 +36021,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
 */
     }
 
-    /* "cftime/_cftime.pyx":1702
+    /* "cftime/_cftime.pyx":1705
  *                             ' at the end as .%f')
  *         else:
  *             ihavems = True             # <<<<<<<<<<<<<<
@@ -36021,20 +36031,20 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     /*else*/ {
       __pyx_v_ihavems = 1;
 
-      /* "cftime/_cftime.pyx":1703
+      /* "cftime/_cftime.pyx":1706
  *         else:
  *             ihavems = True
  *             fmt1 = fmt[:-3]             # <<<<<<<<<<<<<<
  *     else:
  *         ihavems = False
 */
-      __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_fmt, 0, -3L, NULL, NULL, &__pyx_mstate_global->__pyx_slice[2], 0, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1703, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_fmt, 0, -3L, NULL, NULL, &__pyx_mstate_global->__pyx_slice[2], 0, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1706, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_v_fmt1 = __pyx_t_1;
       __pyx_t_1 = 0;
     }
 
-    /* "cftime/_cftime.pyx":1697
+    /* "cftime/_cftime.pyx":1700
  *     # if dt.year > 1900:
  *     #    return dt.strftime(fmt)
  *     if '%f' in fmt:             # <<<<<<<<<<<<<<
@@ -36044,7 +36054,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     goto __pyx_L4;
   }
 
-  /* "cftime/_cftime.pyx":1705
+  /* "cftime/_cftime.pyx":1708
  *             fmt1 = fmt[:-3]
  *     else:
  *         ihavems = False             # <<<<<<<<<<<<<<
@@ -36054,7 +36064,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   /*else*/ {
     __pyx_v_ihavems = 0;
 
-    /* "cftime/_cftime.pyx":1706
+    /* "cftime/_cftime.pyx":1709
  *     else:
  *         ihavems = False
  *         fmt1 = fmt             # <<<<<<<<<<<<<<
@@ -36066,86 +36076,86 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   }
   __pyx_L4:;
 
-  /* "cftime/_cftime.pyx":1708
+  /* "cftime/_cftime.pyx":1711
  *         fmt1 = fmt
  * 
  *     year = dt.year             # <<<<<<<<<<<<<<
  *     # For every non-leap year century, advance by
  *     # 6 years to get into the 28-year repeat cycle
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_dt->year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1708, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_dt->year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1711, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyInt_FromNumber(&__pyx_t_1, NULL, 0) < (0)) __PYX_ERR(0, 1708, __pyx_L1_error)
+  if (__Pyx_PyInt_FromNumber(&__pyx_t_1, NULL, 0) < (0)) __PYX_ERR(0, 1711, __pyx_L1_error)
   __pyx_v_year = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1711
+  /* "cftime/_cftime.pyx":1714
  *     # For every non-leap year century, advance by
  *     # 6 years to get into the 28-year repeat cycle
  *     delta = 2000 - year             # <<<<<<<<<<<<<<
  *     off = 6 * (delta // 100 + delta // 400)
  *     year = year + off
 */
-  __pyx_t_1 = __Pyx_PyLong_SubtractCObj(__pyx_mstate_global->__pyx_int_2000, __pyx_v_year, 0x7D0, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1711, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_SubtractCObj(__pyx_mstate_global->__pyx_int_2000, __pyx_v_year, 0x7D0, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1714, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_delta = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1712
+  /* "cftime/_cftime.pyx":1715
  *     # 6 years to get into the 28-year repeat cycle
  *     delta = 2000 - year
  *     off = 6 * (delta // 100 + delta // 400)             # <<<<<<<<<<<<<<
  *     year = year + off
  * 
 */
-  __pyx_t_1 = __Pyx_PyLong_FloorDivideObjC(__pyx_v_delta, __pyx_mstate_global->__pyx_int_100, 0x64, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1712, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_FloorDivideObjC(__pyx_v_delta, __pyx_mstate_global->__pyx_int_100, 0x64, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1715, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyLong_FloorDivideObjC(__pyx_v_delta, __pyx_mstate_global->__pyx_int_400, 0x190, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1712, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_FloorDivideObjC(__pyx_v_delta, __pyx_mstate_global->__pyx_int_400, 0x190, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1715, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = __Pyx_PyNumber_Add_int_int(__pyx_t_1, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1712, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Add_int_int(__pyx_t_1, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1715, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyLong_MultiplyCObj(__pyx_mstate_global->__pyx_int_6, __pyx_t_2, 6, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1712, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_MultiplyCObj(__pyx_mstate_global->__pyx_int_6, __pyx_t_2, 6, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1715, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_off = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":1713
+  /* "cftime/_cftime.pyx":1716
  *     delta = 2000 - year
  *     off = 6 * (delta // 100 + delta // 400)
  *     year = year + off             # <<<<<<<<<<<<<<
  * 
  *     # Move to around the year 2000
 */
-  __pyx_t_4 = __Pyx_PyNumber_Add_int_int(__pyx_v_year, __pyx_v_off); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1713, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyNumber_Add_int_int(__pyx_v_year, __pyx_v_off); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1716, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF_SET(__pyx_v_year, ((PyObject*)__pyx_t_4));
   __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":1716
+  /* "cftime/_cftime.pyx":1719
  * 
  *     # Move to around the year 2000
  *     year = year + ((2000 - year) // 28) * 28             # <<<<<<<<<<<<<<
  *     timetuple = dt.timetuple()
  *     s1 = time.strftime(fmt1, (year,) + timetuple[1:])
 */
-  __pyx_t_4 = __Pyx_PyLong_SubtractCObj(__pyx_mstate_global->__pyx_int_2000, __pyx_v_year, 0x7D0, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1716, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_SubtractCObj(__pyx_mstate_global->__pyx_int_2000, __pyx_v_year, 0x7D0, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1719, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = __Pyx_PyLong_FloorDivideObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1716, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_FloorDivideObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1719, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyLong_MultiplyObjC(__pyx_t_2, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1716, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_MultiplyObjC(__pyx_t_2, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1719, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyNumber_Add_int_int(__pyx_v_year, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1716, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Add_int_int(__pyx_v_year, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1719, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF_SET(__pyx_v_year, ((PyObject*)__pyx_t_2));
   __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1717
+  /* "cftime/_cftime.pyx":1720
  *     # Move to around the year 2000
  *     year = year + ((2000 - year) // 28) * 28
  *     timetuple = dt.timetuple()             # <<<<<<<<<<<<<<
@@ -36159,13 +36169,13 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_timetuple, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1717, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1720, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_v_timetuple = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1718
+  /* "cftime/_cftime.pyx":1721
  *     year = year + ((2000 - year) // 28) * 28
  *     timetuple = dt.timetuple()
  *     s1 = time.strftime(fmt1, (year,) + timetuple[1:])             # <<<<<<<<<<<<<<
@@ -36173,19 +36183,19 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
  *     if twodigityear:
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1718, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1721, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_strftime); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1718, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_strftime); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1721, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1718, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1721, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_year);
   __Pyx_GIVEREF(__pyx_v_year);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_year) != (0)) __PYX_ERR(0, 1718, __pyx_L1_error);
-  __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_v_timetuple, 1, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[3], 1, 0, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1718, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_year) != (0)) __PYX_ERR(0, 1721, __pyx_L1_error);
+  __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_v_timetuple, 1, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[3], 1, 0, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1721, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = PyNumber_Add(__pyx_t_1, __pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1718, __pyx_L1_error)
+  __pyx_t_9 = PyNumber_Add(__pyx_t_1, __pyx_t_8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1721, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -36207,56 +36217,56 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1718, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1721, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_v_s1 = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1719
+  /* "cftime/_cftime.pyx":1722
  *     timetuple = dt.timetuple()
  *     s1 = time.strftime(fmt1, (year,) + timetuple[1:])
  *     twodigityear = '%y' in fmt1             # <<<<<<<<<<<<<<
  *     if twodigityear:
  *         sites1 = _findall(s1, str(year)[-2:])
 */
-  __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_kp_u_y, __pyx_v_fmt1, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1719, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1719, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_kp_u_y, __pyx_v_fmt1, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1722, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1722, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
   __pyx_v_twodigityear = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1720
+  /* "cftime/_cftime.pyx":1723
  *     s1 = time.strftime(fmt1, (year,) + timetuple[1:])
  *     twodigityear = '%y' in fmt1
  *     if twodigityear:             # <<<<<<<<<<<<<<
  *         sites1 = _findall(s1, str(year)[-2:])
  *     else:
 */
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_twodigityear); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1720, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_twodigityear); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1723, __pyx_L1_error)
   if (__pyx_t_7) {
 
 
-    /* "cftime/_cftime.pyx":1721
+    /* "cftime/_cftime.pyx":1724
  *     twodigityear = '%y' in fmt1
  *     if twodigityear:
  *         sites1 = _findall(s1, str(year)[-2:])             # <<<<<<<<<<<<<<
  *     else:
  *         sites1 = _findall(s1, str(year))
 */
-    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1721, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1724, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyUnicode_Substring(__pyx_t_2, -2L, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1721, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_Substring(__pyx_t_2, -2L, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1724, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __pyx_f_6cftime_7_cftime__findall(__pyx_v_s1, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1721, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_6cftime_7_cftime__findall(__pyx_v_s1, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1724, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_sites1 = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1720
+    /* "cftime/_cftime.pyx":1723
  *     s1 = time.strftime(fmt1, (year,) + timetuple[1:])
  *     twodigityear = '%y' in fmt1
  *     if twodigityear:             # <<<<<<<<<<<<<<
@@ -36266,7 +36276,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     goto __pyx_L6;
   }
 
-  /* "cftime/_cftime.pyx":1723
+  /* "cftime/_cftime.pyx":1726
  *         sites1 = _findall(s1, str(year)[-2:])
  *     else:
  *         sites1 = _findall(s1, str(year))             # <<<<<<<<<<<<<<
@@ -36274,9 +36284,9 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
  *     s2 = time.strftime(fmt1, (year + 28,) + timetuple[1:])
 */
   /*else*/ {
-    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1723, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_v_year); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1726, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __pyx_f_6cftime_7_cftime__findall(__pyx_v_s1, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1723, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_6cftime_7_cftime__findall(__pyx_v_s1, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1726, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_v_sites1 = __pyx_t_3;
@@ -36284,7 +36294,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   }
   __pyx_L6:;
 
-  /* "cftime/_cftime.pyx":1725
+  /* "cftime/_cftime.pyx":1728
  *         sites1 = _findall(s1, str(year))
  * 
  *     s2 = time.strftime(fmt1, (year + 28,) + timetuple[1:])             # <<<<<<<<<<<<<<
@@ -36292,21 +36302,21 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
  *        sites2 = _findall(s2, str(year + 28)[-2:])
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1725, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_time); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1728, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_strftime); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1725, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_strftime); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1728, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_9 = __Pyx_PyLong_AddObjC(__pyx_v_year, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1725, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_AddObjC(__pyx_v_year, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1728, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_8 = PyTuple_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1725, __pyx_L1_error)
+  __pyx_t_8 = PyTuple_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1728, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_9) != (0)) __PYX_ERR(0, 1725, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_9) != (0)) __PYX_ERR(0, 1728, __pyx_L1_error);
   __pyx_t_9 = 0;
-  __pyx_t_9 = __Pyx_PyObject_GetSlice(__pyx_v_timetuple, 1, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[3], 1, 0, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1725, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetSlice(__pyx_v_timetuple, 1, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[3], 1, 0, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1728, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_1 = PyNumber_Add(__pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1725, __pyx_L1_error)
+  __pyx_t_1 = PyNumber_Add(__pyx_t_8, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1728, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -36328,45 +36338,45 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1725, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1728, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_v_s2 = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "cftime/_cftime.pyx":1726
+  /* "cftime/_cftime.pyx":1729
  * 
  *     s2 = time.strftime(fmt1, (year + 28,) + timetuple[1:])
  *     if twodigityear:             # <<<<<<<<<<<<<<
  *        sites2 = _findall(s2, str(year + 28)[-2:])
  *     else:
 */
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_twodigityear); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1726, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_twodigityear); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1729, __pyx_L1_error)
   if (__pyx_t_7) {
 
 
-    /* "cftime/_cftime.pyx":1727
+    /* "cftime/_cftime.pyx":1730
  *     s2 = time.strftime(fmt1, (year + 28,) + timetuple[1:])
  *     if twodigityear:
  *        sites2 = _findall(s2, str(year + 28)[-2:])             # <<<<<<<<<<<<<<
  *     else:
  *        sites2 = _findall(s2, str(year + 28))
 */
-    __pyx_t_3 = __Pyx_PyLong_AddObjC(__pyx_v_year, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1727, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_AddObjC(__pyx_v_year, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1730, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1727, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1730, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyUnicode_Substring(__pyx_t_4, -2L, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1727, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_Substring(__pyx_t_4, -2L, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1730, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __pyx_f_6cftime_7_cftime__findall(__pyx_v_s2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1727, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_6cftime_7_cftime__findall(__pyx_v_s2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1730, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_sites2 = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "cftime/_cftime.pyx":1726
+    /* "cftime/_cftime.pyx":1729
  * 
  *     s2 = time.strftime(fmt1, (year + 28,) + timetuple[1:])
  *     if twodigityear:             # <<<<<<<<<<<<<<
@@ -36376,7 +36386,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     goto __pyx_L7;
   }
 
-  /* "cftime/_cftime.pyx":1729
+  /* "cftime/_cftime.pyx":1732
  *        sites2 = _findall(s2, str(year + 28)[-2:])
  *     else:
  *        sites2 = _findall(s2, str(year + 28))             # <<<<<<<<<<<<<<
@@ -36384,12 +36394,12 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
  *     sites = []
 */
   /*else*/ {
-    __pyx_t_4 = __Pyx_PyLong_AddObjC(__pyx_v_year, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1729, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_AddObjC(__pyx_v_year, __pyx_mstate_global->__pyx_int_28, 28, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1732, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1729, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1732, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __pyx_f_6cftime_7_cftime__findall(__pyx_v_s2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1729, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_6cftime_7_cftime__findall(__pyx_v_s2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1732, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_sites2 = __pyx_t_4;
@@ -36397,19 +36407,19 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   }
   __pyx_L7:;
 
-  /* "cftime/_cftime.pyx":1731
+  /* "cftime/_cftime.pyx":1734
  *        sites2 = _findall(s2, str(year + 28))
  * 
  *     sites = []             # <<<<<<<<<<<<<<
  *     for site in sites1:
  *         if site in sites2:
 */
-  __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1731, __pyx_L1_error)
+  __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1734, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_sites = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":1732
+  /* "cftime/_cftime.pyx":1735
  * 
  *     sites = []
  *     for site in sites1:             # <<<<<<<<<<<<<<
@@ -36421,9 +36431,9 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     __pyx_t_10 = 0;
     __pyx_t_11 = NULL;
   } else {
-    __pyx_t_10 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_v_sites1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1732, __pyx_L1_error)
+    __pyx_t_10 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_v_sites1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1735, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_11 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1732, __pyx_L1_error)
+    __pyx_t_11 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1735, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_11)) {
@@ -36431,7 +36441,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1732, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1735, __pyx_L1_error)
           #endif
           if (__pyx_t_10 >= __pyx_temp) break;
         }
@@ -36441,7 +36451,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1732, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1735, __pyx_L1_error)
           #endif
           if (__pyx_t_10 >= __pyx_temp) break;
         }
@@ -36452,13 +36462,13 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
         #endif
         ++__pyx_t_10;
       }
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1732, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1735, __pyx_L1_error)
     } else {
       __pyx_t_3 = __pyx_t_11(__pyx_t_4);
       if (unlikely(!__pyx_t_3)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1732, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1735, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -36468,28 +36478,28 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     __Pyx_XDECREF_SET(__pyx_v_site, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1733
+    /* "cftime/_cftime.pyx":1736
  *     sites = []
  *     for site in sites1:
  *         if site in sites2:             # <<<<<<<<<<<<<<
  *             sites.append(site)
  * 
 */
-    __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_v_site, __pyx_v_sites2, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1733, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_v_site, __pyx_v_sites2, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1736, __pyx_L1_error)
     if (__pyx_t_7) {
 
 
-      /* "cftime/_cftime.pyx":1734
+      /* "cftime/_cftime.pyx":1737
  *     for site in sites1:
  *         if site in sites2:
  *             sites.append(site)             # <<<<<<<<<<<<<<
  * 
  *     s = s1
 */
-      __pyx_t_12 = __Pyx_PyList_Append(__pyx_v_sites, __pyx_v_site); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 1734, __pyx_L1_error)
+      __pyx_t_12 = __Pyx_PyList_Append(__pyx_v_sites, __pyx_v_site); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 1737, __pyx_L1_error)
 
 
-      /* "cftime/_cftime.pyx":1733
+      /* "cftime/_cftime.pyx":1736
  *     sites = []
  *     for site in sites1:
  *         if site in sites2:             # <<<<<<<<<<<<<<
@@ -36498,7 +36508,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
 */
     }
 
-    /* "cftime/_cftime.pyx":1732
+    /* "cftime/_cftime.pyx":1735
  * 
  *     sites = []
  *     for site in sites1:             # <<<<<<<<<<<<<<
@@ -36508,7 +36518,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":1736
+  /* "cftime/_cftime.pyx":1739
  *             sites.append(site)
  * 
  *     s = s1             # <<<<<<<<<<<<<<
@@ -36518,7 +36528,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   __Pyx_INCREF(__pyx_v_s1);
   __pyx_v_s = __pyx_v_s1;
 
-  /* "cftime/_cftime.pyx":1737
+  /* "cftime/_cftime.pyx":1740
  * 
  *     s = s1
  *     if dt.year < 0:             # <<<<<<<<<<<<<<
@@ -36530,19 +36540,19 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   if (__pyx_t_7) {
 
 
-    /* "cftime/_cftime.pyx":1738
+    /* "cftime/_cftime.pyx":1741
  *     s = s1
  *     if dt.year < 0:
  *         syear = "%05d" % (dt.year,)             # <<<<<<<<<<<<<<
  *     else:
  *         syear = "%04d" % (dt.year,)
 */
-    __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_dt->year, 5, '0', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1738, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_dt->year, 5, '0', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1741, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_v_syear = ((PyObject*)__pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "cftime/_cftime.pyx":1737
+    /* "cftime/_cftime.pyx":1740
  * 
  *     s = s1
  *     if dt.year < 0:             # <<<<<<<<<<<<<<
@@ -36552,7 +36562,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     goto __pyx_L12;
   }
 
-  /* "cftime/_cftime.pyx":1740
+  /* "cftime/_cftime.pyx":1743
  *         syear = "%05d" % (dt.year,)
  *     else:
  *         syear = "%04d" % (dt.year,)             # <<<<<<<<<<<<<<
@@ -36560,14 +36570,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
  *     if twodigityear:
 */
   /*else*/ {
-    __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_dt->year, 4, '0', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1740, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_dt->year, 4, '0', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1743, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_v_syear = ((PyObject*)__pyx_t_4);
     __pyx_t_4 = 0;
   }
   __pyx_L12:;
 
-  /* "cftime/_cftime.pyx":1741
+  /* "cftime/_cftime.pyx":1744
  *     else:
  *         syear = "%04d" % (dt.year,)
  *     n=4             # <<<<<<<<<<<<<<
@@ -36577,30 +36587,30 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_4);
   __pyx_v_n = __pyx_mstate_global->__pyx_int_4;
 
-  /* "cftime/_cftime.pyx":1742
+  /* "cftime/_cftime.pyx":1745
  *         syear = "%04d" % (dt.year,)
  *     n=4
  *     if twodigityear:             # <<<<<<<<<<<<<<
  *         syear = syear[-2:]
  *         if dt.year < 0:
 */
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_twodigityear); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1742, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_twodigityear); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 1745, __pyx_L1_error)
   if (__pyx_t_7) {
 
 
-    /* "cftime/_cftime.pyx":1743
+    /* "cftime/_cftime.pyx":1746
  *     n=4
  *     if twodigityear:
  *         syear = syear[-2:]             # <<<<<<<<<<<<<<
  *         if dt.year < 0:
  *             syear = '-'+syear
 */
-    __pyx_t_4 = __Pyx_PyUnicode_Substring(__pyx_v_syear, -2L, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1743, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_Substring(__pyx_v_syear, -2L, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1746, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF_SET(__pyx_v_syear, ((PyObject*)__pyx_t_4));
     __pyx_t_4 = 0;
 
-    /* "cftime/_cftime.pyx":1744
+    /* "cftime/_cftime.pyx":1747
  *     if twodigityear:
  *         syear = syear[-2:]
  *         if dt.year < 0:             # <<<<<<<<<<<<<<
@@ -36612,19 +36622,19 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     if (__pyx_t_7) {
 
 
-      /* "cftime/_cftime.pyx":1745
+      /* "cftime/_cftime.pyx":1748
  *         syear = syear[-2:]
  *         if dt.year < 0:
  *             syear = '-'+syear             # <<<<<<<<<<<<<<
  *         n=2
  *     for site in sites:
 */
-      __pyx_t_4 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__2, __pyx_v_syear); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1745, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__2, __pyx_v_syear); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1748, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF_SET(__pyx_v_syear, ((PyObject*)__pyx_t_4));
       __pyx_t_4 = 0;
 
-      /* "cftime/_cftime.pyx":1744
+      /* "cftime/_cftime.pyx":1747
  *     if twodigityear:
  *         syear = syear[-2:]
  *         if dt.year < 0:             # <<<<<<<<<<<<<<
@@ -36633,7 +36643,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
 */
     }
 
-    /* "cftime/_cftime.pyx":1746
+    /* "cftime/_cftime.pyx":1749
  *         if dt.year < 0:
  *             syear = '-'+syear
  *         n=2             # <<<<<<<<<<<<<<
@@ -36643,7 +36653,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     __Pyx_INCREF(__pyx_mstate_global->__pyx_int_2);
     __Pyx_DECREF_SET(__pyx_v_n, __pyx_mstate_global->__pyx_int_2);
 
-    /* "cftime/_cftime.pyx":1742
+    /* "cftime/_cftime.pyx":1745
  *         syear = "%04d" % (dt.year,)
  *     n=4
  *     if twodigityear:             # <<<<<<<<<<<<<<
@@ -36652,7 +36662,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
 */
   }
 
-  /* "cftime/_cftime.pyx":1747
+  /* "cftime/_cftime.pyx":1750
  *             syear = '-'+syear
  *         n=2
  *     for site in sites:             # <<<<<<<<<<<<<<
@@ -36665,42 +36675,42 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1747, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1750, __pyx_L1_error)
       #endif
       if (__pyx_t_10 >= __pyx_temp) break;
     }
     __pyx_t_3 = __Pyx_PyList_GET_ITEM_REF(__pyx_t_4, __pyx_t_10, __Pyx_ReferenceSharing_OwnStrongReference);
     ++__pyx_t_10;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1747, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1750, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XDECREF_SET(__pyx_v_site, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1748
+    /* "cftime/_cftime.pyx":1751
  *         n=2
  *     for site in sites:
  *         s = s[:site] + syear + s[site + n:]             # <<<<<<<<<<<<<<
  *     if ihavems:
  *         s = s + '.{:06d}'.format(dt.microsecond)
 */
-    __pyx_t_3 = __Pyx_PyObject_GetSlice(__pyx_v_s, 0, 0, NULL, &__pyx_v_site, NULL, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1748, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetSlice(__pyx_v_s, 0, 0, NULL, &__pyx_v_site, NULL, 0, 0, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1751, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_1 = PyNumber_Add(__pyx_t_3, __pyx_v_syear); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1748, __pyx_L1_error)
+    __pyx_t_1 = PyNumber_Add(__pyx_t_3, __pyx_v_syear); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1751, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyNumber_Add_object_int(__pyx_v_site, __pyx_v_n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1748, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyNumber_Add_object_int(__pyx_v_site, __pyx_v_n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1751, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_GetSlice(__pyx_v_s, 0, 0, &__pyx_t_3, NULL, NULL, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1748, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetSlice(__pyx_v_s, 0, 0, &__pyx_t_3, NULL, NULL, 0, 0, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1751, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyNumber_Add_object_object(__pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1748, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyNumber_Add_object_object(__pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1751, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF_SET(__pyx_v_s, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "cftime/_cftime.pyx":1747
+    /* "cftime/_cftime.pyx":1750
  *             syear = '-'+syear
  *         n=2
  *     for site in sites:             # <<<<<<<<<<<<<<
@@ -36710,7 +36720,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":1749
+  /* "cftime/_cftime.pyx":1752
  *     for site in sites:
  *         s = s[:site] + syear + s[site + n:]
  *     if ihavems:             # <<<<<<<<<<<<<<
@@ -36719,7 +36729,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
 */
   if (__pyx_v_ihavems) {
 
-    /* "cftime/_cftime.pyx":1750
+    /* "cftime/_cftime.pyx":1753
  *         s = s[:site] + syear + s[site + n:]
  *     if ihavems:
  *         s = s + '.{:06d}'.format(dt.microsecond)             # <<<<<<<<<<<<<<
@@ -36728,7 +36738,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
 */
     __pyx_t_3 = __pyx_mstate_global->__pyx_kp_u_06d;
     __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_dt->microsecond); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1750, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_dt->microsecond); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1753, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_5 = 0;
     {
@@ -36736,17 +36746,17 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1750, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1753, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1750, __pyx_L1_error)
-    __pyx_t_2 = PyNumber_Add(__pyx_v_s, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1750, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1753, __pyx_L1_error)
+    __pyx_t_2 = PyNumber_Add(__pyx_v_s, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1753, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF_SET(__pyx_v_s, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "cftime/_cftime.pyx":1749
+    /* "cftime/_cftime.pyx":1752
  *     for site in sites:
  *         s = s[:site] + syear + s[site + n:]
  *     if ihavems:             # <<<<<<<<<<<<<<
@@ -36755,7 +36765,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
 */
   }
 
-  /* "cftime/_cftime.pyx":1751
+  /* "cftime/_cftime.pyx":1754
  *     if ihavems:
  *         s = s + '.{:06d}'.format(dt.microsecond)
  *     return s             # <<<<<<<<<<<<<<
@@ -36773,7 +36783,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1691
+  /* "cftime/_cftime.pyx":1694
  * # Make also 4-digit negative years
  * # Allow .%f for microseconds
  * cdef _strftime(datetime dt, fmt):             # <<<<<<<<<<<<<<
@@ -36813,7 +36823,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__strftime(struct __pyx_obj_6cftime_7_c
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1753
+/* "cftime/_cftime.pyx":1756
  *     return s
  * 
  * cdef bint is_leap_julian(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -36833,28 +36843,28 @@ static int __pyx_f_6cftime_7_cftime_is_leap_julian(int __pyx_v_year, int __pyx_v
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_leap_julian", 0);
 
-  /* "cftime/_cftime.pyx":1755
+  /* "cftime/_cftime.pyx":1758
  * cdef bint is_leap_julian(int year, bint has_year_zero):
  *     "Return 1 if year is a leap year in the Julian calendar, 0 otherwise."
  *     return _is_leap(year, calendar='julian',has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  * 
  * cdef bint is_leap_proleptic_gregorian(int year, bint has_year_zero):
 */
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1755, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1758, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_3.__pyx_n = 1;
   __pyx_t_3.has_year_zero = __pyx_t_1;
-  __pyx_t_2 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_year, __pyx_mstate_global->__pyx_n_u_julian, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1755, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_year, __pyx_mstate_global->__pyx_n_u_julian, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1758, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1755, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1758, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   {
     __pyx_r = __pyx_t_4;
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1753
+  /* "cftime/_cftime.pyx":1756
  *     return s
  * 
  * cdef bint is_leap_julian(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -36874,7 +36884,7 @@ static int __pyx_f_6cftime_7_cftime_is_leap_julian(int __pyx_v_year, int __pyx_v
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1757
+/* "cftime/_cftime.pyx":1760
  *     return _is_leap(year, calendar='julian',has_year_zero=has_year_zero)
  * 
  * cdef bint is_leap_proleptic_gregorian(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -36894,28 +36904,28 @@ static int __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian(int __pyx_v_year
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_leap_proleptic_gregorian", 0);
 
-  /* "cftime/_cftime.pyx":1759
+  /* "cftime/_cftime.pyx":1762
  * cdef bint is_leap_proleptic_gregorian(int year, bint has_year_zero):
  *     "Return 1 if year is a leap year in the Proleptic Gregorian calendar, 0 otherwise."
  *     return _is_leap(year, calendar='proleptic_gregorian',has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  * 
  * cdef bint is_leap_gregorian(int year, bint has_year_zero):
 */
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1759, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1762, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_3.__pyx_n = 1;
   __pyx_t_3.has_year_zero = __pyx_t_1;
-  __pyx_t_2 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_year, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1759, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_year, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1762, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1759, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1762, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   {
     __pyx_r = __pyx_t_4;
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1757
+  /* "cftime/_cftime.pyx":1760
  *     return _is_leap(year, calendar='julian',has_year_zero=has_year_zero)
  * 
  * cdef bint is_leap_proleptic_gregorian(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -36935,7 +36945,7 @@ static int __pyx_f_6cftime_7_cftime_is_leap_proleptic_gregorian(int __pyx_v_year
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1761
+/* "cftime/_cftime.pyx":1764
  *     return _is_leap(year, calendar='proleptic_gregorian',has_year_zero=has_year_zero)
  * 
  * cdef bint is_leap_gregorian(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -36955,28 +36965,28 @@ static int __pyx_f_6cftime_7_cftime_is_leap_gregorian(int __pyx_v_year, int __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_leap_gregorian", 0);
 
-  /* "cftime/_cftime.pyx":1763
+  /* "cftime/_cftime.pyx":1766
  * cdef bint is_leap_gregorian(int year, bint has_year_zero):
  *     "Return 1 if year is a leap year in the Gregorian calendar, 0 otherwise."
  *     return _is_leap(year, calendar='standard',has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  * 
  * cdef bint all_leap(int year, bint has_year_zero):
 */
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1763, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_has_year_zero); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1766, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_3.__pyx_n = 1;
   __pyx_t_3.has_year_zero = __pyx_t_1;
-  __pyx_t_2 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_year, __pyx_mstate_global->__pyx_n_u_standard, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1763, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_year, __pyx_mstate_global->__pyx_n_u_standard, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1766, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1763, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1766, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   {
     __pyx_r = __pyx_t_4;
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1761
+  /* "cftime/_cftime.pyx":1764
  *     return _is_leap(year, calendar='proleptic_gregorian',has_year_zero=has_year_zero)
  * 
  * cdef bint is_leap_gregorian(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -36996,7 +37006,7 @@ static int __pyx_f_6cftime_7_cftime_is_leap_gregorian(int __pyx_v_year, int __py
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1765
+/* "cftime/_cftime.pyx":1768
  *     return _is_leap(year, calendar='standard',has_year_zero=has_year_zero)
  * 
  * cdef bint all_leap(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -37007,7 +37017,7 @@ static int __pyx_f_6cftime_7_cftime_is_leap_gregorian(int __pyx_v_year, int __py
 static int __pyx_f_6cftime_7_cftime_all_leap(CYTHON_UNUSED int __pyx_v_year, CYTHON_UNUSED int __pyx_v_has_year_zero) {
   int __pyx_r;
 
-  /* "cftime/_cftime.pyx":1767
+  /* "cftime/_cftime.pyx":1770
  * cdef bint all_leap(int year, bint has_year_zero):
  *     "Return True for all years."
  *     return True             # <<<<<<<<<<<<<<
@@ -37020,7 +37030,7 @@ static int __pyx_f_6cftime_7_cftime_all_leap(CYTHON_UNUSED int __pyx_v_year, CYT
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1765
+  /* "cftime/_cftime.pyx":1768
  *     return _is_leap(year, calendar='standard',has_year_zero=has_year_zero)
  * 
  * cdef bint all_leap(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -37034,7 +37044,7 @@ static int __pyx_f_6cftime_7_cftime_all_leap(CYTHON_UNUSED int __pyx_v_year, CYT
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1769
+/* "cftime/_cftime.pyx":1772
  *     return True
  * 
  * cdef bint no_leap(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -37045,7 +37055,7 @@ static int __pyx_f_6cftime_7_cftime_all_leap(CYTHON_UNUSED int __pyx_v_year, CYT
 static int __pyx_f_6cftime_7_cftime_no_leap(CYTHON_UNUSED int __pyx_v_year, CYTHON_UNUSED int __pyx_v_has_year_zero) {
   int __pyx_r;
 
-  /* "cftime/_cftime.pyx":1771
+  /* "cftime/_cftime.pyx":1774
  * cdef bint no_leap(int year, bint has_year_zero):
  *     "Return False for all years."
  *     return False             # <<<<<<<<<<<<<<
@@ -37058,7 +37068,7 @@ static int __pyx_f_6cftime_7_cftime_no_leap(CYTHON_UNUSED int __pyx_v_year, CYTH
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1769
+  /* "cftime/_cftime.pyx":1772
  *     return True
  * 
  * cdef bint no_leap(int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -37072,7 +37082,7 @@ static int __pyx_f_6cftime_7_cftime_no_leap(CYTHON_UNUSED int __pyx_v_year, CYTH
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1773
+/* "cftime/_cftime.pyx":1776
  *     return False
  * 
  * cdef int * month_lengths(bint (*is_leap)(int,bint), int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -37087,18 +37097,18 @@ static int *__pyx_f_6cftime_7_cftime_month_lengths(int (*__pyx_v_is_leap)(int, i
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "cftime/_cftime.pyx":1774
+  /* "cftime/_cftime.pyx":1777
  * 
  * cdef int * month_lengths(bint (*is_leap)(int,bint), int year, bint has_year_zero):
  *     if is_leap(year,has_year_zero):             # <<<<<<<<<<<<<<
  *         return _dayspermonth_leap
  *     else:
 */
-  __pyx_t_1 = __pyx_v_is_leap(__pyx_v_year, __pyx_v_has_year_zero); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1774, __pyx_L1_error)
+  __pyx_t_1 = __pyx_v_is_leap(__pyx_v_year, __pyx_v_has_year_zero); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1777, __pyx_L1_error)
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1775
+    /* "cftime/_cftime.pyx":1778
  * cdef int * month_lengths(bint (*is_leap)(int,bint), int year, bint has_year_zero):
  *     if is_leap(year,has_year_zero):
  *         return _dayspermonth_leap             # <<<<<<<<<<<<<<
@@ -37111,7 +37121,7 @@ static int *__pyx_f_6cftime_7_cftime_month_lengths(int (*__pyx_v_is_leap)(int, i
     }
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":1774
+    /* "cftime/_cftime.pyx":1777
  * 
  * cdef int * month_lengths(bint (*is_leap)(int,bint), int year, bint has_year_zero):
  *     if is_leap(year,has_year_zero):             # <<<<<<<<<<<<<<
@@ -37120,7 +37130,7 @@ static int *__pyx_f_6cftime_7_cftime_month_lengths(int (*__pyx_v_is_leap)(int, i
 */
   }
 
-  /* "cftime/_cftime.pyx":1777
+  /* "cftime/_cftime.pyx":1780
  *         return _dayspermonth_leap
  *     else:
  *         return _dayspermonth             # <<<<<<<<<<<<<<
@@ -37135,7 +37145,7 @@ static int *__pyx_f_6cftime_7_cftime_month_lengths(int (*__pyx_v_is_leap)(int, i
     goto __pyx_L0;
   }
 
-  /* "cftime/_cftime.pyx":1773
+  /* "cftime/_cftime.pyx":1776
  *     return False
  * 
  * cdef int * month_lengths(bint (*is_leap)(int,bint), int year, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -37152,7 +37162,7 @@ static int *__pyx_f_6cftime_7_cftime_month_lengths(int (*__pyx_v_is_leap)(int, i
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1779
+/* "cftime/_cftime.pyx":1782
  *         return _dayspermonth
  * 
  * cdef void assert_valid_date(datetime dt, bint (*is_leap)(int, bint),             # <<<<<<<<<<<<<<
@@ -37162,7 +37172,7 @@ static int *__pyx_f_6cftime_7_cftime_month_lengths(int (*__pyx_v_is_leap)(int, i
 
 static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_7_cftime_datetime *__pyx_v_dt, int (*__pyx_v_is_leap)(int, int), int __pyx_v_julian_gregorian_mixed, struct __pyx_opt_args_6cftime_7_cftime_assert_valid_date *__pyx_optional_args) {
 
-  /* "cftime/_cftime.pyx":1781
+  /* "cftime/_cftime.pyx":1784
  * cdef void assert_valid_date(datetime dt, bint (*is_leap)(int, bint),
  *                             bint julian_gregorian_mixed,
  *                             bint has_year_zero=False,             # <<<<<<<<<<<<<<
@@ -37171,7 +37181,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   int __pyx_v_has_year_zero = ((int)0);
 
-  /* "cftime/_cftime.pyx":1782
+  /* "cftime/_cftime.pyx":1785
  *                             bint julian_gregorian_mixed,
  *                             bint has_year_zero=False,
  *                             bint is_360_day=False) except *:             # <<<<<<<<<<<<<<
@@ -37202,7 +37212,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
     }
   }
 
-  /* "cftime/_cftime.pyx":1785
+  /* "cftime/_cftime.pyx":1788
  *     cdef int[12] month_length
  * 
  *     if not has_year_zero:             # <<<<<<<<<<<<<<
@@ -37214,7 +37224,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
   if (__pyx_t_1) {
 
 
-    /* "cftime/_cftime.pyx":1786
+    /* "cftime/_cftime.pyx":1789
  * 
  *     if not has_year_zero:
  *         if dt.year == 0:             # <<<<<<<<<<<<<<
@@ -37226,7 +37236,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
     if (unlikely(__pyx_t_1)) {
 
 
-      /* "cftime/_cftime.pyx":1787
+      /* "cftime/_cftime.pyx":1790
  *     if not has_year_zero:
  *         if dt.year == 0:
  *             raise ValueError("invalid year provided in {0!r}".format(dt))             # <<<<<<<<<<<<<<
@@ -37241,24 +37251,24 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
         PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)__pyx_v_dt)};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1787, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1790, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1787, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1790, __pyx_L1_error)
       __pyx_t_6 = 1;
       {
         PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_4};
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1787, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1790, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 1787, __pyx_L1_error)
+      __PYX_ERR(0, 1790, __pyx_L1_error)
 
-      /* "cftime/_cftime.pyx":1786
+      /* "cftime/_cftime.pyx":1789
  * 
  *     if not has_year_zero:
  *         if dt.year == 0:             # <<<<<<<<<<<<<<
@@ -37267,7 +37277,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
     }
 
-    /* "cftime/_cftime.pyx":1785
+    /* "cftime/_cftime.pyx":1788
  *     cdef int[12] month_length
  * 
  *     if not has_year_zero:             # <<<<<<<<<<<<<<
@@ -37276,7 +37286,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   }
 
-  /* "cftime/_cftime.pyx":1788
+  /* "cftime/_cftime.pyx":1791
  *         if dt.year == 0:
  *             raise ValueError("invalid year provided in {0!r}".format(dt))
  *     if is_360_day:             # <<<<<<<<<<<<<<
@@ -37285,7 +37295,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   if (__pyx_v_is_360_day) {
 
-    /* "cftime/_cftime.pyx":1789
+    /* "cftime/_cftime.pyx":1792
  *             raise ValueError("invalid year provided in {0!r}".format(dt))
  *     if is_360_day:
  *         month_length = 12*[30]             # <<<<<<<<<<<<<<
@@ -37295,7 +37305,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
     static int const __pyx_carray__7[12] = {30,30,30,30,30,30,30,30,30,30,30,30};
     memcpy(&(__pyx_v_month_length[0]), __pyx_carray__7, sizeof(__pyx_v_month_length[0]) * (12));
 
-    /* "cftime/_cftime.pyx":1788
+    /* "cftime/_cftime.pyx":1791
  *         if dt.year == 0:
  *             raise ValueError("invalid year provided in {0!r}".format(dt))
  *     if is_360_day:             # <<<<<<<<<<<<<<
@@ -37305,7 +37315,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
     goto __pyx_L5;
   }
 
-  /* "cftime/_cftime.pyx":1791
+  /* "cftime/_cftime.pyx":1794
  *         month_length = 12*[30]
  *     else:
  *         month_length = month_lengths(is_leap, dt.year, has_year_zero)             # <<<<<<<<<<<<<<
@@ -37313,13 +37323,13 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
  * 
 */
   /*else*/ {
-    __pyx_t_7 = __pyx_f_6cftime_7_cftime_month_lengths(__pyx_v_is_leap, __pyx_v_dt->year, __pyx_v_has_year_zero); if (unlikely(__pyx_t_7 == ((void *)NULL) && PyErr_Occurred())) __PYX_ERR(0, 1791, __pyx_L1_error)
+    __pyx_t_7 = __pyx_f_6cftime_7_cftime_month_lengths(__pyx_v_is_leap, __pyx_v_dt->year, __pyx_v_has_year_zero); if (unlikely(__pyx_t_7 == ((void *)NULL) && PyErr_Occurred())) __PYX_ERR(0, 1794, __pyx_L1_error)
     memcpy(&(__pyx_v_month_length[0]), __pyx_t_7, sizeof(__pyx_v_month_length[0]) * (12 - 0));
 
   }
   __pyx_L5:;
 
-  /* "cftime/_cftime.pyx":1794
+  /* "cftime/_cftime.pyx":1797
  * 
  * 
  *     if dt.month < 1 or dt.month > 12:             # <<<<<<<<<<<<<<
@@ -37345,7 +37355,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "cftime/_cftime.pyx":1795
+    /* "cftime/_cftime.pyx":1798
  * 
  *     if dt.month < 1 or dt.month > 12:
  *         raise ValueError("invalid month provided in {0!r}".format(dt))             # <<<<<<<<<<<<<<
@@ -37360,24 +37370,24 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
       PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)__pyx_v_dt)};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1795, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1798, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_3))) __PYX_ERR(0, 1795, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_3))) __PYX_ERR(0, 1798, __pyx_L1_error)
     __pyx_t_6 = 1;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_3};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1795, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1798, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1795, __pyx_L1_error)
+    __PYX_ERR(0, 1798, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1794
+    /* "cftime/_cftime.pyx":1797
  * 
  * 
  *     if dt.month < 1 or dt.month > 12:             # <<<<<<<<<<<<<<
@@ -37386,7 +37396,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   }
 
-  /* "cftime/_cftime.pyx":1797
+  /* "cftime/_cftime.pyx":1800
  *         raise ValueError("invalid month provided in {0!r}".format(dt))
  * 
  *     if dt.day < 1 or dt.day > month_length[dt.month-1]:             # <<<<<<<<<<<<<<
@@ -37412,7 +37422,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "cftime/_cftime.pyx":1798
+    /* "cftime/_cftime.pyx":1801
  * 
  *     if dt.day < 1 or dt.day > month_length[dt.month-1]:
  *         raise ValueError("invalid day number provided in {0!r}".format(dt))             # <<<<<<<<<<<<<<
@@ -37427,24 +37437,24 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
       PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)__pyx_v_dt)};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1798, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1801, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1798, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1801, __pyx_L1_error)
     __pyx_t_6 = 1;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_4};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1798, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1801, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1798, __pyx_L1_error)
+    __PYX_ERR(0, 1801, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1797
+    /* "cftime/_cftime.pyx":1800
  *         raise ValueError("invalid month provided in {0!r}".format(dt))
  * 
  *     if dt.day < 1 or dt.day > month_length[dt.month-1]:             # <<<<<<<<<<<<<<
@@ -37453,7 +37463,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   }
 
-  /* "cftime/_cftime.pyx":1800
+  /* "cftime/_cftime.pyx":1803
  *         raise ValueError("invalid day number provided in {0!r}".format(dt))
  * 
  *     if julian_gregorian_mixed and dt.year == 1582 and dt.month == 10 and dt.day > 4 and dt.day < 15:             # <<<<<<<<<<<<<<
@@ -37505,7 +37515,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "cftime/_cftime.pyx":1801
+    /* "cftime/_cftime.pyx":1804
  * 
  *     if julian_gregorian_mixed and dt.year == 1582 and dt.month == 10 and dt.day > 4 and dt.day < 15:
  *         raise ValueError("{0!r} is not present in the mixed Julian/Gregorian calendar".format(dt))             # <<<<<<<<<<<<<<
@@ -37520,24 +37530,24 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
       PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)__pyx_v_dt)};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1801, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1804, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_3))) __PYX_ERR(0, 1801, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_3))) __PYX_ERR(0, 1804, __pyx_L1_error)
     __pyx_t_6 = 1;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_3};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1801, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1804, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1801, __pyx_L1_error)
+    __PYX_ERR(0, 1804, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1800
+    /* "cftime/_cftime.pyx":1803
  *         raise ValueError("invalid day number provided in {0!r}".format(dt))
  * 
  *     if julian_gregorian_mixed and dt.year == 1582 and dt.month == 10 and dt.day > 4 and dt.day < 15:             # <<<<<<<<<<<<<<
@@ -37546,7 +37556,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   }
 
-  /* "cftime/_cftime.pyx":1803
+  /* "cftime/_cftime.pyx":1806
  *         raise ValueError("{0!r} is not present in the mixed Julian/Gregorian calendar".format(dt))
  * 
  *     if dt.hour < 0 or dt.hour > 23:             # <<<<<<<<<<<<<<
@@ -37572,7 +37582,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "cftime/_cftime.pyx":1804
+    /* "cftime/_cftime.pyx":1807
  * 
  *     if dt.hour < 0 or dt.hour > 23:
  *         raise ValueError("invalid hour provided in {0!r}".format(dt))             # <<<<<<<<<<<<<<
@@ -37587,24 +37597,24 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
       PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)__pyx_v_dt)};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1804, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1807, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1804, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1807, __pyx_L1_error)
     __pyx_t_6 = 1;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_4};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1804, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1807, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1804, __pyx_L1_error)
+    __PYX_ERR(0, 1807, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1803
+    /* "cftime/_cftime.pyx":1806
  *         raise ValueError("{0!r} is not present in the mixed Julian/Gregorian calendar".format(dt))
  * 
  *     if dt.hour < 0 or dt.hour > 23:             # <<<<<<<<<<<<<<
@@ -37613,7 +37623,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   }
 
-  /* "cftime/_cftime.pyx":1806
+  /* "cftime/_cftime.pyx":1809
  *         raise ValueError("invalid hour provided in {0!r}".format(dt))
  * 
  *     if dt.minute < 0 or dt.minute > 59:             # <<<<<<<<<<<<<<
@@ -37639,7 +37649,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "cftime/_cftime.pyx":1807
+    /* "cftime/_cftime.pyx":1810
  * 
  *     if dt.minute < 0 or dt.minute > 59:
  *         raise ValueError("invalid minute provided in {0!r}".format(dt))             # <<<<<<<<<<<<<<
@@ -37654,24 +37664,24 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
       PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)__pyx_v_dt)};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1807, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1810, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_3))) __PYX_ERR(0, 1807, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_3))) __PYX_ERR(0, 1810, __pyx_L1_error)
     __pyx_t_6 = 1;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_3};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1807, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1810, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1807, __pyx_L1_error)
+    __PYX_ERR(0, 1810, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1806
+    /* "cftime/_cftime.pyx":1809
  *         raise ValueError("invalid hour provided in {0!r}".format(dt))
  * 
  *     if dt.minute < 0 or dt.minute > 59:             # <<<<<<<<<<<<<<
@@ -37680,7 +37690,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   }
 
-  /* "cftime/_cftime.pyx":1809
+  /* "cftime/_cftime.pyx":1812
  *         raise ValueError("invalid minute provided in {0!r}".format(dt))
  * 
  *     if dt.second < 0 or dt.second > 59:             # <<<<<<<<<<<<<<
@@ -37706,7 +37716,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "cftime/_cftime.pyx":1810
+    /* "cftime/_cftime.pyx":1813
  * 
  *     if dt.second < 0 or dt.second > 59:
  *         raise ValueError("invalid second provided in {0!r}".format(dt))             # <<<<<<<<<<<<<<
@@ -37721,24 +37731,24 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
       PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)__pyx_v_dt)};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1810, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1813, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1810, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 1813, __pyx_L1_error)
     __pyx_t_6 = 1;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_4};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1810, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1813, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1810, __pyx_L1_error)
+    __PYX_ERR(0, 1813, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1809
+    /* "cftime/_cftime.pyx":1812
  *         raise ValueError("invalid minute provided in {0!r}".format(dt))
  * 
  *     if dt.second < 0 or dt.second > 59:             # <<<<<<<<<<<<<<
@@ -37747,7 +37757,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   }
 
-  /* "cftime/_cftime.pyx":1812
+  /* "cftime/_cftime.pyx":1815
  *         raise ValueError("invalid second provided in {0!r}".format(dt))
  * 
  *     if dt.microsecond < 0 or dt.microsecond > 999999:             # <<<<<<<<<<<<<<
@@ -37773,7 +37783,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "cftime/_cftime.pyx":1813
+    /* "cftime/_cftime.pyx":1816
  * 
  *     if dt.microsecond < 0 or dt.microsecond > 999999:
  *         raise ValueError("invalid microsecond provided in {0!r}".format(dt))             # <<<<<<<<<<<<<<
@@ -37788,24 +37798,24 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
       PyObject *__pyx_callargs[2] = {__pyx_t_5, ((PyObject *)__pyx_v_dt)};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1813, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1816, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_3))) __PYX_ERR(0, 1813, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_3))) __PYX_ERR(0, 1816, __pyx_L1_error)
     __pyx_t_6 = 1;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_3};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1813, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1816, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1813, __pyx_L1_error)
+    __PYX_ERR(0, 1816, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1812
+    /* "cftime/_cftime.pyx":1815
  *         raise ValueError("invalid second provided in {0!r}".format(dt))
  * 
  *     if dt.microsecond < 0 or dt.microsecond > 999999:             # <<<<<<<<<<<<<<
@@ -37814,7 +37824,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
 */
   }
 
-  /* "cftime/_cftime.pyx":1779
+  /* "cftime/_cftime.pyx":1782
  *         return _dayspermonth
  * 
  * cdef void assert_valid_date(datetime dt, bint (*is_leap)(int, bint),             # <<<<<<<<<<<<<<
@@ -37836,7 +37846,7 @@ static void __pyx_f_6cftime_7_cftime_assert_valid_date(struct __pyx_obj_6cftime_
   __Pyx_RefNannyFinishContext();
 }
 
-/* "cftime/_cftime.pyx":1829
+/* "cftime/_cftime.pyx":1832
  * # the number of invalid dates are hard-wired (1582-10-4 is the last day
  * # of the Julian calendar, after which follows 1582-10-15).
  * cdef tuple add_timedelta(datetime dt, delta, bint (*is_leap)(int,bint), bint julian_gregorian_mixed, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -37877,46 +37887,46 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("add_timedelta", 0);
 
-  /* "cftime/_cftime.pyx":1836
+  /* "cftime/_cftime.pyx":1839
  * 
  *     # extract these inputs here to avoid type conversion in the code below
  *     delta_microseconds = delta.microseconds             # <<<<<<<<<<<<<<
  *     delta_seconds = delta.seconds
  *     delta_days = delta.days
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_microseconds); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1836, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_microseconds); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1839, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1836, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1839, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_delta_microseconds = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1837
+  /* "cftime/_cftime.pyx":1840
  *     # extract these inputs here to avoid type conversion in the code below
  *     delta_microseconds = delta.microseconds
  *     delta_seconds = delta.seconds             # <<<<<<<<<<<<<<
  *     delta_days = delta.days
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_seconds); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1837, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_seconds); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1840, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1837, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1840, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_delta_seconds = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1838
+  /* "cftime/_cftime.pyx":1841
  *     delta_microseconds = delta.microseconds
  *     delta_seconds = delta.seconds
  *     delta_days = delta.days             # <<<<<<<<<<<<<<
  * 
  *     # shift microseconds, seconds, days
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_days); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1838, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_days); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1841, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1838, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1841, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_delta_days = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1841
+  /* "cftime/_cftime.pyx":1844
  * 
  *     # shift microseconds, seconds, days
  *     microsecond = dt.microsecond + delta_microseconds             # <<<<<<<<<<<<<<
@@ -37925,7 +37935,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_microsecond = (__pyx_v_dt->microsecond + __pyx_v_delta_microseconds);
 
-  /* "cftime/_cftime.pyx":1842
+  /* "cftime/_cftime.pyx":1845
  *     # shift microseconds, seconds, days
  *     microsecond = dt.microsecond + delta_microseconds
  *     second = dt.second + delta_seconds             # <<<<<<<<<<<<<<
@@ -37934,7 +37944,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_second = (__pyx_v_dt->second + __pyx_v_delta_seconds);
 
-  /* "cftime/_cftime.pyx":1843
+  /* "cftime/_cftime.pyx":1846
  *     microsecond = dt.microsecond + delta_microseconds
  *     second = dt.second + delta_seconds
  *     minute = dt.minute             # <<<<<<<<<<<<<<
@@ -37945,7 +37955,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 
   __pyx_v_minute = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1844
+  /* "cftime/_cftime.pyx":1847
  *     second = dt.second + delta_seconds
  *     minute = dt.minute
  *     hour = dt.hour             # <<<<<<<<<<<<<<
@@ -37956,7 +37966,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 
   __pyx_v_hour = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1845
+  /* "cftime/_cftime.pyx":1848
  *     minute = dt.minute
  *     hour = dt.hour
  *     day = dt.day             # <<<<<<<<<<<<<<
@@ -37967,7 +37977,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 
   __pyx_v_day = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1846
+  /* "cftime/_cftime.pyx":1849
  *     hour = dt.hour
  *     day = dt.day
  *     month = dt.month             # <<<<<<<<<<<<<<
@@ -37978,7 +37988,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 
   __pyx_v_month = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1847
+  /* "cftime/_cftime.pyx":1850
  *     day = dt.day
  *     month = dt.month
  *     year = dt.year             # <<<<<<<<<<<<<<
@@ -37989,17 +37999,17 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 
   __pyx_v_year = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1849
+  /* "cftime/_cftime.pyx":1852
  *     year = dt.year
  * 
  *     month_length = month_lengths(is_leap, year, has_year_zero)             # <<<<<<<<<<<<<<
  * 
  *     n_invalid_dates = 10 if julian_gregorian_mixed else 0
 */
-  __pyx_t_3 = __pyx_f_6cftime_7_cftime_month_lengths(__pyx_v_is_leap, __pyx_v_year, __pyx_v_has_year_zero); if (unlikely(__pyx_t_3 == ((void *)NULL) && PyErr_Occurred())) __PYX_ERR(0, 1849, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_6cftime_7_cftime_month_lengths(__pyx_v_is_leap, __pyx_v_year, __pyx_v_has_year_zero); if (unlikely(__pyx_t_3 == ((void *)NULL) && PyErr_Occurred())) __PYX_ERR(0, 1852, __pyx_L1_error)
   __pyx_v_month_length = __pyx_t_3;
 
-  /* "cftime/_cftime.pyx":1851
+  /* "cftime/_cftime.pyx":1854
  *     month_length = month_lengths(is_leap, year, has_year_zero)
  * 
  *     n_invalid_dates = 10 if julian_gregorian_mixed else 0             # <<<<<<<<<<<<<<
@@ -38015,7 +38025,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
   }
   __pyx_v_n_invalid_dates = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1854
+  /* "cftime/_cftime.pyx":1857
  * 
  *     # Normalize microseconds, seconds, minutes, hours.
  *     second += microsecond // 1000000             # <<<<<<<<<<<<<<
@@ -38024,7 +38034,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_second = (__pyx_v_second + __Pyx_div_long(__pyx_v_microsecond, 0xF4240, 1));
 
-  /* "cftime/_cftime.pyx":1855
+  /* "cftime/_cftime.pyx":1858
  *     # Normalize microseconds, seconds, minutes, hours.
  *     second += microsecond // 1000000
  *     microsecond = microsecond % 1000000             # <<<<<<<<<<<<<<
@@ -38033,7 +38043,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_microsecond = __Pyx_mod_long(__pyx_v_microsecond, 0xF4240, 1);
 
-  /* "cftime/_cftime.pyx":1856
+  /* "cftime/_cftime.pyx":1859
  *     second += microsecond // 1000000
  *     microsecond = microsecond % 1000000
  *     minute += second // 60             # <<<<<<<<<<<<<<
@@ -38042,7 +38052,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_minute = (__pyx_v_minute + __Pyx_div_long(__pyx_v_second, 60, 1));
 
-  /* "cftime/_cftime.pyx":1857
+  /* "cftime/_cftime.pyx":1860
  *     microsecond = microsecond % 1000000
  *     minute += second // 60
  *     second = second % 60             # <<<<<<<<<<<<<<
@@ -38051,7 +38061,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_second = __Pyx_mod_long(__pyx_v_second, 60, 1);
 
-  /* "cftime/_cftime.pyx":1858
+  /* "cftime/_cftime.pyx":1861
  *     minute += second // 60
  *     second = second % 60
  *     hour += minute // 60             # <<<<<<<<<<<<<<
@@ -38060,7 +38070,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_hour = (__pyx_v_hour + __Pyx_div_long(__pyx_v_minute, 60, 1));
 
-  /* "cftime/_cftime.pyx":1859
+  /* "cftime/_cftime.pyx":1862
  *     second = second % 60
  *     hour += minute // 60
  *     minute = minute % 60             # <<<<<<<<<<<<<<
@@ -38069,7 +38079,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_minute = __Pyx_mod_long(__pyx_v_minute, 60, 1);
 
-  /* "cftime/_cftime.pyx":1860
+  /* "cftime/_cftime.pyx":1863
  *     hour += minute // 60
  *     minute = minute % 60
  *     extra_days = hour // 24             # <<<<<<<<<<<<<<
@@ -38078,7 +38088,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_extra_days = __Pyx_div_long(__pyx_v_hour, 24, 1);
 
-  /* "cftime/_cftime.pyx":1861
+  /* "cftime/_cftime.pyx":1864
  *     minute = minute % 60
  *     extra_days = hour // 24
  *     hour = hour % 24             # <<<<<<<<<<<<<<
@@ -38087,7 +38097,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_hour = __Pyx_mod_long(__pyx_v_hour, 24, 1);
 
-  /* "cftime/_cftime.pyx":1863
+  /* "cftime/_cftime.pyx":1866
  *     hour = hour % 24
  * 
  *     delta_days += extra_days             # <<<<<<<<<<<<<<
@@ -38096,7 +38106,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
   __pyx_v_delta_days = (__pyx_v_delta_days + __pyx_v_extra_days);
 
-  /* "cftime/_cftime.pyx":1865
+  /* "cftime/_cftime.pyx":1868
  *     delta_days += extra_days
  * 
  *     while delta_days < 0:             # <<<<<<<<<<<<<<
@@ -38109,7 +38119,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 
     if (!__pyx_t_4) break;
 
-    /* "cftime/_cftime.pyx":1866
+    /* "cftime/_cftime.pyx":1869
  * 
  *     while delta_days < 0:
  *         if year == 1582 and month == 10 and day > 14 and day + delta_days < 15:             # <<<<<<<<<<<<<<
@@ -38155,7 +38165,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
     if (__pyx_t_4) {
 
 
-      /* "cftime/_cftime.pyx":1867
+      /* "cftime/_cftime.pyx":1870
  *     while delta_days < 0:
  *         if year == 1582 and month == 10 and day > 14 and day + delta_days < 15:
  *             delta_days -= n_invalid_dates    # skip over invalid dates             # <<<<<<<<<<<<<<
@@ -38164,7 +38174,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       __pyx_v_delta_days = (__pyx_v_delta_days - __pyx_v_n_invalid_dates);
 
-      /* "cftime/_cftime.pyx":1866
+      /* "cftime/_cftime.pyx":1869
  * 
  *     while delta_days < 0:
  *         if year == 1582 and month == 10 and day > 14 and day + delta_days < 15:             # <<<<<<<<<<<<<<
@@ -38173,7 +38183,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
     }
 
-    /* "cftime/_cftime.pyx":1868
+    /* "cftime/_cftime.pyx":1871
  *         if year == 1582 and month == 10 and day > 14 and day + delta_days < 15:
  *             delta_days -= n_invalid_dates    # skip over invalid dates
  *         if day + delta_days < 1:             # <<<<<<<<<<<<<<
@@ -38185,7 +38195,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
     if (__pyx_t_4) {
 
 
-      /* "cftime/_cftime.pyx":1869
+      /* "cftime/_cftime.pyx":1872
  *             delta_days -= n_invalid_dates    # skip over invalid dates
  *         if day + delta_days < 1:
  *             delta_days += day             # <<<<<<<<<<<<<<
@@ -38194,7 +38204,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       __pyx_v_delta_days = (__pyx_v_delta_days + __pyx_v_day);
 
-      /* "cftime/_cftime.pyx":1871
+      /* "cftime/_cftime.pyx":1874
  *             delta_days += day
  *             # decrement month
  *             month -= 1             # <<<<<<<<<<<<<<
@@ -38203,7 +38213,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       __pyx_v_month = (__pyx_v_month - 1);
 
-      /* "cftime/_cftime.pyx":1872
+      /* "cftime/_cftime.pyx":1875
  *             # decrement month
  *             month -= 1
  *             if month < 1:             # <<<<<<<<<<<<<<
@@ -38215,7 +38225,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
       if (__pyx_t_4) {
 
 
-        /* "cftime/_cftime.pyx":1873
+        /* "cftime/_cftime.pyx":1876
  *             month -= 1
  *             if month < 1:
  *                 month = 12             # <<<<<<<<<<<<<<
@@ -38224,7 +38234,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
         __pyx_v_month = 12;
 
-        /* "cftime/_cftime.pyx":1874
+        /* "cftime/_cftime.pyx":1877
  *             if month < 1:
  *                 month = 12
  *                 year -= 1             # <<<<<<<<<<<<<<
@@ -38233,7 +38243,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
         __pyx_v_year = (__pyx_v_year - 1);
 
-        /* "cftime/_cftime.pyx":1875
+        /* "cftime/_cftime.pyx":1878
  *                 month = 12
  *                 year -= 1
  *                 if year == 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -38259,7 +38269,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
         if (__pyx_t_4) {
 
 
-          /* "cftime/_cftime.pyx":1876
+          /* "cftime/_cftime.pyx":1879
  *                 year -= 1
  *                 if year == 0 and not has_year_zero:
  *                     year = -1             # <<<<<<<<<<<<<<
@@ -38268,7 +38278,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
           __pyx_v_year = -1;
 
-          /* "cftime/_cftime.pyx":1875
+          /* "cftime/_cftime.pyx":1878
  *                 month = 12
  *                 year -= 1
  *                 if year == 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -38277,17 +38287,17 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
         }
 
-        /* "cftime/_cftime.pyx":1877
+        /* "cftime/_cftime.pyx":1880
  *                 if year == 0 and not has_year_zero:
  *                     year = -1
  *                 month_length = month_lengths(is_leap, year, has_year_zero)             # <<<<<<<<<<<<<<
  *             day = month_length[month-1]
  *         else:
 */
-        __pyx_t_3 = __pyx_f_6cftime_7_cftime_month_lengths(__pyx_v_is_leap, __pyx_v_year, __pyx_v_has_year_zero); if (unlikely(__pyx_t_3 == ((void *)NULL) && PyErr_Occurred())) __PYX_ERR(0, 1877, __pyx_L1_error)
+        __pyx_t_3 = __pyx_f_6cftime_7_cftime_month_lengths(__pyx_v_is_leap, __pyx_v_year, __pyx_v_has_year_zero); if (unlikely(__pyx_t_3 == ((void *)NULL) && PyErr_Occurred())) __PYX_ERR(0, 1880, __pyx_L1_error)
         __pyx_v_month_length = __pyx_t_3;
 
-        /* "cftime/_cftime.pyx":1872
+        /* "cftime/_cftime.pyx":1875
  *             # decrement month
  *             month -= 1
  *             if month < 1:             # <<<<<<<<<<<<<<
@@ -38296,7 +38306,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       }
 
-      /* "cftime/_cftime.pyx":1878
+      /* "cftime/_cftime.pyx":1881
  *                     year = -1
  *                 month_length = month_lengths(is_leap, year, has_year_zero)
  *             day = month_length[month-1]             # <<<<<<<<<<<<<<
@@ -38305,7 +38315,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       __pyx_v_day = (__pyx_v_month_length[(__pyx_v_month - 1)]);
 
-      /* "cftime/_cftime.pyx":1868
+      /* "cftime/_cftime.pyx":1871
  *         if year == 1582 and month == 10 and day > 14 and day + delta_days < 15:
  *             delta_days -= n_invalid_dates    # skip over invalid dates
  *         if day + delta_days < 1:             # <<<<<<<<<<<<<<
@@ -38315,7 +38325,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
       goto __pyx_L10;
     }
 
-    /* "cftime/_cftime.pyx":1880
+    /* "cftime/_cftime.pyx":1883
  *             day = month_length[month-1]
  *         else:
  *             day += delta_days             # <<<<<<<<<<<<<<
@@ -38325,7 +38335,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
     /*else*/ {
       __pyx_v_day = (__pyx_v_day + __pyx_v_delta_days);
 
-      /* "cftime/_cftime.pyx":1881
+      /* "cftime/_cftime.pyx":1884
  *         else:
  *             day += delta_days
  *             delta_days = 0             # <<<<<<<<<<<<<<
@@ -38337,7 +38347,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
     __pyx_L10:;
   }
 
-  /* "cftime/_cftime.pyx":1883
+  /* "cftime/_cftime.pyx":1886
  *             delta_days = 0
  * 
  *     while delta_days > 0:             # <<<<<<<<<<<<<<
@@ -38350,7 +38360,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 
     if (!__pyx_t_4) break;
 
-    /* "cftime/_cftime.pyx":1884
+    /* "cftime/_cftime.pyx":1887
  * 
  *     while delta_days > 0:
  *         if year == 1582 and month == 10 and day < 5 and day + delta_days > 4:             # <<<<<<<<<<<<<<
@@ -38396,7 +38406,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
     if (__pyx_t_4) {
 
 
-      /* "cftime/_cftime.pyx":1885
+      /* "cftime/_cftime.pyx":1888
  *     while delta_days > 0:
  *         if year == 1582 and month == 10 and day < 5 and day + delta_days > 4:
  *             delta_days += n_invalid_dates    # skip over invalid dates             # <<<<<<<<<<<<<<
@@ -38405,7 +38415,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       __pyx_v_delta_days = (__pyx_v_delta_days + __pyx_v_n_invalid_dates);
 
-      /* "cftime/_cftime.pyx":1884
+      /* "cftime/_cftime.pyx":1887
  * 
  *     while delta_days > 0:
  *         if year == 1582 and month == 10 and day < 5 and day + delta_days > 4:             # <<<<<<<<<<<<<<
@@ -38414,7 +38424,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
     }
 
-    /* "cftime/_cftime.pyx":1886
+    /* "cftime/_cftime.pyx":1889
  *         if year == 1582 and month == 10 and day < 5 and day + delta_days > 4:
  *             delta_days += n_invalid_dates    # skip over invalid dates
  *         if day + delta_days > month_length[month-1]:             # <<<<<<<<<<<<<<
@@ -38426,7 +38436,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
     if (__pyx_t_4) {
 
 
-      /* "cftime/_cftime.pyx":1887
+      /* "cftime/_cftime.pyx":1890
  *             delta_days += n_invalid_dates    # skip over invalid dates
  *         if day + delta_days > month_length[month-1]:
  *             delta_days -= month_length[month-1] - (day - 1)             # <<<<<<<<<<<<<<
@@ -38435,7 +38445,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       __pyx_v_delta_days = (__pyx_v_delta_days - ((__pyx_v_month_length[(__pyx_v_month - 1)]) - (__pyx_v_day - 1)));
 
-      /* "cftime/_cftime.pyx":1889
+      /* "cftime/_cftime.pyx":1892
  *             delta_days -= month_length[month-1] - (day - 1)
  *             # increment month
  *             month += 1             # <<<<<<<<<<<<<<
@@ -38444,7 +38454,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       __pyx_v_month = (__pyx_v_month + 1);
 
-      /* "cftime/_cftime.pyx":1890
+      /* "cftime/_cftime.pyx":1893
  *             # increment month
  *             month += 1
  *             if month > 12:             # <<<<<<<<<<<<<<
@@ -38456,7 +38466,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
       if (__pyx_t_4) {
 
 
-        /* "cftime/_cftime.pyx":1891
+        /* "cftime/_cftime.pyx":1894
  *             month += 1
  *             if month > 12:
  *                 month = 1             # <<<<<<<<<<<<<<
@@ -38465,7 +38475,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
         __pyx_v_month = 1;
 
-        /* "cftime/_cftime.pyx":1892
+        /* "cftime/_cftime.pyx":1895
  *             if month > 12:
  *                 month = 1
  *                 year += 1             # <<<<<<<<<<<<<<
@@ -38474,7 +38484,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
         __pyx_v_year = (__pyx_v_year + 1);
 
-        /* "cftime/_cftime.pyx":1893
+        /* "cftime/_cftime.pyx":1896
  *                 month = 1
  *                 year += 1
  *                 if year == 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -38500,7 +38510,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
         if (__pyx_t_4) {
 
 
-          /* "cftime/_cftime.pyx":1894
+          /* "cftime/_cftime.pyx":1897
  *                 year += 1
  *                 if year == 0 and not has_year_zero:
  *                     year = 1             # <<<<<<<<<<<<<<
@@ -38509,7 +38519,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
           __pyx_v_year = 1;
 
-          /* "cftime/_cftime.pyx":1893
+          /* "cftime/_cftime.pyx":1896
  *                 month = 1
  *                 year += 1
  *                 if year == 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -38518,17 +38528,17 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
         }
 
-        /* "cftime/_cftime.pyx":1895
+        /* "cftime/_cftime.pyx":1898
  *                 if year == 0 and not has_year_zero:
  *                     year = 1
  *                 month_length = month_lengths(is_leap, year, has_year_zero)             # <<<<<<<<<<<<<<
  *             day = 1
  *         else:
 */
-        __pyx_t_3 = __pyx_f_6cftime_7_cftime_month_lengths(__pyx_v_is_leap, __pyx_v_year, __pyx_v_has_year_zero); if (unlikely(__pyx_t_3 == ((void *)NULL) && PyErr_Occurred())) __PYX_ERR(0, 1895, __pyx_L1_error)
+        __pyx_t_3 = __pyx_f_6cftime_7_cftime_month_lengths(__pyx_v_is_leap, __pyx_v_year, __pyx_v_has_year_zero); if (unlikely(__pyx_t_3 == ((void *)NULL) && PyErr_Occurred())) __PYX_ERR(0, 1898, __pyx_L1_error)
         __pyx_v_month_length = __pyx_t_3;
 
-        /* "cftime/_cftime.pyx":1890
+        /* "cftime/_cftime.pyx":1893
  *             # increment month
  *             month += 1
  *             if month > 12:             # <<<<<<<<<<<<<<
@@ -38537,7 +38547,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       }
 
-      /* "cftime/_cftime.pyx":1896
+      /* "cftime/_cftime.pyx":1899
  *                     year = 1
  *                 month_length = month_lengths(is_leap, year, has_year_zero)
  *             day = 1             # <<<<<<<<<<<<<<
@@ -38546,7 +38556,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
 */
       __pyx_v_day = 1;
 
-      /* "cftime/_cftime.pyx":1886
+      /* "cftime/_cftime.pyx":1889
  *         if year == 1582 and month == 10 and day < 5 and day + delta_days > 4:
  *             delta_days += n_invalid_dates    # skip over invalid dates
  *         if day + delta_days > month_length[month-1]:             # <<<<<<<<<<<<<<
@@ -38556,7 +38566,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
       goto __pyx_L22;
     }
 
-    /* "cftime/_cftime.pyx":1898
+    /* "cftime/_cftime.pyx":1901
  *             day = 1
  *         else:
  *             day += delta_days             # <<<<<<<<<<<<<<
@@ -38566,7 +38576,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
     /*else*/ {
       __pyx_v_day = (__pyx_v_day + __pyx_v_delta_days);
 
-      /* "cftime/_cftime.pyx":1899
+      /* "cftime/_cftime.pyx":1902
  *         else:
  *             day += delta_days
  *             delta_days = 0             # <<<<<<<<<<<<<<
@@ -38578,49 +38588,49 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
     __pyx_L22:;
   }
 
-  /* "cftime/_cftime.pyx":1901
+  /* "cftime/_cftime.pyx":1904
  *             delta_days = 0
  * 
  *     return (year, month, day, hour, minute, second, microsecond, -1, -1)             # <<<<<<<<<<<<<<
  * 
  * # Add a datetime.timedelta to a cftime.datetime instance with the 360_day calendar.
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1901, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1904, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_month); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1901, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_month); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1904, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_day); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1901, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_day); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1904, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1901, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_hour); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1904, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1901, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_minute); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1904, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_second); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1901, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_second); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1904, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_microsecond); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1901, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_microsecond); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1904, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_12 = PyTuple_New(9); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1901, __pyx_L1_error)
+  __pyx_t_12 = PyTuple_New(9); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1904, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1901, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1904, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 1901, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 1904, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 2, __pyx_t_7) != (0)) __PYX_ERR(0, 1901, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 2, __pyx_t_7) != (0)) __PYX_ERR(0, 1904, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 3, __pyx_t_8) != (0)) __PYX_ERR(0, 1901, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 3, __pyx_t_8) != (0)) __PYX_ERR(0, 1904, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 4, __pyx_t_9) != (0)) __PYX_ERR(0, 1901, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 4, __pyx_t_9) != (0)) __PYX_ERR(0, 1904, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_10);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 5, __pyx_t_10) != (0)) __PYX_ERR(0, 1901, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 5, __pyx_t_10) != (0)) __PYX_ERR(0, 1904, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_11);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 6, __pyx_t_11) != (0)) __PYX_ERR(0, 1901, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 6, __pyx_t_11) != (0)) __PYX_ERR(0, 1904, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_neg_1);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_neg_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 7, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1901, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 7, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1904, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_neg_1);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_neg_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 8, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1901, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_12, 8, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1904, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_6 = 0;
   __pyx_t_7 = 0;
@@ -38639,7 +38649,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
   __pyx_t_12 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1829
+  /* "cftime/_cftime.pyx":1832
  * # the number of invalid dates are hard-wired (1582-10-4 is the last day
  * # of the Julian calendar, after which follows 1582-10-15).
  * cdef tuple add_timedelta(datetime dt, delta, bint (*is_leap)(int,bint), bint julian_gregorian_mixed, bint has_year_zero):             # <<<<<<<<<<<<<<
@@ -38678,7 +38688,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta(struct __pyx_obj_6cftime
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1909
+/* "cftime/_cftime.pyx":1912
  * # months are 30 days long, so we can compute month and year by using
  * # "//" and "%".
  * cdef tuple add_timedelta_360_day(datetime dt, delta):             # <<<<<<<<<<<<<<
@@ -38713,46 +38723,46 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("add_timedelta_360_day", 0);
 
-  /* "cftime/_cftime.pyx":1914
+  /* "cftime/_cftime.pyx":1917
  * 
  *     # extract these inputs here to avoid type conversion in the code below
  *     delta_microseconds = delta.microseconds             # <<<<<<<<<<<<<<
  *     delta_seconds = delta.seconds
  *     delta_days = delta.days
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_microseconds); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1914, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_microseconds); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1917, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1914, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1917, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_delta_microseconds = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1915
+  /* "cftime/_cftime.pyx":1918
  *     # extract these inputs here to avoid type conversion in the code below
  *     delta_microseconds = delta.microseconds
  *     delta_seconds = delta.seconds             # <<<<<<<<<<<<<<
  *     delta_days = delta.days
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_seconds); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1915, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_seconds); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1918, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1915, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1918, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_delta_seconds = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1916
+  /* "cftime/_cftime.pyx":1919
  *     delta_microseconds = delta.microseconds
  *     delta_seconds = delta.seconds
  *     delta_days = delta.days             # <<<<<<<<<<<<<<
  * 
  *     # shift microseconds, seconds, days
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_days); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1916, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_delta, __pyx_mstate_global->__pyx_n_u_days); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1919, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1916, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1919, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_delta_days = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1919
+  /* "cftime/_cftime.pyx":1922
  * 
  *     # shift microseconds, seconds, days
  *     microsecond = dt.microsecond + delta_microseconds             # <<<<<<<<<<<<<<
@@ -38761,7 +38771,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_microsecond = (__pyx_v_dt->microsecond + __pyx_v_delta_microseconds);
 
-  /* "cftime/_cftime.pyx":1920
+  /* "cftime/_cftime.pyx":1923
  *     # shift microseconds, seconds, days
  *     microsecond = dt.microsecond + delta_microseconds
  *     second = dt.second + delta_seconds             # <<<<<<<<<<<<<<
@@ -38770,7 +38780,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_second = (__pyx_v_dt->second + __pyx_v_delta_seconds);
 
-  /* "cftime/_cftime.pyx":1921
+  /* "cftime/_cftime.pyx":1924
  *     microsecond = dt.microsecond + delta_microseconds
  *     second = dt.second + delta_seconds
  *     minute = dt.minute             # <<<<<<<<<<<<<<
@@ -38781,7 +38791,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 
   __pyx_v_minute = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1922
+  /* "cftime/_cftime.pyx":1925
  *     second = dt.second + delta_seconds
  *     minute = dt.minute
  *     hour = dt.hour             # <<<<<<<<<<<<<<
@@ -38792,7 +38802,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 
   __pyx_v_hour = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1923
+  /* "cftime/_cftime.pyx":1926
  *     minute = dt.minute
  *     hour = dt.hour
  *     day = dt.day + delta_days             # <<<<<<<<<<<<<<
@@ -38801,7 +38811,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_day = (__pyx_v_dt->day + __pyx_v_delta_days);
 
-  /* "cftime/_cftime.pyx":1924
+  /* "cftime/_cftime.pyx":1927
  *     hour = dt.hour
  *     day = dt.day + delta_days
  *     month = dt.month             # <<<<<<<<<<<<<<
@@ -38812,7 +38822,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 
   __pyx_v_month = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1925
+  /* "cftime/_cftime.pyx":1928
  *     day = dt.day + delta_days
  *     month = dt.month
  *     year = dt.year             # <<<<<<<<<<<<<<
@@ -38823,7 +38833,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 
   __pyx_v_year = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":1928
+  /* "cftime/_cftime.pyx":1931
  * 
  *     # Normalize microseconds, seconds, minutes, hours, days, and months.
  *     second += microsecond // 1000000             # <<<<<<<<<<<<<<
@@ -38832,7 +38842,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_second = (__pyx_v_second + __Pyx_div_long(__pyx_v_microsecond, 0xF4240, 1));
 
-  /* "cftime/_cftime.pyx":1929
+  /* "cftime/_cftime.pyx":1932
  *     # Normalize microseconds, seconds, minutes, hours, days, and months.
  *     second += microsecond // 1000000
  *     microsecond = microsecond % 1000000             # <<<<<<<<<<<<<<
@@ -38841,7 +38851,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_microsecond = __Pyx_mod_long(__pyx_v_microsecond, 0xF4240, 1);
 
-  /* "cftime/_cftime.pyx":1930
+  /* "cftime/_cftime.pyx":1933
  *     second += microsecond // 1000000
  *     microsecond = microsecond % 1000000
  *     minute += second // 60             # <<<<<<<<<<<<<<
@@ -38850,7 +38860,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_minute = (__pyx_v_minute + __Pyx_div_long(__pyx_v_second, 60, 1));
 
-  /* "cftime/_cftime.pyx":1931
+  /* "cftime/_cftime.pyx":1934
  *     microsecond = microsecond % 1000000
  *     minute += second // 60
  *     second = second % 60             # <<<<<<<<<<<<<<
@@ -38859,7 +38869,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_second = __Pyx_mod_long(__pyx_v_second, 60, 1);
 
-  /* "cftime/_cftime.pyx":1932
+  /* "cftime/_cftime.pyx":1935
  *     minute += second // 60
  *     second = second % 60
  *     hour += minute // 60             # <<<<<<<<<<<<<<
@@ -38868,7 +38878,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_hour = (__pyx_v_hour + __Pyx_div_long(__pyx_v_minute, 60, 1));
 
-  /* "cftime/_cftime.pyx":1933
+  /* "cftime/_cftime.pyx":1936
  *     second = second % 60
  *     hour += minute // 60
  *     minute = minute % 60             # <<<<<<<<<<<<<<
@@ -38877,7 +38887,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_minute = __Pyx_mod_long(__pyx_v_minute, 60, 1);
 
-  /* "cftime/_cftime.pyx":1934
+  /* "cftime/_cftime.pyx":1937
  *     hour += minute // 60
  *     minute = minute % 60
  *     day += hour // 24             # <<<<<<<<<<<<<<
@@ -38886,7 +38896,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_day = (__pyx_v_day + __Pyx_div_long(__pyx_v_hour, 24, 1));
 
-  /* "cftime/_cftime.pyx":1935
+  /* "cftime/_cftime.pyx":1938
  *     minute = minute % 60
  *     day += hour // 24
  *     hour = hour % 24             # <<<<<<<<<<<<<<
@@ -38895,7 +38905,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_hour = __Pyx_mod_long(__pyx_v_hour, 24, 1);
 
-  /* "cftime/_cftime.pyx":1937
+  /* "cftime/_cftime.pyx":1940
  *     hour = hour % 24
  *     # day and month are counted from 1; all months have 30 days
  *     month += (day - 1) // 30             # <<<<<<<<<<<<<<
@@ -38904,7 +38914,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_month = (__pyx_v_month + __Pyx_div_long((__pyx_v_day - 1), 30, 1));
 
-  /* "cftime/_cftime.pyx":1938
+  /* "cftime/_cftime.pyx":1941
  *     # day and month are counted from 1; all months have 30 days
  *     month += (day - 1) // 30
  *     day = (day - 1) % 30 + 1             # <<<<<<<<<<<<<<
@@ -38913,7 +38923,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_day = (__Pyx_mod_long((__pyx_v_day - 1), 30, 1) + 1);
 
-  /* "cftime/_cftime.pyx":1940
+  /* "cftime/_cftime.pyx":1943
  *     day = (day - 1) % 30 + 1
  *     # all years have 12 months
  *     year += (month - 1) // 12             # <<<<<<<<<<<<<<
@@ -38922,7 +38932,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_year = (__pyx_v_year + __Pyx_div_long((__pyx_v_month - 1), 12, 1));
 
-  /* "cftime/_cftime.pyx":1941
+  /* "cftime/_cftime.pyx":1944
  *     # all years have 12 months
  *     year += (month - 1) // 12
  *     month = (month - 1) % 12 + 1             # <<<<<<<<<<<<<<
@@ -38931,49 +38941,49 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
 */
   __pyx_v_month = (__Pyx_mod_long((__pyx_v_month - 1), 12, 1) + 1);
 
-  /* "cftime/_cftime.pyx":1943
+  /* "cftime/_cftime.pyx":1946
  *     month = (month - 1) % 12 + 1
  * 
  *     return (year, month, day, hour, minute, second, microsecond, -1, -1)             # <<<<<<<<<<<<<<
  * 
  * @cython.embedsignature(True)
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1943, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_year); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1946, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_month); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1943, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_month); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1946, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_day); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1943, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_day); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1946, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_hour); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1943, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_hour); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1946, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_minute); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1943, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_minute); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1946, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_second); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1943, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_second); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1946, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_microsecond); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1943, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_microsecond); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1946, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = PyTuple_New(9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1943, __pyx_L1_error)
+  __pyx_t_9 = PyTuple_New(9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1946, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1943, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 1946, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 1943, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 1946, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 2, __pyx_t_4) != (0)) __PYX_ERR(0, 1943, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 2, __pyx_t_4) != (0)) __PYX_ERR(0, 1946, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 3, __pyx_t_5) != (0)) __PYX_ERR(0, 1943, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 3, __pyx_t_5) != (0)) __PYX_ERR(0, 1946, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 4, __pyx_t_6) != (0)) __PYX_ERR(0, 1943, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 4, __pyx_t_6) != (0)) __PYX_ERR(0, 1946, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 5, __pyx_t_7) != (0)) __PYX_ERR(0, 1943, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 5, __pyx_t_7) != (0)) __PYX_ERR(0, 1946, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 6, __pyx_t_8) != (0)) __PYX_ERR(0, 1943, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 6, __pyx_t_8) != (0)) __PYX_ERR(0, 1946, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_neg_1);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_neg_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 7, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1943, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 7, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1946, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_neg_1);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_neg_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 8, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1943, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 8, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 1946, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_3 = 0;
   __pyx_t_4 = 0;
@@ -38992,7 +39002,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
   __pyx_t_9 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1909
+  /* "cftime/_cftime.pyx":1912
  * # months are 30 days long, so we can compute month and year by using
  * # "//" and "%".
  * cdef tuple add_timedelta_360_day(datetime dt, delta):             # <<<<<<<<<<<<<<
@@ -39028,7 +39038,7 @@ static PyObject *__pyx_f_6cftime_7_cftime_add_timedelta_360_day(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1945
+/* "cftime/_cftime.pyx":1948
  *     return (year, month, day, hour, minute, second, microsecond, -1, -1)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -39078,28 +39088,28 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_year,&__pyx_mstate_global->__pyx_n_u_calendar,&__pyx_mstate_global->__pyx_n_u_has_year_zero,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1945, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1948, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1945, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1948, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1945, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1948, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1945, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1948, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "is_leap_year", 0) < (0)) __PYX_ERR(0, 1945, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "is_leap_year", 0) < (0)) __PYX_ERR(0, 1948, __pyx_L3_error)
 
-      /* "cftime/_cftime.pyx":1946
+      /* "cftime/_cftime.pyx":1949
  * 
  * @cython.embedsignature(True)
  * def is_leap_year(year, calendar, has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -39108,19 +39118,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("is_leap_year", 0, 2, 3, i); __PYX_ERR(0, 1945, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("is_leap_year", 0, 2, 3, i); __PYX_ERR(0, 1948, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1945, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1948, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1945, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1948, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1945, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1948, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -39132,7 +39142,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("is_leap_year", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 1945, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("is_leap_year", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 1948, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -39145,7 +39155,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_6cftime_7_cftime_36is_leap_year(__pyx_self, __pyx_v_year, __pyx_v_calendar, __pyx_v_has_year_zero);
 
-  /* "cftime/_cftime.pyx":1945
+  /* "cftime/_cftime.pyx":1948
  *     return (year, month, day, hour, minute, second, microsecond, -1, -1)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -39172,17 +39182,17 @@ static PyObject *__pyx_pf_6cftime_7_cftime_36is_leap_year(CYTHON_UNUSED PyObject
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_leap_year", 0);
 
-  /* "cftime/_cftime.pyx":1953
+  /* "cftime/_cftime.pyx":1956
  *     calendar-specific default is assumed."""
  *     # public version of _is_leap (issue #259)
  *     return _is_leap(year, calendar, has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
  * 
  * cdef _is_leap(int year, calendar, has_year_zero=None):
 */
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_year); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1953, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_year); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1956, __pyx_L1_error)
   __pyx_t_3.__pyx_n = 1;
   __pyx_t_3.has_year_zero = __pyx_v_has_year_zero;
-  __pyx_t_2 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_t_1, __pyx_v_calendar, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1953, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_t_1, __pyx_v_calendar, &__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1956, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
   {
@@ -39196,7 +39206,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_36is_leap_year(CYTHON_UNUSED PyObject
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1945
+  /* "cftime/_cftime.pyx":1948
  *     return (year, month, day, hour, minute, second, microsecond, -1, -1)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
@@ -39215,7 +39225,7 @@ static PyObject *__pyx_pf_6cftime_7_cftime_36is_leap_year(CYTHON_UNUSED PyObject
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1955
+/* "cftime/_cftime.pyx":1958
  *     return _is_leap(year, calendar, has_year_zero=has_year_zero)
  * 
  * cdef _is_leap(int year, calendar, has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -39248,19 +39258,19 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   __Pyx_INCREF(__pyx_v_calendar);
   __Pyx_INCREF(__pyx_v_has_year_zero);
 
-  /* "cftime/_cftime.pyx":1958
+  /* "cftime/_cftime.pyx":1961
  *     cdef int tyear
  *     cdef bint leap
  *     calendar = _check_calendar(calendar)             # <<<<<<<<<<<<<<
  *     # set calendar-specific defaults for has_year_zero
  *     if has_year_zero is None:
 */
-  __pyx_t_1 = __pyx_f_6cftime_7_cftime__check_calendar(__pyx_v_calendar); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1958, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6cftime_7_cftime__check_calendar(__pyx_v_calendar); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1961, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF_SET(__pyx_v_calendar, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1960
+  /* "cftime/_cftime.pyx":1963
  *     calendar = _check_calendar(calendar)
  *     # set calendar-specific defaults for has_year_zero
  *     if has_year_zero is None:             # <<<<<<<<<<<<<<
@@ -39271,19 +39281,19 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":1961
+    /* "cftime/_cftime.pyx":1964
  *     # set calendar-specific defaults for has_year_zero
  *     if has_year_zero is None:
  *         has_year_zero = _year_zero_defaults(calendar)             # <<<<<<<<<<<<<<
  *     if year == 0 and not has_year_zero:
  *         raise ValueError('year zero does not exist in the %s calendar' %\
 */
-    __pyx_t_1 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1961, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1964, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_has_year_zero, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "cftime/_cftime.pyx":1960
+    /* "cftime/_cftime.pyx":1963
  *     calendar = _check_calendar(calendar)
  *     # set calendar-specific defaults for has_year_zero
  *     if has_year_zero is None:             # <<<<<<<<<<<<<<
@@ -39292,7 +39302,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 */
   }
 
-  /* "cftime/_cftime.pyx":1962
+  /* "cftime/_cftime.pyx":1965
  *     if has_year_zero is None:
  *         has_year_zero = _year_zero_defaults(calendar)
  *     if year == 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -39309,7 +39319,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1962, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1965, __pyx_L1_error)
   __pyx_t_4 = (!__pyx_t_3);
 
 
@@ -39320,7 +39330,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   if (unlikely(__pyx_t_2)) {
 
 
-    /* "cftime/_cftime.pyx":1963
+    /* "cftime/_cftime.pyx":1966
  *         has_year_zero = _year_zero_defaults(calendar)
  *     if year == 0 and not has_year_zero:
  *         raise ValueError('year zero does not exist in the %s calendar' %\             # <<<<<<<<<<<<<<
@@ -39329,14 +39339,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 */
     __pyx_t_5 = NULL;
 
-    /* "cftime/_cftime.pyx":1964
+    /* "cftime/_cftime.pyx":1967
  *     if year == 0 and not has_year_zero:
  *         raise ValueError('year zero does not exist in the %s calendar' %\
  *                 calendar)             # <<<<<<<<<<<<<<
  *     # Because there is no year 0 in the Julian calendar, years -1, -5, -9, etc
  *     # are leap years. year zero is a leap year if it exists.
 */
-    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_mstate_global->__pyx_kp_u_year_zero_does_not_exist_in_the, __pyx_v_calendar); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1963, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_FormatSafe(__pyx_mstate_global->__pyx_kp_u_year_zero_does_not_exist_in_the, __pyx_v_calendar); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1966, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = 1;
     {
@@ -39344,14 +39354,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1963, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1966, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 1963, __pyx_L1_error)
+    __PYX_ERR(0, 1966, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1962
+    /* "cftime/_cftime.pyx":1965
  *     if has_year_zero is None:
  *         has_year_zero = _year_zero_defaults(calendar)
  *     if year == 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -39360,7 +39370,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 */
   }
 
-  /* "cftime/_cftime.pyx":1967
+  /* "cftime/_cftime.pyx":1970
  *     # Because there is no year 0 in the Julian calendar, years -1, -5, -9, etc
  *     # are leap years. year zero is a leap year if it exists.
  *     if year < 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -39377,7 +39387,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 
     goto __pyx_L8_bool_binop_done;
   }
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1967, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1970, __pyx_L1_error)
   __pyx_t_3 = (!__pyx_t_4);
 
 
@@ -39388,7 +39398,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":1968
+    /* "cftime/_cftime.pyx":1971
  *     # are leap years. year zero is a leap year if it exists.
  *     if year < 0 and not has_year_zero:
  *         tyear = year + 1             # <<<<<<<<<<<<<<
@@ -39397,7 +39407,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 */
     __pyx_v_tyear = (__pyx_v_year + 1);
 
-    /* "cftime/_cftime.pyx":1967
+    /* "cftime/_cftime.pyx":1970
  *     # Because there is no year 0 in the Julian calendar, years -1, -5, -9, etc
  *     # are leap years. year zero is a leap year if it exists.
  *     if year < 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -39407,7 +39417,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
     goto __pyx_L7;
   }
 
-  /* "cftime/_cftime.pyx":1970
+  /* "cftime/_cftime.pyx":1973
  *         tyear = year + 1
  *     else:
  *         tyear = year             # <<<<<<<<<<<<<<
@@ -39419,14 +39429,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   }
   __pyx_L7:;
 
-  /* "cftime/_cftime.pyx":1971
+  /* "cftime/_cftime.pyx":1974
  *     else:
  *         tyear = year
  *     if calendar == 'proleptic_gregorian' or calendar == 'tai' or (calendar == 'standard' and year > 1581):             # <<<<<<<<<<<<<<
  *         if tyear % 4: # not divisible by 4
  *             leap = False
 */
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1971, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1974, __pyx_L1_error)
   if (!__pyx_t_3) {
 
   } else {
@@ -39435,7 +39445,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 
     goto __pyx_L11_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1971, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1974, __pyx_L1_error)
   if (!__pyx_t_3) {
 
   } else {
@@ -39444,7 +39454,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 
     goto __pyx_L11_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1971, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1974, __pyx_L1_error)
   if (__pyx_t_3) {
 
   } else {
@@ -39462,7 +39472,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":1972
+    /* "cftime/_cftime.pyx":1975
  *         tyear = year
  *     if calendar == 'proleptic_gregorian' or calendar == 'tai' or (calendar == 'standard' and year > 1581):
  *         if tyear % 4: # not divisible by 4             # <<<<<<<<<<<<<<
@@ -39474,7 +39484,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
     if (__pyx_t_2) {
 
 
-      /* "cftime/_cftime.pyx":1973
+      /* "cftime/_cftime.pyx":1976
  *     if calendar == 'proleptic_gregorian' or calendar == 'tai' or (calendar == 'standard' and year > 1581):
  *         if tyear % 4: # not divisible by 4
  *             leap = False             # <<<<<<<<<<<<<<
@@ -39483,7 +39493,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 */
       __pyx_v_leap = 0;
 
-      /* "cftime/_cftime.pyx":1972
+      /* "cftime/_cftime.pyx":1975
  *         tyear = year
  *     if calendar == 'proleptic_gregorian' or calendar == 'tai' or (calendar == 'standard' and year > 1581):
  *         if tyear % 4: # not divisible by 4             # <<<<<<<<<<<<<<
@@ -39493,7 +39503,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
       goto __pyx_L15;
     }
 
-    /* "cftime/_cftime.pyx":1974
+    /* "cftime/_cftime.pyx":1977
  *         if tyear % 4: # not divisible by 4
  *             leap = False
  *         elif tyear % 100: # not divisible by 100             # <<<<<<<<<<<<<<
@@ -39505,7 +39515,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
     if (__pyx_t_2) {
 
 
-      /* "cftime/_cftime.pyx":1975
+      /* "cftime/_cftime.pyx":1978
  *             leap = False
  *         elif tyear % 100: # not divisible by 100
  *             leap = True             # <<<<<<<<<<<<<<
@@ -39514,7 +39524,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 */
       __pyx_v_leap = 1;
 
-      /* "cftime/_cftime.pyx":1974
+      /* "cftime/_cftime.pyx":1977
  *         if tyear % 4: # not divisible by 4
  *             leap = False
  *         elif tyear % 100: # not divisible by 100             # <<<<<<<<<<<<<<
@@ -39524,7 +39534,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
       goto __pyx_L15;
     }
 
-    /* "cftime/_cftime.pyx":1976
+    /* "cftime/_cftime.pyx":1979
  *         elif tyear % 100: # not divisible by 100
  *             leap = True
  *         elif tyear % 400: # not divisible by 400             # <<<<<<<<<<<<<<
@@ -39536,7 +39546,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
     if (__pyx_t_2) {
 
 
-      /* "cftime/_cftime.pyx":1977
+      /* "cftime/_cftime.pyx":1980
  *             leap = True
  *         elif tyear % 400: # not divisible by 400
  *             leap = False             # <<<<<<<<<<<<<<
@@ -39545,7 +39555,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 */
       __pyx_v_leap = 0;
 
-      /* "cftime/_cftime.pyx":1976
+      /* "cftime/_cftime.pyx":1979
  *         elif tyear % 100: # not divisible by 100
  *             leap = True
  *         elif tyear % 400: # not divisible by 400             # <<<<<<<<<<<<<<
@@ -39555,7 +39565,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
       goto __pyx_L15;
     }
 
-    /* "cftime/_cftime.pyx":1979
+    /* "cftime/_cftime.pyx":1982
  *             leap = False
  *         else:
  *             leap = True             # <<<<<<<<<<<<<<
@@ -39567,7 +39577,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
     }
     __pyx_L15:;
 
-    /* "cftime/_cftime.pyx":1971
+    /* "cftime/_cftime.pyx":1974
  *     else:
  *         tyear = year
  *     if calendar == 'proleptic_gregorian' or calendar == 'tai' or (calendar == 'standard' and year > 1581):             # <<<<<<<<<<<<<<
@@ -39577,14 +39587,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
     goto __pyx_L10;
   }
 
-  /* "cftime/_cftime.pyx":1980
+  /* "cftime/_cftime.pyx":1983
  *         else:
  *             leap = True
  *     elif calendar == 'julian' or (calendar == 'standard' and year < 1582):             # <<<<<<<<<<<<<<
  *         leap = tyear % 4 == 0
  *     elif calendar == '366_day':
 */
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1980, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1983, __pyx_L1_error)
   if (!__pyx_t_3) {
 
   } else {
@@ -39593,7 +39603,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 
     goto __pyx_L16_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1980, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1983, __pyx_L1_error)
   if (__pyx_t_3) {
 
   } else {
@@ -39611,7 +39621,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":1981
+    /* "cftime/_cftime.pyx":1984
  *             leap = True
  *     elif calendar == 'julian' or (calendar == 'standard' and year < 1582):
  *         leap = tyear % 4 == 0             # <<<<<<<<<<<<<<
@@ -39620,7 +39630,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 */
     __pyx_v_leap = (__Pyx_mod_long(__pyx_v_tyear, 4, 1) == 0);
 
-    /* "cftime/_cftime.pyx":1980
+    /* "cftime/_cftime.pyx":1983
  *         else:
  *             leap = True
  *     elif calendar == 'julian' or (calendar == 'standard' and year < 1582):             # <<<<<<<<<<<<<<
@@ -39630,18 +39640,18 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
     goto __pyx_L10;
   }
 
-  /* "cftime/_cftime.pyx":1982
+  /* "cftime/_cftime.pyx":1985
  *     elif calendar == 'julian' or (calendar == 'standard' and year < 1582):
  *         leap = tyear % 4 == 0
  *     elif calendar == '366_day':             # <<<<<<<<<<<<<<
  *         leap = True
  *     else:
 */
-  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_366_day, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1982, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_366_day, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1985, __pyx_L1_error)
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":1983
+    /* "cftime/_cftime.pyx":1986
  *         leap = tyear % 4 == 0
  *     elif calendar == '366_day':
  *         leap = True             # <<<<<<<<<<<<<<
@@ -39650,7 +39660,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
 */
     __pyx_v_leap = 1;
 
-    /* "cftime/_cftime.pyx":1982
+    /* "cftime/_cftime.pyx":1985
  *     elif calendar == 'julian' or (calendar == 'standard' and year < 1582):
  *         leap = tyear % 4 == 0
  *     elif calendar == '366_day':             # <<<<<<<<<<<<<<
@@ -39660,7 +39670,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
     goto __pyx_L10;
   }
 
-  /* "cftime/_cftime.pyx":1985
+  /* "cftime/_cftime.pyx":1988
  *         leap = True
  *     else:
  *         leap = False             # <<<<<<<<<<<<<<
@@ -39672,14 +39682,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   }
   __pyx_L10:;
 
-  /* "cftime/_cftime.pyx":1986
+  /* "cftime/_cftime.pyx":1989
  *     else:
  *         leap = False
  *     return leap             # <<<<<<<<<<<<<<
  * 
  * cdef _check_calendar(calendar):
 */
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_leap); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1986, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_leap); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1989, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -39692,7 +39702,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1955
+  /* "cftime/_cftime.pyx":1958
  *     return _is_leap(year, calendar, has_year_zero=has_year_zero)
  * 
  * cdef _is_leap(int year, calendar, has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -39717,7 +39727,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__is_leap(int __pyx_v_year, PyObject *_
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":1988
+/* "cftime/_cftime.pyx":1991
  *     return leap
  * 
  * cdef _check_calendar(calendar):             # <<<<<<<<<<<<<<
@@ -39739,7 +39749,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
   __Pyx_RefNannySetupContext("_check_calendar", 0);
   __Pyx_INCREF(__pyx_v_calendar);
 
-  /* "cftime/_cftime.pyx":1990
+  /* "cftime/_cftime.pyx":1993
  * cdef _check_calendar(calendar):
  *     """validate calendars, convert to subset of names to get rid of synonyms"""
  *     calendar = calendar.lower()             # <<<<<<<<<<<<<<
@@ -39753,27 +39763,27 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1990, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1993, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF_SET(__pyx_v_calendar, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":1991
+  /* "cftime/_cftime.pyx":1994
  *     """validate calendars, convert to subset of names to get rid of synonyms"""
  *     calendar = calendar.lower()
  *     if calendar not in _calendars:             # <<<<<<<<<<<<<<
  *         raise ValueError('unsupported calendar')
  *     calout = calendar
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_calendars); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1991, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_calendars); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1994, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_v_calendar, __pyx_t_1, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1991, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PySequence_ContainsTF(__pyx_v_calendar, __pyx_t_1, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1994, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (unlikely(__pyx_t_4)) {
 
 
-    /* "cftime/_cftime.pyx":1992
+    /* "cftime/_cftime.pyx":1995
  *     calendar = calendar.lower()
  *     if calendar not in _calendars:
  *         raise ValueError('unsupported calendar')             # <<<<<<<<<<<<<<
@@ -39786,14 +39796,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_unsupported_calendar};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1992, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1995, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 1992, __pyx_L1_error)
+    __PYX_ERR(0, 1995, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":1991
+    /* "cftime/_cftime.pyx":1994
  *     """validate calendars, convert to subset of names to get rid of synonyms"""
  *     calendar = calendar.lower()
  *     if calendar not in _calendars:             # <<<<<<<<<<<<<<
@@ -39802,7 +39812,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
 */
   }
 
-  /* "cftime/_cftime.pyx":1993
+  /* "cftime/_cftime.pyx":1996
  *     if calendar not in _calendars:
  *         raise ValueError('unsupported calendar')
  *     calout = calendar             # <<<<<<<<<<<<<<
@@ -39812,18 +39822,18 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
   __Pyx_INCREF(__pyx_v_calendar);
   __pyx_v_calout = __pyx_v_calendar;
 
-  /* "cftime/_cftime.pyx":1995
+  /* "cftime/_cftime.pyx":1998
  *     calout = calendar
  *     # remove 'gregorian','noleap','all_leap'
  *     if calendar == 'gregorian':             # <<<<<<<<<<<<<<
  *         calout = 'standard'
  *     if calendar == 'noleap':
 */
-  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1995, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1998, __pyx_L1_error)
   if (__pyx_t_4) {
 
 
-    /* "cftime/_cftime.pyx":1996
+    /* "cftime/_cftime.pyx":1999
  *     # remove 'gregorian','noleap','all_leap'
  *     if calendar == 'gregorian':
  *         calout = 'standard'             # <<<<<<<<<<<<<<
@@ -39833,7 +39843,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_standard);
     __Pyx_DECREF_SET(__pyx_v_calout, __pyx_mstate_global->__pyx_n_u_standard);
 
-    /* "cftime/_cftime.pyx":1995
+    /* "cftime/_cftime.pyx":1998
  *     calout = calendar
  *     # remove 'gregorian','noleap','all_leap'
  *     if calendar == 'gregorian':             # <<<<<<<<<<<<<<
@@ -39842,18 +39852,18 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
 */
   }
 
-  /* "cftime/_cftime.pyx":1997
+  /* "cftime/_cftime.pyx":2000
  *     if calendar == 'gregorian':
  *         calout = 'standard'
  *     if calendar == 'noleap':             # <<<<<<<<<<<<<<
  *         calout = '365_day'
  *     if calendar == 'all_leap':
 */
-  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_noleap, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1997, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_noleap, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 2000, __pyx_L1_error)
   if (__pyx_t_4) {
 
 
-    /* "cftime/_cftime.pyx":1998
+    /* "cftime/_cftime.pyx":2001
  *         calout = 'standard'
  *     if calendar == 'noleap':
  *         calout = '365_day'             # <<<<<<<<<<<<<<
@@ -39863,7 +39873,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_365_day);
     __Pyx_DECREF_SET(__pyx_v_calout, __pyx_mstate_global->__pyx_kp_u_365_day);
 
-    /* "cftime/_cftime.pyx":1997
+    /* "cftime/_cftime.pyx":2000
  *     if calendar == 'gregorian':
  *         calout = 'standard'
  *     if calendar == 'noleap':             # <<<<<<<<<<<<<<
@@ -39872,18 +39882,18 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
 */
   }
 
-  /* "cftime/_cftime.pyx":1999
+  /* "cftime/_cftime.pyx":2002
  *     if calendar == 'noleap':
  *         calout = '365_day'
  *     if calendar == 'all_leap':             # <<<<<<<<<<<<<<
  *         calout = '366_day'
  *     return calout
 */
-  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_all_leap, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 1999, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_all_leap, Py_EQ); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 2002, __pyx_L1_error)
   if (__pyx_t_4) {
 
 
-    /* "cftime/_cftime.pyx":2000
+    /* "cftime/_cftime.pyx":2003
  *         calout = '365_day'
  *     if calendar == 'all_leap':
  *         calout = '366_day'             # <<<<<<<<<<<<<<
@@ -39893,7 +39903,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_366_day);
     __Pyx_DECREF_SET(__pyx_v_calout, __pyx_mstate_global->__pyx_kp_u_366_day);
 
-    /* "cftime/_cftime.pyx":1999
+    /* "cftime/_cftime.pyx":2002
  *     if calendar == 'noleap':
  *         calout = '365_day'
  *     if calendar == 'all_leap':             # <<<<<<<<<<<<<<
@@ -39902,7 +39912,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
 */
   }
 
-  /* "cftime/_cftime.pyx":2001
+  /* "cftime/_cftime.pyx":2004
  *     if calendar == 'all_leap':
  *         calout = '366_day'
  *     return calout             # <<<<<<<<<<<<<<
@@ -39920,7 +39930,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
   }
   goto __pyx_L0;
 
-  /* "cftime/_cftime.pyx":1988
+  /* "cftime/_cftime.pyx":1991
  *     return leap
  * 
  * cdef _check_calendar(calendar):             # <<<<<<<<<<<<<<
@@ -39942,7 +39952,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__check_calendar(PyObject *__pyx_v_cale
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":2010
+/* "cftime/_cftime.pyx":2013
  * 
  * 
  * cdef _IntJulianDayFromDate(int year,int month,int day,calendar,skip_transition=False,has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -39989,19 +39999,19 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
   __Pyx_INCREF(__pyx_v_calendar);
   __Pyx_INCREF(__pyx_v_has_year_zero);
 
-  /* "cftime/_cftime.pyx":2050
+  /* "cftime/_cftime.pyx":2053
  * 
  *     # validate inputs.
  *     calendar = _check_calendar(calendar)             # <<<<<<<<<<<<<<
  *     if month < 1 or month > 12 or day < 1 or day > 31:
  *         msg = "date %04d-%02d-%02d does not exist in the %s calendar" %\
 */
-  __pyx_t_1 = __pyx_f_6cftime_7_cftime__check_calendar(__pyx_v_calendar); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2050, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6cftime_7_cftime__check_calendar(__pyx_v_calendar); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2053, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF_SET(__pyx_v_calendar, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "cftime/_cftime.pyx":2051
+  /* "cftime/_cftime.pyx":2054
  *     # validate inputs.
  *     calendar = _check_calendar(calendar)
  *     if month < 1 or month > 12 or day < 1 or day > 31:             # <<<<<<<<<<<<<<
@@ -40047,20 +40057,20 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
   if (unlikely(__pyx_t_2)) {
 
 
-    /* "cftime/_cftime.pyx":2053
+    /* "cftime/_cftime.pyx":2056
  *     if month < 1 or month > 12 or day < 1 or day > 31:
  *         msg = "date %04d-%02d-%02d does not exist in the %s calendar" %\
  *         (year,month,day,calendar)             # <<<<<<<<<<<<<<
  *         raise ValueError(msg)
  *     # set calendar-specific defaults for has_year_zero
 */
-    __pyx_t_1 = __Pyx_PyUnicode_From_int(__pyx_v_year, 4, '0', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2053, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_From_int(__pyx_v_year, 4, '0', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2056, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_month, 2, '0', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2053, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_month, 2, '0', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2056, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyUnicode_From_int(__pyx_v_day, 2, '0', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 2053, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_From_int(__pyx_v_day, 2, '0', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 2056, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_calendar), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 2053, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_calendar), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 2056, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7[0] = __pyx_mstate_global->__pyx_kp_u_date_2;
     __pyx_t_7[1] = __pyx_t_1;
@@ -40072,7 +40082,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     __pyx_t_7[7] = __pyx_t_6;
     __pyx_t_7[8] = __pyx_mstate_global->__pyx_kp_u_calendar_2;
 
-    /* "cftime/_cftime.pyx":2052
+    /* "cftime/_cftime.pyx":2055
  *     calendar = _check_calendar(calendar)
  *     if month < 1 or month > 12 or day < 1 or day > 31:
  *         msg = "date %04d-%02d-%02d does not exist in the %s calendar" %\             # <<<<<<<<<<<<<<
@@ -40091,7 +40101,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     __pyx_t_9 |= __Pyx_PyUnicode_KIND_04(__pyx_t_7[7]);
     #endif
     __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_7, 9, __pyx_t_8, __pyx_t_9);
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2052, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2055, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -40100,7 +40110,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     __pyx_v_msg = ((PyObject*)__pyx_t_10);
     __pyx_t_10 = 0;
 
-    /* "cftime/_cftime.pyx":2054
+    /* "cftime/_cftime.pyx":2057
  *         msg = "date %04d-%02d-%02d does not exist in the %s calendar" %\
  *         (year,month,day,calendar)
  *         raise ValueError(msg)             # <<<<<<<<<<<<<<
@@ -40113,14 +40123,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
       PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_msg};
       __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2054, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2057, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
     }
     __Pyx_Raise(__pyx_t_10, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __PYX_ERR(0, 2054, __pyx_L1_error)
+    __PYX_ERR(0, 2057, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":2051
+    /* "cftime/_cftime.pyx":2054
  *     # validate inputs.
  *     calendar = _check_calendar(calendar)
  *     if month < 1 or month > 12 or day < 1 or day > 31:             # <<<<<<<<<<<<<<
@@ -40129,7 +40139,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2056
+  /* "cftime/_cftime.pyx":2059
  *         raise ValueError(msg)
  *     # set calendar-specific defaults for has_year_zero
  *     if has_year_zero is None:             # <<<<<<<<<<<<<<
@@ -40140,19 +40150,19 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":2057
+    /* "cftime/_cftime.pyx":2060
  *     # set calendar-specific defaults for has_year_zero
  *     if has_year_zero is None:
  *         has_year_zero = _year_zero_defaults(calendar)             # <<<<<<<<<<<<<<
  *     if calendar == '360_day':
  *         return year*360 + (month-1)*30 + day - 1
 */
-    __pyx_t_10 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2057, __pyx_L1_error)
+    __pyx_t_10 = __pyx_f_6cftime_7_cftime__year_zero_defaults(__pyx_v_calendar); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2060, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF_SET(__pyx_v_has_year_zero, __pyx_t_10);
     __pyx_t_10 = 0;
 
-    /* "cftime/_cftime.pyx":2056
+    /* "cftime/_cftime.pyx":2059
  *         raise ValueError(msg)
  *     # set calendar-specific defaults for has_year_zero
  *     if has_year_zero is None:             # <<<<<<<<<<<<<<
@@ -40161,25 +40171,25 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2058
+  /* "cftime/_cftime.pyx":2061
  *     if has_year_zero is None:
  *         has_year_zero = _year_zero_defaults(calendar)
  *     if calendar == '360_day':             # <<<<<<<<<<<<<<
  *         return year*360 + (month-1)*30 + day - 1
  *     elif calendar == '365_day':
 */
-  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 2058, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_360_day, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 2061, __pyx_L1_error)
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":2059
+    /* "cftime/_cftime.pyx":2062
  *         has_year_zero = _year_zero_defaults(calendar)
  *     if calendar == '360_day':
  *         return year*360 + (month-1)*30 + day - 1             # <<<<<<<<<<<<<<
  *     elif calendar == '365_day':
  *         if month == 2 and day == 29:
 */
-    __pyx_t_10 = __Pyx_PyLong_From_long(((((__pyx_v_year * 0x168) + ((__pyx_v_month - 1) * 30)) + __pyx_v_day) - 1)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2059, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_From_long(((((__pyx_v_year * 0x168) + ((__pyx_v_month - 1) * 30)) + __pyx_v_day) - 1)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2062, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     {
       PyObject *__pyx_temp;
@@ -40192,7 +40202,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     __pyx_t_10 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":2058
+    /* "cftime/_cftime.pyx":2061
  *     if has_year_zero is None:
  *         has_year_zero = _year_zero_defaults(calendar)
  *     if calendar == '360_day':             # <<<<<<<<<<<<<<
@@ -40201,18 +40211,18 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2060
+  /* "cftime/_cftime.pyx":2063
  *     if calendar == '360_day':
  *         return year*360 + (month-1)*30 + day - 1
  *     elif calendar == '365_day':             # <<<<<<<<<<<<<<
  *         if month == 2 and day == 29:
  *             raise ValueError('no leap days in 365_day calendar')
 */
-  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_365_day, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 2060, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_365_day, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 2063, __pyx_L1_error)
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":2061
+    /* "cftime/_cftime.pyx":2064
  *         return year*360 + (month-1)*30 + day - 1
  *     elif calendar == '365_day':
  *         if month == 2 and day == 29:             # <<<<<<<<<<<<<<
@@ -40238,7 +40248,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     if (unlikely(__pyx_t_2)) {
 
 
-      /* "cftime/_cftime.pyx":2062
+      /* "cftime/_cftime.pyx":2065
  *     elif calendar == '365_day':
  *         if month == 2 and day == 29:
  *             raise ValueError('no leap days in 365_day calendar')             # <<<<<<<<<<<<<<
@@ -40251,14 +40261,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
         PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_no_leap_days_in_365_day_calendar};
         __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2062, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2065, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       __Pyx_Raise(__pyx_t_10, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      __PYX_ERR(0, 2062, __pyx_L1_error)
+      __PYX_ERR(0, 2065, __pyx_L1_error)
 
-      /* "cftime/_cftime.pyx":2061
+      /* "cftime/_cftime.pyx":2064
  *         return year*360 + (month-1)*30 + day - 1
  *     elif calendar == '365_day':
  *         if month == 2 and day == 29:             # <<<<<<<<<<<<<<
@@ -40267,14 +40277,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
     }
 
-    /* "cftime/_cftime.pyx":2063
+    /* "cftime/_cftime.pyx":2066
  *         if month == 2 and day == 29:
  *             raise ValueError('no leap days in 365_day calendar')
  *         return year*365 + _cumdayspermonth[month-1] + day - 1             # <<<<<<<<<<<<<<
  *     elif calendar == '366_day':
  *         return year*366 + _cumdayspermonth_leap[month-1] + day - 1
 */
-    __pyx_t_10 = __Pyx_PyLong_From_long(((((__pyx_v_year * 0x16D) + (__pyx_v_6cftime_7_cftime__cumdayspermonth[(__pyx_v_month - 1)])) + __pyx_v_day) - 1)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2063, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_From_long(((((__pyx_v_year * 0x16D) + (__pyx_v_6cftime_7_cftime__cumdayspermonth[(__pyx_v_month - 1)])) + __pyx_v_day) - 1)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2066, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     {
       PyObject *__pyx_temp;
@@ -40287,7 +40297,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     __pyx_t_10 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":2060
+    /* "cftime/_cftime.pyx":2063
  *     if calendar == '360_day':
  *         return year*360 + (month-1)*30 + day - 1
  *     elif calendar == '365_day':             # <<<<<<<<<<<<<<
@@ -40296,25 +40306,25 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2064
+  /* "cftime/_cftime.pyx":2067
  *             raise ValueError('no leap days in 365_day calendar')
  *         return year*365 + _cumdayspermonth[month-1] + day - 1
  *     elif calendar == '366_day':             # <<<<<<<<<<<<<<
  *         return year*366 + _cumdayspermonth_leap[month-1] + day - 1
  * 
 */
-  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_366_day, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 2064, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_kp_u_366_day, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 2067, __pyx_L1_error)
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":2065
+    /* "cftime/_cftime.pyx":2068
  *         return year*365 + _cumdayspermonth[month-1] + day - 1
  *     elif calendar == '366_day':
  *         return year*366 + _cumdayspermonth_leap[month-1] + day - 1             # <<<<<<<<<<<<<<
  * 
  *     # handle standard, julian, tai, proleptic_gregorian calendars.
 */
-    __pyx_t_10 = __Pyx_PyLong_From_long(((((__pyx_v_year * 0x16E) + (__pyx_v_6cftime_7_cftime__cumdayspermonth_leap[(__pyx_v_month - 1)])) + __pyx_v_day) - 1)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2065, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_From_long(((((__pyx_v_year * 0x16E) + (__pyx_v_6cftime_7_cftime__cumdayspermonth_leap[(__pyx_v_month - 1)])) + __pyx_v_day) - 1)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2068, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     {
       PyObject *__pyx_temp;
@@ -40327,7 +40337,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     __pyx_t_10 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":2064
+    /* "cftime/_cftime.pyx":2067
  *             raise ValueError('no leap days in 365_day calendar')
  *         return year*365 + _cumdayspermonth[month-1] + day - 1
  *     elif calendar == '366_day':             # <<<<<<<<<<<<<<
@@ -40336,7 +40346,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2068
+  /* "cftime/_cftime.pyx":2071
  * 
  *     # handle standard, julian, tai, proleptic_gregorian calendars.
  *     if year == 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -40353,7 +40363,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 
     goto __pyx_L14_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2068, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2071, __pyx_L1_error)
   __pyx_t_12 = (!__pyx_t_3);
 
 
@@ -40364,7 +40374,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
   if (unlikely(__pyx_t_2)) {
 
 
-    /* "cftime/_cftime.pyx":2069
+    /* "cftime/_cftime.pyx":2072
  *     # handle standard, julian, tai, proleptic_gregorian calendars.
  *     if year == 0 and not has_year_zero:
  *         raise ValueError('year zero does not exist in the %s calendar' %\             # <<<<<<<<<<<<<<
@@ -40373,14 +40383,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
     __pyx_t_6 = NULL;
 
-    /* "cftime/_cftime.pyx":2070
+    /* "cftime/_cftime.pyx":2073
  *     if year == 0 and not has_year_zero:
  *         raise ValueError('year zero does not exist in the %s calendar' %\
  *                 calendar)             # <<<<<<<<<<<<<<
  *     leap = _is_leap(year,calendar,has_year_zero=has_year_zero)
  *     if not leap and month == 2 and day == 29:
 */
-    __pyx_t_5 = __Pyx_PyUnicode_FormatSafe(__pyx_mstate_global->__pyx_kp_u_year_zero_does_not_exist_in_the, __pyx_v_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 2069, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_FormatSafe(__pyx_mstate_global->__pyx_kp_u_year_zero_does_not_exist_in_the, __pyx_v_calendar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 2072, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_11 = 1;
     {
@@ -40388,14 +40398,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
       __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2069, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2072, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
     }
     __Pyx_Raise(__pyx_t_10, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __PYX_ERR(0, 2069, __pyx_L1_error)
+    __PYX_ERR(0, 2072, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":2068
+    /* "cftime/_cftime.pyx":2071
  * 
  *     # handle standard, julian, tai, proleptic_gregorian calendars.
  *     if year == 0 and not has_year_zero:             # <<<<<<<<<<<<<<
@@ -40404,7 +40414,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2071
+  /* "cftime/_cftime.pyx":2074
  *         raise ValueError('year zero does not exist in the %s calendar' %\
  *                 calendar)
  *     leap = _is_leap(year,calendar,has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
@@ -40413,13 +40423,13 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   __pyx_t_13.__pyx_n = 1;
   __pyx_t_13.has_year_zero = __pyx_v_has_year_zero;
-  __pyx_t_10 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_year, __pyx_v_calendar, &__pyx_t_13); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2071, __pyx_L1_error)
+  __pyx_t_10 = __pyx_f_6cftime_7_cftime__is_leap(__pyx_v_year, __pyx_v_calendar, &__pyx_t_13); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2074, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 2071, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 2074, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __pyx_v_leap = __pyx_t_2;
 
-  /* "cftime/_cftime.pyx":2072
+  /* "cftime/_cftime.pyx":2075
  *                 calendar)
  *     leap = _is_leap(year,calendar,has_year_zero=has_year_zero)
  *     if not leap and month == 2 and day == 29:             # <<<<<<<<<<<<<<
@@ -40455,7 +40465,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
   if (unlikely(__pyx_t_2)) {
 
 
-    /* "cftime/_cftime.pyx":2073
+    /* "cftime/_cftime.pyx":2076
  *     leap = _is_leap(year,calendar,has_year_zero=has_year_zero)
  *     if not leap and month == 2 and day == 29:
  *         raise ValueError('%s is not a leap year' % year)             # <<<<<<<<<<<<<<
@@ -40463,9 +40473,9 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
  *     if leap:
 */
     __pyx_t_5 = NULL;
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_year); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 2073, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_year); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 2076, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_4 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_s_is_not_a_leap_year, __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2073, __pyx_L1_error)
+    __pyx_t_4 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_s_is_not_a_leap_year, __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2076, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_11 = 1;
@@ -40474,14 +40484,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
       __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2073, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2076, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
     }
     __Pyx_Raise(__pyx_t_10, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __PYX_ERR(0, 2073, __pyx_L1_error)
+    __PYX_ERR(0, 2076, __pyx_L1_error)
 
-    /* "cftime/_cftime.pyx":2072
+    /* "cftime/_cftime.pyx":2075
  *                 calendar)
  *     leap = _is_leap(year,calendar,has_year_zero=has_year_zero)
  *     if not leap and month == 2 and day == 29:             # <<<<<<<<<<<<<<
@@ -40490,7 +40500,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2075
+  /* "cftime/_cftime.pyx":2078
  *         raise ValueError('%s is not a leap year' % year)
  * 
  *     if leap:             # <<<<<<<<<<<<<<
@@ -40499,7 +40509,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   if (__pyx_v_leap) {
 
-    /* "cftime/_cftime.pyx":2076
+    /* "cftime/_cftime.pyx":2079
  * 
  *     if leap:
  *         jday = day + _cumdayspermonth_leap[month-1]             # <<<<<<<<<<<<<<
@@ -40508,7 +40518,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
     __pyx_v_jday = (__pyx_v_day + (__pyx_v_6cftime_7_cftime__cumdayspermonth_leap[(__pyx_v_month - 1)]));
 
-    /* "cftime/_cftime.pyx":2075
+    /* "cftime/_cftime.pyx":2078
  *         raise ValueError('%s is not a leap year' % year)
  * 
  *     if leap:             # <<<<<<<<<<<<<<
@@ -40518,7 +40528,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     goto __pyx_L20;
   }
 
-  /* "cftime/_cftime.pyx":2078
+  /* "cftime/_cftime.pyx":2081
  *         jday = day + _cumdayspermonth_leap[month-1]
  *     else:
  *         jday = day + _cumdayspermonth[month-1]             # <<<<<<<<<<<<<<
@@ -40530,7 +40540,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
   }
   __pyx_L20:;
 
-  /* "cftime/_cftime.pyx":2079
+  /* "cftime/_cftime.pyx":2082
  *     else:
  *         jday = day + _cumdayspermonth[month-1]
  *     if year < 0 and not has_year_zero: year += 1             # <<<<<<<<<<<<<<
@@ -40547,7 +40557,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 
     goto __pyx_L22_bool_binop_done;
   }
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 2079, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_v_has_year_zero); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 2082, __pyx_L1_error)
   __pyx_t_3 = (!__pyx_t_12);
 
 
@@ -40560,7 +40570,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     __pyx_v_year = (__pyx_v_year + 1);
   }
 
-  /* "cftime/_cftime.pyx":2080
+  /* "cftime/_cftime.pyx":2083
  *         jday = day + _cumdayspermonth[month-1]
  *     if year < 0 and not has_year_zero: year += 1
  *     year += 4800 # add offset so -4800 is year 0.             # <<<<<<<<<<<<<<
@@ -40569,7 +40579,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   __pyx_v_year = (__pyx_v_year + 0x12C0);
 
-  /* "cftime/_cftime.pyx":2084
+  /* "cftime/_cftime.pyx":2087
  *     # 2nd term is the number of days in each preceding non-leap year
  *     # last terms are the number of preceding leap years since -4800
  *     jday_jul = jday + 365*(year-1) + (year-1)//4             # <<<<<<<<<<<<<<
@@ -40578,7 +40588,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   __pyx_v_jday_jul = ((__pyx_v_jday + (0x16D * (__pyx_v_year - 1))) + __Pyx_div_long((__pyx_v_year - 1), 4, 1));
 
-  /* "cftime/_cftime.pyx":2086
+  /* "cftime/_cftime.pyx":2089
  *     jday_jul = jday + 365*(year-1) + (year-1)//4
  *     # remove offset for 87 years before -4713 (including leap days)
  *     jday_jul -= 31777             # <<<<<<<<<<<<<<
@@ -40587,7 +40597,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   __pyx_v_jday_jul = (__pyx_v_jday_jul - 0x7C21);
 
-  /* "cftime/_cftime.pyx":2087
+  /* "cftime/_cftime.pyx":2090
  *     # remove offset for 87 years before -4713 (including leap days)
  *     jday_jul -= 31777
  *     jday_greg = jday + 365*(year-1) + (year-1)//4 - (year-1)//100 + (year-1)//400             # <<<<<<<<<<<<<<
@@ -40596,7 +40606,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   __pyx_v_jday_greg = ((((__pyx_v_jday + (0x16D * (__pyx_v_year - 1))) + __Pyx_div_long((__pyx_v_year - 1), 4, 1)) - __Pyx_div_long((__pyx_v_year - 1), 0x64, 1)) + __Pyx_div_long((__pyx_v_year - 1), 0x190, 1));
 
-  /* "cftime/_cftime.pyx":2090
+  /* "cftime/_cftime.pyx":2093
  *     # remove offset, and account for the fact that -4713/1/1 is jday=38 in
  *     # gregorian calendar.
  *     jday_greg -= 31739             # <<<<<<<<<<<<<<
@@ -40605,25 +40615,25 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   __pyx_v_jday_greg = (__pyx_v_jday_greg - 0x7BFB);
 
-  /* "cftime/_cftime.pyx":2091
+  /* "cftime/_cftime.pyx":2094
  *     # gregorian calendar.
  *     jday_greg -= 31739
  *     if calendar == 'julian':             # <<<<<<<<<<<<<<
  *         return jday_jul
  *     elif calendar == 'proleptic_gregorian' or calendar == 'tai':
 */
-  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 2091, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_julian, Py_EQ); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 2094, __pyx_L1_error)
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":2092
+    /* "cftime/_cftime.pyx":2095
  *     jday_greg -= 31739
  *     if calendar == 'julian':
  *         return jday_jul             # <<<<<<<<<<<<<<
  *     elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *         return jday_greg
 */
-    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_jday_jul); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2092, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_jday_jul); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2095, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     {
       PyObject *__pyx_temp;
@@ -40636,7 +40646,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     __pyx_t_10 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":2091
+    /* "cftime/_cftime.pyx":2094
  *     # gregorian calendar.
  *     jday_greg -= 31739
  *     if calendar == 'julian':             # <<<<<<<<<<<<<<
@@ -40645,14 +40655,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2093
+  /* "cftime/_cftime.pyx":2096
  *     if calendar == 'julian':
  *         return jday_jul
  *     elif calendar == 'proleptic_gregorian' or calendar == 'tai':             # <<<<<<<<<<<<<<
  *         return jday_greg
  *     elif calendar in ['standard','gregorian']:
 */
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2093, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2096, __pyx_L1_error)
   if (!__pyx_t_3) {
 
   } else {
@@ -40661,7 +40671,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 
     goto __pyx_L25_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2093, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_v_calendar, __pyx_mstate_global->__pyx_n_u_tai, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2096, __pyx_L1_error)
 
   __pyx_t_2 = __pyx_t_3;
 
@@ -40669,14 +40679,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
   if (__pyx_t_2) {
 
 
-    /* "cftime/_cftime.pyx":2094
+    /* "cftime/_cftime.pyx":2097
  *         return jday_jul
  *     elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *         return jday_greg             # <<<<<<<<<<<<<<
  *     elif calendar in ['standard','gregorian']:
  *         # check for invalid days in mixed calendar (there are 10 missing)
 */
-    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_jday_greg); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2094, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_jday_greg); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2097, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     {
       PyObject *__pyx_temp;
@@ -40689,7 +40699,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     __pyx_t_10 = 0;
     goto __pyx_L0;
 
-    /* "cftime/_cftime.pyx":2093
+    /* "cftime/_cftime.pyx":2096
  *     if calendar == 'julian':
  *         return jday_jul
  *     elif calendar == 'proleptic_gregorian' or calendar == 'tai':             # <<<<<<<<<<<<<<
@@ -40698,7 +40708,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2095
+  /* "cftime/_cftime.pyx":2098
  *     elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *         return jday_greg
  *     elif calendar in ['standard','gregorian']:             # <<<<<<<<<<<<<<
@@ -40707,7 +40717,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   __Pyx_INCREF(__pyx_v_calendar);
   __pyx_t_10 = __pyx_v_calendar;
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2095, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_standard, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2098, __pyx_L1_error)
   if (!__pyx_t_3) {
 
   } else {
@@ -40716,7 +40726,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 
     goto __pyx_L27_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2095, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CompareBoolEq_object_str(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_gregorian, Py_EQ); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2098, __pyx_L1_error)
 
   __pyx_t_2 = __pyx_t_3;
 
@@ -40728,7 +40738,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
   if (__pyx_t_3) {
 
 
-    /* "cftime/_cftime.pyx":2097
+    /* "cftime/_cftime.pyx":2100
  *     elif calendar in ['standard','gregorian']:
  *         # check for invalid days in mixed calendar (there are 10 missing)
  *         if jday_jul >= 2299161 and jday_jul < 2299171:             # <<<<<<<<<<<<<<
@@ -40754,7 +40764,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     if (unlikely(__pyx_t_3)) {
 
 
-      /* "cftime/_cftime.pyx":2098
+      /* "cftime/_cftime.pyx":2101
  *         # check for invalid days in mixed calendar (there are 10 missing)
  *         if jday_jul >= 2299161 and jday_jul < 2299171:
  *             raise ValueError('invalid date in mixed calendar')             # <<<<<<<<<<<<<<
@@ -40767,14 +40777,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
         PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_invalid_date_in_mixed_calendar};
         __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2098, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2101, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       __Pyx_Raise(__pyx_t_10, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      __PYX_ERR(0, 2098, __pyx_L1_error)
+      __PYX_ERR(0, 2101, __pyx_L1_error)
 
-      /* "cftime/_cftime.pyx":2097
+      /* "cftime/_cftime.pyx":2100
  *     elif calendar in ['standard','gregorian']:
  *         # check for invalid days in mixed calendar (there are 10 missing)
  *         if jday_jul >= 2299161 and jday_jul < 2299171:             # <<<<<<<<<<<<<<
@@ -40783,7 +40793,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
     }
 
-    /* "cftime/_cftime.pyx":2099
+    /* "cftime/_cftime.pyx":2102
  *         if jday_jul >= 2299161 and jday_jul < 2299171:
  *             raise ValueError('invalid date in mixed calendar')
  *         if jday_jul < 2299161: # 1582 October 15             # <<<<<<<<<<<<<<
@@ -40795,14 +40805,14 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
     if (__pyx_t_3) {
 
 
-      /* "cftime/_cftime.pyx":2100
+      /* "cftime/_cftime.pyx":2103
  *             raise ValueError('invalid date in mixed calendar')
  *         if jday_jul < 2299161: # 1582 October 15
  *             return jday_jul             # <<<<<<<<<<<<<<
  *         else:
  *             if skip_transition:
 */
-      __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_jday_jul); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2100, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_jday_jul); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2103, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       {
         PyObject *__pyx_temp;
@@ -40815,7 +40825,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
       __pyx_t_10 = 0;
       goto __pyx_L0;
 
-      /* "cftime/_cftime.pyx":2099
+      /* "cftime/_cftime.pyx":2102
  *         if jday_jul >= 2299161 and jday_jul < 2299171:
  *             raise ValueError('invalid date in mixed calendar')
  *         if jday_jul < 2299161: # 1582 October 15             # <<<<<<<<<<<<<<
@@ -40824,7 +40834,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
     }
 
-    /* "cftime/_cftime.pyx":2102
+    /* "cftime/_cftime.pyx":2105
  *             return jday_jul
  *         else:
  *             if skip_transition:             # <<<<<<<<<<<<<<
@@ -40832,18 +40842,18 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
  *             else:
 */
     /*else*/ {
-      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_skip_transition); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2102, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_skip_transition); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 2105, __pyx_L1_error)
       if (__pyx_t_3) {
 
 
-        /* "cftime/_cftime.pyx":2103
+        /* "cftime/_cftime.pyx":2106
  *         else:
  *             if skip_transition:
  *                 return jday_greg+10             # <<<<<<<<<<<<<<
  *             else:
  *                 return jday_greg
 */
-        __pyx_t_10 = __Pyx_PyLong_From_long((__pyx_v_jday_greg + 10)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2103, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_From_long((__pyx_v_jday_greg + 10)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2106, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         {
           PyObject *__pyx_temp;
@@ -40856,7 +40866,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
         __pyx_t_10 = 0;
         goto __pyx_L0;
 
-        /* "cftime/_cftime.pyx":2102
+        /* "cftime/_cftime.pyx":2105
  *             return jday_jul
  *         else:
  *             if skip_transition:             # <<<<<<<<<<<<<<
@@ -40865,7 +40875,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
       }
 
-      /* "cftime/_cftime.pyx":2105
+      /* "cftime/_cftime.pyx":2108
  *                 return jday_greg+10
  *             else:
  *                 return jday_greg             # <<<<<<<<<<<<<<
@@ -40873,7 +40883,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
  * # legacy calendar specific sub-classes (may be removed in a future release).
 */
       /*else*/ {
-        __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_jday_greg); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2105, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_jday_greg); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 2108, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         {
           PyObject *__pyx_temp;
@@ -40888,7 +40898,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
       }
     }
 
-    /* "cftime/_cftime.pyx":2095
+    /* "cftime/_cftime.pyx":2098
  *     elif calendar == 'proleptic_gregorian' or calendar == 'tai':
  *         return jday_greg
  *     elif calendar in ['standard','gregorian']:             # <<<<<<<<<<<<<<
@@ -40897,7 +40907,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
 */
   }
 
-  /* "cftime/_cftime.pyx":2010
+  /* "cftime/_cftime.pyx":2013
  * 
  * 
  * cdef _IntJulianDayFromDate(int year,int month,int day,calendar,skip_transition=False,has_year_zero=None):             # <<<<<<<<<<<<<<
@@ -40930,7 +40940,7 @@ static PyObject *__pyx_f_6cftime_7_cftime__IntJulianDayFromDate(int __pyx_v_year
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":2115
+/* "cftime/_cftime.pyx":2118
  * but uses the "noleap" ("365_day") calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -40989,16 +40999,16 @@ static int __pyx_pf_6cftime_7_cftime_14DatetimeNoLeap___init__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "cftime/_cftime.pyx":2116
+  /* "cftime/_cftime.pyx":2119
  *     """
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='noleap'             # <<<<<<<<<<<<<<
  *         super().__init__(*args, **kwargs)
  * 
 */
-  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_noleap) < 0))) __PYX_ERR(0, 2116, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_noleap) < 0))) __PYX_ERR(0, 2119, __pyx_L1_error)
 
-  /* "cftime/_cftime.pyx":2117
+  /* "cftime/_cftime.pyx":2120
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='noleap'
  *         super().__init__(*args, **kwargs)             # <<<<<<<<<<<<<<
@@ -41011,21 +41021,21 @@ static int __pyx_pf_6cftime_7_cftime_14DatetimeNoLeap___init__(struct __pyx_obj_
     PyObject *__pyx_callargs[3] = {__pyx_t_2, ((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap), ((PyObject *)__pyx_v_self)};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_super, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2117, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2120, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2117, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2117, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2117, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":2115
+  /* "cftime/_cftime.pyx":2118
  * but uses the "noleap" ("365_day") calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41048,7 +41058,7 @@ static int __pyx_pf_6cftime_7_cftime_14DatetimeNoLeap___init__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":2125
+/* "cftime/_cftime.pyx":2128
  * but uses the "all_leap" ("366_day") calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41107,16 +41117,16 @@ static int __pyx_pf_6cftime_7_cftime_15DatetimeAllLeap___init__(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "cftime/_cftime.pyx":2126
+  /* "cftime/_cftime.pyx":2129
  *     """
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='all_leap'             # <<<<<<<<<<<<<<
  *         super().__init__(*args, **kwargs)
  * 
 */
-  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_all_leap) < 0))) __PYX_ERR(0, 2126, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_all_leap) < 0))) __PYX_ERR(0, 2129, __pyx_L1_error)
 
-  /* "cftime/_cftime.pyx":2127
+  /* "cftime/_cftime.pyx":2130
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='all_leap'
  *         super().__init__(*args, **kwargs)             # <<<<<<<<<<<<<<
@@ -41129,21 +41139,21 @@ static int __pyx_pf_6cftime_7_cftime_15DatetimeAllLeap___init__(struct __pyx_obj
     PyObject *__pyx_callargs[3] = {__pyx_t_2, ((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap), ((PyObject *)__pyx_v_self)};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_super, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2127, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2130, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2127, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2127, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2127, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":2125
+  /* "cftime/_cftime.pyx":2128
  * but uses the "all_leap" ("366_day") calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41166,7 +41176,7 @@ static int __pyx_pf_6cftime_7_cftime_15DatetimeAllLeap___init__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":2135
+/* "cftime/_cftime.pyx":2138
  * but uses the "360_day" calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41225,16 +41235,16 @@ static int __pyx_pf_6cftime_7_cftime_14Datetime360Day___init__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "cftime/_cftime.pyx":2136
+  /* "cftime/_cftime.pyx":2139
  *     """
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='360_day'             # <<<<<<<<<<<<<<
  *         super().__init__(*args, **kwargs)
  * 
 */
-  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_kp_u_360_day) < 0))) __PYX_ERR(0, 2136, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_kp_u_360_day) < 0))) __PYX_ERR(0, 2139, __pyx_L1_error)
 
-  /* "cftime/_cftime.pyx":2137
+  /* "cftime/_cftime.pyx":2140
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='360_day'
  *         super().__init__(*args, **kwargs)             # <<<<<<<<<<<<<<
@@ -41247,21 +41257,21 @@ static int __pyx_pf_6cftime_7_cftime_14Datetime360Day___init__(struct __pyx_obj_
     PyObject *__pyx_callargs[3] = {__pyx_t_2, ((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_Datetime360Day), ((PyObject *)__pyx_v_self)};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_super, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2137, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2137, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2137, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2137, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":2135
+  /* "cftime/_cftime.pyx":2138
  * but uses the "360_day" calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41284,7 +41294,7 @@ static int __pyx_pf_6cftime_7_cftime_14Datetime360Day___init__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":2145
+/* "cftime/_cftime.pyx":2148
  * but uses the "julian" calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41343,16 +41353,16 @@ static int __pyx_pf_6cftime_7_cftime_14DatetimeJulian___init__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "cftime/_cftime.pyx":2146
+  /* "cftime/_cftime.pyx":2149
  *     """
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='julian'             # <<<<<<<<<<<<<<
  *         super().__init__(*args, **kwargs)
  * 
 */
-  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_julian) < 0))) __PYX_ERR(0, 2146, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_julian) < 0))) __PYX_ERR(0, 2149, __pyx_L1_error)
 
-  /* "cftime/_cftime.pyx":2147
+  /* "cftime/_cftime.pyx":2150
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='julian'
  *         super().__init__(*args, **kwargs)             # <<<<<<<<<<<<<<
@@ -41365,21 +41375,21 @@ static int __pyx_pf_6cftime_7_cftime_14DatetimeJulian___init__(struct __pyx_obj_
     PyObject *__pyx_callargs[3] = {__pyx_t_2, ((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeJulian), ((PyObject *)__pyx_v_self)};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_super, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2147, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2150, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2147, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2150, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2147, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2150, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2147, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2150, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":2145
+  /* "cftime/_cftime.pyx":2148
  * but uses the "julian" calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41402,7 +41412,7 @@ static int __pyx_pf_6cftime_7_cftime_14DatetimeJulian___init__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":2155
+/* "cftime/_cftime.pyx":2158
  * but uses the mixed Julian-Gregorian ("standard") calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41461,16 +41471,16 @@ static int __pyx_pf_6cftime_7_cftime_17DatetimeGregorian___init__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "cftime/_cftime.pyx":2156
+  /* "cftime/_cftime.pyx":2159
  *     """
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='standard'             # <<<<<<<<<<<<<<
  *         super().__init__(*args, **kwargs)
  * 
 */
-  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_standard) < 0))) __PYX_ERR(0, 2156, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_standard) < 0))) __PYX_ERR(0, 2159, __pyx_L1_error)
 
-  /* "cftime/_cftime.pyx":2157
+  /* "cftime/_cftime.pyx":2160
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='standard'
  *         super().__init__(*args, **kwargs)             # <<<<<<<<<<<<<<
@@ -41483,21 +41493,21 @@ static int __pyx_pf_6cftime_7_cftime_17DatetimeGregorian___init__(struct __pyx_o
     PyObject *__pyx_callargs[3] = {__pyx_t_2, ((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian), ((PyObject *)__pyx_v_self)};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_super, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2157, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2160, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2157, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2157, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2157, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":2155
+  /* "cftime/_cftime.pyx":2158
  * but uses the mixed Julian-Gregorian ("standard") calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41520,7 +41530,7 @@ static int __pyx_pf_6cftime_7_cftime_17DatetimeGregorian___init__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":2165
+/* "cftime/_cftime.pyx":2168
  * but allows for dates that don't exist in the proleptic gregorian calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41579,16 +41589,16 @@ static int __pyx_pf_6cftime_7_cftime_26DatetimeProlepticGregorian___init__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "cftime/_cftime.pyx":2166
+  /* "cftime/_cftime.pyx":2169
  *     """
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='proleptic_gregorian'             # <<<<<<<<<<<<<<
  *         super().__init__( *args, **kwargs)
  * 
 */
-  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian) < 0))) __PYX_ERR(0, 2166, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_proleptic_gregorian) < 0))) __PYX_ERR(0, 2169, __pyx_L1_error)
 
-  /* "cftime/_cftime.pyx":2167
+  /* "cftime/_cftime.pyx":2170
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='proleptic_gregorian'
  *         super().__init__( *args, **kwargs)             # <<<<<<<<<<<<<<
@@ -41601,21 +41611,21 @@ static int __pyx_pf_6cftime_7_cftime_26DatetimeProlepticGregorian___init__(struc
     PyObject *__pyx_callargs[3] = {__pyx_t_2, ((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian), ((PyObject *)__pyx_v_self)};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_super, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2167, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2167, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2167, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2167, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":2165
+  /* "cftime/_cftime.pyx":2168
  * but allows for dates that don't exist in the proleptic gregorian calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41638,7 +41648,7 @@ static int __pyx_pf_6cftime_7_cftime_26DatetimeProlepticGregorian___init__(struc
   return __pyx_r;
 }
 
-/* "cftime/_cftime.pyx":2175
+/* "cftime/_cftime.pyx":2178
  * but allows for dates that don't exist in the proleptic gregorian calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41697,15 +41707,15 @@ static int __pyx_pf_6cftime_7_cftime_11DatetimeTAI___init__(struct __pyx_obj_6cf
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "cftime/_cftime.pyx":2176
+  /* "cftime/_cftime.pyx":2179
  *     """
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='tai'             # <<<<<<<<<<<<<<
  *         super().__init__( *args, **kwargs)
 */
-  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_tai) < 0))) __PYX_ERR(0, 2176, __pyx_L1_error)
+  if (unlikely((PyDict_SetItem(__pyx_v_kwargs, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_tai) < 0))) __PYX_ERR(0, 2179, __pyx_L1_error)
 
-  /* "cftime/_cftime.pyx":2177
+  /* "cftime/_cftime.pyx":2180
  *     def __init__(self, *args, **kwargs):
  *         kwargs['calendar']='tai'
  *         super().__init__( *args, **kwargs)             # <<<<<<<<<<<<<<
@@ -41716,21 +41726,21 @@ static int __pyx_pf_6cftime_7_cftime_11DatetimeTAI___init__(struct __pyx_obj_6cf
     PyObject *__pyx_callargs[3] = {__pyx_t_2, ((PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeTAI), ((PyObject *)__pyx_v_self)};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_super, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2177, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2180, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2177, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_init); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 2180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2177, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2177, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_v_args, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 2180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cftime/_cftime.pyx":2175
+  /* "cftime/_cftime.pyx":2178
  * but allows for dates that don't exist in the proleptic gregorian calendar.
  *     """
  *     def __init__(self, *args, **kwargs):             # <<<<<<<<<<<<<<
@@ -41980,7 +41990,7 @@ static PyType_Slot __pyx_type_6cftime_7_cftime_datetime_slots[] = {
   {Py_nb_subtract, (void *)__pyx_nb_subtract_6cftime_7_cftime_datetime},
   {Py_tp_hash, (void *)__pyx_pw_6cftime_7_cftime_8datetime_21__hash__},
   {Py_tp_str, (void *)__pyx_pw_6cftime_7_cftime_8datetime_17__str__},
-  {Py_tp_doc, (void *)PyDoc_STR("datetime(int year, int month, int day, int hour=0, int minute=0, int second=0, int microsecond=0, int dayofwk=-1, int dayofyr=-1, calendar=\047standard\047, has_year_zero=None)\n\nThis class mimics datetime.datetime but support calendars other than the proleptic\nGregorian calendar.\n\nSupports timedelta operations by overloading +/-, and\ncomparisons with other instances (even if they use different calendars).\nWhen comparing instances with different calendars, the second instance in the comparison (RHS) is\nconverted to the calendar of the LHS instance.  When comparing a list or array of instances (all using\nthe same calendar) to a single scalar instance,\nit is much faster to convert the single instance to the calendar of the array before doing\nthe comparison.\n\nComparison with native python datetime instances is possible\nfor cftime.datetime instances using\n\047gregorian\047 and \047proleptic_gregorian\047 calendars.\n\nAll the calendars currently defined in the\n`CF metadata convention <http://cfconventions.org/cf-conventions/cf-conventions#calendar>`__ are supported.\nValid calendars are \047standard\047, \047gregorian\047, \047proleptic_gregorian\047, \047tai\047,\n\047noleap\047, \047365_day\047, \047360_day\047, \047julian\047, \047all_leap\047, \047366_day\047.\nDefault is \047standard\047, which is a mixed Julian/Gregorian calendar.\n\047standard\047 and \047gregorian\047 are synonyms, as are \047all_leap\047/\047366_day\047\nand \047noleap\047/\047365_day\047.\n\nIf the calendar kwarg is set to a blank string (\047\047) or None (the default is \047standard\047) the \ninstance will not be calendar-aware and some methods will not work.\n\nIf the has_year_zero kwarg is set to True, astronomical year numbering\nis used and the year zero exists.  If set to False for real-world\ncalendars, then historical year numbering is used and the year 1 is\npreceded by year -1 and no year zero exists.\nThe defaults are set to conform with\nCF version 1.9 conventions ""(False for \047julian\047, \047gregorian\047/\047standard\047, True\nfor \047proleptic_gregorian\047 (ISO 8601) and True for the idealized\ncalendars \047noleap\047/\047365_day\047, \047360_day\047, 366_day\047/\047all_leap\047)\nThe defaults can only be over-ridden for the real-world calendars,\nfor the the idealized calendars the year zero \nalways exists and the has_year_zero kwarg is ignored.\nThis kwarg is not needed to define calendar systems allowed by CF\n(the calendar-specific defaults do this).\n\nHas isoformat, strftime, timetuple, replace, dayofwk, dayofyr, daysinmonth,\n__repr__,__format__, __add__, __sub__, __str__ and comparison methods. \n\ndayofwk, dayofyr, daysinmonth, __add__ and __sub__ only work for calendar-aware\ninstances.\n\nThe default format of the string produced by strftime is controlled by self.format\n(default %Y-%m-%d %H:%M:%S).\n    ")},
+  {Py_tp_doc, (void *)PyDoc_STR("datetime(int year, int month, int day, int hour=0, int minute=0, int second=0, int microsecond=0, int dayofwk=-1, int dayofyr=-1, calendar=\047standard\047, has_year_zero=None)\n\nThis class mimics datetime.datetime but support calendars other than the proleptic\nGregorian calendar.\n\nSupports timedelta operations by overloading +/-, and\ncomparisons with other instances (even if they use different calendars).\nWhen comparing instances with different calendars, the second instance in the comparison (RHS) is\nconverted to the calendar of the LHS instance.  When comparing a list or array of instances (all using\nthe same calendar) to a single scalar instance,\nit is much faster to convert the single instance to the calendar of the array before doing\nthe comparison.\n\nComparison with native python datetime instances is possible\nfor cftime.datetime instances using\n\047gregorian\047 and \047proleptic_gregorian\047 calendars.\n\nAll the calendars currently defined in the\n`CF metadata convention <http://cfconventions.org/cf-conventions/cf-conventions#calendar>`__ are supported.\nValid calendars are \047standard\047, \047gregorian\047, \047proleptic_gregorian\047, \047tai\047,\n\047noleap\047, \047365_day\047, \047360_day\047, \047julian\047, \047all_leap\047, \047366_day\047.\nDefault is \047standard\047, which is a mixed Julian/Gregorian calendar.\n\047standard\047 and \047gregorian\047 are synonyms, as are \047all_leap\047/\047366_day\047\nand \047noleap\047/\047365_day\047.\n\nIf the calendar kwarg is set to a blank string (\047\047) or None (the default is \047standard\047) the \ninstance will not be calendar-aware and some methods will not work.\n\nIf the has_year_zero kwarg is set to True, astronomical year numbering\nis used and the year zero exists.  If set to False for real-world\ncalendars, then historical year numbering is used and the year 1 is\npreceded by year -1 and no year zero exists.\nThe defaults are set to conform with\nCF version 1.9 conventions ""(False for \047julian\047, \047gregorian\047/\047standard\047, True\nfor \047proleptic_gregorian\047 (ISO 8601) and True for the idealized\ncalendars \047noleap\047/\047365_day\047, \047360_day\047, 366_day\047/\047all_leap\047)\nThe defaults can only be over-ridden for the real-world calendars,\nfor the idealized calendars the year zero always exists and the\nhas_year_zero kwarg is ignored. Passing False emits a warning and the\ninstance\047s has_year_zero attribute is set to True.\nThis kwarg is not needed to define calendar systems allowed by CF\n(the calendar-specific defaults do this).\n\nHas isoformat, strftime, timetuple, replace, dayofwk, dayofyr, daysinmonth,\n__repr__,__format__, __add__, __sub__, __str__ and comparison methods. \n\ndayofwk, dayofyr, daysinmonth, __add__ and __sub__ only work for calendar-aware\ninstances.\n\nThe default format of the string produced by strftime is controlled by self.format\n(default %Y-%m-%d %H:%M:%S).\n    ")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_6cftime_7_cftime_datetime},
   {Py_tp_clear, (void *)__pyx_tp_clear_6cftime_7_cftime_datetime},
   {Py_tp_richcompare, (void *)__pyx_pw_6cftime_7_cftime_8datetime_25__richcmp__},
@@ -42064,7 +42074,7 @@ static PyTypeObject __pyx_type_6cftime_7_cftime_datetime = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
-  PyDoc_STR("datetime(int year, int month, int day, int hour=0, int minute=0, int second=0, int microsecond=0, int dayofwk=-1, int dayofyr=-1, calendar=\047standard\047, has_year_zero=None)\n\nThis class mimics datetime.datetime but support calendars other than the proleptic\nGregorian calendar.\n\nSupports timedelta operations by overloading +/-, and\ncomparisons with other instances (even if they use different calendars).\nWhen comparing instances with different calendars, the second instance in the comparison (RHS) is\nconverted to the calendar of the LHS instance.  When comparing a list or array of instances (all using\nthe same calendar) to a single scalar instance,\nit is much faster to convert the single instance to the calendar of the array before doing\nthe comparison.\n\nComparison with native python datetime instances is possible\nfor cftime.datetime instances using\n\047gregorian\047 and \047proleptic_gregorian\047 calendars.\n\nAll the calendars currently defined in the\n`CF metadata convention <http://cfconventions.org/cf-conventions/cf-conventions#calendar>`__ are supported.\nValid calendars are \047standard\047, \047gregorian\047, \047proleptic_gregorian\047, \047tai\047,\n\047noleap\047, \047365_day\047, \047360_day\047, \047julian\047, \047all_leap\047, \047366_day\047.\nDefault is \047standard\047, which is a mixed Julian/Gregorian calendar.\n\047standard\047 and \047gregorian\047 are synonyms, as are \047all_leap\047/\047366_day\047\nand \047noleap\047/\047365_day\047.\n\nIf the calendar kwarg is set to a blank string (\047\047) or None (the default is \047standard\047) the \ninstance will not be calendar-aware and some methods will not work.\n\nIf the has_year_zero kwarg is set to True, astronomical year numbering\nis used and the year zero exists.  If set to False for real-world\ncalendars, then historical year numbering is used and the year 1 is\npreceded by year -1 and no year zero exists.\nThe defaults are set to conform with\nCF version 1.9 conventions ""(False for \047julian\047, \047gregorian\047/\047standard\047, True\nfor \047proleptic_gregorian\047 (ISO 8601) and True for the idealized\ncalendars \047noleap\047/\047365_day\047, \047360_day\047, 366_day\047/\047all_leap\047)\nThe defaults can only be over-ridden for the real-world calendars,\nfor the the idealized calendars the year zero \nalways exists and the has_year_zero kwarg is ignored.\nThis kwarg is not needed to define calendar systems allowed by CF\n(the calendar-specific defaults do this).\n\nHas isoformat, strftime, timetuple, replace, dayofwk, dayofyr, daysinmonth,\n__repr__,__format__, __add__, __sub__, __str__ and comparison methods. \n\ndayofwk, dayofyr, daysinmonth, __add__ and __sub__ only work for calendar-aware\ninstances.\n\nThe default format of the string produced by strftime is controlled by self.format\n(default %Y-%m-%d %H:%M:%S).\n    "), /*tp_doc*/
+  PyDoc_STR("datetime(int year, int month, int day, int hour=0, int minute=0, int second=0, int microsecond=0, int dayofwk=-1, int dayofyr=-1, calendar=\047standard\047, has_year_zero=None)\n\nThis class mimics datetime.datetime but support calendars other than the proleptic\nGregorian calendar.\n\nSupports timedelta operations by overloading +/-, and\ncomparisons with other instances (even if they use different calendars).\nWhen comparing instances with different calendars, the second instance in the comparison (RHS) is\nconverted to the calendar of the LHS instance.  When comparing a list or array of instances (all using\nthe same calendar) to a single scalar instance,\nit is much faster to convert the single instance to the calendar of the array before doing\nthe comparison.\n\nComparison with native python datetime instances is possible\nfor cftime.datetime instances using\n\047gregorian\047 and \047proleptic_gregorian\047 calendars.\n\nAll the calendars currently defined in the\n`CF metadata convention <http://cfconventions.org/cf-conventions/cf-conventions#calendar>`__ are supported.\nValid calendars are \047standard\047, \047gregorian\047, \047proleptic_gregorian\047, \047tai\047,\n\047noleap\047, \047365_day\047, \047360_day\047, \047julian\047, \047all_leap\047, \047366_day\047.\nDefault is \047standard\047, which is a mixed Julian/Gregorian calendar.\n\047standard\047 and \047gregorian\047 are synonyms, as are \047all_leap\047/\047366_day\047\nand \047noleap\047/\047365_day\047.\n\nIf the calendar kwarg is set to a blank string (\047\047) or None (the default is \047standard\047) the \ninstance will not be calendar-aware and some methods will not work.\n\nIf the has_year_zero kwarg is set to True, astronomical year numbering\nis used and the year zero exists.  If set to False for real-world\ncalendars, then historical year numbering is used and the year 1 is\npreceded by year -1 and no year zero exists.\nThe defaults are set to conform with\nCF version 1.9 conventions ""(False for \047julian\047, \047gregorian\047/\047standard\047, True\nfor \047proleptic_gregorian\047 (ISO 8601) and True for the idealized\ncalendars \047noleap\047/\047365_day\047, \047360_day\047, 366_day\047/\047all_leap\047)\nThe defaults can only be over-ridden for the real-world calendars,\nfor the idealized calendars the year zero always exists and the\nhas_year_zero kwarg is ignored. Passing False emits a warning and the\ninstance\047s has_year_zero attribute is set to True.\nThis kwarg is not needed to define calendar systems allowed by CF\n(the calendar-specific defaults do this).\n\nHas isoformat, strftime, timetuple, replace, dayofwk, dayofyr, daysinmonth,\n__repr__,__format__, __add__, __sub__, __str__ and comparison methods. \n\ndayofwk, dayofyr, daysinmonth, __add__ and __sub__ only work for calendar-aware\ninstances.\n\nThe default format of the string produced by strftime is controlled by self.format\n(default %Y-%m-%d %H:%M:%S).\n    "), /*tp_doc*/
   __pyx_tp_traverse_6cftime_7_cftime_datetime, /*tp_traverse*/
   __pyx_tp_clear_6cftime_7_cftime_datetime, /*tp_clear*/
   __pyx_pw_6cftime_7_cftime_8datetime_25__richcmp__, /*tp_richcompare*/
@@ -43512,11 +43522,11 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeNoLeap(__pyx
   __pyx_vtabptr_6cftime_7_cftime_DatetimeNoLeap = &__pyx_vtable_6cftime_7_cftime_DatetimeNoLeap;
   __pyx_vtable_6cftime_7_cftime_DatetimeNoLeap.__pyx_base = *__pyx_vtabptr_6cftime_7_cftime_datetime;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2109, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2112, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime_DatetimeNoLeap_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap)) __PYX_ERR(0, 2109, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap)) __PYX_ERR(0, 2112, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap = &__pyx_type_6cftime_7_cftime_DatetimeNoLeap;
   #endif
@@ -43524,7 +43534,7 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeNoLeap(__pyx
   __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap->tp_base = __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap) < (0)) __PYX_ERR(0, 2109, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap) < (0)) __PYX_ERR(0, 2112, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap);
@@ -43534,8 +43544,8 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeNoLeap(__pyx
     __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap, __pyx_vtabptr_6cftime_7_cftime_DatetimeNoLeap) < (0)) __PYX_ERR(0, 2109, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeNoLeap, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap) < (0)) __PYX_ERR(0, 2109, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap, __pyx_vtabptr_6cftime_7_cftime_DatetimeNoLeap) < (0)) __PYX_ERR(0, 2112, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeNoLeap, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeNoLeap) < (0)) __PYX_ERR(0, 2112, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -43556,11 +43566,11 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeAllLeap(__py
   __pyx_vtabptr_6cftime_7_cftime_DatetimeAllLeap = &__pyx_vtable_6cftime_7_cftime_DatetimeAllLeap;
   __pyx_vtable_6cftime_7_cftime_DatetimeAllLeap.__pyx_base = *__pyx_vtabptr_6cftime_7_cftime_datetime;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2119, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime_DatetimeAllLeap_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap)) __PYX_ERR(0, 2119, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap)) __PYX_ERR(0, 2122, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap = &__pyx_type_6cftime_7_cftime_DatetimeAllLeap;
   #endif
@@ -43568,7 +43578,7 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeAllLeap(__py
   __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap->tp_base = __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap) < (0)) __PYX_ERR(0, 2119, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap) < (0)) __PYX_ERR(0, 2122, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap);
@@ -43578,8 +43588,8 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeAllLeap(__py
     __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap, __pyx_vtabptr_6cftime_7_cftime_DatetimeAllLeap) < (0)) __PYX_ERR(0, 2119, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeAllLeap, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap) < (0)) __PYX_ERR(0, 2119, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap, __pyx_vtabptr_6cftime_7_cftime_DatetimeAllLeap) < (0)) __PYX_ERR(0, 2122, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeAllLeap, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeAllLeap) < (0)) __PYX_ERR(0, 2122, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -43600,11 +43610,11 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_Datetime360Day(__pyx
   __pyx_vtabptr_6cftime_7_cftime_Datetime360Day = &__pyx_vtable_6cftime_7_cftime_Datetime360Day;
   __pyx_vtable_6cftime_7_cftime_Datetime360Day.__pyx_base = *__pyx_vtabptr_6cftime_7_cftime_datetime;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2129, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2132, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime_Datetime360Day_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day)) __PYX_ERR(0, 2129, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day)) __PYX_ERR(0, 2132, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day = &__pyx_type_6cftime_7_cftime_Datetime360Day;
   #endif
@@ -43612,7 +43622,7 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_Datetime360Day(__pyx
   __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_Datetime360Day->tp_base = __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day) < (0)) __PYX_ERR(0, 2129, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day) < (0)) __PYX_ERR(0, 2132, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day);
@@ -43622,8 +43632,8 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_Datetime360Day(__pyx
     __pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day, __pyx_vtabptr_6cftime_7_cftime_Datetime360Day) < (0)) __PYX_ERR(0, 2129, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Datetime360Day, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day) < (0)) __PYX_ERR(0, 2129, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day, __pyx_vtabptr_6cftime_7_cftime_Datetime360Day) < (0)) __PYX_ERR(0, 2132, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Datetime360Day, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_Datetime360Day) < (0)) __PYX_ERR(0, 2132, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -43644,11 +43654,11 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeJulian(__pyx
   __pyx_vtabptr_6cftime_7_cftime_DatetimeJulian = &__pyx_vtable_6cftime_7_cftime_DatetimeJulian;
   __pyx_vtable_6cftime_7_cftime_DatetimeJulian.__pyx_base = *__pyx_vtabptr_6cftime_7_cftime_datetime;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2139, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime_DatetimeJulian_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian)) __PYX_ERR(0, 2139, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian)) __PYX_ERR(0, 2142, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian = &__pyx_type_6cftime_7_cftime_DatetimeJulian;
   #endif
@@ -43656,7 +43666,7 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeJulian(__pyx
   __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeJulian->tp_base = __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian) < (0)) __PYX_ERR(0, 2139, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian) < (0)) __PYX_ERR(0, 2142, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian);
@@ -43666,8 +43676,8 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeJulian(__pyx
     __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian, __pyx_vtabptr_6cftime_7_cftime_DatetimeJulian) < (0)) __PYX_ERR(0, 2139, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeJulian, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian) < (0)) __PYX_ERR(0, 2139, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian, __pyx_vtabptr_6cftime_7_cftime_DatetimeJulian) < (0)) __PYX_ERR(0, 2142, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeJulian, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeJulian) < (0)) __PYX_ERR(0, 2142, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -43688,11 +43698,11 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeGregorian(__
   __pyx_vtabptr_6cftime_7_cftime_DatetimeGregorian = &__pyx_vtable_6cftime_7_cftime_DatetimeGregorian;
   __pyx_vtable_6cftime_7_cftime_DatetimeGregorian.__pyx_base = *__pyx_vtabptr_6cftime_7_cftime_datetime;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2149, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime_DatetimeGregorian_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian)) __PYX_ERR(0, 2149, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian)) __PYX_ERR(0, 2152, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian = &__pyx_type_6cftime_7_cftime_DatetimeGregorian;
   #endif
@@ -43700,7 +43710,7 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeGregorian(__
   __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian->tp_base = __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian) < (0)) __PYX_ERR(0, 2149, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian) < (0)) __PYX_ERR(0, 2152, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian);
@@ -43710,8 +43720,8 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeGregorian(__
     __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian, __pyx_vtabptr_6cftime_7_cftime_DatetimeGregorian) < (0)) __PYX_ERR(0, 2149, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeGregorian, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian) < (0)) __PYX_ERR(0, 2149, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian, __pyx_vtabptr_6cftime_7_cftime_DatetimeGregorian) < (0)) __PYX_ERR(0, 2152, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeGregorian, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeGregorian) < (0)) __PYX_ERR(0, 2152, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -43732,11 +43742,11 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeProlepticGre
   __pyx_vtabptr_6cftime_7_cftime_DatetimeProlepticGregorian = &__pyx_vtable_6cftime_7_cftime_DatetimeProlepticGregorian;
   __pyx_vtable_6cftime_7_cftime_DatetimeProlepticGregorian.__pyx_base = *__pyx_vtabptr_6cftime_7_cftime_datetime;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2159, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime_DatetimeProlepticGregorian_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian)) __PYX_ERR(0, 2159, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian)) __PYX_ERR(0, 2162, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian = &__pyx_type_6cftime_7_cftime_DatetimeProlepticGregorian;
   #endif
@@ -43744,7 +43754,7 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeProlepticGre
   __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian->tp_base = __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian) < (0)) __PYX_ERR(0, 2159, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian) < (0)) __PYX_ERR(0, 2162, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian);
@@ -43754,8 +43764,8 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeProlepticGre
     __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian, __pyx_vtabptr_6cftime_7_cftime_DatetimeProlepticGregorian) < (0)) __PYX_ERR(0, 2159, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeProlepticGregorian, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian) < (0)) __PYX_ERR(0, 2159, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian, __pyx_vtabptr_6cftime_7_cftime_DatetimeProlepticGregorian) < (0)) __PYX_ERR(0, 2162, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeProlepticGregorian, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeProlepticGregorian) < (0)) __PYX_ERR(0, 2162, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -43776,11 +43786,11 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeTAI(__pyx_ms
   __pyx_vtabptr_6cftime_7_cftime_DatetimeTAI = &__pyx_vtable_6cftime_7_cftime_DatetimeTAI;
   __pyx_vtable_6cftime_7_cftime_DatetimeTAI.__pyx_base = *__pyx_vtabptr_6cftime_7_cftime_datetime;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2169, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime_DatetimeTAI_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI)) __PYX_ERR(0, 2169, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI)) __PYX_ERR(0, 2172, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI = &__pyx_type_6cftime_7_cftime_DatetimeTAI;
   #endif
@@ -43788,7 +43798,7 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeTAI(__pyx_ms
   __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_DatetimeTAI->tp_base = __pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI) < (0)) __PYX_ERR(0, 2169, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI) < (0)) __PYX_ERR(0, 2172, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI);
@@ -43798,8 +43808,8 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime_DatetimeTAI(__pyx_ms
     __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI, __pyx_vtabptr_6cftime_7_cftime_DatetimeTAI) < (0)) __PYX_ERR(0, 2169, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeTAI, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI) < (0)) __PYX_ERR(0, 2169, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI, __pyx_vtabptr_6cftime_7_cftime_DatetimeTAI) < (0)) __PYX_ERR(0, 2172, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DatetimeTAI, (PyObject *) __pyx_mstate->__pyx_ptype_6cftime_7_cftime_DatetimeTAI) < (0)) __PYX_ERR(0, 2172, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -43817,14 +43827,14 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime___pyx_scope_struct__
   __Pyx_RefNannySetupContext("__Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime___pyx_scope_struct__strptime", 0);
   /*--- Exttype __pyx_obj_6cftime_7_cftime___pyx_scope_struct__strptime ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct__strptime = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime___pyx_scope_struct__strptime_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct__strptime)) __PYX_ERR(0, 1272, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct__strptime = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime___pyx_scope_struct__strptime_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct__strptime)) __PYX_ERR(0, 1275, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct__strptime = &__pyx_type_6cftime_7_cftime___pyx_scope_struct__strptime;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct__strptime) < (0)) __PYX_ERR(0, 1272, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct__strptime) < (0)) __PYX_ERR(0, 1275, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct__strptime);
@@ -43850,14 +43860,14 @@ static int __Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime___pyx_scope_struct_1
   __Pyx_RefNannySetupContext("__Pyx_modinit_Exttype___pyx_obj_6cftime_7_cftime___pyx_scope_struct_1_genexpr", 0);
   /*--- Exttype __pyx_obj_6cftime_7_cftime___pyx_scope_struct_1_genexpr ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct_1_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime___pyx_scope_struct_1_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct_1_genexpr)) __PYX_ERR(0, 1299, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct_1_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6cftime_7_cftime___pyx_scope_struct_1_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct_1_genexpr)) __PYX_ERR(0, 1302, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct_1_genexpr = &__pyx_type_6cftime_7_cftime___pyx_scope_struct_1_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct_1_genexpr) < (0)) __PYX_ERR(0, 1299, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct_1_genexpr) < (0)) __PYX_ERR(0, 1302, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6cftime_7_cftime___pyx_scope_struct_1_genexpr);
@@ -45413,39 +45423,39 @@ __Pyx_RefNannySetupContext("PyInit__cftime", 0);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1262
+  /* "cftime/_cftime.pyx":1265
  *                 return _dayspermonth[self.month-1]
  * 
  *     def strftime(self, format=None):             # <<<<<<<<<<<<<<
  *         """
  *         Return a string representing the date, controlled by an explicit format
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_3strftime, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_strftime, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1262, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_3strftime, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_strftime, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1265, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[18]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_strftime, __pyx_t_2) < (0)) __PYX_ERR(0, 1262, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_strftime, __pyx_t_2) < (0)) __PYX_ERR(0, 1265, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1272
+  /* "cftime/_cftime.pyx":1275
  *         return _strftime(self, format)
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
  *     def strptime(datestring, format, calendar='standard', has_year_zero=None):
  *         """
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_5strptime, __Pyx_CYFUNCTION_STATICMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_strptime, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1272, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_5strptime, __Pyx_CYFUNCTION_STATICMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_strptime, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[24]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_strptime, __pyx_t_2) < (0)) __PYX_ERR(0, 1272, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_strptime, __pyx_t_2) < (0)) __PYX_ERR(0, 1275, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_6 = NULL;
-  __Pyx_GetNameInClass(__pyx_t_7, (PyObject*)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_strptime); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1272, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_7, (PyObject*)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_strptime); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_8 = 1;
   {
@@ -45453,135 +45463,135 @@ __Pyx_RefNannySetupContext("PyInit__cftime", 0);
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_staticmethod, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1272, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1275, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_strptime, __pyx_t_2) < (0)) __PYX_ERR(0, 1272, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_strptime, __pyx_t_2) < (0)) __PYX_ERR(0, 1275, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1314
+  /* "cftime/_cftime.pyx":1317
  *                             calendar=calendar,has_year_zero=has_year_zero)
  * 
  *     def __format__(self, format):             # <<<<<<<<<<<<<<
  *         # the string format "{t_obj}".format(t_obj=t_obj)
  *         # without an explicit format gives an empty string (format='')
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_7__format__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime___format, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1314, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_7__format__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime___format, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1317, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_format_2, __pyx_t_2) < (0)) __PYX_ERR(0, 1314, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_format_2, __pyx_t_2) < (0)) __PYX_ERR(0, 1317, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1322
+  /* "cftime/_cftime.pyx":1325
  *         return self.strftime(format)
  * 
  *     def replace(self, **kwargs):             # <<<<<<<<<<<<<<
  *         """Return datetime with new specified fields."""
  *         args = {"year": self.year,
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_9replace, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_replace, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1322, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_9replace, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_replace, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1325, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_replace, __pyx_t_2) < (0)) __PYX_ERR(0, 1322, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_replace, __pyx_t_2) < (0)) __PYX_ERR(0, 1325, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1353
+  /* "cftime/_cftime.pyx":1356
  *         return self.__class__(**args)
  * 
  *     def timetuple(self):             # <<<<<<<<<<<<<<
  *         """
  *         Return a time.struct_time such as returned by time.localtime().
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_11timetuple, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_timetuple, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1353, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_11timetuple, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_timetuple, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1356, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_timetuple, __pyx_t_2) < (0)) __PYX_ERR(0, 1353, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_timetuple, __pyx_t_2) < (0)) __PYX_ERR(0, 1356, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1364
+  /* "cftime/_cftime.pyx":1367
  *                 self.minute, self.second, self.dayofwk, self.dayofyr, -1))
  * 
  *     cpdef _to_real_datetime(self):             # <<<<<<<<<<<<<<
  *         return real_datetime(self.year, self.month, self.day,
  *                              self.hour, self.minute, self.second,
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_13_to_real_datetime, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime__to_real_datetime, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1364, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_13_to_real_datetime, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime__to_real_datetime, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1367, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_to_real_datetime, __pyx_t_2) < (0)) __PYX_ERR(0, 1364, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_to_real_datetime, __pyx_t_2) < (0)) __PYX_ERR(0, 1367, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1386
+  /* "cftime/_cftime.pyx":1389
  *         return self.isoformat(' ')
  * 
  *     def isoformat(self, sep='T', timespec='auto'):             # <<<<<<<<<<<<<<
  *         """
  *         ISO date representation
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_19isoformat, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_isoformat, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1386, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_19isoformat, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_isoformat, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1389, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[25]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_isoformat, __pyx_t_2) < (0)) __PYX_ERR(0, 1386, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_isoformat, __pyx_t_2) < (0)) __PYX_ERR(0, 1389, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1433
+  /* "cftime/_cftime.pyx":1436
  *         return hash(d)
  * 
  *     def to_tuple(self):             # <<<<<<<<<<<<<<
  *         return (self.year, self.month, self.day, self.hour, self.minute,
  *                 self.second, self.microsecond)
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_23to_tuple, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_to_tuple, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1433, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_23to_tuple, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_to_tuple, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1436, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_to_tuple, __pyx_t_2) < (0)) __PYX_ERR(0, 1433, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_to_tuple, __pyx_t_2) < (0)) __PYX_ERR(0, 1436, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1474
+  /* "cftime/_cftime.pyx":1477
  *         return args, kwargs
  * 
  *     def __reduce__(self):             # <<<<<<<<<<<<<<
  *         """special method that allows instance to be pickled"""
  *         args, kwargs = self._getstate()
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_27__reduce__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime___reduce, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1474, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_27__reduce__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime___reduce, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1477, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_reduce, __pyx_t_2) < (0)) __PYX_ERR(0, 1474, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_reduce, __pyx_t_2) < (0)) __PYX_ERR(0, 1477, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1483
+  /* "cftime/_cftime.pyx":1486
  *         return NotImplemented
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
  *     def fromordinal(jday,calendar='standard',has_year_zero=None):
  *         """Create a datetime instance from a julian day ordinal, calendar
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_29fromordinal, __Pyx_CYFUNCTION_STATICMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_fromordinal, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1483, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_29fromordinal, __Pyx_CYFUNCTION_STATICMETHOD | __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_fromordinal, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1486, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[24]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_fromordinal, __pyx_t_2) < (0)) __PYX_ERR(0, 1483, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_fromordinal, __pyx_t_2) < (0)) __PYX_ERR(0, 1486, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_7 = NULL;
-  __Pyx_GetNameInClass(__pyx_t_6, (PyObject*)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_fromordinal); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1483, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_6, (PyObject*)__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_fromordinal); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1486, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_8 = 1;
   {
@@ -45589,45 +45599,45 @@ __Pyx_RefNannySetupContext("PyInit__cftime", 0);
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_staticmethod, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1483, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1486, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_fromordinal, __pyx_t_2) < (0)) __PYX_ERR(0, 1483, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_fromordinal, __pyx_t_2) < (0)) __PYX_ERR(0, 1486, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1513
+  /* "cftime/_cftime.pyx":1516
  *         return jd
  * 
  *     def toordinal(self,fractional=False):             # <<<<<<<<<<<<<<
  *         """Return (integer) julian day ordinal.
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_31toordinal, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_toordinal, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[32])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1513, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_31toordinal, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_toordinal, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[32])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1516, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[26]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_toordinal, __pyx_t_2) < (0)) __PYX_ERR(0, 1513, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_toordinal, __pyx_t_2) < (0)) __PYX_ERR(0, 1516, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1542
+  /* "cftime/_cftime.pyx":1545
  *             return ijd
  * 
  *     def change_calendar(self,calendar,has_year_zero=None):             # <<<<<<<<<<<<<<
  *         cdef datetime dt
  *         """return a new cftime.datetime instance with a different 'real-world' calendar."""
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_33change_calendar, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_change_calendar, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[33])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1542, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_8datetime_33change_calendar, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_datetime_change_calendar, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[33])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1545, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[18]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_change_calendar, __pyx_t_2) < (0)) __PYX_ERR(0, 1542, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6cftime_7_cftime_datetime, __pyx_mstate_global->__pyx_n_u_change_calendar, __pyx_t_2) < (0)) __PYX_ERR(0, 1545, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1671
+  /* "cftime/_cftime.pyx":1674
  *                 return NotImplemented
  * 
  * _illegal_s = re.compile(r"((^|[^%])(%%)*%s)")             # <<<<<<<<<<<<<<
@@ -45635,9 +45645,9 @@ __Pyx_RefNannySetupContext("PyInit__cftime", 0);
  * 
 */
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_re); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1671, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_re); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1674, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_compile); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1671, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_compile); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1674, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_8 = 1;
@@ -45646,26 +45656,26 @@ __Pyx_RefNannySetupContext("PyInit__cftime", 0);
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1671, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1674, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_illegal_s, __pyx_t_2) < (0)) __PYX_ERR(0, 1671, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_illegal_s, __pyx_t_2) < (0)) __PYX_ERR(0, 1674, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "cftime/_cftime.pyx":1945
+  /* "cftime/_cftime.pyx":1948
  *     return (year, month, day, hour, minute, second, microsecond, -1, -1)
  * 
  * @cython.embedsignature(True)             # <<<<<<<<<<<<<<
  * def is_leap_year(year, calendar, has_year_zero=None):
  *     """returns `True` if specified year in specified calendar is
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_37is_leap_year, 0, __pyx_mstate_global->__pyx_n_u_is_leap_year, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1945, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6cftime_7_cftime_37is_leap_year, 0, __pyx_mstate_global->__pyx_n_u_is_leap_year, NULL, __pyx_mstate_global->__pyx_n_u_cftime__cftime, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1948, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[18]);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_is_leap_year, __pyx_t_2) < (0)) __PYX_ERR(0, 1945, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_is_leap_year, __pyx_t_2) < (0)) __PYX_ERR(0, 1948, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "cftime/_cftime.pyx":1
@@ -45723,11 +45733,11 @@ static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   int __pyx_clineno = 0;
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __pyx_builtin_property = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_property); if (!__pyx_builtin_property) __PYX_ERR(0, 57, __pyx_L1_error)
-  __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 1272, __pyx_L1_error)
+  __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 1275, __pyx_L1_error)
   __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 284, __pyx_L1_error)
-  __pyx_builtin_round = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_round); if (!__pyx_builtin_round) __PYX_ERR(0, 1413, __pyx_L1_error)
-  __pyx_builtin_NotImplemented = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_NotImplemented); if (!__pyx_builtin_NotImplemented) __PYX_ERR(0, 1459, __pyx_L1_error)
-  __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_super); if (!__pyx_builtin_super) __PYX_ERR(0, 2117, __pyx_L1_error)
+  __pyx_builtin_round = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_round); if (!__pyx_builtin_round) __PYX_ERR(0, 1416, __pyx_L1_error)
+  __pyx_builtin_NotImplemented = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_NotImplemented); if (!__pyx_builtin_NotImplemented) __PYX_ERR(0, 1462, __pyx_L1_error)
+  __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_super); if (!__pyx_builtin_super) __PYX_ERR(0, 2120, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
@@ -45954,7 +45964,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[12]);
 
-  /* "cftime/_cftime.pyx":1155
+  /* "cftime/_cftime.pyx":1156
  *                 msg="year=0 was specified - this date/calendar/year zero convention is not supported by CF"
  *                 if calendar is not None and not _year_zero_defaults(calendar):
  *                     warnings.warn(msg,category=CFWarning)             # <<<<<<<<<<<<<<
@@ -45963,12 +45973,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_category};
-    __pyx_mstate_global->__pyx_tuple[13] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[13])) __PYX_ERR(0, 1155, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[13] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[13])) __PYX_ERR(0, 1156, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[13]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[13]);
 
-  /* "cftime/_cftime.pyx":1184
+  /* "cftime/_cftime.pyx":1187
  *             # proleptic Gregorian dates
  *             self.calendar = 'standard'
  *             if self.to_tuple() >= (1582, 10, 15, 0, 0, 0, 0):             # <<<<<<<<<<<<<<
@@ -45977,12 +45987,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[7] = {__pyx_mstate_global->__pyx_int_1582, __pyx_mstate_global->__pyx_int_10, __pyx_mstate_global->__pyx_int_15, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0};
-    __pyx_mstate_global->__pyx_tuple[14] = __Pyx_PyTuple_FromArray(__pyx_temp, 7); if (unlikely(!__pyx_mstate_global->__pyx_tuple[14])) __PYX_ERR(0, 1184, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[14] = __Pyx_PyTuple_FromArray(__pyx_temp, 7); if (unlikely(!__pyx_mstate_global->__pyx_tuple[14])) __PYX_ERR(0, 1187, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[14]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[14]);
 
-  /* "cftime/_cftime.pyx":1510
+  /* "cftime/_cftime.pyx":1513
  *         with warnings.catch_warnings():
  *             warnings.simplefilter("ignore",category=CFWarning)
  *             jd = num2date(jday,units=units,calendar=calendar,has_year_zero=has_year_zero)             # <<<<<<<<<<<<<<
@@ -45991,12 +46001,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[3] = {__pyx_mstate_global->__pyx_n_u_units_2, __pyx_mstate_global->__pyx_n_u_calendar, __pyx_mstate_global->__pyx_n_u_has_year_zero};
-    __pyx_mstate_global->__pyx_tuple[15] = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[15])) __PYX_ERR(0, 1510, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[15] = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[15])) __PYX_ERR(0, 1513, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[15]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[15]);
 
-  /* "cftime/_cftime.pyx":1508
+  /* "cftime/_cftime.pyx":1511
  *             units = 'days since 0-1-1-12'
  *         # suppress warning about invalid CF date (year <= 0)
  *         with warnings.catch_warnings():             # <<<<<<<<<<<<<<
@@ -46005,12 +46015,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[3] = {Py_None, Py_None, Py_None};
-    __pyx_mstate_global->__pyx_tuple[16] = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[16])) __PYX_ERR(0, 1508, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[16] = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[16])) __PYX_ERR(0, 1511, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[16]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[16]);
 
-  /* "cftime/_cftime.pyx":1548
+  /* "cftime/_cftime.pyx":1551
  *             raise ValueError('change_calendar only works for real-world calendars')
  *         # fixed frame of reference is days since -4713-1-1 in the Julian calendar with no year zero
  *         return self.fromordinal(self.toordinal(fractional=True),             # <<<<<<<<<<<<<<
@@ -46019,30 +46029,30 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_fractional};
-    __pyx_mstate_global->__pyx_tuple[17] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[17])) __PYX_ERR(0, 1548, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[17] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[17])) __PYX_ERR(0, 1551, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[17]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[17]);
 
-  /* "cftime/_cftime.pyx":1703
+  /* "cftime/_cftime.pyx":1706
  *         else:
  *             ihavems = True
  *             fmt1 = fmt[:-3]             # <<<<<<<<<<<<<<
  *     else:
  *         ihavems = False
 */
-  __pyx_mstate_global->__pyx_slice[2] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_neg_3, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[2])) __PYX_ERR(0, 1703, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[2] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_neg_3, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[2])) __PYX_ERR(0, 1706, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[2]);
 
-  /* "cftime/_cftime.pyx":1718
+  /* "cftime/_cftime.pyx":1721
  *     year = year + ((2000 - year) // 28) * 28
  *     timetuple = dt.timetuple()
  *     s1 = time.strftime(fmt1, (year,) + timetuple[1:])             # <<<<<<<<<<<<<<
  *     twodigityear = '%y' in fmt1
  *     if twodigityear:
 */
-  __pyx_mstate_global->__pyx_slice[3] = PySlice_New(__pyx_mstate_global->__pyx_int_1, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[3])) __PYX_ERR(0, 1718, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[3] = PySlice_New(__pyx_mstate_global->__pyx_int_1, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[3])) __PYX_ERR(0, 1721, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[3]);
 
@@ -46130,7 +46140,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[23]);
 
-  /* "cftime/_cftime.pyx":1272
+  /* "cftime/_cftime.pyx":1275
  *         return _strftime(self, format)
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -46139,12 +46149,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_standard, Py_None};
-    __pyx_mstate_global->__pyx_tuple[24] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[24])) __PYX_ERR(0, 1272, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[24] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[24])) __PYX_ERR(0, 1275, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[24]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[24]);
 
-  /* "cftime/_cftime.pyx":1386
+  /* "cftime/_cftime.pyx":1389
  *         return self.isoformat(' ')
  * 
  *     def isoformat(self, sep='T', timespec='auto'):             # <<<<<<<<<<<<<<
@@ -46153,12 +46163,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_T, __pyx_mstate_global->__pyx_n_u_auto};
-    __pyx_mstate_global->__pyx_tuple[25] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[25])) __PYX_ERR(0, 1386, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[25] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[25])) __PYX_ERR(0, 1389, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[25]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[25]);
 
-  /* "cftime/_cftime.pyx":1513
+  /* "cftime/_cftime.pyx":1516
  *         return jd
  * 
  *     def toordinal(self,fractional=False):             # <<<<<<<<<<<<<<
@@ -46167,7 +46177,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[1] = {Py_False};
-    __pyx_mstate_global->__pyx_tuple[26] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[26])) __PYX_ERR(0, 1513, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[26] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[26])) __PYX_ERR(0, 1516, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[26]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[26]);
@@ -46398,7 +46408,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 1299};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 1302};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_x};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
@@ -46508,67 +46518,67 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[21] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_create_datetime, __pyx_mstate->__pyx_kp_b_iso88591_wir, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[21])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1262};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1265};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_format};
     __pyx_mstate_global->__pyx_codeobj_tab[22] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_strftime, __pyx_mstate->__pyx_kp_b_iso88591_a_7_Q_T_y_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[22])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 19, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1272};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 19, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1275};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_datestring, __pyx_mstate->__pyx_n_u_format, __pyx_mstate->__pyx_n_u_calendar, __pyx_mstate->__pyx_n_u_has_year_zero, __pyx_mstate->__pyx_n_u_fd, __pyx_mstate->__pyx_n_u_special_fd, __pyx_mstate->__pyx_n_u_pydatetime, __pyx_mstate->__pyx_n_u_compatible_date, __pyx_mstate->__pyx_n_u_msg, __pyx_mstate->__pyx_n_u_year, __pyx_mstate->__pyx_n_u_month, __pyx_mstate->__pyx_n_u_day, __pyx_mstate->__pyx_n_u_hour, __pyx_mstate->__pyx_n_u_minute, __pyx_mstate->__pyx_n_u_second, __pyx_mstate->__pyx_n_u_microsecond, __pyx_mstate->__pyx_n_u_d, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
     __pyx_mstate_global->__pyx_codeobj_tab[23] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_strptime, __pyx_mstate->__pyx_kp_b_iso88591_A_H_Qaq_4uF_c_Qe5_U_uE_a_a_wa_9F, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[23])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1314};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1317};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_format};
     __pyx_mstate_global->__pyx_codeobj_tab[24] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_format_2, __pyx_mstate->__pyx_kp_b_iso88591_A_7_Q_Q_t9AQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[24])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 1322};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 1325};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_kwargs, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_name_2, __pyx_mstate->__pyx_n_u_value};
     __pyx_mstate_global->__pyx_codeobj_tab[25] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_replace, __pyx_mstate->__pyx_kp_b_iso88591_A_A_Q_t1_A_a_a_t1_Q_D_S_s_Cq_AQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[25])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1353};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1356};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[26] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_timetuple, __pyx_mstate->__pyx_kp_b_iso88591_A_t_r_WD_F_a_IT_j_Kq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[26])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1364};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1367};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[27] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_to_real_datetime, __pyx_mstate->__pyx_kp_b_iso88591_A_AT_HD_IT, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[27])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1386};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1389};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_sep, __pyx_mstate->__pyx_n_u_timespec, __pyx_mstate->__pyx_n_u_form0, __pyx_mstate->__pyx_n_u_form, __pyx_mstate->__pyx_n_u_second, __pyx_mstate->__pyx_n_u_millisecs};
     __pyx_mstate_global->__pyx_codeobj_tab[28] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_isoformat, __pyx_mstate->__pyx_kp_b_iso88591_N_4vRq_A_A_9Cq_1_4wat7_hd_c_6_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[28])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1433};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1436};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[29] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_to_tuple, __pyx_mstate->__pyx_kp_b_iso88591_A_G4xt6_WD_IT, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[29])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1474};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1477};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_args, __pyx_mstate->__pyx_n_u_kwargs, __pyx_mstate->__pyx_n_u_date_type};
     __pyx_mstate_global->__pyx_codeobj_tab[30] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_reduce, __pyx_mstate->__pyx_kp_b_iso88591_A_it_Q_D_fA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[30])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1483};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1486};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_jday, __pyx_mstate->__pyx_n_u_calendar, __pyx_mstate->__pyx_n_u_has_year_zero, __pyx_mstate->__pyx_n_u_units_2, __pyx_mstate->__pyx_n_u_jd};
     __pyx_mstate_global->__pyx_codeobj_tab[31] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_fromordinal, __pyx_mstate->__pyx_kp_b_iso88591_A_1_86_A_q_9D_9A_q_q_q_c_s_3a_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[31])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1513};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1516};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_fractional, __pyx_mstate->__pyx_n_u_ijd, __pyx_mstate->__pyx_n_u_fracday};
     __pyx_mstate_global->__pyx_codeobj_tab[32] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_toordinal, __pyx_mstate->__pyx_kp_b_iso88591_1D_t84vT_34q_1_d_F_4r_a_BfAWBm1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[32])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1542};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1545};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_calendar, __pyx_mstate->__pyx_n_u_has_year_zero, __pyx_mstate->__pyx_n_u_dt};
     __pyx_mstate_global->__pyx_codeobj_tab[33] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_change_calendar, __pyx_mstate->__pyx_kp_b_iso88591_4A_9C_Ct_S_AQ_t_q_Ja, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[33])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1945};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1948};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_year, __pyx_mstate->__pyx_n_u_calendar, __pyx_mstate->__pyx_n_u_has_year_zero};
     __pyx_mstate_global->__pyx_codeobj_tab[34] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_cftime__cftime_pyx, __pyx_mstate->__pyx_n_u_is_leap_year, __pyx_mstate->__pyx_kp_b_iso88591_81F_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[34])) goto bad;
   }

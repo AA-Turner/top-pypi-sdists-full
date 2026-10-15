@@ -436,6 +436,25 @@ def test_update_experiment_edits_identity_through_the_experiment_route():
     assert row["name"] == "New"
 
 
+@pytest.mark.parametrize("conclusion", ["1e-4 wins val loss, 1.92 vs 2.05", ""])
+def test_update_experiment_sends_the_conclusion_and_an_empty_one_clears(conclusion):
+    """A conclusion alone is a whole edit; `""` is sent, never read as absent."""
+    client, rec = _client(
+        {
+            ("PATCH", f"/v1/projects/{P}/experiments/{E}"): {
+                **_experiment(),
+                "conclusion": conclusion or None,
+                "conclusion_source": "agent" if conclusion else None,
+                "notes_version": 3,
+            },
+        }
+    )
+    row = client.update_experiment(E, conclusion=conclusion, authored_by="agent", project_id=P)
+    assert rec.calls == [f"PATCH /v1/projects/{P}/experiments/{E}"]
+    assert rec.body(0) == {"conclusion": conclusion, "authored_by": "agent"}
+    assert row["conclusion"] == (conclusion or None)
+
+
 @pytest.mark.parametrize("field", ["tags", "metadata", "summary", "description"])
 def test_update_experiment_refuses_fields_the_server_keeps_read_only(field):
     client, rec = _client({})

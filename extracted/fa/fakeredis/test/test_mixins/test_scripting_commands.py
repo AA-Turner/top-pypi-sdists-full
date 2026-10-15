@@ -178,6 +178,16 @@ def test_eval_table_with_numbers(r: ClientType):
     assert val == [42]
 
 
+def test_eval_table_with_false(r: ClientType):
+    # false is a value, not a hole, so it does not end the array
+    assert r.eval("return {1, false, 3}", 0) == [1, None, 3]
+
+
+def test_eval_large_table(r: ClientType):
+    val = r.eval("local a = {} for i = 1, 5000 do a[i] = i end return a", 0)
+    assert val == list(range(1, 5001))
+
+
 def test_eval_nested_table(r: ClientType):
     lua = """
     local a = {}
@@ -891,3 +901,9 @@ def test_eval_returns_resp3_shapes_a_script_built(r: ClientType) -> None:
     """A script may hand back the RESP3 types redis.setresp(3) produces."""
     assert r.eval("return {double=3.5}", 0) in (b"3.5", 3.5)
     assert r.eval("return {map={field='value'}}", 0) in ([b"field", b"value"], {b"field": b"value"})
+
+
+def test_eval_container_command(r: ClientType):
+    r.xadd("foo", {"a": 1})
+    assert r.eval("return redis.call('XGROUP', 'CREATE', KEYS[1], 'group', '$')", 1, "foo") == b"OK"
+    assert len(r.eval("return redis.call('xinfo', 'groups', KEYS[1])", 1, "foo")) == 1

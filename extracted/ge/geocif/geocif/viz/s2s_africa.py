@@ -26,7 +26,8 @@ import numpy as np
 import pandas as pd
 
 from geocif.viz._style import (
-    MONTHS as MON, NODATA, despine as _despine, style_ctx as _shared_ctx)
+    BORDER_PEN, CBAR_POS, COAST_KW, MONTHS as MON, NODATA, POLY_PEN,
+    despine as _despine, style_ctx as _shared_ctx)
 from geocif.viz.aggregation import _write_lookup
 
 logger = logging.getLogger(__name__)
@@ -93,12 +94,194 @@ ROW_LABEL = {"z_PRCPTOT": "Season rainfall", "z_TMEAN": "Season temperature",
 # ---------------------------------------------------------------------------
 # shared helpers
 # ---------------------------------------------------------------------------
-def _dirs(out, family):
-    base = Path(out) / "figures" / family
+def _dirs(out, family=None):
+    """``<out>/figures/<family>/{plots,csvs}``, or ``<out>/{plots,csvs}``
+    when no family is given (a product folder of its own)."""
+    base = Path(out) / "figures" / family if family else Path(out)
     plots, csvs = base / "plots", base / "csvs"
     for d in (plots, csvs):
         d.mkdir(parents=True, exist_ok=True)
     return base, plots, csvs
+
+
+def read_boundaries(gpkg):
+    """The admin-unit boundary frame every S2S map joins on (``fnid``).
+
+    ADMIN1/ADMIN2 ride along for the per-map CSVs, which is where a reader
+    looks up which region a polygon is. They are deliberately NOT drawn on
+    the map: see the note on annotations above _value_map.
+    """
+    import geopandas as gpd
+
+    return gpd.read_file(gpkg)[
+        ["FNID", "ADMIN0", "ADMIN1", "ADMIN2", "geometry"]].rename(
+        columns={"FNID": "fnid"})
+
+
+def no_skill_mask(frame):
+    """Rows whose region has NO hindcast skill, judged per region.
+
+    A country-level flag paints every region with one brush: South Africa
+    was stamped "no skill" wholesale even though four Highveld provinces
+    carry the signal. ``region_skill`` is computed per region on its own
+    timeline, with an explicit third state (``insufficient``) for regions
+    holding too few low-tercile years to score, which is not a "no". Older
+    outputs without the column fall back to the country flag.
+    """
+    if "region_skill" in frame.columns:
+        return frame["region_skill"] == "no_skill"
+    if "has_skill" in frame.columns:
+        return ~frame["has_skill"].astype(bool)
+    return pd.Series(False, index=frame.index)
+
+
+def basemap(fig, title, extent=None, proj=PROJ, subtitle=None):
+    """Frame, coast and title shared by every S2S map.
+
+    Default (fancy) frame and the shared coast styling, so these read as
+    the same product as the single-country outlook maps. `land` is ours:
+    those maps cover one country and leave everything else white, but this
+    one spans a continent and white would read as ocean. Only the title
+    and subtitle fonts are overridden. FONT_LABEL / FONT_ANNOT_PRIMARY keep
+    their GMT defaults so the colorbar label and axis annotations are the
+    same size as on the single-country outlook maps; the title is shrunk
+    because these carry a crop, a region and a year, where the outlook
+    titles carry one metric, and the subtitle (a one-line caption GMT never
+    wraps) is smaller still, since GMT's default would outsize the title.
+    ``extent`` falls back to all of Africa. pygmt is imported here, not at
+    module scope, so the charts and heatmaps still render on a machine
+    with no GMT.
+    """
+    import pygmt
+
+    # PROJ_LENGTH_UNIT: the shift maps' vector lengths are read in it.
+    pygmt.config(FONT_TITLE="15p,Helvetica,black",
+                 FONT_SUBTITLE="10p,Helvetica,gray30", PROJ_LENGTH_UNIT="c")
+    frame = ["af"]
+    if title:                      # the colorbar maps carry no title
+        frame.append(f"+t{title}" + (f"+s{subtitle}" if subtitle else ""))
+    fig.basemap(region=extent or REGION, projection=proj, frame=frame)
+    fig.coast(land=LAND, water="white", **COAST_KW)
+
+
+# ---------------------------------------------------------------------------
+# colorbar caption: what the map shows, from which init, for which months
+# ---------------------------------------------------------------------------
+#: Caption lines under the bar. GMT cannot break a colorbar label (`@^`
+#: prints literally), so the bar is drawn unlabelled and the 2-3 lines are
+#: text, one font for all of them.
+CAPTION_FONT = "12p,Helvetica,black"
+CAPTION_STEP = 0.55        # cm between caption lines
+#: Top of the first caption line below the frame, cm: the bar sits lower
+#: when a legend shares the margin (CBAR_OFFSET).
+CAPTION_TOP = {True: 4.45, False: 2.15}
+#: forecasts.csv columns the caption and the CSV ``forecast_months`` need;
+#: every colorbar map keeps them through its column filter.
+ISSUE_COLS = ["init_used", "planting_month", "offset_used"]
+
+
+def ym_label(year, month):
+    return f"{MON[month - 1]} {year}"
+
+
+def span_text(start, end):
+    """'Nov 2026 to Jan 2027', 'Feb to Apr 2027', 'Dec 2026'."""
+    if start == end:
+        return ym_label(*start)
+    if start[0] == end[0]:
+        return f"{MON[start[1] - 1]} to {ym_label(*end)}"
+    return f"{ym_label(*start)} to {ym_label(*end)}"
+
+
+def forecast_window(init_used, planting, offset):
+    """(start, end) year-months the forecast of one combination draws on:
+    the season months its init still reaches, lead L being month init+L
+    (the model's own ``lead_map``)."""
+    from geocif.experiments.s2s_africa import parse_init
+    from geocif.experiments.s2s_eligibility import shift_month
+    from geocif.experiments.s2s_pooled_model import lead_map
+
+    iy, im = parse_init(init_used)
+    leads = sorted(lead_map(int(planting), int(offset)).values())
+    return shift_month(iy, im, leads[0]), shift_month(iy, im, leads[-1])
+
+
+def with_forecast_months(frame):
+    """``frame`` plus each row's ``forecast_months`` (for the map CSVs);
+    unchanged for outputs written before ``init_used`` existed."""
+    if "init_used" not in frame.columns:
+        return frame
+    return frame.assign(forecast_months=[
+        span_text(*forecast_window(i, p, o)) for i, p, o in zip(
+            frame["init_used"], frame["planting_month"], frame["offset_used"])])
+
+
+def caption_lines(head, frame):
+    """``head``, then where the forecast comes from: the init, and the
+    months it draws on per planting month. Two planting groups fit a third
+    line; more fall back to the overall span (each region's own window is
+    in the map CSV)."""
+    from geocif.experiments.s2s_africa import parse_init
+
+    if frame.empty or "init_used" not in frame.columns:
+        return [head]
+    combos = frame.drop_duplicates(["init_used", "planting_month",
+                                    "offset_used"])
+    inits = [parse_init(i) for i in sorted(combos["init_used"].unique())]
+    src = (ym_label(*inits[0]) if len(inits) == 1
+           else span_text(inits[0], inits[-1]))
+    noun = "init" if len(inits) == 1 else "inits"
+    groups = {}
+    for i, p, o in zip(combos["init_used"], combos["planting_month"],
+                       combos["offset_used"]):
+        s, e = forecast_window(i, p, o)
+        g = groups.setdefault(int(p), [s, e])
+        g[0], g[1] = min(g[0], s), max(g[1], e)
+    lead = f"From the {src} S2S {noun}, forecast for"
+    if len(groups) == 1:
+        return [head, f"{lead} {span_text(*next(iter(groups.values())))}"]
+    if len(groups) == 2:
+        # by window (start, then end): order never depends on row order
+        parts = [f"{span_text(s, e)} ({MON[p - 1]} planting)"
+                 for p, (s, e) in sorted(groups.items(),
+                                         key=lambda kv: tuple(kv[1]))]
+        return [head, lead, " and ".join(parts)]
+    start = min(s for s, _ in groups.values())
+    end = max(e for _, e in groups.values())
+    return [head, lead, f"{span_text(start, end)} (per region in the CSV)"]
+
+
+def draw_caption(fig, lines, legend):
+    """The caption lines centred under the colorbar."""
+    top = CAPTION_TOP[bool(legend)]
+    for k, text in enumerate(lines):
+        fig.text(position="BC", justify="TC", no_clip=True, text=text,
+                 font=CAPTION_FONT,
+                 offset=f"0c/-{top + CAPTION_STEP * k:.2f}c")
+
+
+def finish_map(fig, path, dpi=350):
+    """National borders, then the PNG.
+
+    Borders are drawn last and heavier than the admin-unit pens, so the
+    country outline stays legible over a dense choropleth.
+    """
+    fig.coast(borders=BORDER_PEN, area_thresh=5000)
+    fig.savefig(path, dpi=dpi)
+
+
+def legend_square(fill, text, pen="0.2p,gray40", text_x="0.75c"):
+    """One legend row: a square (``fill`` ``-`` = hollow) beside its
+    meaning; ``text_x`` aligns the text with other rows' symbols."""
+    return f"S 0.3c s 0.32c {fill} {pen} {text_x} {text}"
+
+
+def legend_box(fig, td, rows, width):
+    """The legend box below the frame (LEGEND_POS says why below)."""
+    spec = Path(td) / "legend.txt"
+    spec.write_text("\n".join(["G 0.05c"] + rows) + "\n", encoding="utf-8")
+    fig.legend(spec=str(spec), position=LEGEND_POS.format(w=width),
+               box="+gwhite+p0.4p,gray50")
 
 
 _NON_INTERACTIVE = ("agg", "pdf", "svg", "ps", "cairo", "template")
@@ -396,16 +579,12 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
     """
     import tempfile
 
-    import geopandas as gpd
+    # Imported HERE, not at module scope: this module must stay importable
+    # on a machine with no GMT so the charts and heatmaps still render. The
+    # style constants come from the GMT-free viz/_style at the top.
     import pygmt
 
     from geocif.experiments.s2s_africa import TREND_EXTRAP_MAX_PCT
-    # Imported HERE, not at module scope: _pygmt_render imports pygmt at its
-    # top (it doubles as a standalone subprocess renderer), and this module
-    # must stay importable on a machine with no GMT so the charts and
-    # heatmaps still render. The style constants come from the GMT-free
-    # viz/_style, so nothing pygmt-shaped is needed at module scope.
-    from geocif.viz._style import BORDER_PEN, CBAR_POS, COAST_KW, POLY_PEN
 
     out = Path(out)
     base, dir_plots, dir_csvs = _dirs(out, "maps")
@@ -413,59 +592,24 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
     # regional config crops its own maps. Falls back to all of Africa.
     extent, proj, sfx = (extent or REGION), PROJ, ""
     where = f" in {label}" if label else ""
+    # caption heads: the quantity, then region and harvest year
+    of_region = f", {label}" if label else ""
     fc = pd.read_csv(out / "forecasts.csv")
     cb = pd.read_csv(out / "combinations.csv")
     if fc.empty:
         logger.info("no forecasts to map")
         return base
     year = title_year or int(fc["harvest_year"].mode().iloc[0])
-    # ADMIN1/ADMIN2 ride along for the per-map CSVs, which is where a reader
-    # looks up which region a polygon is. They are deliberately NOT drawn on
-    # the map: see the note on annotations above _value_map.
-    gdf = gpd.read_file(gpkg)[
-        ["FNID", "ADMIN0", "ADMIN1", "ADMIN2", "geometry"]].rename(
-        columns={"FNID": "fnid"})
+    gdf = read_boundaries(gpkg)
     lookup = []
 
-    def basemap(fig, title):
-        # Default (fancy) frame and the shared coast styling, so these read
-        # as the same product as the single-country outlook maps. `land` is
-        # ours: those maps cover one country and leave everything else white,
-        # but this one spans a continent and white would read as ocean.
-        # Only the title is overridden. FONT_LABEL / FONT_ANNOT_PRIMARY keep
-        # their GMT defaults so the colorbar label and axis annotations are
-        # the same size as on the single-country outlook maps; the title is
-        # shrunk because these carry a crop, a region and a year, where the
-        # outlook titles carry one metric.
-        pygmt.config(FONT_TITLE="15p,Helvetica,black")
-        fig.basemap(region=extent, projection=proj,
-                    frame=["af", f"+t{title}"])
-        fig.coast(land=LAND, water="white", **COAST_KW)
-
     def finish(fig, stem, csv_name, desc):
-        # National borders drawn last and heavier than the admin-unit pens, so
-        # the country outline stays legible over a dense choropleth.
-        fig.coast(borders=BORDER_PEN, area_thresh=5000)
-        fig.savefig(dir_plots / f"{stem}.png", dpi=350)
+        finish_map(fig, dir_plots / f"{stem}.png")
         lookup.append((f"{stem}.png", csv_name, desc))
 
     def _hatch_by_region(fig, frame, td):
-        """Mark each polygon on ITS OWN verdict, not the country's.
-
-        A country-level flag paints every region with one brush: South
-        Africa was stamped "no skill" wholesale even though four Highveld
-        provinces carry the signal. region_skill is computed per region on
-        its own timeline, with an explicit third state for regions holding
-        too few low-tercile years to score.
-        """
-        col = "region_skill" if "region_skill" in frame.columns else None
-        if col is None:                       # older outputs: fall back
-            if "has_skill" not in frame.columns:
-                return
-            frame = frame.assign(region_skill=np.where(
-                frame["has_skill"].astype(bool), "skill", "no_skill"))
-            col = "region_skill"
-        sub = frame[frame[col] == "no_skill"]
+        """Mark each polygon on ITS OWN verdict (see no_skill_mask)."""
+        sub = frame[no_skill_mask(frame)]
         if sub.empty:
             return
         f = Path(td) / "noskill.gmt"
@@ -473,23 +617,14 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         fig.plot(data=str(f), fill=NOSKILL_PATTERN, pen=POLY_PEN,
                  close=True)
 
-    def _sq(fill, text):
-        """One legend row: a filled square beside its meaning."""
-        return f"S 0.3c s 0.32c {fill} 0.2p,gray40 0.75c {text}"
-
-    BASE_LEGEND = [_sq(NODATA, "No forecast or data available"),
-                   _sq(NOSKILL_PATTERN, "No forecast skill at this lead")]
-
-    def _legend(fig, td, rows, width):
-        spec = Path(td) / "legend.txt"
-        spec.write_text("\n".join(["G 0.05c"] + rows) + "\n",
-                        encoding="utf-8")
-        fig.legend(spec=str(spec), position=LEGEND_POS.format(w=width),
-                   box="+gwhite+p0.4p,gray50")
+    BASE_LEGEND = [
+        legend_square(NODATA, "No forecast or data available"),
+        legend_square(NOSKILL_PATTERN, "No forecast skill at this lead")]
 
     def _join(d, csv_name, nd=4):
-        """Merge onto the boundary frame and write the companion CSV."""
-        g = gdf.merge(d, on="fnid", how="inner")
+        """Merge onto the boundary frame and write the companion CSV, with
+        each region's own ``forecast_months``."""
+        g = gdf.merge(with_forecast_months(d), on="fnid", how="inner")
         if g.empty:
             return None
         tab = g.drop(columns="geometry")
@@ -497,18 +632,21 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
                                               index=False)
         return g
 
-    def _value_map(g, *, stem, title, value_col, cpt_stops, cbar_label,
+    def _value_map(g, *, stem, caption, value_col, cpt_stops,
                    csv_name, desc, hatch=True,
                    legend_rows=None, legend_w=6.6, withheld=None):
         """The one shape every value choropleth shares.
 
         CPT -> polygons coloured by ``value_col`` -> per-region hatch ->
-        centroid labels -> colorbar -> legend. The five value maps differ
-        only in these parameters, so the shape lives once and a styling fix
-        lands on all of them.
+        colorbar -> caption -> legend. No title: the caption under the bar
+        says what is mapped (``caption``, its first line), from which init
+        and for which months (:func:`caption_lines`). The five value maps
+        differ only in these parameters, so the shape lives once and a
+        styling fix lands on all of them.
         """
         fig = pygmt.Figure()
-        basemap(fig, title)
+        basemap(fig, None, extent, proj)
+        shown = g if withheld is None else pd.concat([g, withheld])
         with tempfile.TemporaryDirectory() as td:
             cpt = Path(td) / "v.cpt"
             _write_cpt(cpt, cpt_stops)
@@ -528,11 +666,12 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
                 _hatch_by_region(fig, g, td)
             # no legend to clear -> the bar keeps the tight default offset;
             # +e extenders stay on either way, the tails carry real values
-            fig.colorbar(cmap=str(cpt), frame=f"x+l{cbar_label}",
+            fig.colorbar(cmap=str(cpt), frame="af",
                          position=CBAR_POS + (CBAR_OFFSET if legend_rows
                                               else "+e"))
+            draw_caption(fig, caption_lines(caption, shown), legend_rows)
             if legend_rows:
-                _legend(fig, td, legend_rows, legend_w)
+                legend_box(fig, td, legend_rows, legend_w)
         finish(fig, stem, csv_name, desc)
 
     def choropleth(crop):
@@ -541,21 +680,20 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
             return
         d = (d.sort_values("P_low", ascending=False).drop_duplicates("fnid")
              .filter(items=["fnid", "country", "season_name", "P_low",
-                            "P_mid", "P_high", "ahat", "offset_used",
+                            "P_mid", "P_high", "ahat",
                             "skill_auc", "null_auc", "perm_p", "has_skill",
                             "in_support", "oos_max_sigma", "n_clipped",
                             "oos_feature", "region_auc", "region_r2",
-                            "region_n_low", "region_skill"]))
+                            "region_n_low", "region_skill"] + ISSUE_COLS))
         csv_name = f"map_p_low_{crop}{sfx}.csv"
         g = _join(d, csv_name)
         if g is None:
             return
         _value_map(
             g, stem=f"map_p_low_{crop}{sfx}", csv_name=csv_name,
-            title=f"Probability of lower tercile {crop} yields{where}, "
-                  f"{year}",
+            caption=f"Probability of lower tercile {crop} yields{of_region}, "
+                    f"{year} harvest",
             value_col="P_low", cpt_stops=FEWS_CPT,
-            cbar_label="Probability of lower tercile crop yields",
             legend_rows=BASE_LEGEND,
             desc=f"P(lower tercile) {crop} {year}, hatched where skill "
                  f"fails")
@@ -574,7 +712,8 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
                             "r2", "perm_r2_p", "r2_within",
                             "perm_r2_within_p", "has_skill", "in_support",
                             "oos_max_sigma", "region_auc", "region_r2",
-                            "region_n_low", "region_skill"]).copy())
+                            "region_n_low", "region_skill"] + ISSUE_COLS)
+             .copy())
         d["ahat_pct"] = (100 * d["ahat"]).round(1)
         csv_name = f"map_anomaly_{crop}{sfx}.csv"
         g = _join(d, csv_name)
@@ -582,10 +721,9 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
             return
         _value_map(
             g, stem=f"map_anomaly_{crop}{sfx}", csv_name=csv_name,
-            title=f"Predicted {crop} yield departure from trend{where}, "
-                  f"{year}",
+            caption=f"Predicted {crop} yield departure from trend (%)"
+                    f"{of_region}, {year} harvest",
             value_col="ahat_pct", cpt_stops=ANOM_CPT,
-            cbar_label="Predicted yield departure from trend (%)",
             legend_rows=BASE_LEGEND,
             desc=f"predicted {crop} yield anomaly {year}, % vs trend")
 
@@ -611,7 +749,7 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
             return
         d = d.filter(items=["fnid", "country", "season_name", "ahat",
                             "trend_tha", "yhat_tha", "extrap_years",
-                            "trend_extrap_err_pct", "has_skill"])
+                            "trend_extrap_err_pct", "has_skill"] + ISSUE_COLS)
         csv_name = f"map_yield_tha_{crop}{sfx}.csv"
         g = _join(d, csv_name)
         if g is None:
@@ -620,11 +758,11 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         _value_map(
             g[ok_g], withheld=g[~ok_g],
             stem=f"map_yield_tha_{crop}{sfx}", csv_name=csv_name,
-            title=f"Predicted {crop} yield{where}, {year}",
+            caption=f"Predicted {crop} yield (t/ha){of_region}, "
+                    f"{year} harvest",
             value_col="yhat_tha", cpt_stops=YIELD_CPT,
-            cbar_label="Predicted yield (t/ha)",
             legend_rows=[BASE_LEGEND[0],
-                         _sq(WITHHELD, "Withheld: trend baseline "
+                         legend_square(WITHHELD, "Withheld: trend baseline "
                                        "extrapolated too far"),
                          BASE_LEGEND[1]],
             legend_w=8.0,
@@ -652,16 +790,16 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
              .drop_duplicates("fnid")
              .filter(items=["fnid", "country", "season_name", "region_auc",
                             "region_r2", "region_n_years", "region_n_low",
-                            "region_skill"]))
+                            "region_skill"] + ISSUE_COLS))
         csv_name = f"map_region_roc_{crop}{sfx}.csv"
         g = _join(d, csv_name)
         if g is None:
             return
         _value_map(
             g, stem=f"map_region_roc_{crop}{sfx}", csv_name=csv_name,
-            title=f"Hindcast skill by region, {crop}{where} ({year} lead)",
+            caption=f"Hindcast ROC for bottom-tercile {crop} years"
+                    f"{of_region}, {year} harvest",
             value_col="region_auc", cpt_stops=ROC_CPT, hatch=False,
-            cbar_label="Hindcast ROC for bottom-tercile years",
             legend_rows=BASE_LEGEND[:1], legend_w=7.4,
             desc=f"per-region hindcast ROC for bottom-tercile {crop} years")
 
@@ -692,7 +830,8 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         cols = {1: ("#2c6fa8", "Season 1 (primary)"),
                 2: ("#c26a1b", "Season 2 (secondary)")}
         fig = pygmt.Figure()
-        basemap(fig, f"Season forecast for each {crop} area{where}, {year}")
+        basemap(fig, f"Season forecast for each {crop} area{where}, {year}",
+                extent, proj)
         with tempfile.TemporaryDirectory() as td:
             for idx, (col, _) in cols.items():
                 sub = g[g.season_idx == idx]
@@ -706,9 +845,9 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
                 if int((g.season_idx == idx).sum()):
                     names = ", ".join(sorted(set(
                         g.loc[g.season_idx == idx, "season_name"])))
-                    rows.append(_sq(col, f"{lab}: {names}"))
-            rows.append(_sq(NODATA, "Not forecast this cycle"))
-            _legend(fig, td, rows, 9.4)
+                    rows.append(legend_square(col, f"{lab}: {names}"))
+            rows.append(legend_square(NODATA, "Not forecast this cycle"))
+            legend_box(fig, td, rows, 9.4)
         finish(fig, f"map_season_{crop}{sfx}", csv_name,
                f"which HarvestStat season was forecast for each {crop} area")
 
@@ -722,20 +861,20 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         if "oos_max_sigma" not in fc.columns:
             return
         d = (fc.sort_values("oos_max_sigma", ascending=False)
-               .drop_duplicates("fnid")[["fnid", "country", "crop",
-                                         "season_name", "oos_max_sigma",
-                                         "oos_feature", "n_clipped"]])
+               .drop_duplicates("fnid")
+               .filter(items=["fnid", "country", "crop", "season_name",
+                              "oos_max_sigma", "oos_feature", "n_clipped"]
+                       + ISSUE_COLS))
         csv_name = f"map_out_of_support{sfx}.csv"
         g = _join(d, csv_name, nd=3)
         if g is None:
             return
         _value_map(
             g, stem=f"map_out_of_support{sfx}", csv_name=csv_name,
-            title=f"Distance of the {year} S2S predictors outside "
-                  f"training range{where}",
+            caption=f"S2S predictors beyond the training range (sd)"
+                    f"{of_region}, {year} harvest",
             value_col="oos_max_sigma", cpt_stops=OOS_CPT,
             hatch=False,
-            cbar_label="Standard deviations beyond the training range",
             desc="worst per-unit predictor exceedance of the training "
                  "range, in sd")
 
@@ -751,14 +890,15 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
                 "not_forecast": (NODATA, "not forecastable yet")}
         g = gdf.merge(tab, left_on="ADMIN0", right_on="country", how="left")
         fig = pygmt.Figure()
-        basemap(fig, f"Pre-season forecast coverage{where}, {year}")
+        basemap(fig, f"Pre-season forecast coverage{where}, {year}", extent,
+                proj)
         for key, (col, _) in cols.items():
             sub = g[g["coverage"] == key]
             if not sub.empty:
                 fig.plot(data=sub[["geometry"]], fill=col, pen=POLY_PEN,
                          close=True)
         with tempfile.TemporaryDirectory() as td:
-            _legend(fig, td, [_sq(c, lab) for c, lab in cols.values()],
+            legend_box(fig, td, [legend_square(c, lab) for c, lab in cols.values()],
                     5.4)
         finish(fig, f"map_coverage{sfx}", csv_name,
                "which HarvestStat country x crop x season could be forecast")

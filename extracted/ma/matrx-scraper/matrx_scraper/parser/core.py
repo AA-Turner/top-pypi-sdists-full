@@ -263,7 +263,14 @@ class ParserOrchestrator:
         except Exception:
             pass
 
-        title_tag = self.soup.find("title") if self.soup else None
+        # The page's <title> is the one in <head>; an inline <svg><title> (an icon
+        # label) or any <title> inside <body> is never the page title.
+        title_tag = None
+        if self.soup:
+            title_tag = next(
+                (t for t in self.soup.find_all("title") if t.find_parent(["svg", "body"]) is None),
+                None,
+            )
         if title_tag:
             self.page_title = title_tag.get_text(strip=True)
 

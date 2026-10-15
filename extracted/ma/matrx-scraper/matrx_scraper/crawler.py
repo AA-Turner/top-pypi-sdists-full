@@ -268,6 +268,26 @@ def _normalise_url(url: str) -> str:
     return normalize_url(url)
 
 
+# Process-wide ceiling on pages being worked at once ACROSS every crawl this
+# process runs (each crawl's own `concurrency` is the per-site knob). CAPS
+# constant: a code push to change. Browser renders are separately bounded by
+# the browser pool's size.
+GLOBAL_PAGE_CONCURRENCY_CAP = 24
+_GLOBAL_PAGE_SEMAPHORE: asyncio.Semaphore | None = None
+_GLOBAL_PAGE_SEMAPHORE_LOOP: Any = None
+
+
+def _global_page_slots() -> asyncio.Semaphore:
+    """The process-wide page semaphore, bound to the running loop (tests run
+    many loops; a semaphore must never cross one)."""
+    global _GLOBAL_PAGE_SEMAPHORE, _GLOBAL_PAGE_SEMAPHORE_LOOP
+    loop = asyncio.get_running_loop()
+    if _GLOBAL_PAGE_SEMAPHORE is None or _GLOBAL_PAGE_SEMAPHORE_LOOP is not loop:
+        _GLOBAL_PAGE_SEMAPHORE = asyncio.Semaphore(GLOBAL_PAGE_CONCURRENCY_CAP)
+        _GLOBAL_PAGE_SEMAPHORE_LOOP = loop
+    return _GLOBAL_PAGE_SEMAPHORE
+
+
 # Offline public-suffix extraction: the bundled PSL snapshot only, NEVER a
 # runtime network fetch (suffix_list_urls=() disables tldextract's live
 # download). Module-level singleton — instantiation loads the snapshot once.
@@ -740,6 +760,11 @@ class SiteCrawlerConfig:
     politeness_delay_ms: int = 0
     render_mode: str = RENDER_HTTP_FIRST
     capture_screenshots: bool = False
+    # "all": every page is captured (and therefore browser-rendered).
+    # "homepage": only the site root plus `screenshot_urls`; every other page
+    # takes the HTTP-first path. See CrawlStartRequest.screenshot_scope.
+    screenshot_scope: str = "all"
+    screenshot_urls: list[str] = field(default_factory=list)
     browser_navigation_timeout_ms: int = 45_000
     browser_settle_timeout_ms: int = 5_000
     progress_every_n_pages: int = 5
@@ -823,6 +848,7 @@ class SiteCrawler:
         # Derived
         self.seed_url = _normalise_url(config.base_url)
         self.base_host = urlparse(self.seed_url).netloc.lower()
+        self._screenshot_url_set = {_normalise_url(u) for u in config.screenshot_urls if u}
         self._include, include_invalid = _compile_patterns(config.include_patterns)
         self._exclude, exclude_invalid = _compile_patterns(config.exclude_patterns)
         # Reported as durable crawl_warning events at run() start — __init__
@@ -1251,6 +1277,7 @@ class SiteCrawler:
                     "render_mode": self.config.render_mode,
                     "politeness_delay_ms": self.config.politeness_delay_ms,
                     "capture_screenshots": self.config.capture_screenshots,
+                    "screenshot_scope": self.config.screenshot_scope,
                 },
                 seeded_from_sitemap=seeded_from_sitemap,
                 initial_queue_depth=(await self._counts_bounded())[0],
@@ -1981,8 +2008,10 @@ class SiteCrawler:
             fence.holds_slot = True
         try:
             # Pacing is over: the page's own work — and its deadline — starts here.
-            self._begin_page_work()
-            await self._process_page(item)
+            # The process-wide cap bounds every crawl in this process together.
+            async with _global_page_slots():
+                self._begin_page_work()
+                await self._process_page(item)
         finally:
             self._return_slot(fence)
 
@@ -2006,7 +2035,7 @@ class SiteCrawler:
                     self._pages_failed += 1
                     return
 
-            request_type = self._pick_request_type()
+            request_type = self._pick_request_type(item.url)
             use_proxy = not self._proxy_disabled
             if self.domain_config is not None:
                 try:
@@ -2042,7 +2071,7 @@ class SiteCrawler:
             if not browser_capture_supported:
                 request_type = RequestType.NORMAL
             if (
-                self._wants_screenshots()
+                self._wants_screenshots_for(item.url)
                 and browser_capture_supported
                 and self.browser_pool is not None
                 and hasattr(self.browser_pool, "fetch_with_capture")
@@ -2679,11 +2708,42 @@ class SiteCrawler:
     def _is_proxy_failure_status(status: int | None) -> bool:
         return status == 407 or (status is not None and status >= 500)
 
-    def _pick_request_type(self) -> RequestType:
+    def _is_homepage(self, url: str) -> bool:
+        """The site root this crawl started from (any scheme/www variant the
+        normalizer folds, with or without the trailing slash)."""
+        try:
+            normalised = _normalise_url(url)
+        except Exception:
+            return False
+        if normalised == self.seed_url:
+            return True
+        parsed = urlparse(normalised)
+        return parsed.netloc.lower() == self.base_host and parsed.path in ("", "/") and not parsed.query
+
+    def _wants_screenshots_for(self, url: str) -> bool:
+        """Does THIS page get screenshots? Scope "homepage" captures the root
+        and the listed pages only; everything else is a fast clean scrape."""
+        if not self._wants_screenshots():
+            return False
+        if self.config.screenshot_scope != "homepage":
+            return True
+        if self._is_homepage(url):
+            return True
+        try:
+            return _normalise_url(url) in self._screenshot_url_set
+        except Exception:
+            return False
+
+    def _pick_request_type(self, url: str | None = None) -> RequestType:
         if self.config.render_mode in (RENDER_BROWSER_ALWAYS, RENDER_BROWSER_WITH_SCREENSHOT):
-            return RequestType.BROWSER
+            if url is None or self.config.render_mode == RENDER_BROWSER_ALWAYS:
+                return RequestType.BROWSER
+            # browser_with_screenshot under a "homepage" scope: only the
+            # captured pages need the browser.
+            return RequestType.BROWSER if self._wants_screenshots_for(url) else RequestType.NORMAL
         if self.config.capture_screenshots:
-            return RequestType.BROWSER
+            if url is None or self._wants_screenshots_for(url):
+                return RequestType.BROWSER
         return RequestType.NORMAL
 
     # Failure classes a real browser routinely recovers where the HTTP client

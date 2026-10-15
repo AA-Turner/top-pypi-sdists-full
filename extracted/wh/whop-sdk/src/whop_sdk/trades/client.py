@@ -7,6 +7,9 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.trade import Trade
 from .raw_client import AsyncRawTradesClient, RawTradesClient
+from .types.create_trades_request_instrument_type import CreateTradesRequestInstrumentType
+from .types.create_trades_request_order_type import CreateTradesRequestOrderType
+from .types.create_trades_request_side import CreateTradesRequestSide
 from .types.create_trades_request_type import CreateTradesRequestType
 from .types.list_trades_request_direction import ListTradesRequestDirection
 from .types.list_trades_request_order import ListTradesRequestOrder
@@ -92,7 +95,7 @@ class TradesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -120,31 +123,71 @@ class TradesClient:
         self,
         *,
         account_id: str,
-        market: str,
         type: CreateTradesRequestType,
         amount: typing.Optional[str] = OMIT,
+        client_order_id: typing.Optional[str] = OMIT,
+        instrument_type: typing.Optional[CreateTradesRequestInstrumentType] = OMIT,
         leverage: typing.Optional[int] = OMIT,
+        market: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        notional: typing.Optional[str] = OMIT,
+        order_type: typing.Optional[CreateTradesRequestOrderType] = OMIT,
+        price: typing.Optional[str] = OMIT,
+        reduce_only: typing.Optional[bool] = OMIT,
+        side: typing.Optional[CreateTradesRequestSide] = OMIT,
+        size: typing.Optional[str] = OMIT,
+        slippage_bps: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Trade:
         """
-        Creates a trade on the Whop-managed wallet of an account or user and answers `201` with the trade in `pending`. The trade runs in the background; read it with `GET /trades/{id}` until it is `completed`, `failed` or `in_review`. A `buy` bridges `amount` USDT0 to the trading account, sets `leverage` (cross) on `market`, and places one market buy. If the buy does not fill, its money goes back to the wallet. A `close` closes the position in `market`, if one is open, and sends all withdrawable USDC back to the wallet. One trade runs at a time for each wallet. A retry with the same `Idempotency-Key` returns the same trade.
+        Places an order, closes a perpetual position, or deposits to or withdraws from the trading balance, from the Whop-managed wallet of an account or user. Answers `201` with the trade in `pending`; it runs in the background, so read it with `GET /trades/:id` until its `status` is `completed`, `failed` or `in_review`. Trades run alongside each other, except a second order on one market at a different leverage, which answers `409`. A retry with the same `Idempotency-Key` returns the same trade.
 
         Parameters
         ----------
         account_id : str
             The account or user whose wallet trades, prefixed `biz_` or `user_`.
 
-        market : str
-            The perpetual market, for example `BTC`.
-
         type : CreateTradesRequestType
-            `buy` or `close`.
+            `order` places one order from the trading balance, setting cross `leverage` first on a perpetual; when the balance is short, it bridges the USDT0 it needs from the wallet first. `deposit` bridges `amount` USDT0 from the wallet to the trading balance. `withdraw` sends `amount` USDC (or `all`) from the trading balance back to the wallet. `close` closes the whole position in `market` with a market reduce-only order; when the account is then flat, a `withdraw` trade sends the trading balance back to the wallet.
 
         amount : typing.Optional[str]
-            The USDT0 to send from the wallet for a buy, with at most 6 decimals. Required for a buy.
+            Only for a deposit or withdraw, and required for both. For a deposit, the USDT0 to send from the wallet, with at most 6 decimals. For a withdraw, the USDC to send back, at least 1 with at most 6 decimals, or `all`.
+
+        client_order_id : typing.Optional[str]
+            Only for an order. Your own ID for the trade, 1 to 128 characters, unique for the account. Sending it again with the same order returns the same trade; with a different order it answers `409`.
+
+        instrument_type : typing.Optional[CreateTradesRequestInstrumentType]
+            `perpetual` or `spot`. Required for an order. Spot needs the trading account in Hyperliquid's unified account mode.
 
         leverage : typing.Optional[int]
-            The cross leverage for a buy, from 1 to the market's maximum. Required for a buy.
+            Only for a perpetual order. The cross leverage, from 1 to the market's maximum. Required unless `reduce_only`; not accepted on a reduce-only order.
+
+        market : typing.Optional[str]
+            The market: a perpetual such as `BTC`, or for spot a pair priced in USDC such as `HYPE/USDC`. Required for an order or close, and a close takes only a perpetual; not accepted for a deposit or withdraw.
+
+        metadata : typing.Optional[typing.Dict[str, str]]
+            Only for an order. Free-form string-to-string annotations: up to 50 keys of at most 40 characters, values up to 500 characters.
+
+        notional : typing.Optional[str]
+            Only for an order. The order value in USD, as a decimal string; the size is rounded down to the market's decimals. Send exactly one of `size` or `notional`.
+
+        order_type : typing.Optional[CreateTradesRequestOrderType]
+            `market` fills now within `slippage_bps` of the mid price; `limit` fills now at `price` or better. Anything unfilled is canceled. Required for an order.
+
+        price : typing.Optional[str]
+            Only for an order. The limit price in USD, as a decimal string Hyperliquid accepts without rounding. Required for a limit order; not accepted for a market order.
+
+        reduce_only : typing.Optional[bool]
+            Only for a perpetual order. Only reduce an open position; defaults to `false`. A reduce-only order takes no `leverage`.
+
+        side : typing.Optional[CreateTradesRequestSide]
+            `buy` or `sell`. Required for an order.
+
+        size : typing.Optional[str]
+            Only for an order. The size in units of the market, as a decimal string, with at most the market's size decimals. Send exactly one of `size` or `notional`. The order must be worth at least 10 USD, unless reduce-only, and at most 5000 USD.
+
+        slippage_bps : typing.Optional[int]
+            Only for a market order or a close. The worst price as basis points from the mid price, from 1 to 1000; defaults to 100.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -159,22 +202,31 @@ class TradesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.trades.create(
             account_id="biz_xxxxxxxxxxxxxx",
-            market="BTC",
-            type="buy",
+            type="close",
         )
         """
         _response = self._raw_client.create(
             account_id=account_id,
-            market=market,
             type=type,
             amount=amount,
+            client_order_id=client_order_id,
+            instrument_type=instrument_type,
             leverage=leverage,
+            market=market,
+            metadata=metadata,
+            notional=notional,
+            order_type=order_type,
+            price=price,
+            reduce_only=reduce_only,
+            side=side,
+            size=size,
+            slippage_bps=slippage_bps,
             request_options=request_options,
         )
         return _response.data
@@ -201,7 +253,7 @@ class TradesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -289,7 +341,7 @@ class AsyncTradesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -324,31 +376,71 @@ class AsyncTradesClient:
         self,
         *,
         account_id: str,
-        market: str,
         type: CreateTradesRequestType,
         amount: typing.Optional[str] = OMIT,
+        client_order_id: typing.Optional[str] = OMIT,
+        instrument_type: typing.Optional[CreateTradesRequestInstrumentType] = OMIT,
         leverage: typing.Optional[int] = OMIT,
+        market: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        notional: typing.Optional[str] = OMIT,
+        order_type: typing.Optional[CreateTradesRequestOrderType] = OMIT,
+        price: typing.Optional[str] = OMIT,
+        reduce_only: typing.Optional[bool] = OMIT,
+        side: typing.Optional[CreateTradesRequestSide] = OMIT,
+        size: typing.Optional[str] = OMIT,
+        slippage_bps: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Trade:
         """
-        Creates a trade on the Whop-managed wallet of an account or user and answers `201` with the trade in `pending`. The trade runs in the background; read it with `GET /trades/{id}` until it is `completed`, `failed` or `in_review`. A `buy` bridges `amount` USDT0 to the trading account, sets `leverage` (cross) on `market`, and places one market buy. If the buy does not fill, its money goes back to the wallet. A `close` closes the position in `market`, if one is open, and sends all withdrawable USDC back to the wallet. One trade runs at a time for each wallet. A retry with the same `Idempotency-Key` returns the same trade.
+        Places an order, closes a perpetual position, or deposits to or withdraws from the trading balance, from the Whop-managed wallet of an account or user. Answers `201` with the trade in `pending`; it runs in the background, so read it with `GET /trades/:id` until its `status` is `completed`, `failed` or `in_review`. Trades run alongside each other, except a second order on one market at a different leverage, which answers `409`. A retry with the same `Idempotency-Key` returns the same trade.
 
         Parameters
         ----------
         account_id : str
             The account or user whose wallet trades, prefixed `biz_` or `user_`.
 
-        market : str
-            The perpetual market, for example `BTC`.
-
         type : CreateTradesRequestType
-            `buy` or `close`.
+            `order` places one order from the trading balance, setting cross `leverage` first on a perpetual; when the balance is short, it bridges the USDT0 it needs from the wallet first. `deposit` bridges `amount` USDT0 from the wallet to the trading balance. `withdraw` sends `amount` USDC (or `all`) from the trading balance back to the wallet. `close` closes the whole position in `market` with a market reduce-only order; when the account is then flat, a `withdraw` trade sends the trading balance back to the wallet.
 
         amount : typing.Optional[str]
-            The USDT0 to send from the wallet for a buy, with at most 6 decimals. Required for a buy.
+            Only for a deposit or withdraw, and required for both. For a deposit, the USDT0 to send from the wallet, with at most 6 decimals. For a withdraw, the USDC to send back, at least 1 with at most 6 decimals, or `all`.
+
+        client_order_id : typing.Optional[str]
+            Only for an order. Your own ID for the trade, 1 to 128 characters, unique for the account. Sending it again with the same order returns the same trade; with a different order it answers `409`.
+
+        instrument_type : typing.Optional[CreateTradesRequestInstrumentType]
+            `perpetual` or `spot`. Required for an order. Spot needs the trading account in Hyperliquid's unified account mode.
 
         leverage : typing.Optional[int]
-            The cross leverage for a buy, from 1 to the market's maximum. Required for a buy.
+            Only for a perpetual order. The cross leverage, from 1 to the market's maximum. Required unless `reduce_only`; not accepted on a reduce-only order.
+
+        market : typing.Optional[str]
+            The market: a perpetual such as `BTC`, or for spot a pair priced in USDC such as `HYPE/USDC`. Required for an order or close, and a close takes only a perpetual; not accepted for a deposit or withdraw.
+
+        metadata : typing.Optional[typing.Dict[str, str]]
+            Only for an order. Free-form string-to-string annotations: up to 50 keys of at most 40 characters, values up to 500 characters.
+
+        notional : typing.Optional[str]
+            Only for an order. The order value in USD, as a decimal string; the size is rounded down to the market's decimals. Send exactly one of `size` or `notional`.
+
+        order_type : typing.Optional[CreateTradesRequestOrderType]
+            `market` fills now within `slippage_bps` of the mid price; `limit` fills now at `price` or better. Anything unfilled is canceled. Required for an order.
+
+        price : typing.Optional[str]
+            Only for an order. The limit price in USD, as a decimal string Hyperliquid accepts without rounding. Required for a limit order; not accepted for a market order.
+
+        reduce_only : typing.Optional[bool]
+            Only for a perpetual order. Only reduce an open position; defaults to `false`. A reduce-only order takes no `leverage`.
+
+        side : typing.Optional[CreateTradesRequestSide]
+            `buy` or `sell`. Required for an order.
+
+        size : typing.Optional[str]
+            Only for an order. The size in units of the market, as a decimal string, with at most the market's size decimals. Send exactly one of `size` or `notional`. The order must be worth at least 10 USD, unless reduce-only, and at most 5000 USD.
+
+        slippage_bps : typing.Optional[int]
+            Only for a market order or a close. The worst price as basis points from the mid price, from 1 to 1000; defaults to 100.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -365,7 +457,7 @@ class AsyncTradesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -374,8 +466,7 @@ class AsyncTradesClient:
         async def main() -> None:
             await client.trades.create(
                 account_id="biz_xxxxxxxxxxxxxx",
-                market="BTC",
-                type="buy",
+                type="close",
             )
 
 
@@ -383,10 +474,20 @@ class AsyncTradesClient:
         """
         _response = await self._raw_client.create(
             account_id=account_id,
-            market=market,
             type=type,
             amount=amount,
+            client_order_id=client_order_id,
+            instrument_type=instrument_type,
             leverage=leverage,
+            market=market,
+            metadata=metadata,
+            notional=notional,
+            order_type=order_type,
+            price=price,
+            reduce_only=reduce_only,
+            side=side,
+            size=size,
+            slippage_bps=slippage_bps,
             request_options=request_options,
         )
         return _response.data
@@ -415,7 +516,7 @@ class AsyncTradesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

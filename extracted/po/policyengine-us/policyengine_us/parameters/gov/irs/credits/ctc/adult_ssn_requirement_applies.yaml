@@ -1,0 +1,11 @@
+description: The IRS requires at least one filer with a valid SSN, and any co-filer with an SSN or ITIN, to claim the child portion of the Child Tax Credit if this is true.
+values:
+  2018-01-01: false
+  2025-01-01: true
+metadata:
+  unit: bool
+  period: year
+  label: Child Tax Credit adult identification requirement applies
+  reference:
+    - title: H.R.1 - One Big Beautiful Bill Act
+      href: https://www.congress.gov/bill/119th-congress/house-bill/1/text

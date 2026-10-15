@@ -14,8 +14,10 @@ from trajectory._types import Headers, NotGiven, Omit, not_given, omit
 from trajectory._utils import maybe_transform
 from trajectory.resources.benchmarks.images import Images, ImagesWithRawResponse
 from trajectory.resources.benchmarks.ingestion import Ingestion, IngestionWithRawResponse
+from trajectory.resources.benchmarks.runtimes import Runtimes, RuntimesWithRawResponse
 from trajectory.resources.benchmarks.specs import Specs, SpecsWithRawResponse
 from trajectory.resources.benchmarks.tasks import Tasks, TasksWithRawResponse
+from trajectory.resources.benchmarks.tools import Tools, ToolsWithRawResponse
 from trajectory.types.benchmark_runtime import BenchmarkRuntime
 from trajectory.types.benchmarks.benchmark_list_item import BenchmarkListItem
 from trajectory.types.benchmarks.benchmark_readiness import BenchmarkReadiness
@@ -49,6 +51,14 @@ class Benchmarks(APIResource):
   @cached_property
   def images(self) -> Images:
     return Images(self._client)
+
+  @cached_property
+  def tools(self) -> Tools:
+    return Tools(self._client)
+
+  @cached_property
+  def runtimes(self) -> Runtimes:
+    return Runtimes(self._client)
 
   def list(
     self,
@@ -433,3 +443,11 @@ class BenchmarksWithRawResponse:
   @cached_property
   def images(self) -> ImagesWithRawResponse:
     return ImagesWithRawResponse(self._resource.images)
+
+  @cached_property
+  def tools(self) -> ToolsWithRawResponse:
+    return ToolsWithRawResponse(self._resource.tools)
+
+  @cached_property
+  def runtimes(self) -> RuntimesWithRawResponse:
+    return RuntimesWithRawResponse(self._resource.runtimes)

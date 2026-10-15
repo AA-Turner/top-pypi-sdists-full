@@ -1,0 +1,110 @@
+# Runs sandbox-case-run.yml on the reference source-slack case, so the reusable
+# workflow is exercised on the PR that changes it, before it can be dispatched
+# from `main`. The case lives under tests/fixtures/ so it never counts as a case
+# for a real ticket.
+#
+# Control 3.2.19 fails on the fractional cursor; airbytehq/airbyte#84839 (3.2.20)
+# fixes it, and 4d07056b is the 3.2.19 source.
+name: Sandbox Case Run Smoke
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - 'src/airbyte_ops_mcp/regression_tests/repro_case.py'
+      - '.github/workflows/sandbox-case-run*.yml'
+      - '.github/actions/setup-saas-sandbox/**'
+      - '.github/saas-sandbox-ref'
+      - 'tests/fixtures/regression_cases/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fixed:
+    # Fork PRs get no secrets.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/sandbox-case-run.yml
+    with:
+      connector_name: source-slack
+      case: threads-fractional-cursor-429
+      case_root: tests/fixtures/regression_cases
+      goal: fixed
+      control_image: airbyte/source-slack:3.2.19
+      pr: "84839"
+      result_artifact_name: sandbox-case-result-fixed
+    secrets:
+      OCTAVIA_BOT_APP_ID: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+      OCTAVIA_BOT_PRIVATE_KEY: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+  reproduced:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/sandbox-case-run.yml
+    with:
+      connector_name: source-slack
+      case: threads-fractional-cursor-429
+      case_root: tests/fixtures/regression_cases
+      goal: reproduced
+      control_image: airbyte/source-slack:3.2.19
+      connector_ref: 4d07056bddb097a417c5c8895a3885ae25a24628
+      # Reads the case through the `case_ref` path that validate uses.
+      case_ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      result_artifact_name: sandbox-case-result-reproduced
+    secrets:
+      OCTAVIA_BOT_APP_ID: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+      OCTAVIA_BOT_PRIVATE_KEY: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+  # Reads both calls the way a caller does: outputs from a job that runs even
+  # when a call failed, and `result.json` from the artifact as the record.
+  assert:
+    needs: [fixed, reproduced]
+    if: ${{ !cancelled() && needs.fixed.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the sandbox pin
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: .github/saas-sandbox-ref
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download the results
+        uses: actions/download-artifact@v8
+        with:
+          pattern: sandbox-case-result-*
+          path: results
+
+      - name: Check the verdicts
+        env:
+          FIXED_VERDICT: ${{ needs.fixed.outputs.verdict }}
+          FIXED_PASSED: ${{ needs.fixed.outputs.passed }}
+          REPRODUCED_VERDICT: ${{ needs.reproduced.outputs.verdict }}
+          REPRODUCED_PASSED: ${{ needs.reproduced.outputs.passed }}
+        run: |
+          STATUS=0
+          PIN="$(tr -d '[:space:]' < .github/saas-sandbox-ref)"
+          check() {
+            local name="$1" expected="$2" verdict="$3" passed="$4"
+            local result="results/sandbox-case-result-$name/result.json"
+            if [ "$verdict" != "$expected" ] || [ "$passed" != "true" ]; then
+              echo "::error::$name: outputs say verdict='$verdict' passed='$passed', expected '$expected'"
+              STATUS=1
+            fi
+            if ! jq -e --arg expected "$expected" --arg pin "$PIN" '
+                (keys == (["case", "control", "detail", "error", "goal", "passed", "run_url",
+                           "sandbox_ref", "schema_version", "sides", "target", "twin_gaps",
+                           "verdict"]))
+                and .verdict == $expected and .passed == true and .schema_version == 1
+                and .target.commit != null and .case.ref != null and .sandbox_ref == $pin
+              ' "$result" > /dev/null; then
+              echo "::error::$name: $result is missing or does not match the contract"
+              STATUS=1
+            fi
+          }
+          check fixed "PASS (reproduced and fixed)" "$FIXED_VERDICT" "$FIXED_PASSED"
+          check reproduced "PASS (reproduced)" "$REPRODUCED_VERDICT" "$REPRODUCED_PASSED"
+          exit "$STATUS"

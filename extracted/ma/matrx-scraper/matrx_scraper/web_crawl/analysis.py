@@ -54,11 +54,13 @@ from matrx_scraper.db.models_web import (
     GscPageStat as WebGscPageStat,
     LinkEdge as WebLinkEdge,
     Page as WebPage,
+    PageSitemap as WebPageSitemap,
     Provider as WebProvider,
     Site as WebSite,
     Snapshot as WebSnapshot,
 )
 from matrx_scraper.crawler import _normalise_url
+from matrx_scraper.parser.link_extractor import ANCHOR_RECORD_LIMIT
 from matrx_scraper.seo_audit import (
     BUSINESS_CORE_PROPERTIES,
     BUSINESS_ENHANCED_PROPERTIES,
@@ -95,7 +97,7 @@ from matrx_scraper.web_crawl.gsc_cannibalization import (
     load_gsc_keyword_cannibalization,
 )
 from matrx_scraper.web_crawl.link_score import SiteLinkGraph, build_site_graph
-from matrx_utils.web_page_class import is_machine_resource
+from matrx_utils.web_page_class import is_machine_resource, is_machine_resource_url
 from matrx_utils import capture_error
 from pydantic import ValidationError
 
@@ -106,6 +108,7 @@ from matrx_scraper.web_crawl.near_duplicate import (
     build_near_duplicate_report,
 )
 from matrx_scraper.web_crawl.persistence import url_hash
+from matrx_scraper.web_crawl.rollup import ROLLUP_RULES, plan_rollups
 from matrx_scraper.web_crawl.site_analysis import (
     CRAWLABILITY_SITE_CHECKS,
     SiteEvidence,
@@ -279,6 +282,13 @@ LINK_GRAPH_MIN_CAPTURE_RATIO = 0.8
 LINK_EQUITY_PRIORITY_QUARTILE = 25
 LINK_EQUITY_PRIORITY_SCORE_CAP = 40
 LINK_EQUITY_PASS_SCORE = 80
+#: A percentile among fewer pages than this is a rank among a handful.
+LINK_EQUITY_MIN_PAGES = 30
+#: A confirmed orphan carries its OWN score. The catalogue formula scores the
+#: SITE (`OrphanCensus.site_score`, quoted in the reasoning); stamping it on each
+#: orphaned page made one orphan on a 300-page site read "score 99" yet fail.
+ORPHAN_PAGE_SCORE = 40
+ORPHAN_UNCAPTURED_PAGE_SCORE = 50
 LINK_EQUITY_WARN_SCORE = 50
 
 # --- `search_signals` — what GOOGLE ITSELF reported, not what we inferred ---
@@ -311,6 +321,12 @@ GSC_DECAY_MILD_SCORE = 75
 GSC_CTR_MIN_IMPRESSIONS = 100
 #: The severe band additionally requires real volume behind the miss.
 GSC_CTR_SEVERE_IMPRESSIONS = 1000
+#: A title/description rewrite only moves clicks for a page that already ranks on
+#: page one, and only when enough clicks are at stake to be worth the edit.
+GSC_CTR_MAX_POSITION = 10.0
+GSC_CTR_MIN_MISSED_CLICKS = 10
+#: Google data older than this is not "how the page performs" any more.
+GSC_STALE_DAYS = 14
 GSC_CTR_SEVERE_RATIO = 0.30
 GSC_CTR_SEVERE_SCORE = 35
 GSC_CTR_POOR_RATIO = 0.50
@@ -366,6 +382,17 @@ LIVE_RECHECK_TIMEOUT_SECONDS = 180
 LIVE_RECHECKED_CHECKS = frozenset({"server_error_5xx", "broken_page_4xx"})
 
 
+def _slash_variant(url: str) -> str | None:
+    """`/a/b` -> `/a/b/`; None for the root, a file-looking path, or one with a query."""
+    parts = urlsplit(url)
+    path = parts.path
+    if not path or path.endswith("/") or parts.query:
+        return None
+    if "." in path.rsplit("/", 1)[-1]:
+        return None
+    return parts._replace(path=path + "/").geturl()
+
+
 async def recheck_failing_statuses(
     facts_list: list[PageFacts],
     *,
@@ -419,6 +446,22 @@ async def recheck_failing_statuses(
             "checked_at": checked_at,
             "error": outcome.error,
         }
+        # The stored identity strips a trailing slash, so the crawl asked for
+        # `/industries-served` when the site links `/industries-served/` — a
+        # server that serves only the slash form answers 404 to us and works
+        # for every visitor (2026-10-14: a sitewide menu link read as a broken
+        # page on 1,072 pages). Ask the slash form before calling it broken.
+        slash_url = _slash_variant(str(facts.url)) if live in (404, 410) else None
+        if slash_url is not None:
+            slash = await verifier.verify(slash_url)
+            rechecks[str(facts.page_id)]["slash_variant"] = {
+                "url": slash_url,
+                "status": slash.http_status,
+                "final_url": slash.final_url,
+            }
+            if slash.http_status and 0 < slash.http_status < 400:
+                live = slash.http_status
+                rechecks[str(facts.page_id)]["live_status"] = live
         # Any real answer is the current fact (500 then 404 is a 404 now);
         # no answer keeps the crawl's record.
         if live and live > 0:
@@ -475,6 +518,9 @@ class SiteAggregates:
     # canonical page id -> inclusive percentile (1..100) of the existing
     # internal PageRank score. Built once from the page census; no graph reload.
     link_equity_percentile_by_page: dict[str, int] = field(default_factory=dict)
+    # Page ids listed in any of the site's sitemaps (`web.page_sitemap`).
+    # `None` = membership was not loaded, which no check may read as "absent".
+    sitemap_page_ids: set[str] | None = None
     orphans: OrphanCensus = field(default_factory=lambda: OrphanCensus())
     # Google's own numbers for this site. The default says "not connected",
     # which is what every `search_signals` check reports until
@@ -561,12 +607,20 @@ class PageLinkStats:
     redirecting: list[str] = field(default_factory=list)
     external_checked: int = 0
     external_broken: list[str] = field(default_factory=list)
+    #: External targets that answered 401/403/429 — a bot wall (Yelp, booking
+    #: widgets, social sites) that works for people. Never broken; always said.
+    external_blocked: list[str] = field(default_factory=list)
     outlinks_total: int = 0
     internal_outlinks: int = 0
     nofollow_internal_count: int = 0
     nofollow_internal_samples: list[str] = field(default_factory=list)
     descriptive_anchors: int = 0
     generic_anchor_targets: list[str] = field(default_factory=list)
+    #: Anchors judged per DISTINCT target on this page: normalized target ->
+    #: [target url, any anchor to it is descriptive]. Media files and self-links
+    #: are not judged. `None` = not tracked (hand-built stats), where the flat
+    #: counters above are the only evidence.
+    anchor_targets: dict[str, list] | None = None
 
 
 @dataclass(frozen=True)
@@ -687,8 +741,15 @@ def _check_title_duplication(facts: PageFacts, site: SiteAggregates) -> CheckOut
     if not partners:
         return CheckOutcome("pass", 100, "Title is unique across the crawled site.")
     n = len(partners)
-    status = "warn" if n <= 2 else "fail"
-    score = clamp_score(45 - 10 * (n - 1)) if n <= 2 else clamp_score(25 - 2 * (n - 3))
+    # `title_duplication.score_contract`, verbatim: exactly one other page 65,
+    # 2-9 others 45, 10+ others 25. (It used to score one duplicate 45.)
+    if n == 1:
+        score = 65
+    elif n < 10:
+        score = 45
+    else:
+        score = 25
+    status = "warn" if score >= GSC_WARN_SCORE_FLOOR else "fail"
     return CheckOutcome(
         status,
         score,
@@ -764,27 +825,49 @@ def _check_broken_internal_links(facts: PageFacts, site: SiteAggregates) -> Chec
 
 def _check_broken_external_links(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
     stats = site.link_stats.get(facts.page_id)
-    if stats is None or stats.external_checked == 0:
+    if stats is None or (stats.external_checked == 0 and not stats.external_blocked):
         return CheckOutcome(
             "n_a",
             None,
             "We haven't checked this page's links to other websites yet.",
             remediation=CHECK_SITE_LINKS,
         )
-    if not stats.external_broken:
+    blocked = list(dict.fromkeys(stats.external_blocked))
+    blocked_note = (
+        f" {len(blocked)} more refused our checker (sites like Yelp block bots) "
+        "and were not judged."
+        if blocked
+        else ""
+    )
+    if stats.external_checked == 0 and blocked:
         return CheckOutcome(
-            "pass", 100, f"All {stats.external_checked} verified external links resolve."
+            "n_a",
+            None,
+            f"Every external link we tried refused automated checks.{blocked_note}",
+            evidence={"blocked_targets": sample_urls(blocked)},
         )
-    n = len(stats.external_broken)
+    # One URL linked twice is one broken target, not two.
+    broken = list(dict.fromkeys(stats.external_broken))
+    if not broken:
+        return CheckOutcome(
+            "pass",
+            100,
+            f"All {stats.external_checked} verified external links resolve.{blocked_note}",
+            evidence={"blocked_targets": sample_urls(blocked)} if blocked else None,
+        )
+    n = len(broken)
+    evidence: dict[str, Any] = {"broken_targets": sample_urls(broken)}
+    if blocked:
+        evidence["blocked_targets"] = sample_urls(blocked)
     # Warn, not fail: the target is someone else's site. It still costs the
     # page trust and sends users to a dead end, so it is never silent.
     return CheckOutcome(
         "warn",
         clamp_score(75 - 10 * n),
         f"{n} external link(s) on this page point at broken targets (4xx/5xx/no "
-        "response) — outbound rot sends users off a cliff and signals a stale page.",
+        f"response) — outbound rot sends users off a cliff and signals a stale page.{blocked_note}",
         issue_count=n,
-        evidence={"broken_targets": sample_urls(stats.external_broken)},
+        evidence=evidence,
     )
 
 
@@ -870,6 +953,19 @@ def _is_descriptive_anchor(anchor: str | None) -> bool:
     return normalized not in GENERIC_ANCHOR_PHRASES
 
 
+_HTML_SITEMAP_PATH = re.compile(r"(?:^|[/_-])(?:html[-_]?)?site[-_]?map(?:\.html?|\.php)?/?$", re.I)
+
+
+def _is_html_sitemap_page(facts: PageFacts) -> bool:
+    """A human-readable sitemap page (`/sitemap`, `/sitemap.html`, `/site-map/`).
+
+    XML sitemaps are not pages and never reach this check; an HTML one lists
+    every page on purpose, so counting its links as "excessive" is wrong.
+    """
+    path = urlsplit(facts.url or "").path
+    return bool(_HTML_SITEMAP_PATH.search(path)) and not path.lower().endswith(".xml")
+
+
 def _check_excessive_outlinks(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
     stats = site.link_stats.get(facts.page_id)
     if stats is None or stats.outlinks_total == 0:
@@ -880,6 +976,22 @@ def _check_excessive_outlinks(facts: PageFacts, site: SiteAggregates) -> CheckOu
             remediation=RECAPTURE_PAGE,
         )
     total = stats.outlinks_total
+    if _is_html_sitemap_page(facts):
+        return CheckOutcome(
+            "n_a",
+            None,
+            "This is an HTML sitemap page — it exists to list every page on the "
+            "site, so its link count is by design and is not judged.",
+        )
+    if total >= ANCHOR_RECORD_LIMIT:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"We record at most {ANCHOR_RECORD_LIMIT:,} links per page and this page "
+            f"hit that cap, so it has at least {ANCHOR_RECORD_LIMIT:,} links but we "
+            "cannot say how many — the count is not a measurement.",
+            evidence={"outlinks_total": total, "internal_outlinks": stats.internal_outlinks},
+        )
     status, score = _band(OUTLINK_BANDS, OUTLINK_EXCESSIVE, total)
     if status == "pass" and score == 100:
         return CheckOutcome(
@@ -933,28 +1045,35 @@ def _check_anchor_text_descriptiveness(facts: PageFacts, site: SiteAggregates) -
             "We haven't recorded the wording of this page's links yet.",
             remediation=RECAPTURE_PAGE,
         )
-    if stats.internal_outlinks == 0:
+    if stats.anchor_targets is not None:
+        judged = len(stats.anchor_targets)
+        descriptive = sum(1 for _url, ok in stats.anchor_targets.values() if ok)
+        generic_targets = [url for url, ok in stats.anchor_targets.values() if not ok]
+    else:
+        judged = stats.internal_outlinks
+        descriptive = stats.descriptive_anchors
+        generic_targets = stats.generic_anchor_targets
+    if judged == 0:
         # The catalogue row is explicit: "100 when no internal links".
         return CheckOutcome("pass", 100, "This page emits no internal links to describe.")
-    score = clamp_score(round(100 * stats.descriptive_anchors / stats.internal_outlinks))
-    generic = stats.internal_outlinks - stats.descriptive_anchors
+    score = clamp_score(round(100 * descriptive / judged))
+    generic = judged - descriptive
     if score >= ANCHOR_DESCRIPTIVE_WARN_SCORE:
         return CheckOutcome(
             "pass",
             score,
-            f"{stats.descriptive_anchors} of {stats.internal_outlinks} internal "
-            "anchors describe where they go.",
+            f"{descriptive} of {judged} linked pages have a descriptive anchor.",
         )
     status = "fail" if score < ANCHOR_DESCRIPTIVE_FAIL_SCORE else "warn"
     return CheckOutcome(
         status,
         score,
-        f"{generic} of {stats.internal_outlinks} internal links use a generic, "
-        'empty, or bare-URL anchor ("click here", "read more", an image with no '
-        "alt text) — the anchor is the strongest hint you give about what the "
-        "target page is for, and these give none.",
+        f"{generic} of {judged} pages this page links to are only ever linked with a "
+        'generic, empty, or bare-URL anchor ("click here", "read more", an image '
+        "with no alt text) — the anchor is the strongest hint you give about what "
+        "the target page is for, and these give none.",
         issue_count=generic,
-        evidence={"generic_anchor_targets": sample_urls(stats.generic_anchor_targets)},
+        evidence={"generic_anchor_targets": sample_urls(generic_targets)},
     )
 
 
@@ -1042,6 +1161,109 @@ def _partial_graph_outcome(site: SiteAggregates) -> CheckOutcome | None:
     return None
 
 
+def _weigh_broken_page(
+    outcome: CheckOutcome, facts: PageFacts, site: SiteAggregates
+) -> CheckOutcome:
+    """The per-page 4xx verdict, weighted by how hard the site still asks for it.
+
+    `web.analysis_item.broken_page_4xx.score_contract`, verbatim: a 4xx with
+    >=10 internal inlinks or a sitemap entry scores 5, 1-9 inlinks 15, none 40.
+    Before this, every 4xx scored 10 — a dead address nothing links to read as
+    Critical, and the reader was never told WHO still points at it.
+    """
+
+    if outcome.status != "fail":
+        return outcome
+    status = (outcome.evidence or {}).get("http_status")
+    if site.internal_edges_resolved == 0:
+        # No link graph: inlinks are unknown, not zero. Keep the flat verdict.
+        return outcome
+    inlinks = len(site.inlinks.get(facts.page_id, ()))
+    in_sitemap = (
+        None if site.sitemap_page_ids is None else facts.page_id in site.sitemap_page_ids
+    )
+    if inlinks >= 10 or in_sitemap:
+        score = 5
+    elif inlinks >= 1:
+        score = 15
+    else:
+        score = 40
+    if inlinks:
+        who = f"{inlinks:,} of your own page{'s' if inlinks != 1 else ''} still link{'' if inlinks != 1 else 's'} to it"
+    else:
+        who = "none of your crawled pages link to it"
+    sitemap_words = "; your sitemap lists it" if in_sitemap else ""
+    return CheckOutcome(
+        "fail",
+        score,
+        f"The address returns HTTP {status} and {who}{sitemap_words}.",
+        issue_count=1,
+        evidence={
+            **(outcome.evidence or {}),
+            "inlink_pages": inlinks,
+            "in_sitemap": in_sitemap,
+        },
+    )
+
+
+#: `meta_robots_conflicts.score_contract`: ">=5 internal inlinks" = promoted.
+NOINDEX_PROMOTED_INLINKS = 5
+NOINDEX_UNPROMOTED_SCORE = 85
+
+
+def _weigh_noindex_page(
+    outcome: CheckOutcome, facts: PageFacts, site: SiteAggregates
+) -> CheckOutcome:
+    """The per-page robots verdict, weighted by whether the site PROMOTES the page.
+
+    `web.analysis_item.meta_robots_conflicts.score_contract`: noindex on a page in
+    the sitemap or with >=5 internal inlinks is the real failure (score 10); a
+    noindexed page nothing promotes (login, cart, `?query` URLs, `/page/N`
+    pagers, thank-you pages) is almost certainly deliberate (score 85). Only the
+    sweep can see the site graph, so only the sweep can tell the two apart.
+    """
+
+    tokens = {t.strip() for t in (facts.meta_robots or "").lower().split(",") if t.strip()}
+    if outcome.status != "fail" or not facts.noindex or {"index", "noindex"} <= tokens:
+        return outcome  # clean, nofollow-only, or a directive conflict: unchanged
+    inlinks = len(site.inlinks.get(facts.page_id, ()))
+    graph_known = site.internal_edges_resolved > 0
+    in_sitemap = None if site.sitemap_page_ids is None else facts.page_id in site.sitemap_page_ids
+    promoted_by = []
+    if in_sitemap:
+        promoted_by.append("your sitemap lists it")
+    if graph_known and inlinks >= NOINDEX_PROMOTED_INLINKS:
+        promoted_by.append(f"{inlinks:,} of your own pages link to it")
+    # Built with dict(...) so the payload guard attributes these keys to the
+    # catalogue item (declared in `MetaRobotsConflictsEvidence`), not to this helper.
+    evidence = dict(
+        **(outcome.evidence or {}),
+        inlink_pages=inlinks if graph_known else None,
+        in_sitemap=in_sitemap,
+    )
+    if promoted_by:
+        return CheckOutcome(
+            "fail",
+            outcome.score,
+            "This page is noindexed, yet " + " and ".join(promoted_by) + " — the site "
+            "asks Google to find a page it is also told never to show. Remove the "
+            "noindex, or stop listing and linking to the page.",
+            issue_count=1,
+            evidence=evidence,
+        )
+    unpromoted_known = in_sitemap is False and graph_known and site.orphans.graph_is_representative
+    if not unpromoted_known:
+        return outcome  # promotion cannot be ruled out from the evidence we have
+    return CheckOutcome(
+        "pass",
+        NOINDEX_UNPROMOTED_SCORE,
+        "This page is noindexed and the site does not promote it (not in the "
+        f"sitemap, {inlinks} internal link(s)) — that reads as deliberate, like a "
+        "login, cart, or thank-you page.",
+        evidence=evidence,
+    )
+
+
 def _check_internal_inlink_coverage(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
     blocked = _partial_graph_outcome(site)
     if blocked is not None:
@@ -1085,6 +1307,18 @@ def _check_internal_link_equity(facts: PageFacts, site: SiteAggregates) -> Check
             None,
             "The site's link-equity distribution could not be built from the "
             "stored PageRank scores. Recompute it with a full crawl.",
+            remediation=RECRAWL_SITE,
+        )
+
+    pages_scored = len(site.link_equity_percentile_by_page)
+    if pages_scored < LINK_EQUITY_MIN_PAGES:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"Only {pages_scored} page(s) on this site have an internal link-equity "
+            f"score; a percentile among fewer than {LINK_EQUITY_MIN_PAGES} pages "
+            "says nothing (the median of four pages is not weak). It answers once "
+            "the crawl scores more of the site.",
             remediation=RECRAWL_SITE,
         )
 
@@ -1203,6 +1437,19 @@ def _check_orphan_pages(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
         return CheckOutcome(
             "pass", 100, "This is the site root — the entry point is never an orphan."
         )
+    status = facts.http_status
+    if status is not None and (status == 0 or status >= 300):
+        # The page no longer serves itself: a 404/410 or a redirect is judged by
+        # the broken-page / redirect verdicts, and "link to it" is wrong advice
+        # for an address that should not be linked.
+        what = "answers no response" if status == 0 else f"answers HTTP {status}"
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"Not judged for orphan status: this address {what} now, so it is not a "
+            "live page to link to. If a sitemap still lists it, that is the defect "
+            "(see the sitemap health check).",
+        )
     if len(site.inlinks.get(facts.page_id, ())) > 0:
         return CheckOutcome(
             "pass",
@@ -1228,7 +1475,7 @@ def _check_orphan_pages(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
         # hunting for a linking problem when the URL itself may be the problem.
         return CheckOutcome(
             "fail",
-            census.site_score(),
+            ORPHAN_UNCAPTURED_PAGE_SCORE,
             "This URL is known from a sitemap, Search Console, or a manual import, "
             "nothing on the site links to it, and we have never successfully "
             f"captured it — so we cannot confirm the page even exists. {site_wide} "
@@ -1244,7 +1491,7 @@ def _check_orphan_pages(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
         )
     return CheckOutcome(
         "fail",
-        census.site_score(),
+        ORPHAN_PAGE_SCORE,
         "This page was crawled successfully but NOTHING on the site links to it — "
         "search engines and visitors can only reach it if they already know the "
         f"URL. {site_wide}",
@@ -1291,6 +1538,10 @@ def expected_ctr_for_position(position: float) -> float:
     if rank <= GSC_EXPECTED_CTR_DEEP_POSITION:
         return GSC_EXPECTED_CTR_PAGE_TWO
     return GSC_EXPECTED_CTR_DEEP
+
+
+def _gsc_today() -> date:
+    return datetime.now(UTC).date()
 
 
 def _gsc_status_for(score: int) -> str:
@@ -1344,6 +1595,17 @@ def _check_gsc_ctr_opportunity(facts: PageFacts, site: SiteAggregates) -> CheckO
         return unavailable
     gsc = site.gsc
     window = f"the {GSC_PERIOD_DAYS} days ending {gsc.latest_date:%-d %b %Y}"
+    age_days = (_gsc_today() - gsc.latest_date).days
+    if age_days > GSC_STALE_DAYS:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"The newest Search Console data we hold for this site is from "
+            f"{gsc.latest_date:%-d %b %Y}, {age_days} days ago — too old to say how "
+            "this page's snippet performs now. Pull fresh Search Console data and "
+            "this answers.",
+            remediation=SYNC_GSC,
+        )
     current = (gsc.by_page.get(facts.page_id) or PageGscStats()).current
     if current.impressions <= 0:
         return CheckOutcome(
@@ -1394,6 +1656,26 @@ def _check_gsc_ctr_opportunity(facts: PageFacts, site: SiteAggregates) -> CheckO
         score = GSC_HEALTHY_SCORE
 
     status = _gsc_status_for(score)
+    # Not a pass — the CTR is low — but not a verdict this check can stand
+    # behind either: n_a, with the reason (contract amended 2026-10-14).
+    if status != "pass" and current.position > GSC_CTR_MAX_POSITION:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"This page averages position {current.position:.1f} in {window} — past "
+            "page one, where clicks follow how high the page ranks more than how its "
+            "title reads. The ranking is the thing to improve first.",
+            evidence=evidence,
+        )
+    if status != "pass" and missed_clicks < GSC_CTR_MIN_MISSED_CLICKS:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"At average position {current.position:.1f} in {window}, a better snippet "
+            f"would win roughly {missed_clicks:,} more click(s) — fewer than the "
+            f"{GSC_CTR_MIN_MISSED_CLICKS} that make rewriting it worthwhile.",
+            evidence=evidence,
+        )
     if status == "pass":
         return CheckOutcome(
             "pass",
@@ -1862,6 +2144,9 @@ class SiteFacts:
         default_factory=GscCannibalizationEvidence
     )
     near_duplicates: NearDuplicateReport | None = None
+    #: page id -> URL, so evidence that arrives keyed by page id (Search Console
+    #: query x page splits) can name the pages a person would recognise.
+    page_urls: dict[str, str] = field(default_factory=dict)
 
 
 def _tls_facts_from_probe(probe: object, *, computed_at: datetime) -> TlsFacts | None:
@@ -1935,6 +2220,20 @@ def _site_check_security_headers(site: SiteFacts) -> CheckOutcome:
         100 - SECURITY_HEADER_MISSING_PENALTY * len(missing),
     )
     partial = [name for name in missing if 0 < coverage.get(name, 0) < sampled]
+    if missing == ["content-security-policy"] and not partial:
+        # A Content-Security-Policy is impractical on most CMS-built sites (every
+        # tag-manager, form and font host must be enumerated), and every other
+        # baseline header is in place. The formula score stands (85); it is not a
+        # finding anyone should open.
+        return CheckOutcome(
+            "pass",
+            clamp_score(score),
+            f"{len(BASELINE_SECURITY_HEADERS) - 1} of {len(BASELINE_SECURITY_HEADERS)} "
+            "baseline security headers are sent on every sampled page; only "
+            "Content-Security-Policy is absent, which is optional hardening, not a "
+            "defect, for a typical website.",
+            evidence=evidence,
+        )
     detail = (
         f" {', '.join(partial)} appear on some pages but not all — inconsistent "
         "coverage is its own defect."
@@ -2159,14 +2458,49 @@ def _adapt_crawlability(key: str) -> Callable[[SiteFacts], CheckOutcome]:
     return run
 
 
+def _site_check_gsc_keyword_cannibalization(site: SiteFacts) -> CheckOutcome:
+    """The cannibalization verdict, with every page NAMED and one action stated.
+
+    The score is `gsc_cannibalization`'s (the catalogue formula, unchanged); this
+    adds what a reader needs: the page URL beside each id, which page wins the
+    query, and the one thing to do about it.
+    """
+    outcome = check_gsc_keyword_cannibalization(site.gsc_cannibalization)
+    evidence = outcome.evidence
+    if outcome.status not in ("warn", "fail") or not isinstance(evidence, dict):
+        return outcome
+    samples = evidence.get("samples") or []
+    for sample in samples:
+        for page in sample.get("pages", []):
+            page["url"] = site.page_urls.get(str(page.get("page_id")))
+    top = samples[0] if samples else None
+    detail = ""
+    if top and top.get("pages"):
+        winner = top["pages"][0]
+        others = [p.get("url") or p.get("page_id") for p in top["pages"][1:]]
+        detail = (
+            f' Biggest case: "{top["query"]}" ({top["impressions"]:,} impressions) — '
+            f"{winner.get('url') or winner.get('page_id')} leads with "
+            f"{winner['impression_share']:.0%}, split with {', '.join(map(str, others))}. "
+            "Pick that leading page as the one for this search: point the others' "
+            "wording at different searches, or merge them into it with a 301."
+        )
+    return CheckOutcome(
+        outcome.status,
+        outcome.score,
+        outcome.reasoning + detail,
+        issue_count=outcome.issue_count,
+        evidence=evidence,
+        remediation=outcome.remediation,
+    )
+
+
 SITE_CHECKS: dict[str, Callable[[SiteFacts], CheckOutcome]] = {
     "security_headers": _site_check_security_headers,
     "hsts_policy": _site_check_hsts_policy,
     "tls_certificate": _site_check_tls_certificate,
     "near_duplicate_content": _site_check_near_duplicate_content,
-    "gsc_keyword_cannibalization": lambda site: check_gsc_keyword_cannibalization(
-        site.gsc_cannibalization
-    ),
+    "gsc_keyword_cannibalization": lambda site: _site_check_gsc_keyword_cannibalization(site),
     # Crawlability + URL architecture — the whole-site evidence no page carries.
     **{key: _adapt_crawlability(key) for key in CRAWLABILITY_SITE_CHECKS},
 }
@@ -2191,6 +2525,7 @@ def _near_duplicate_indexable(page: PageFacts) -> bool | None:
 def _build_site_facts(site_id: str, facts_list: list[PageFacts]) -> SiteFacts:
     """Fold the per-page evidence into the site's own evidence. Pure."""
     facts = SiteFacts(site_id=site_id)
+    facts.page_urls = {p.page_id: p.url for p in facts_list if p.page_id and p.url}
     for page in facts_list:
         scheme = urlsplit(page.url).scheme.lower()
         if scheme == "https":
@@ -2294,8 +2629,17 @@ CATALOGUED_PAGE_CHECKS: tuple[str, ...] = (
 
 
 def _adapt(key: str) -> Callable[[PageFacts, SiteAggregates], CheckOutcome]:
-    """Give a per-page check the cross-page signature. No logic, ever."""
+    """Give a per-page check the cross-page signature.
+
+    The verdict is always `seo_audit`'s. The one addition: a broken page's
+    score is weighted by how hard the site still asks for it (inlinks, sitemap),
+    which only the sweep can see — `_weigh_broken_page`.
+    """
     check = SEO_PAGE_CHECKS[key]
+    if key == "broken_page_4xx":
+        return lambda facts, site: _weigh_broken_page(check(facts), facts, site)
+    if key == "meta_robots_conflicts":
+        return lambda facts, site: _weigh_noindex_page(check(facts), facts, site)
     return lambda facts, _site: check(facts)
 
 
@@ -2458,6 +2802,7 @@ def _extract_page_facts(page: WebPage, snap: WebSnapshot) -> PageFacts:
         response_bytes=response_bytes if isinstance(response_bytes, int) else None,
         response_time_ms=response_time_ms if isinstance(response_time_ms, int) else None,
         ttfb_ms=ttfb_ms if isinstance(ttfb_ms, int) else None,
+        ttfb_measured_at=getattr(snap, "captured_at", None) if isinstance(ttfb_ms, int) else None,
         pagination=pagination if isinstance(pagination, dict) else {},
         # Head metadata. `og`/`twitter`/`meta` stay None when the snapshot never
         # carried the key, so their checks answer n_a rather than reporting a
@@ -2726,7 +3071,19 @@ async def _load_page_facts(
     step_start = perf_counter()
     await _load_link_stats(site_id, facts_list, aggregates, registry, root_url)
     summary.timings["link_stats"] = round(perf_counter() - step_start, 3)
+    step_start = perf_counter()
+    await _load_sitemap_membership(site_id, aggregates)
+    summary.timings["sitemap_membership"] = round(perf_counter() - step_start, 3)
     return facts_list, aggregates
+
+
+async def _load_sitemap_membership(site_id: str, aggregates: SiteAggregates) -> None:
+    """Which pages the site's own sitemaps list — one query, ids only."""
+
+    rows = await WebPageSitemap.filter(site_id=site_id, deleted_at__isnull=True).values(
+        "page_id"
+    )
+    aggregates.sitemap_page_ids = {str(row["page_id"]) for row in rows if row["page_id"]}
 
 
 async def _load_lab_performance(facts_list: list[PageFacts]) -> None:
@@ -2769,6 +3126,7 @@ async def _load_lab_performance(facts_list: list[PageFacts]) -> None:
                 row.lighthouse,
                 strategy=str(row.strategy),
                 observed_at=row.observed_at,
+                crux=row.crux if isinstance(row.crux, dict) else None,
             )
 
 
@@ -2862,9 +3220,12 @@ def _accumulate_edge(
 
     if not row["is_internal"]:
         if http_status is not None:
-            stats.external_checked += 1
-            if int(http_status) == 0 or int(http_status) >= 400:
-                stats.external_broken.append(target_url)
+            if int(http_status) in WALL_HTTP_STATUSES:
+                stats.external_blocked.append(target_url)
+            else:
+                stats.external_checked += 1
+                if int(http_status) == 0 or int(http_status) >= 400:
+                    stats.external_broken.append(target_url)
         return
 
     stats.internal_outlinks += 1
@@ -2883,13 +3244,22 @@ def _accumulate_edge(
         if len(stats.nofollow_internal_samples) < CHECK_EVIDENCE_SAMPLE_LIMIT:
             stats.nofollow_internal_samples.append(target_url)
 
-    if _is_descriptive_anchor(row["anchor_text"]):
-        stats.descriptive_anchors += 1
-    elif len(stats.generic_anchor_targets) < CHECK_EVIDENCE_SAMPLE_LIMIT:
-        stats.generic_anchor_targets.append(target_url)
-
     source_id = graph.canonical_by_page.get(str(row["source_page_id"]))
     target_id = graph.canonical_by_hash.get(url_hash(_normalise_url(target_url)))
+
+    # Anchor wording is judged per (page, target): a target that ALSO carries a
+    # descriptive anchor on this page is fine (the logo link next to the "Home"
+    # link). Media files and self-links have no wording worth judging; an image
+    # link arrives with its alt text already as the anchor (`text_source`).
+    if stats.anchor_targets is None:
+        stats.anchor_targets = {}
+    if not is_machine_resource_url(target_url) and not (
+        source_id is not None and source_id == target_id
+    ):
+        key = _normalise_url(target_url)
+        entry = stats.anchor_targets.setdefault(key, [target_url, False])
+        if _is_descriptive_anchor(row["anchor_text"]):
+            entry[1] = True
     if source_id is None or target_id is None or source_id == target_id:
         # An unregistered target (a link to a URL the crawl never registered)
         # or a self-link. Neither is an inbound signal, and neither shortens a
@@ -2948,6 +3318,9 @@ def _build_orphan_census(registry: _PageRegistry, aggregates: SiteAggregates) ->
 #: `web.crawl_url.reason_code` values meaning "we were kept out", never "the page
 #: is broken": a bot wall, a 401/403 refusal, rate-limit exhaustion, or a URL the
 #: crawl never fetched because it stopped on rate limits (OPENSEO-TOOLS-SPEC §8.1).
+#: HTTP answers that are about US, not the page: auth walls and rate limits.
+WALL_HTTP_STATUSES = frozenset({401, 403, 429})
+
 BLOCKED_TARGET_REASON_CODES = frozenset(
     {"cloudflare_block", "blocked", "RateLimited", "RateLimitTimeout"}
 )
@@ -3482,6 +3855,7 @@ async def analyze_site_pages(
                 site=site,
                 facts_list=facts_list,
                 pages_truncated=summary.truncated,
+                crawl_complete=aggregates.orphans.graph_is_representative,
             )
         except Exception as exc:
             # The page verdicts are already computed; a sitemap/robots read that
@@ -3581,6 +3955,46 @@ async def analyze_site_pages(
     async with _timed("result_writes"):
         await flush_rows()
 
+    # One shared cause is ONE finding, not one per page (web_crawl/rollup.py).
+    rolled_up: dict[tuple[str, str], str] = {}
+    rollup_item_ids = {str(items_by_key[k].id) for k in ROLLUP_RULES if k in items_by_key}
+    async with _timed("rollups"):
+        plans = plan_rollups(
+            [row for row, _created in written],
+            {str(f.page_id): str(f.url) for f in facts_list},
+        )
+        for plan in plans:
+            item = items_by_key[plan.item_key]
+            rows.append(
+                {
+                    "organization_id": organization_id,
+                    "site_id": site_id,
+                    "subject_type": "site",
+                    "subject_id": site_id,
+                    "page_id": None,
+                    "item_id": str(item.id),
+                    "item_key": item.key,
+                    "category": item.category,
+                    "subcategory": item.subcategory,
+                    "provider_id": str(provider.id),
+                    "provider_version": ANALYZER_VERSION,
+                    "run_id": run_id,
+                    "computed_at": computed_at,
+                    "status": plan.outcome.status,
+                    "score": plan.outcome.score,
+                    "severity": severity_for(item, plan.outcome.score),
+                    "issue_count": plan.outcome.issue_count,
+                    "confidence": 1,
+                    "metadata": _result_metadata(plan.outcome, item.key),
+                }
+            )
+            _tally(summary, plan.outcome.status)
+        start = len(written)
+        await flush_rows()
+        for plan, (_row, created) in zip(plans, written[start:], strict=True):
+            for subject_id in plan.covered:
+                rolled_up[(subject_id, plan.item_id)] = str(created.id)
+
     await report("Reconciling the finding register…")
     async with _timed("finding_reconciliation"):
         await reconcile_findings(
@@ -3594,6 +4008,8 @@ async def analyze_site_pages(
                 for key in SITE_SCOPED_CROSS_PAGE_CHECKS
                 if key in items_by_key
             },
+            rolled_up=rolled_up,
+            rollup_item_ids=rollup_item_ids,
         )
     return AnalysisRunResult(
         summary,

@@ -6,6 +6,7 @@ import sys
 import time
 from collections.abc import Awaitable
 from typing import Any, cast
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -108,6 +109,110 @@ async def _create_test_session(session_id: str | None = None) -> RedisSession:
     await session.clear_session()
 
     return session
+
+
+@pytest.mark.parametrize("operation", ["add", "clear", "compact"])
+async def test_redis_session_rejects_cluster_transactions_before_pipeline(
+    monkeypatch: pytest.MonkeyPatch, operation: str
+):
+    from types import SimpleNamespace
+
+    from redis.asyncio.cluster import RedisCluster
+
+    from agents.memory import OpenAIResponsesCompactionSession
+
+    client = RedisCluster(host="localhost", port=6379)
+    initialize = AsyncMock(side_effect=AssertionError("must not connect"))
+    close = AsyncMock(side_effect=AssertionError("caller owns the client"))
+    pipeline = Mock(side_effect=AssertionError("must not create a pipeline"))
+    items: list[TResponseInputItem] = [{"role": "user", "content": "saved history"}]
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(client, "initialize", initialize)
+            patch.setattr(client, "aclose", close)
+            patch.setattr(client, "pipeline", pipeline)
+            patch.setattr(client, "lrange", AsyncMock(return_value=[json.dumps(items[0])]))
+            session = RedisSession("cluster-session", redis_client=client)
+            await session.add_items([])
+            with pytest.raises(
+                TypeError, match="RedisSession does not support transactions with RedisCluster"
+            ) as exc:
+                if operation == "add":
+                    await session.add_items(items)
+                elif operation == "clear":
+                    await session.clear_session()
+                else:
+                    compact = AsyncMock(return_value=SimpleNamespace(usage=None, output=items))
+                    compaction = OpenAIResponsesCompactionSession(
+                        session.session_id,
+                        session,
+                        client=cast(
+                            Any, SimpleNamespace(responses=SimpleNamespace(compact=compact))
+                        ),
+                        compaction_mode="input",
+                    )
+                    await compaction.run_compaction({"force": True})
+
+            assert "redis.asyncio.Redis connected to a standalone Redis server" in str(exc.value)
+            assert "custom Session backend" in str(exc.value)
+            await session.close()
+            pipeline.assert_not_called()
+            initialize.assert_not_called()
+            close.assert_not_called()
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize("custom_writes", [False, True])
+async def test_redis_cluster_reads_and_subclass_writes(
+    monkeypatch: pytest.MonkeyPatch, custom_writes: bool
+):
+    if not USE_FAKE_REDIS:
+        pytest.skip("This test requires fakeredis")
+
+    from redis.asyncio.cluster import RedisCluster
+
+    class CustomRedisSession(RedisSession):
+        async def add_items(self, items: list[TResponseInputItem]) -> None:
+            if items:
+                await self._redis.rpush(self._messages_key, *(json.dumps(item) for item in items))
+
+        async def clear_session(self) -> None:
+            await self._redis.delete(self._messages_key)
+
+    client = RedisCluster(host="localhost", port=6379)
+    storage = fakeredis.aioredis.FakeRedis()
+    items: list[TResponseInputItem] = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+    ]
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(client, "initialize", AsyncMock(side_effect=AssertionError("no network")))
+            close = AsyncMock(side_effect=AssertionError("caller owns the client"))
+            patch.setattr(client, "aclose", close)
+            for command in ("lrange", "rpop", "rpush", "delete"):
+                patch.setattr(client, command, getattr(storage, command))
+            session_type = CustomRedisSession if custom_writes else RedisSession
+            session = session_type("cluster-history", redis_client=client)
+            if custom_writes:
+                await session.add_items(items)
+            else:
+                await storage.rpush(
+                    "agents:session:cluster-history:messages", *(json.dumps(item) for item in items)
+                )
+            assert await session.get_items() == items
+            assert await session.get_items(limit=1) == items[-1:]
+            assert await session.pop_item() == items[-1]
+            await session.close()
+            close.assert_not_called()
+            assert await session.get_items() == items[:1]
+            if custom_writes:
+                await session.clear_session()
+                assert await session.get_items() == []
+    finally:
+        await client.aclose()
+        await storage.aclose()
 
 
 async def test_redis_session_direct_ops():
@@ -730,7 +835,7 @@ async def test_external_client_not_closed():
         # Should still be able to use the client for other operations
         await shared_client.set("test_key", "test_value")
         value = await shared_client.get("test_key")
-        assert value.decode("utf-8") == "test_value"
+        assert value == b"test_value"
 
     finally:
         # Clean up
@@ -3262,3 +3367,360 @@ async def test_redis_session_operation_waiting_behind_close_raises():
                 task.cancel()
                 with suppress(asyncio.CancelledError, RuntimeError):
                     await task
+
+
+@pytest.mark.parametrize("automatic", [False, True])
+@pytest.mark.parametrize("empty", [False, True])
+async def test_compaction_replaces_redis_history_atomically(
+    monkeypatch: pytest.MonkeyPatch, automatic: bool, empty: bool
+) -> None:
+    from types import SimpleNamespace
+
+    from agents.memory import OpenAIResponsesCompactionSession
+
+    backend = await _create_test_session()
+    reader = RedisSession(backend.session_id, redis_client=backend._redis, key_prefix="test:")
+    history: list[TResponseInputItem] = [{"role": "user", "content": "original"}]
+    output: list[TResponseInputItem] = [] if empty else [{"role": "user", "content": "summary"}]
+    await backend.add_items(history)
+    compact = AsyncMock(return_value=SimpleNamespace(usage=None, output=output))
+    session = OpenAIResponsesCompactionSession(
+        backend.session_id,
+        backend,
+        client=cast(Any, SimpleNamespace(responses=SimpleNamespace(compact=compact))),
+        compaction_mode="input",
+        should_trigger_compaction=lambda _: True,
+    )
+    observations: list[list[TResponseInputItem]] = []
+    original_pipeline = backend._redis.pipeline
+
+    def observing_pipeline(*args: Any, **kwargs: Any) -> Any:
+        pipe = original_pipeline(*args, **kwargs)
+        execute = pipe.execute
+
+        async def observing_execute(*args: Any, **kwargs: Any) -> Any:
+            # A separate session instance observes every committed write, including
+            # the destructive clear on the old implementation.
+            result = await execute(*args, **kwargs)
+            observations.append(await reader.get_items())
+            return result
+
+        pipe.execute = observing_execute
+        return pipe
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(backend._redis, "pipeline", observing_pipeline)
+            if automatic:
+                agent = Agent(name="test", model=ScriptedModel(steps=[[get_text_message("reply")]]))
+                await Runner.run(agent, "next", session=session)
+            else:
+                await session.run_compaction({"force": True})
+        compact.assert_awaited_once()
+        assert observations
+        assert observations[-1] == output
+        if not empty:
+            assert all(observation for observation in observations)
+        assert await reader.get_items() == output
+    finally:
+        await backend.clear_session()
+        await backend.close()
+
+
+@pytest.mark.parametrize("empty", [False, True])
+async def test_atomic_replacement_preserves_clear_add_metadata(empty: bool) -> None:
+    session = await _create_redis_session("atomic-replacement-ttl", ttl=3600)
+    try:
+        await session.add_items([{"role": "user", "content": "before"}])
+        await session._redis.hset(session._session_key, "created_at", "1")  # type: ignore[misc]
+        await session._redis.set(session._counter_key, "10")
+        output: list[TResponseInputItem] = [] if empty else [{"role": "user", "content": "after"}]
+        assert await session._atomic_replace_items(output)
+        assert await session.get_items() == output
+        assert await session._redis.exists(session._counter_key) == 0
+        if empty:
+            assert await session._redis.exists(session._session_key) == 0
+        else:
+            assert await session._redis.hget(session._session_key, "created_at") not in (b"1", "1")  # type: ignore[misc]
+            assert 0 < await session._redis.pttl(session._messages_key) <= 3600000
+            assert 0 < await session._redis.pttl(session._session_key) <= 3600000
+    finally:
+        await session.clear_session()
+        await session.close()
+
+
+async def test_atomic_replacement_serializes_before_deleting_history() -> None:
+    session = await _create_test_session()
+    history: list[TResponseInputItem] = [{"role": "user", "content": "retained"}]
+    try:
+        await session.add_items(history)
+        with pytest.raises(TypeError):
+            await session._atomic_replace_items(cast(Any, [{"content": object()}]))
+        assert await session.get_items() == history
+    finally:
+        await session.clear_session()
+        await session.close()
+
+
+async def test_compaction_subclass_retains_overridden_storage_methods() -> None:
+    from types import SimpleNamespace
+
+    from agents.memory import OpenAIResponsesCompactionSession
+
+    class IndexedRedisSession(RedisSession):
+        clear_calls = 0
+        add_calls = 0
+
+        async def clear_session(self) -> None:
+            self.clear_calls += 1
+            await super().clear_session()
+
+        async def add_items(self, items: list[TResponseInputItem]) -> None:
+            self.add_calls += 1
+            await super().add_items(items)
+
+    original = await _create_test_session()
+    backend = IndexedRedisSession(
+        original.session_id, redis_client=original._redis, key_prefix="test:"
+    )
+    output: list[TResponseInputItem] = [{"role": "user", "content": "summary"}]
+    compact = AsyncMock(return_value=SimpleNamespace(usage=None, output=output))
+    session = OpenAIResponsesCompactionSession(
+        backend.session_id,
+        backend,
+        client=cast(Any, SimpleNamespace(responses=SimpleNamespace(compact=compact))),
+    )
+    try:
+        await backend.add_items([{"role": "user", "content": "original"}])
+        await session.run_compaction({"force": True})
+        assert backend.clear_calls == 1
+        assert backend.add_calls == 2
+        assert await backend.get_items() == output
+    finally:
+        await original.clear_session()
+        await original.close()
+
+
+async def test_compaction_cancel_after_redis_commit_invalidates_cached_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from agents.memory import OpenAIResponsesCompactionSession
+
+    backend = await _create_test_session()
+    output: list[TResponseInputItem] = [{"role": "user", "content": "summary"}]
+    await backend.add_items([{"role": "user", "content": "original"}])
+    compact = AsyncMock(return_value=SimpleNamespace(usage=None, output=output))
+    session = OpenAIResponsesCompactionSession(
+        backend.session_id,
+        backend,
+        client=cast(Any, SimpleNamespace(responses=SimpleNamespace(compact=compact))),
+        compaction_mode="input",
+    )
+    committed = asyncio.Event()
+    release = asyncio.Event()
+    original_pipeline = backend._redis.pipeline
+
+    def delayed_pipeline(*args: Any, **kwargs: Any) -> Any:
+        pipe = original_pipeline(*args, **kwargs)
+        execute = pipe.execute
+
+        async def delayed_execute(*args: Any, **kwargs: Any) -> Any:
+            result = await execute(*args, **kwargs)
+            committed.set()
+            await release.wait()
+            return result
+
+        pipe.execute = delayed_execute
+        return pipe
+
+    task: asyncio.Task[None] | None = None
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(backend._redis, "pipeline", delayed_pipeline)
+            task = asyncio.create_task(session.run_compaction({"force": True}))
+            await asyncio.wait_for(committed.wait(), 5)
+            task.cancel()
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        assert await backend.get_items() == output
+        # The next request must load committed history instead of replaying the
+        # candidates cached before the cancelled replacement.
+        await session.run_compaction({"force": True})
+        assert compact.call_args.kwargs["input"] == output
+    finally:
+        release.set()
+        if task is not None:
+            await asyncio.gather(task, return_exceptions=True)
+        await backend.clear_session()
+        await backend.close()
+
+
+async def test_atomic_replacement_rejects_colliding_counter_key() -> None:
+    from redis.exceptions import ResponseError
+
+    session = await _create_test_session()
+    other = RedisSession(
+        session.session_id + ":counter", redis_client=session._redis, key_prefix="test:"
+    )
+    history: list[TResponseInputItem] = [{"role": "user", "content": "retained"}]
+    try:
+        await session.add_items(history)
+        await other.add_items(history)
+        with pytest.raises(ResponseError, match="WRONGTYPE"):
+            await session._atomic_replace_items([{"role": "user", "content": "summary"}])
+        assert await session.get_items() == history
+        assert await other.get_items() == history
+    finally:
+        await other.clear_session()
+        await session.clear_session()
+        await session.close()
+
+
+async def test_cancelled_redis_compaction_handoff_remains_resumable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from agents import RunConfig, RunState, handoff
+    from agents.handoffs import HandoffInputData
+    from agents.items import MessageOutputItem
+    from agents.memory import OpenAIResponsesCompactionSession
+    from tests.test_responses import get_function_tool_call
+
+    backend = await _create_test_session()
+    compacted: list[TResponseInputItem] = [{"role": "assistant", "content": "compacted history"}]
+    committed = asyncio.Event()
+    release = asyncio.Event()
+    original_pipeline = backend._redis.pipeline
+    replacement_pending = False
+
+    async def compact(**kwargs: Any) -> SimpleNamespace:
+        nonlocal replacement_pending
+        replacement_pending = True
+        return SimpleNamespace(output=compacted, usage=None)
+
+    def controlled_pipeline(*args: Any, **kwargs: Any) -> Any:
+        pipe = original_pipeline(*args, **kwargs)
+        execute = pipe.execute
+
+        async def controlled_execute(*args: Any, **kwargs: Any) -> Any:
+            nonlocal replacement_pending
+            result = await execute(*args, **kwargs)
+            if replacement_pending:
+                replacement_pending = False
+                committed.set()
+                await release.wait()
+            return result
+
+        pipe.execute = controlled_execute
+        return pipe
+
+    session = OpenAIResponsesCompactionSession(
+        backend.session_id,
+        backend,
+        client=cast(Any, SimpleNamespace(responses=SimpleNamespace(compact=compact))),
+        compaction_mode="input",
+        should_trigger_compaction=lambda context: context["response_id"] == "resp-handoff",
+    )
+    model = ScriptedModel(
+        [
+            {
+                "output": [
+                    get_text_message("delegating"),
+                    get_function_tool_call("transfer_to_delegate", "{}", call_id="handoff-1"),
+                ],
+                "response_id": "resp-handoff",
+            },
+            {"output": [get_text_message("done")], "response_id": "resp-delegate"},
+        ]
+    )
+    handoff_calls: list[str] = []
+
+    def retain_message(data: HandoffInputData) -> HandoffInputData:
+        return data.clone(
+            new_items=tuple(item for item in data.new_items if isinstance(item, MessageOutputItem))
+        )
+
+    delegate = Agent(name="delegate", model=model)
+    triage = Agent(
+        name="triage",
+        model=model,
+        handoffs=[
+            handoff(
+                delegate,
+                input_filter=retain_message,
+                on_handoff=lambda _: handoff_calls.append("handoff"),
+            )
+        ],
+    )
+    with monkeypatch.context() as patch:
+        patch.setattr(backend._redis, "pipeline", controlled_pipeline)
+        result = Runner.run_streamed(
+            triage, "hello", session=session, run_config=RunConfig(tracing_disabled=True)
+        )
+
+        async def drain() -> None:
+            async for _ in result.stream_events():
+                pass
+
+        consumer = asyncio.create_task(drain())
+        try:
+            await asyncio.wait_for(committed.wait(), 5)
+            result.cancel()
+            release.set()
+            await asyncio.wait_for(consumer, 5)
+            assert await session.get_items() == compacted
+            state = result.to_state()
+            assert state._pending_session_write is None
+            state = await RunState.from_json(triage, json.loads(state.to_string()))
+            resumed = await Runner.run(
+                triage, state, session=session, run_config=RunConfig(tracing_disabled=True)
+            )
+            assert resumed.final_output == "done"
+            assert len(model.calls) == 2
+            assert handoff_calls == ["handoff"]
+            assert await session.get_items() == compacted + [resumed.new_items[-1].to_input_item()]
+        finally:
+            release.set()
+            result.cancel()
+            await asyncio.gather(consumer, return_exceptions=True)
+            await backend.clear_session()
+            await backend.close()
+
+
+@pytest.mark.parametrize("encryption_outermost", [False, True])
+async def test_redis_compaction_preserves_encryption_wrapper(encryption_outermost: bool) -> None:
+    pytest.importorskip("cryptography")
+    from types import SimpleNamespace
+
+    from cryptography.fernet import Fernet
+
+    from agents.extensions.memory.encrypt_session import EncryptedSession
+    from agents.memory import OpenAIResponsesCompactionSession
+
+    backend = await _create_test_session()
+    key = Fernet.generate_key().decode()
+    output: list[TResponseInputItem] = [{"role": "user", "content": "synthetic summary"}]
+    compact = AsyncMock(return_value=SimpleNamespace(usage=None, output=output))
+    client = cast(Any, SimpleNamespace(responses=SimpleNamespace(compact=compact)))
+    session: Any
+    if encryption_outermost:
+        compaction = OpenAIResponsesCompactionSession(backend.session_id, backend, client=client)
+        session = EncryptedSession(backend.session_id, compaction, key)
+    else:
+        encrypted = EncryptedSession(backend.session_id, backend, key)
+        session = OpenAIResponsesCompactionSession(backend.session_id, encrypted, client=client)
+    try:
+        await session.add_items([{"role": "user", "content": "synthetic original"}])
+        await session.run_compaction({"force": True, "compaction_mode": "input"})
+        assert await session.get_items() == output
+        stored = await backend.get_items()
+        assert len(stored) == 1
+        assert stored[0].get("__enc__") == 1
+        assert "synthetic summary" not in json.dumps(stored)
+    finally:
+        await backend.clear_session()
+        await backend.close()

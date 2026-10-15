@@ -1072,6 +1072,17 @@ class MessageList:
         compare=False,
     )
 
+    # THE TAIL CHANNEL: per-send platform blocks that ride at the very END of
+    # the conversation, after the provider's rolling cache breakpoint. Never a
+    # message, never persisted, re-staged on every send. Rendered by
+    # render_tail_context(); see attach_tail_context().
+    _tail_context_blocks: dict[str, str] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+        compare=False,
+    )
+
     def __post_init__(self):
         """Normalize messages - convert dicts to UnifiedMessage objects."""
         normalized = []
@@ -1241,6 +1252,38 @@ class MessageList:
                     )
                 )
         return "\n\n".join(frames) if frames else None
+
+    def attach_tail_context(self, block: str, *, slot: str = "default") -> None:
+        """Stage one per-send platform block in the TAIL CHANNEL.
+
+        The turn-context channel rides the system prompt — the START of the
+        context, where a long tool loop stops looking. Some material is only
+        useful where the model pays attention: right after the newest tool
+        result. The live plan (``config/live_plan.py``) is the case: an agent
+        that approved a six-step plan at iteration 13 never looked at it again
+        across 66 more model calls because it sat at message 27 of 135.
+
+        A tail block does NOT enter any message. Translators render it after
+        the conversation's last block, and ONLY when that last message is a
+        tool result (``BaseTranslator.get_tail_context_text``): the person's own
+        turn is never touched (THE PERSON'S TURN IS THE PERSON'S ALONE). It sits
+        after the rolling prompt-cache breakpoint, so caching is unaffected.
+        Re-attaching a slot replaces it; an empty ``block`` clears it.
+        """
+        blocks = self._tail_context_blocks
+        if block:
+            blocks[slot] = block
+        else:
+            blocks.pop(slot, None)
+
+    def tail_context_blocks(self) -> dict[str, str]:
+        """A copy of this send's staged tail blocks, by slot."""
+        return dict(self._tail_context_blocks)
+
+    def render_tail_context(self) -> str | None:
+        """The staged tail blocks joined in slot order, or None."""
+        body = "\n\n".join(b for b in self._tail_context_blocks.values() if b)
+        return body or None
 
     def merge_metadata_into_last_user(self, updates: dict[str, Any]) -> None:
         """Shallow-merge ``updates`` into the last user message's metadata.

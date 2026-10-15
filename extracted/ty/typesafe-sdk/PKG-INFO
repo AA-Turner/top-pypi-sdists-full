@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typesafe-sdk
-Version: 0.7.4
+Version: 0.7.5
 Summary: Python SDK for TypeSafe AI API.
 Keywords: typesafe,sdk,api,ai
 Author: TypeSafe AI
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: anyio>=4.0.0
 Requires-Dist: httpx2>=2.0.0
 Requires-Dist: packaging>=24.0
 Requires-Dist: pydantic>=2.12.0
@@ -32,15 +33,19 @@ Requires-Dist: tenacity>=9.0.0
 Requires-Dist: truststore>=0.10.0 ; sys_platform != 'emscripten'
 Requires-Dist: typing-extensions>=4.13.0
 Requires-Dist: httpx2[http2]>=2.0.0 ; extra == 'http2'
+Requires-Dist: pillow>=11.0.0 ; extra == 'pil'
+Requires-Dist: backports-zstd>=1.0.0 ; python_full_version < '3.14' and extra == 'zstd'
 Maintainer: Daniel Gafni
 Maintainer-email: Daniel Gafni <daniel@typesafe.ai>
 Requires-Python: >=3.10
 Project-URL: Homepage, https://typesafe.ai
-Project-URL: Documentation, https://docs.typesafe.ai/sdk/python/
-Project-URL: Changelog, https://docs.typesafe.ai/sdk/python/changelog/
+Project-URL: Documentation, https://docs.typesafe.ai/go/python-sdk
+Project-URL: Changelog, https://docs.typesafe.ai/go/python-changelog
 Project-URL: Repository, https://github.com/typesafe-ai/typesafe-sdk-python
 Project-URL: Issues, https://github.com/typesafe-ai/typesafe-sdk-python/issues
 Provides-Extra: http2
+Provides-Extra: pil
+Provides-Extra: zstd
 Description-Content-Type: text/markdown
 
 # TypeSafe AI Python SDK
@@ -55,7 +60,11 @@ Install the SDK:
 uv add typesafe-sdk
 ```
 
-Add the `http2` extra (`typesafe-sdk[http2]`) to enable [HTTP/2 support](https://docs.typesafe.ai/sdk/python/usage/#http2).
+Extras (for example, `typesafe-sdk[http2]`) supported:
+
+- `http2`: enable [HTTP/2 support](https://docs.typesafe.ai/sdk/python/usage/advanced/#http2)
+- `pil`: send [Pillow images](https://docs.typesafe.ai/sdk/python/api/types/assets/#typesafe_sdk.Image.from_pil)
+- `zstd`: [compress request bodies](https://docs.typesafe.ai/sdk/python/usage/advanced/#ensure-zstd-is-available) on Python 3.13 and earlier
 
 Set `TYPESAFE_API_KEY` in your environment, then instantiate and use the client:
 
@@ -80,4 +89,4 @@ learn what TypeSafe is, what it can do, and how to use it in [TypeSafe docs](htt
 
 ## Documentation
 
-Learn more in [SDK docs](https://docs.typesafe.ai/sdk/python/).
+Learn more in [SDK docs](https://docs.typesafe.ai/go/python-sdk).

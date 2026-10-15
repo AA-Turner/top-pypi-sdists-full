@@ -7,38 +7,32 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-22.04 ]
-        python-version: [ 3.8, 3.9, "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        os: [ ubuntu-latest ]
+        python-version: [ 3.9, "3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "3.15t" ]
         cffi: [ yes, no ]
         include:
-          - os: ubuntu-22.04
-            python-version: "3.13t"
-            cffi: no
-          - os: ubuntu-22.04
-            python-version: "3.14t"
-            cffi: no
-          - os: ubuntu-latest
-            python-version: pypy2.7
-            cffi: no
           - os: ubuntu-latest
             python-version: pypy3.9
-            cffi: no
-        exclude:
-          - python-version: "3.13t"
+            cffi: yes
+          - os: ubuntu-latest
+            python-version: pypy3.10
+            cffi: yes
+          - os: ubuntu-latest
+            python-version: pypy3.11
             cffi: yes
     env:
       CFLAGS: "-Wconversion"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Display Python version
-      run: python -c "from __future__ import print_function; import sys; print(sys.version)"
+      run: python -c "import sys; print(sys.version)"
 
     - name: Install CFFI
       if: matrix.cffi == 'yes'
@@ -52,38 +46,53 @@ jobs:
       run: |
         pip install -v .
 
+    # On x86-64, the big integer code (Crypto.Math._IntegerNat) and the
+    # NIST curves (Crypto.PublicKey._nist_ecc) must use their builds for
+    # CPUs with BMI2 and ADX, so that the tests cover them
+    - name: Check that the BMI2/ADX build of the big integer code is used
+      if: runner.arch == 'X64'
+      run: |
+        python -c "from Crypto.Math import _IntegerNat as n; import sys; sys.exit(0 if n._bmi2_adx_lib is not None else 'The BMI2/ADX build of Crypto.Math._nat was not loaded')"
+        python -c "from Crypto.PublicKey import _nist_ecc as e; import sys; sys.exit(0 if e._bmi2_adx else 'The BMI2/ADX build of Crypto.PublicKey._ec_nat was not loaded')"
+
     - name: Test
       shell: bash
       run: |
-        if [[ -f .separate_namespace ]]; then
-          python -m Cryptodome.SelfTest
-        else
-          python -m Crypto.SelfTest
-        fi
+        python -m Crypto.SelfTest
+
+    # The same tests with the portable build of the big integer code (and
+    # of the NIST curves)
+    # (once per Python API: ctypes and cffi)
+    - name: Test the portable build of the big integer code
+      if: runner.arch == 'X64' && matrix.python-version == '3.15'
+      shell: bash
+      env:
+        PYCRYPTODOME_DISABLE_BMI2_ADX: 1
+      run: |
+        python -c "from Crypto.Math import _IntegerNat as n; import sys; sys.exit(0 if n._lib is n._portable_lib else 'The portable build was not selected')"
+        python -c "from Crypto.PublicKey import _nist_ecc as e; import sys; sys.exit(0 if not e._bmi2_adx else 'The portable build of the NIST curves was not selected')"
+        python -m Crypto.SelfTest --skip-slow-tests
 
   build_desktop:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ macos-15, windows-latest, windows-11-arm ]
-        python-version: [ "3.13", "3.14" ]
+        python-version: [ "3.15t", "3.15" ]
         cffi: [ yes, no ]
-        exclude:
-          - os: macos-15
-            cffi: no
     env:
       CFLAGS: "-Wconversion"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Display Python version
-      run: python -c "from __future__ import print_function; import sys; print(sys.version)"
+      run: python -c "import sys; print(sys.version)"
 
     - name: Install CFFI
       if: matrix.cffi == 'yes'
@@ -99,32 +108,31 @@ jobs:
 
     - name: Test
       shell: bash
+      env:
+        # The Windows x86_64 (AMD64) runners support SHA-NI: fail if it is not used
+        PYCRYPTODOME_REQUIRE_SHA_NI: ${{ matrix.os == 'windows-latest' && '1' || '' }}
       run: |
-        if [[ -f .separate_namespace ]]; then
-          python -m Cryptodome.SelfTest
-        else
-          python -m Crypto.SelfTest
-        fi
+        python -m Crypto.SelfTest
 
   build_linux_arm:
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
-        python-version: [ "3.13", "3.14" ]
-        cffi: [ yes ]
+        python-version: [ "3.15t", "3.15" ]
+        cffi: [ no, yes ]
     env:
       CFLAGS: "-Wconversion"
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Display Python version
-      run: python -c "from __future__ import print_function; import sys; print(sys.version)"
+      run: python -c "import sys; print(sys.version)"
 
     - name: Install CFFI
       if: matrix.cffi == 'yes'
@@ -141,78 +149,32 @@ jobs:
     - name: Test
       shell: bash
       run: |
-        if [[ -f .separate_namespace ]]; then
-          python -m Cryptodome.SelfTest
-        else
-          python -m Crypto.SelfTest
-        fi
+        python -m Crypto.SelfTest
 
-  build_python_27:
-    # GitHub Actions will not setup Python 2.7 since June 2023
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-22.04, windows-latest]
-        cffi: [ yes, no ]
-        include:
-          - os: ubuntu-22.04
-            container: python:2.7.18-buster
-    container:
-      image: ${{ matrix.container }}
-    env:
-      CFLAGS: "-Wconversion"
-
+  ruff:
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
-
-    - name: Install Python 2
-      if: matrix.os == 'windows-latest'
+    - uses: actions/checkout@v7
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: "3.x"
+    - name: Install ruff
       run: |
-        choco install python2
-
-    - name: Install MSVC
-      if: matrix.os == 'windows-latest'
-      uses: ilammy/msvc-dev-cmd@v1
-
-    - name: Prepare environmental variables
-      if: matrix.os == 'windows-latest'
-      shell: bash
+        pip install ruff
+    - name: Lint
       run: |
-        echo "DISTUTILS_USE_SDK=1" >> $GITHUB_ENV
-        echo "MSSdk=1" >> $GITHUB_ENV
-        echo "C:\\Python27;$(cat $GITHUB_PATH)" >> $GITHUB_PATH
-        cat $GITHUB_PATH
-
-    - name: Display Python version
-      run: python -c "from __future__ import print_function; import sys; print(sys.version)"
-
-    - name: Install CFFI
-      if: matrix.cffi == 'yes'
-      run: python -m pip install cffi
-
-    - name: Install dependencies (testing only)
+        ruff check .
+    - name: Check formatting
       run: |
-        python -m pip install -r requirements-test.txt
-
-    - name: Install package
-      run: |
-        python -m pip install -v .
-
-    - name: Test
-      shell: bash
-      run: |
-        if [[ -f .separate_namespace ]]; then
-          python -m Cryptodome.SelfTest
-        else
-          python -m Crypto.SelfTest
-        fi
+        ruff format --check .
 
   mypy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: "3.x"
     - name: Install dependencies
@@ -220,7 +182,7 @@ jobs:
         pip install mypy -r requirements-test.txt
     - name: Test
       run: |
-        mypy --enable-incomplete-feature=Unpack lib/
+        mypy lib/
 
   test_c_linux:
     runs-on: ubuntu-latest
@@ -229,12 +191,21 @@ jobs:
         sse: [0, 1]
         arch: [x64, x32]
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Install dependencies
       run: |
+        # i386 packages: Valgrind needs the debug symbols of the 32-bit libc
+        sudo dpkg --add-architecture i386
         sudo apt-get update
-        sudo apt-get install libc6-dev-i386 libubsan1
+        sudo apt-get install libc6-dev-i386 libubsan1 valgrind libc6-dbg:i386
     - name: Test Linux x32 and x64
+      env:
+        # On x64, the tests of the BMI2/ADX build of the big integer code
+        # must run (they fail instead of skipping on a CPU without them)
+        NAT_REQUIRE_BMI2_ADX: ${{ matrix.arch == 'x64' && '1' || '' }}
+        # Likewise for the AVX2 build of Salsa20
+        SALSA20_REQUIRE_AVX2: ${{ matrix.arch == 'x64' && '1' || '' }}
+        CHACHA20_REQUIRE_AVX2: ${{ matrix.arch == 'x64' && '1' || '' }}
       run: |
         cd src/test
         mkdir build
@@ -255,11 +226,11 @@ jobs:
           - os: windows-11-arm
             arch: arm64
     steps:
-    - uses: actions/checkout@v6
-    - name: Set up Python "3.13"
-      uses: actions/setup-python@v6
+    - uses: actions/checkout@v7
+    - name: Set up Python "3.15"
+      uses: actions/setup-python@v7
       with:
-        python-version: "3.13"
+        python-version: "3.15"
     - name: Install MSVC
       uses: ilammy/msvc-dev-cmd@v1
       with:

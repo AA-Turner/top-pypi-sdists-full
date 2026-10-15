@@ -24,12 +24,11 @@ import re
 import subprocess
 import sys
 import threading
-from collections.abc import Iterator
-from contextlib import contextmanager, suppress
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from cozy_runtime.internal.config import inherited_environment, sees_no_gpu
 
@@ -389,21 +388,6 @@ def synchronize(torch: Any, kind: str) -> None:
         torch.cuda.synchronize()
 
 
-@contextmanager
-def readable[*Ts](*tensors: *Ts) -> Iterator[tuple[*Ts]]:
-    """The operands of a kernel launched outside torch's dispatch (Triton, the compiled
-    extension), which reads them by pointer. A weight with no plane bytes bound is a stand-in
-    with nothing behind its pointer: its plane maps and holds it for the launch, or refuses
-    (`weights.Unbound.reading`). Every such launch goes through here, so none is handed one."""
-    standins = [t for t in tensors if hasattr(type(t), "reading")]
-    if not standins:
-        yield tensors
-        return
-    reading = getattr(type(standins[0]), "reading")  # noqa: B009
-    with reading(standins, "a kernel launch") as read:
-        yield cast("tuple[*Ts]", tuple(read.operand(t) for t in tensors))
-
-
 def drain(torch: Any, kind: str) -> None:
     """Wait for the CURRENT stream only: the caller's own queued work, not other streams'."""
     if kind == "mps":
@@ -493,12 +477,42 @@ def allocated(torch: Any, kind: str, device: Any = None) -> int:
     return int(torch.cuda.memory_allocated(device))
 
 
+#: The high-water marks (allocated, reserved) kept across a section measured on its own
+#: (`hold_peak`): the attempt around it still sees them.
+_HELD = [0, 0]
+
+
+def reserved(torch: ModuleType, kind: str) -> int:
+    """The allocator's reserved bytes ALONE: live tensors plus its idle cache."""
+    if kind == "mps":
+        raise AcceleratorUnsupported("mps", "reserved")
+    return int(torch.cuda.memory_reserved())
+
+
 def reset_peak(torch: Any, kind: str) -> None:
     """Zero the high-water mark, so the next `peak_allocated` measures ONE attempt."""
     if kind == "mps":
         raise AcceleratorUnsupported("mps", "reset_peak")
+    _HELD[:] = [0, 0]
     if kind == "cuda":
         torch.cuda.reset_peak_memory_stats()
+
+
+def hold_peak(torch: ModuleType, kind: str) -> None:
+    """Keep the high-water marks so far for `peak_allocated`/`peak_reserved` and zero torch's:
+    what runs next is measured on its own (`section_peak`)."""
+    _HELD[:] = [peak_allocated(torch, kind), peak_reserved(torch, kind)]
+    torch.cuda.reset_peak_memory_stats()
+
+
+def drop_peak(torch: ModuleType, kind: str) -> None:
+    """Forget the high-water mark since `hold_peak`: that section failed."""
+    torch.cuda.reset_peak_memory_stats()
+
+
+def section_peak(torch: ModuleType, kind: str) -> int:
+    """The high-water mark since `hold_peak`."""
+    return int(torch.cuda.max_memory_allocated())
 
 
 def peak_allocated(torch: Any, kind: str) -> int:
@@ -506,7 +520,7 @@ def peak_allocated(torch: Any, kind: str) -> int:
     attempt's activations from, which the live figure structurally cannot give."""
     if kind == "mps":
         raise AcceleratorUnsupported("mps", "peak_allocated")
-    return int(torch.cuda.max_memory_allocated())
+    return max(int(torch.cuda.max_memory_allocated()), _HELD[0])
 
 
 def peak_reserved(torch: Any, kind: str) -> int:
@@ -514,7 +528,7 @@ def peak_reserved(torch: Any, kind: str) -> int:
     the segments torch held for them, which is what a stage takes from the device."""
     if kind == "mps":
         raise AcceleratorUnsupported("mps", "peak_reserved")
-    return int(torch.cuda.max_memory_reserved())
+    return max(int(torch.cuda.max_memory_reserved()), _HELD[1])
 
 
 #: This process's own cache releases that returned something, by the function that asked:

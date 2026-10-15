@@ -1,6 +1,6 @@
 [project]
 name = "strawberry-graphql"
-version = "0.334.4"
+version = "0.335.0"
 description = "A library for creating GraphQL APIs"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -18,7 +18,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "graphql-core>=3.3.0,<3.4.0",
     "typing-extensions>=4.14.0",
@@ -88,7 +88,7 @@ cli = [
     "websockets>=15.0.1,<17",
     "python-multipart>=0.0.7",
 ]
-litestar = ["litestar>=2; python_version~='3.10'"]
+litestar = ["litestar>=2"]
 pyinstrument = ["pyinstrument>=4.0.0"]
 
 [dependency-groups]
@@ -149,7 +149,7 @@ integrations = [
     "pytest-django>=4.5,<5.0",
     "sanic>=20.12.2",
     "starlette>=0.13.6",
-    "litestar>=2; python_version >= '3.10'",
+    "litestar>=2",
     "uvicorn>=0.11.6",
     "daphne>=4.0.0,<5.0.0",
 ]
@@ -223,12 +223,12 @@ exclude = [
 ]
 reportMissingImports = true
 reportMissingTypeStubs = false
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 stubPath = ""
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 fix = true
 exclude = [
     ".bzr",
@@ -257,6 +257,9 @@ src = [
     "tests",
 ]
 
+[tool.ruff.per-file-target-version]
+"tests/python_312/**" = "py312"
+
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
@@ -278,6 +281,7 @@ ignore = [
     "FBT001",
     "FBT002",
     "FBT003",
+    "ASYNC109",
     "PLR0913",
     "PLR0912",
     "PLR0911",

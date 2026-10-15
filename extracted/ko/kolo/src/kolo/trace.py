@@ -6,6 +6,7 @@ similar to the TypeScript implementation in vscode/src/trace.ts.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
@@ -14,6 +15,8 @@ from typing import Any, Dict, Generator, Iterator, List, Optional
 from .build_frame_tree import ExecutionTreeInfo, build_execution_tree
 from .node import ProcessedNode, make_processed_node, unattached_assignment_label
 from .utils import pretty_byte_size, relative_time
+
+logger = logging.getLogger("kolo")
 
 
 @dataclass
@@ -66,19 +69,18 @@ class ProcessedTree:
         self.total_execution_tree_node_count = (
             self.basic_execution_tree.total_execution_tree_node_count
         )
-        # ``line_events`` assignments: see ``ExecutionTreeInfo``.
         self.unattached_assignments = self.basic_execution_tree.unattached_assignments
         self.has_assignments = self.basic_execution_tree.has_assignments
+        self.unclosed_node_count = self.basic_execution_tree.unclosed_node_count
+        self.unmatched_exit_count = self.basic_execution_tree.unmatched_exit_count
         self.earliest_timestamp = self._earliest_timestamp()
 
-        # Build frame_id -> node index for O(1) lookups
         self._frame_id_index: Dict[str, ProcessedNode] = {}
         self._build_frame_id_index()
 
     def _earliest_timestamp(self) -> float:
         """When this tree's first event happened, to order threads by."""
         timestamps = [n.start for n in self.root_nodes if n.start is not None]
-        # Unattached assignments are in recorded order: the first is earliest.
         for frame in self.unattached_assignments[:1]:
             timestamp = frame.get("timestamp")
             if isinstance(timestamp, (int, float)):
@@ -142,18 +144,9 @@ class Trace:
         self.size = size
         self.recovered = bool(unprocessed_data.get("recovered"))
 
-        # The "main" tree is the tree of frames from the thread that was
-        # active when kolo was enabled. It is kept as a separate attribute
-        # for backwards-compat and because some callers (folder naming,
-        # HTTP/test detection) specifically want the originating thread.
         main_frames = self.get_main_frames_of_interest(unprocessed_data)
         self.main_tree = ProcessedTree(main_frames, self.id)
 
-        # Non-main-thread ``ProcessedTree`` construction is deferred until
-        # first access. Metadata-only callers (trace listing, name
-        # resolution) never look at ``self.threads`` so they should not
-        # pay the cost of building every worker's tree. Rendering callers
-        # share this cache instead of rebuilding the same worker trees.
         self._threads_cache: Optional[List[ThreadSection]] = None
 
     @property
@@ -172,12 +165,10 @@ class Trace:
     @property
     def name(self) -> str:
         """Get a human-readable name for this trace."""
-        # Use explicit trace name if available
         trace_name = self.unprocessed_data.get("trace_name")
         if trace_name:
             return trace_name
 
-        # Generate name from root node
         if self.main_tree.root_nodes:
             first_node = self.main_tree.root_nodes[0]
             other_calls = self.main_tree.total_execution_tree_node_count - 1
@@ -185,16 +176,44 @@ class Trace:
                 return f"{first_node.name} (+{other_calls} calls)"
             return first_node.name
 
-        # Fallback for empty traces - use command_line_args if available
         command_line_args = self.unprocessed_data.get("command_line_args", [])
         if command_line_args:
-            # Use the script name (first arg) as the name
             script_name = command_line_args[0]
             source = self.unprocessed_data.get("meta", {}).get("source", "")
             return f"{script_name} (empty, {source})"
 
-        # Final fallback to trace ID
         return self.id
+
+    def repair_notes(self) -> List[str]:
+        """One line saying what was repaired to render this trace, if its
+        events were unbalanced; nothing for a balanced trace.
+
+        Calls with no exit event are kept and marked "did not return"; exit
+        events with no call are skipped (see ``build_execution_tree``).
+        """
+        unclosed = unmatched = 0
+        for section in self.threads:
+            counts = (
+                getattr(section.tree, "unclosed_node_count", 0),
+                getattr(section.tree, "unmatched_exit_count", 0),
+            )
+            if all(isinstance(count, int) for count in counts):
+                unclosed += counts[0]
+                unmatched += counts[1]
+        parts = []
+        if unclosed:
+            noun = "call has" if unclosed == 1 else "calls have"
+            parts.append(
+                f"{unclosed} {noun} no recorded exit (marked "
+                f'"did not return: no exit recorded": still running when the '
+                f"trace ended, or the exit event was lost)"
+            )
+        if unmatched:
+            noun = "exit" if unmatched == 1 else "exits"
+            parts.append(f"{unmatched} {noun} with no recorded call skipped")
+        if not parts:
+            return []
+        return ["NOTE: incomplete trace: " + "; ".join(parts)]
 
     def _build_thread_sections(self, data: Dict[str, Any]) -> List[ThreadSection]:
         """Build the ordered list of thread sections for this trace.
@@ -260,16 +279,11 @@ class Trace:
         Returns:
             Flat list of frames from the main thread
         """
-        # The threads mapping, not config truthiness, distinguishes the new
-        # format. Hand-built and older producers can emit thread-aware traces
-        # with an empty or missing config.
         threads = data.get("threads", {})
         if threads and len(threads) > 0:
             current_thread_id = data.get("current_thread_id")
             if not current_thread_id:
-                # Preserve the legacy fallback for loosely constructed traces
-                # that happened to include a threads-shaped value. Producers
-                # that explicitly declare a new-format config remain strict.
+                # Preserve the legacy fallback unless config explicitly declares the new trace format.
                 if data.get("meta", {}).get("config"):
                     raise ValueError("threads present but no current_thread_id")
                 return data.get("frames_of_interest", [])
@@ -278,10 +292,8 @@ class Trace:
             if thread:
                 return thread.get("frames", [])
             else:
-                # We have a current thread id, but no frames captured yet
                 return []
 
-        # Fallback to old format
         return data.get("frames_of_interest", [])
 
     @staticmethod
@@ -312,24 +324,25 @@ class Trace:
         from .trace_container import load_trace
 
         if not msgpack_data:
-            # legacy traces pre msgpack
             return None
 
         if auto_generated_name:
-            # Fast path: use fast extraction to check for user-specified name
             user_name = extract_trace_name_fast(msgpack_data)
             return user_name if user_name else auto_generated_name
         else:
-            # Lazy migration: full deserialization needed
             data = load_trace(msgpack_data)
             if isinstance(data, dict):
                 user_name = data.get("trace_name")
                 if user_name:
                     return user_name
                 else:
-                    # Build trace to get the name
                     trace = Trace(unprocessed_data=data, size=len(msgpack_data))
-                    update_auto_generated_name(db_path, trace_id, trace.name)
+                    try:
+                        update_auto_generated_name(db_path, trace_id, trace.name)
+                    except Exception:
+                        logger.debug(
+                            "Could not store the name of %s", trace_id, exc_info=True
+                        )
                     return trace.name
         return None
 
@@ -366,6 +379,7 @@ class Trace:
                     "WARNING: recovered partial trace; the end of execution "
                     "and final metadata may be missing."
                 )
+            header_lines.extend(self.repair_notes())
             if source and version:
                 header_lines.append(f"source: {source} (kolo v{version})")
             elif source:
@@ -381,8 +395,6 @@ class Trace:
                 ["", "format: node_idx, type, qualname, start_to_end_loc, duration", ""]
             )
             header = "\n".join(header_lines)
-
-            # todo: on the config, keep just the stuff that is not default.
 
             if include_return_value:
                 header += "  ↪ input value\n"
@@ -436,12 +448,8 @@ class Trace:
             if s.tree.root_nodes
             or (include_return_value and s.tree.unattached_assignments)
         ]
-        # Fast path only when the main thread is the only thing to show.
-        # If the main tree is empty but a background thread has frames,
-        # we must still render the header and ``--thread_id`` hint —
-        # otherwise a user copying an index out of that section would
-        # hit ``kolo trace node TRACE_ID <idx>`` which resolves against
-        # the empty ``main_tree`` and silently returns the wrong node.
+        # An empty main tree with frames in another thread still needs the --thread_id hint, or
+        # `kolo trace node` resolves the index against the empty main_tree.
         only_main = len(sections) == 0 or (
             len(sections) == 1 and sections[0].tree is self.main_tree
         )
@@ -457,9 +465,6 @@ class Trace:
             if i > 0:
                 yield ""
             yield f"--- {section.label} ---"
-            # Per-section hint so users know how to copy a node index out
-            # of this thread — non-main threads need --thread_id because
-            # indices restart at 0 in every ProcessedTree.
             if section.is_main:
                 yield (
                     f"  (access: `kolo trace node {self.id} <idx>` — "
@@ -504,6 +509,7 @@ class Trace:
                 "WARNING: recovered partial trace; the end of execution "
                 "and final metadata may be missing."
             )
+        lines.extend(self.repair_notes())
         if source and version:
             lines.append(f"source: {source} (kolo v{version})")
         elif source:

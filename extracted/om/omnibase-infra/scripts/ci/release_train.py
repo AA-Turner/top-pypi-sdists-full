@@ -178,6 +178,11 @@ def _load_sibling(name: str) -> Any:
 #: The rule-24(b) receipt reader. Its primitives are the ONLY path to a receipt
 #: here; this module classifies what they return and never queries in parallel.
 lab_pass_receipt = _load_sibling("lab_pass_receipt")
+
+#: The table-scoped ``[project].version`` rewrite the post-release dev bump uses,
+#: so the train's bump and the reopen bump cannot disagree about where a
+#: manifest keeps its version.
+post_release_dev_bump = _load_sibling("post_release_dev_bump")
 instance_receipt_lanes = _load_sibling("instance_receipt_lanes")
 
 #: The runtime-change path classifier, in ``scripts/`` rather than ``scripts/ci``.
@@ -225,6 +230,10 @@ LAB_ANCESTOR_WALK_LIMIT = 200
 
 _FINAL_SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 _RELEASE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
+# A consumed path cites its reader as <repo>:.github/workflows/<file>:<line>.
+_CONSUMER_CITATION = re.compile(
+    r"^[A-Za-z0-9_.-]+:\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml:[0-9]+$"
+)
 
 #: Subjects the train itself produces. The post-release bump edits
 #: ``pyproject.toml``, which is a release-relevant path, so counted naively it is
@@ -353,6 +362,20 @@ class EnumTrainReason(StrEnum):
 
 
 @dataclass(frozen=True)
+class ModelConsumedPath:
+    """A path a downstream repo reads from a tag clone of this repo (OMN-20298).
+
+    A wheel carries ``src`` and nothing else, so a downstream CI job that clones
+    this repo's tag and runs a script from the clone only ever sees a change to
+    that script once a new tag exists. ``consumers`` cites each downstream
+    workflow line that does the reading, so the declaration is falsifiable.
+    """
+
+    path: str
+    consumers: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ModelRepoReleasePolicy:
     """One repo's declared release-train policy."""
 
@@ -364,6 +387,15 @@ class ModelRepoReleasePolicy:
     lab_evidence_note: str
     mode: EnumTrainMode
     mode_note: str
+    consumed_paths: tuple[ModelConsumedPath, ...] = ()
+
+    @property
+    def counted_paths(self) -> tuple[str, ...]:
+        """Every path whose change counts as unreleased work."""
+        return (
+            *self.release_relevant_paths,
+            *(entry.path for entry in self.consumed_paths),
+        )
 
 
 @dataclass(frozen=True)
@@ -558,16 +590,77 @@ def _parse_entry(repo: str, entry: Any, path: Path) -> ModelRepoReleasePolicy:
         )
         raise ReleaseTrainConfigError(msg)
 
+    release_paths = tuple(str(p) for p in paths)
     return ModelRepoReleasePolicy(
         repo=repo,
         package=_required("package"),
         default_branch=_required("default_branch"),
-        release_relevant_paths=tuple(str(p) for p in paths),
+        release_relevant_paths=release_paths,
         lab_evidence=lab_evidence,
         lab_evidence_note=lab_note,
         mode=mode,
         mode_note=mode_note,
+        consumed_paths=_parse_consumed_paths(
+            repo, entry.get("tag_clone_consumed_paths"), release_paths, path
+        ),
     )
+
+
+def _parse_consumed_paths(
+    repo: str,
+    raw: Any,
+    release_paths: tuple[str, ...],
+    policy_path: Path,
+) -> tuple[ModelConsumedPath, ...]:
+    """Validate ``tag_clone_consumed_paths``; an absent field means none."""
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        msg = f"{policy_path}: repo {repo} 'tag_clone_consumed_paths' is not a list"
+        raise ReleaseTrainConfigError(msg)
+
+    parsed: list[ModelConsumedPath] = []
+    for item in raw:
+        consumed = item.get("path") if isinstance(item, dict) else None
+        if (
+            not isinstance(consumed, str)
+            or not consumed
+            or consumed.startswith("/")
+            or consumed.endswith("/")
+            or ".." in consumed.split("/")
+        ):
+            msg = (
+                f"{policy_path}: repo {repo} declares a consumed path "
+                f"{consumed!r} that is not a clean repo-relative path"
+            )
+            raise ReleaseTrainConfigError(msg)
+        if any(
+            consumed == rel or consumed.startswith(f"{rel}/") for rel in release_paths
+        ):
+            msg = (
+                f"{policy_path}: repo {repo} declares consumed path {consumed!r}, "
+                "which is already under a release_relevant_paths entry; the "
+                "declaration would change nothing"
+            )
+            raise ReleaseTrainConfigError(msg)
+        consumers = item.get("consumers")
+        if not isinstance(consumers, list) or not consumers:
+            msg = (
+                f"{policy_path}: repo {repo} consumed path {consumed!r} cites no "
+                "downstream workflow line; a path nobody is shown to read is a "
+                "guess about what gets published"
+            )
+            raise ReleaseTrainConfigError(msg)
+        for citation in consumers:
+            if not isinstance(citation, str) or not _CONSUMER_CITATION.match(citation):
+                msg = (
+                    f"{policy_path}: repo {repo} consumed path {consumed!r} cites "
+                    f"{citation!r}, which is not "
+                    "'<repo>:.github/workflows/<file>.yml:<line>'"
+                )
+                raise ReleaseTrainConfigError(msg)
+        parsed.append(ModelConsumedPath(consumed, tuple(consumers)))
+    return tuple(parsed)
 
 
 def policy_for(
@@ -734,7 +827,7 @@ def collect_repo_facts(policy: ModelRepoReleasePolicy, clone: Path) -> ModelRepo
         "--format=%s",
         span,
         "--",
-        *policy.release_relevant_paths,
+        *policy.counted_paths,
     )
     subjects = tuple(
         line.strip()
@@ -1463,7 +1556,7 @@ def decide(
             EnumTrainReason.NO_UNRELEASED_RELEASE_RELEVANT_WORK,
             f"no commit between {facts.latest_tag or '(no tag)'} and "
             f"{facts.dev_head_sha[:12]} touches "
-            f"{', '.join(policy.release_relevant_paths)}",
+            f"{', '.join(policy.counted_paths)}",
             candidate_version=candidate_version,
             needs_bump=needs_bump,
         )
@@ -1669,6 +1762,73 @@ def render_changelog_entry(
     return "\n".join(lines)
 
 
+_LOCK_PACKAGE_HEADER: Final = "[[package]]"
+
+
+def _normalized_package_name(name: str) -> str:
+    """The name as ``uv.lock`` records it (PEP 503)."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def rewrite_lock_root_version(text: str, package: str, new_version: str) -> str:
+    """Return a ``uv.lock`` body with only ``package``'s own entry moved.
+
+    The entry is the ``[[package]]`` block whose ``name`` is ``package`` and
+    whose ``source`` is the checkout itself (``editable`` or ``virtual`` at
+    ``"."``). A dependency pinned at the same version string, or a requirement
+    specifier naming it, is left byte-identical.
+    """
+    wanted = _normalized_package_name(package)
+    lines = text.splitlines(keepends=True)
+    starts = [i for i, line in enumerate(lines) if line.strip() == _LOCK_PACKAGE_HEADER]
+    for index, start in enumerate(starts):
+        end = starts[index + 1] if index + 1 < len(starts) else len(lines)
+        block = lines[start:end]
+        if not any(line.rstrip() == f'name = "{wanted}"' for line in block):
+            continue
+        if not any(
+            re.match(r'source = \{ (editable|virtual) = "\." \}\s*$', line)
+            for line in block
+        ):
+            continue
+        for offset, line in enumerate(block):
+            if re.match(r'version = "[^"]*"\s*$', line):
+                newline = "\n" if line.endswith("\n") else ""
+                lines[start + offset] = f'version = "{new_version}"{newline}'
+                return "".join(lines)
+    raise ReleaseTrainConfigError(
+        f"uv.lock has no [[package]] entry for the checkout's own package "
+        f"{package!r} with a local source; refusing to bump the manifest and "
+        "leave the lockfile stale, which fails every `uv sync --locked` check"
+    )
+
+
+def bump_declared_version(clone: Path, version: str) -> list[str]:
+    """Move ``[project].version`` and, when present, ``uv.lock``'s own entry.
+
+    Returns the clone-relative paths written. Both texts are computed before
+    either file is written, so a refusal leaves the manifest untouched.
+    """
+    pyproject = clone / "pyproject.toml"
+    raw = pyproject.read_text(encoding="utf-8")
+    name = tomllib.loads(raw).get("project", {}).get("name")
+    if not isinstance(name, str) or not name:
+        raise ReleaseTrainConfigError(f"{pyproject} has no [project].name")
+    try:
+        manifest = post_release_dev_bump.rewrite_project_version(raw, version)
+    except post_release_dev_bump.BumpConfigError as exc:
+        raise ReleaseTrainConfigError(str(exc)) from exc
+    writes = {"pyproject.toml": manifest}
+    lock = clone / "uv.lock"
+    if lock.exists():
+        writes["uv.lock"] = rewrite_lock_root_version(
+            lock.read_text(encoding="utf-8"), name, version
+        )
+    for relative, body in writes.items():
+        (clone / relative).write_text(body, encoding="utf-8")
+    return list(writes)
+
+
 # --------------------------------------------------------------------------- #
 # CLI.                                                                          #
 # --------------------------------------------------------------------------- #
@@ -1724,6 +1884,14 @@ def build_parser() -> argparse.ArgumentParser:
     changelog.add_argument("--clone", type=Path, required=True)
     changelog.add_argument("--version", required=True)
 
+    bump = sub.add_parser(
+        "bump-version",
+        help="move the manifest version and the lockfile's own entry together",
+    )
+    bump.add_argument("--policy", type=Path, default=DEFAULT_POLICY_PATH)
+    bump.add_argument("--clone", type=Path, required=True)
+    bump.add_argument("--version", required=True)
+
     return parser
 
 
@@ -1750,6 +1918,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         # runs' logs is about what changed rather than about dict ordering.
         for name in sorted(policies):
             print(name)
+        return 0
+
+    if args.command == "bump-version":
+        try:
+            written = bump_declared_version(args.clone, args.version)
+        except ReleaseTrainConfigError as exc:
+            print(f"::error::{exc}", file=sys.stderr)
+            return 2
+        for relative in written:
+            print(relative)
         return 0
 
     if args.command == "changelog":

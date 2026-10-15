@@ -1,0 +1,79 @@
+- name: DC CDCC unit test 1
+  period: 2021
+  input:
+    cdcc_potential: 800
+    dc_income_tax_before_credits: 1_000
+    state_code: DC
+  output:
+    dc_cdcc: 256  # = 800 * 0.32
+
+- name: DC CDCC unit test 2
+  period: 2022
+  input:
+    cdcc_potential: 100
+    dc_income_tax_before_credits: 1_000
+    state_code: DC
+  output:
+    dc_cdcc: 32  # = 100 * 0.32
+
+- name: DC CDCC 2025 rate still 32%
+  period: 2025
+  input:
+    cdcc_potential: 1_000
+    dc_income_tax_before_credits: 1_000
+    state_code: DC
+  output:
+    dc_cdcc: 320  # = 1_000 * 0.32
+
+- name: DC CDCC 2026 rate reduced to 24.25%
+  period: 2026
+  input:
+    cdcc_potential: 1_000
+    dc_income_tax_before_credits: 1_000
+    state_code: DC
+  output:
+    dc_cdcc: 242.5  # = 1_000 * 0.2425
+
+- name: DC CDCC is capped by remaining tax liability
+  period: 2025
+  input:
+    cdcc_potential: 1_000
+    dc_income_tax_before_credits: 200
+    state_code: DC
+  output:
+    dc_cdcc_potential: 320
+    dc_cdcc: 200
+
+- name: DC's 2021 credit follows the increased federal dependent care exclusion
+  absolute_error_margin: 0.01
+  period: 2021
+  input:
+    people:
+      parent1:
+        age: 40
+        employment_income: 60_000
+        dependent_care_employer_benefits: 9_000
+      parent2:
+        age: 38
+        employment_income: 40_000
+      child1:
+        age: 5
+      child2:
+        age: 7
+    tax_units:
+      tax_unit:
+        members: [parent1, parent2, child1, child2]
+        filing_status: JOINT
+        tax_unit_childcare_expenses: 20_000
+    households:
+      household:
+        members: [parent1, parent2, child1, child2]
+        state_code: DC
+  output:
+    dependent_care_assistance_exclusion: 9_000
+    # Federal Form 2441: min(16_000 - 9_000, 20_000 - 9_000) * 50% = 3_500.
+    cdcc_potential: 3_500
+    cdcc: 3_500
+    # 2021 D-40 line 21: federal Form 2441 line 10 * 32% = 1_120.
+    # https://otr.cfo.dc.gov/sites/default/files/dc/sites/otr/publication/attachments/52926_D-40_12.21.21_Final_Rev011122.pdf#page=36
+    dc_cdcc_potential: 1_120

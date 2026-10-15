@@ -1,0 +1,185 @@
+# Tests Florida TCA final benefit amount
+# Formula: Benefit = max(Payment Standard - Net Countable Income, 0)
+# Source: Florida Statutes 414.095(12), FAC 65A-4.220
+#
+# NOTE: Basic scenarios (zero income, earned income, shelter tiers, eligibility)
+# are covered in integration.yaml. This file tests edge cases of the benefit formula.
+
+- name: Case 1, benefit of $11.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        social_security: 2_760  # $230/month annual
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    fl_tca: 11
+    # Payment standard: $241
+    # Countable income: $230
+    # Benefit: 241 - 230 = $11
+
+- name: Case 2, deficit of $1 not issued (below $10 minimum).
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        social_security: 2_880  # $240/month annual
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    fl_tca: 0
+    # Payment standard: $241; countable income: $240; deficit = $1.
+    # Per DCF 2620.0111.01 Step 6 and Note, cash benefits are not issued for
+    # amounts less than $10, so a $1 deficit produces $0.
+
+- name: Case 2b, deficit of exactly $10 is issued.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        social_security: 2_772  # $231/month annual
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    fl_tca: 10
+    # Payment standard: $241; countable income: $231; deficit = $10.
+    # 2620.0111.01 Step 6: "a deficit of at least $10" is issued.
+
+- name: Case 2c, deficit of $9 not issued (below $10 minimum).
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        social_security: 2_784  # $232/month annual
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    fl_tca: 0
+    # Payment standard: $241; countable income: $232; deficit = $9 < $10 -> $0.
+
+- name: Case 3, maximum family size 13 full benefit.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 35
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 33
+      person3:
+        age: 17
+      person4:
+        age: 15
+      person5:
+        age: 13
+      person6:
+        age: 11
+      person7:
+        age: 9
+      person8:
+        age: 7
+      person9:
+        age: 5
+      person10:
+        age: 4
+      person11:
+        age: 3
+      person12:
+        age: 2
+      person13:
+        age: 1
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8, person9, person10, person11, person12, person13]
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8, person9, person10, person11, person12, person13]
+        state_code: FL
+  output:
+    fl_tca: 919
+    # Payment standard: $919 (size 13, >$50 shelter)
+    # Countable income: $0
+    # Benefit: $919
+
+- name: Case 4, income results in exactly zero benefit.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        social_security: 2_892  # $241/month annual
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    fl_tca: 0
+    # Payment standard: $241
+    # Countable income: $241
+    # Benefit: 241 - 241 = $0
+
+- name: Case 5, income exceeds payment standard negative clip.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        social_security: 3_600  # $300/month annual
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    fl_tca: 0
+    # Payment standard: $241
+    # Countable income: $300
+    # Calculated benefit: max(241 - 300, 0) = 0

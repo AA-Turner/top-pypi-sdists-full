@@ -1,0 +1,119 @@
+- name: dc_eitc_without_qualified_children unit test 1
+  absolute_error_margin: 0.01
+  period: 2022
+  input:
+    eitc_phased_in: 560
+    tax_unit_earned_income: 15_000
+    adjusted_gross_income: 20_532
+    state_code: DC
+  output:
+    dc_eitc_without_qualifying_child: 560
+
+- name: dc_eitc_without_qualified_children unit test 2
+  absolute_error_margin: 0.01
+  period: 2022
+  input:
+    eitc_phased_in: 560
+    tax_unit_earned_income: 20_532
+    adjusted_gross_income: 15_000
+    state_code: DC
+  output:
+    dc_eitc_without_qualifying_child: 560
+
+- name: dc_eitc_without_qualified_children unit test 3
+  absolute_error_margin: 0.01
+  period: 2022
+  input:
+    eitc_phased_in: 560
+    tax_unit_earned_income: 22_532
+    adjusted_gross_income: 22_532
+    state_code: DC
+  output:
+    dc_eitc_without_qualifying_child: 390.40  # 560 - (22532 - 20532) * 0.0848
+
+- name: dc_eitc_without_qualified_children unit test 4
+  absolute_error_margin: 0.01
+  period: 2021
+  input:
+    eitc_phased_in: 1_502
+    tax_unit_earned_income: 27_743
+    adjusted_gross_income: 27_743
+    state_code: DC
+  output:
+    dc_eitc_without_qualifying_child: 823.60  # 1502 - (27743 - 19743) * 0.0848
+
+- name: DC childless EITC allows ITIN filers
+  absolute_error_margin: 0.01
+  period: 2025
+  input:
+    people:
+      head:
+        age: 30
+        employment_income: 8_000
+        is_tax_unit_head: true
+        has_tin: true
+        ssn_card_type: OTHER_NON_CITIZEN
+    tax_units:
+      tax_unit:
+        members: [head]
+        filing_status: SINGLE
+    spm_units:
+      spm_unit:
+        members: [head]
+    households:
+      household:
+        members: [head]
+        state_code: DC
+  output:
+    dc_eitc_without_qualifying_child: 612
+
+- name: DC childless EITC - age 24 single filer is below federal minimum age
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 24
+        employment_income: 10_000
+        is_tax_unit_head: true
+        has_tin: true
+    tax_units:
+      tax_unit:
+        members: [head]
+        filing_status: SINGLE
+    spm_units:
+      spm_unit:
+        members: [head]
+    households:
+      household:
+        members: [head]
+        state_code: DC
+  output:
+    # Federal EITC childless minimum age is 25 for tax year 2025; below that
+    # threshold there is no DC childless credit.
+    dc_eitc_without_qualifying_child: 0
+
+- name: DC childless EITC - age 65 single filer is above federal maximum age
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 65
+        employment_income: 10_000
+        is_tax_unit_head: true
+        has_tin: true
+    tax_units:
+      tax_unit:
+        members: [head]
+        filing_status: SINGLE
+    spm_units:
+      spm_unit:
+        members: [head]
+    households:
+      household:
+        members: [head]
+        state_code: DC
+  output:
+    # Federal EITC childless maximum age is 64 for tax year 2025.
+    dc_eitc_without_qualifying_child: 0

@@ -1,44 +1,33 @@
-# ===================================================================
-#
-# Copyright (c) 2022, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2022 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
-from Crypto.Math.Numbers import Integer
+from __future__ import annotations
+
+from typing import Optional, Protocol, Union
 
 from Crypto.Hash import SHA512, SHAKE256
-from Crypto.Util.py3compat import bchr, is_bytes
-from Crypto.PublicKey.ECC import (EccKey,
-                                  construct,
-                                  _import_ed25519_public_key,
-                                  _import_ed448_public_key)
+from Crypto.Math.Numbers import Integer
+from Crypto.PublicKey.ECC import (
+    EccKey,
+    EccPoint,
+    _import_ed448_public_key,
+    _import_ed25519_public_key,
+    construct,
+)
+from Crypto.Util._raw_api import is_buffer
+
+__all__ = ["EdDSASigScheme", "new", "import_public_key", "import_private_key"]
 
 
-def import_public_key(encoded):
+class Hash(Protocol):
+    def digest(self) -> bytes: ...
+
+
+class XOF(Protocol):
+    def read(self, length: int) -> bytes: ...
+
+
+def import_public_key(encoded: bytes) -> EccKey:
     """Create a new Ed25519 or Ed448 public key object,
     starting from the key encoded as raw ``bytes``,
     in the format described in RFC8032.
@@ -66,7 +55,7 @@ def import_public_key(encoded):
     return construct(curve=curve_name, point_x=x, point_y=y)
 
 
-def import_private_key(encoded):
+def import_private_key(encoded: bytes) -> EccKey:
     """Create a new Ed25519 or Ed448 private key object,
     starting from the key encoded as raw ``bytes``,
     in the format described in RFC8032.
@@ -96,13 +85,13 @@ def import_private_key(encoded):
     return construct(seed=encoded, curve=curve_name)
 
 
-class EdDSASigScheme(object):
+class EdDSASigScheme:
     """An EdDSA signature object.
     Do not instantiate directly.
     Use :func:`Crypto.Signature.eddsa.new`.
     """
 
-    def __init__(self, key, context):
+    def __init__(self, key: EccKey, context: bytes) -> None:
         """Create a new EdDSA object.
 
         Do not instantiate this object directly,
@@ -114,13 +103,13 @@ class EdDSASigScheme(object):
         self._A = key._export_eddsa_public()
         self._order = key._curve.order
 
-    def can_sign(self):
+    def can_sign(self) -> bool:
         """Return ``True`` if this signature object can be used
         for signing messages."""
 
         return self._key.has_private()
 
-    def sign(self, msg_or_hash):
+    def sign(self, msg_or_hash: Union[bytes, Hash, XOF]) -> bytes:
         """Compute the EdDSA signature of a message.
 
         Args:
@@ -140,13 +129,13 @@ class EdDSASigScheme(object):
 
         if self._key.curve == "Ed25519":
             ph = isinstance(msg_or_hash, SHA512.SHA512Hash)
-            if not (ph or is_bytes(msg_or_hash)):
+            if not (ph or is_buffer(msg_or_hash)):
                 raise TypeError("'msg_or_hash' must be bytes of a SHA-512 hash")
             eddsa_sign_method = self._sign_ed25519
 
         elif self._key.curve == "Ed448":
             ph = isinstance(msg_or_hash, SHAKE256.SHAKE256_XOF)
-            if not (ph or is_bytes(msg_or_hash)):
+            if not (ph or is_buffer(msg_or_hash)):
                 raise TypeError("'msg_or_hash' must be bytes of a SHAKE256 hash")
             eddsa_sign_method = self._sign_ed448
 
@@ -156,14 +145,17 @@ class EdDSASigScheme(object):
         return eddsa_sign_method(msg_or_hash, ph)
 
     def _sign_ed25519(self, msg_or_hash, ph):
-
         if self._context or ph:
             flag = int(ph)
             # dom2(flag, self._context)
-            dom2 = b'SigEd25519 no Ed25519 collisions' + bchr(flag) + \
-                   bchr(len(self._context)) + self._context
+            dom2 = (
+                b"SigEd25519 no Ed25519 collisions"
+                + bytes([flag])
+                + bytes([len(self._context)])
+                + self._context
+            )
         else:
-            dom2 = b''
+            dom2 = b""
 
         PHM = msg_or_hash.digest() if ph else msg_or_hash
 
@@ -171,23 +163,21 @@ class EdDSASigScheme(object):
 
         # Step 2
         r_hash = SHA512.new(dom2 + self._key._prefix + PHM).digest()
-        r = Integer.from_bytes(r_hash, 'little') % self._order
+        r = Integer.from_bytes(r_hash, "little") % self._order
         # Step 3
         R_pk = EccKey(point=r * self._key._curve.G)._export_eddsa_public()
         # Step 4
         k_hash = SHA512.new(dom2 + R_pk + self._A + PHM).digest()
-        k = Integer.from_bytes(k_hash, 'little') % self._order
+        k = Integer.from_bytes(k_hash, "little") % self._order
         # Step 5
-        s = (r + k * self._key.d) % self._order
+        s = (r + k * self._key._d) % self._order
 
-        return R_pk + s.to_bytes(32, 'little')
+        return R_pk + s.to_bytes(32, "little")
 
     def _sign_ed448(self, msg_or_hash, ph):
-
         flag = int(ph)
         # dom4(flag, self._context)
-        dom4 = b'SigEd448' + bchr(flag) + \
-               bchr(len(self._context)) + self._context
+        dom4 = b"SigEd448" + bytes([flag]) + bytes([len(self._context)]) + self._context
 
         PHM = msg_or_hash.copy().read(64) if ph else msg_or_hash
 
@@ -195,18 +185,18 @@ class EdDSASigScheme(object):
 
         # Step 2
         r_hash = SHAKE256.new(dom4 + self._key._prefix + PHM).read(114)
-        r = Integer.from_bytes(r_hash, 'little') % self._order
+        r = Integer.from_bytes(r_hash, "little") % self._order
         # Step 3
         R_pk = EccKey(point=r * self._key._curve.G)._export_eddsa_public()
         # Step 4
         k_hash = SHAKE256.new(dom4 + R_pk + self._A + PHM).read(114)
-        k = Integer.from_bytes(k_hash, 'little') % self._order
+        k = Integer.from_bytes(k_hash, "little") % self._order
         # Step 5
-        s = (r + k * self._key.d) % self._order
+        s = (r + k * self._key._d) % self._order
 
-        return R_pk + s.to_bytes(57, 'little')
+        return R_pk + s.to_bytes(57, "little")
 
-    def verify(self, msg_or_hash, signature):
+    def verify(self, msg_or_hash: Union[bytes, Hash, XOF], signature: bytes) -> None:
         """Check if an EdDSA signature is authentic.
 
         Args:
@@ -226,13 +216,13 @@ class EdDSASigScheme(object):
 
         if self._key.curve == "Ed25519":
             ph = isinstance(msg_or_hash, SHA512.SHA512Hash)
-            if not (ph or is_bytes(msg_or_hash)):
+            if not (ph or is_buffer(msg_or_hash)):
                 raise TypeError("'msg_or_hash' must be bytes of a SHA-512 hash")
             eddsa_verify_method = self._verify_ed25519
 
         elif self._key.curve == "Ed448":
             ph = isinstance(msg_or_hash, SHAKE256.SHAKE256_XOF)
-            if not (ph or is_bytes(msg_or_hash)):
+            if not (ph or is_buffer(msg_or_hash)):
                 raise TypeError("'msg_or_hash' must be bytes of a SHAKE256 hash")
             eddsa_verify_method = self._verify_ed448
 
@@ -242,16 +232,19 @@ class EdDSASigScheme(object):
         return eddsa_verify_method(msg_or_hash, signature, ph)
 
     def _verify_ed25519(self, msg_or_hash, signature, ph):
-
         if len(signature) != 64:
             raise ValueError("The signature is not authentic (length)")
 
         if self._context or ph:
             flag = int(ph)
-            dom2 = b'SigEd25519 no Ed25519 collisions' + bchr(flag) + \
-                   bchr(len(self._context)) + self._context
+            dom2 = (
+                b"SigEd25519 no Ed25519 collisions"
+                + bytes([flag])
+                + bytes([len(self._context)])
+                + self._context
+            )
         else:
-            dom2 = b''
+            dom2 = b""
 
         PHM = msg_or_hash.digest() if ph else msg_or_hash
 
@@ -259,32 +252,32 @@ class EdDSASigScheme(object):
 
         # Step 1
         try:
-            R = import_public_key(signature[:32]).pointQ
+            R = EccPoint._decode_eddsa(signature[:32], "Ed25519")
         except ValueError:
             raise ValueError("The signature is not authentic (R)")
-        s = Integer.from_bytes(signature[32:], 'little')
-        if s > self._order:
+        s = Integer.from_bytes(signature[32:], "little", public=True)
+        if s >= self._order:
             raise ValueError("The signature is not authentic (S)")
         # Step 2
         k_hash = SHA512.new(dom2 + signature[:32] + self._A + PHM).digest()
-        k = Integer.from_bytes(k_hash, 'little') % self._order
-        # Step 3
-        point1 = s * 8 * self._key._curve.G
-        # OPTIMIZE: with double-scalar multiplication, with no SCA
-        # countermeasures because it is public values
-        point2 = 8 * R + k * 8 * self._key.pointQ
+        k = Integer.from_bytes(k_hash, "little", public=True) % self._order
+        # Step 3 (no blinding: s and k are public). The cofactor 8 is a
+        # public Integer too (a Python int is not), created here and not at
+        # import time, so that importing this module runs no C code
+        eight = Integer(8, public=True)
+        point1 = s * eight * self._key._curve.G
+        # OPTIMIZE: with double-scalar multiplication
+        point2 = eight * R + k * eight * self._key.pointQ
         if point1 != point2:
             raise ValueError("The signature is not authentic")
 
     def _verify_ed448(self, msg_or_hash, signature, ph):
-
         if len(signature) != 114:
             raise ValueError("The signature is not authentic (length)")
 
         flag = int(ph)
         # dom4(flag, self._context)
-        dom4 = b'SigEd448' + bchr(flag) + \
-               bchr(len(self._context)) + self._context
+        dom4 = b"SigEd448" + bytes([flag]) + bytes([len(self._context)]) + self._context
 
         PHM = msg_or_hash.copy().read(64) if ph else msg_or_hash
 
@@ -292,25 +285,27 @@ class EdDSASigScheme(object):
 
         # Step 1
         try:
-            R = import_public_key(signature[:57]).pointQ
+            R = EccPoint._decode_eddsa(signature[:57], "Ed448")
         except ValueError:
             raise ValueError("The signature is not authentic (R)")
-        s = Integer.from_bytes(signature[57:], 'little')
-        if s > self._order:
+        s = Integer.from_bytes(signature[57:], "little", public=True)
+        if s >= self._order:
             raise ValueError("The signature is not authentic (S)")
         # Step 2
         k_hash = SHAKE256.new(dom4 + signature[:57] + self._A + PHM).read(114)
-        k = Integer.from_bytes(k_hash, 'little') % self._order
-        # Step 3
-        point1 = s * 8 * self._key._curve.G
-        # OPTIMIZE: with double-scalar multiplication, with no SCA
-        # countermeasures because it is public values
-        point2 = 8 * R + k * 8 * self._key.pointQ
+        k = Integer.from_bytes(k_hash, "little", public=True) % self._order
+        # Step 3 (no blinding: s and k are public). The cofactor 8 is a
+        # public Integer too (a Python int is not), created here and not at
+        # import time, so that importing this module runs no C code
+        eight = Integer(8, public=True)
+        point1 = s * eight * self._key._curve.G
+        # OPTIMIZE: with double-scalar multiplication
+        point2 = eight * R + k * eight * self._key.pointQ
         if point1 != point2:
             raise ValueError("The signature is not authentic")
 
 
-def new(key, mode, context=None):
+def new(key: EccKey, mode: str, context: Optional[bytes] = None) -> EdDSASigScheme:
     """Create a signature object :class:`EdDSASigScheme` that
     can perform or verify an EdDSA signature.
 
@@ -332,11 +327,11 @@ def new(key, mode, context=None):
     if not isinstance(key, EccKey) or key.curve not in ("Ed25519", "Ed448"):
         raise ValueError("EdDSA can only be used with EdDSA keys")
 
-    if mode != 'rfc8032':
+    if mode != "rfc8032":
         raise ValueError("Mode must be 'rfc8032'")
 
     if context is None:
-        context = b''
+        context = b""
     elif len(context) > 255:
         raise ValueError("Context for EdDSA must not be longer than 255 bytes")
 

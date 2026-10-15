@@ -163,9 +163,7 @@ impl Drop for RestoreGuard<'_> {
 
 fn discard_frame_buffers(py: Python<'_>, frame_buffers: HashMap<String, Arc<Mutex<FrameStore>>>) {
     for frame_buffer in frame_buffers.into_values() {
-        // A retired thread-local slot can retain this Arc after its registry
-        // entry is removed. Replace the Vec so those frames and its capacity
-        // are released even when the Arc itself remains cached.
+        // Empty retired buffers even when a thread-local Arc outlives its registry entry.
         let retired = frame_buffer
             .lock_py_attached(py)
             .expect("thread frame buffer poisoned while starting test")
@@ -250,8 +248,6 @@ struct CodeEventMetadata {
     relative_path: String,
     co_qualname: String,
     lines: Arc<utils::CodeLines>,
-    // Diagnostics only: cleared once this code's values need msgpack's
-    // default hook (non-builtin values, formerly serialized in Python).
     native_msgpack_eligible: AtomicBool,
     include_frame: bool,
     has_processor_candidates: bool,
@@ -259,9 +255,7 @@ struct CodeEventMetadata {
 
 enum CachedCodeEventMetadata {
     Full(Arc<CodeEventMetadata>),
-    // Statically excluded code with no plugin candidates only needs an
-    // identity-safe marker. Holding the code strongly prevents pointer reuse
-    // without allocating metadata that no event will consume.
+    // Hold excluded code strongly to prevent pointer reuse without allocating unused metadata.
     Excluded(Py<PyCode>),
 }
 
@@ -277,7 +271,6 @@ enum LocalCodeMetadata {
 enum CodeEventMetadataLookup {
     Full(Arc<CodeEventMetadata>),
     Excluded,
-    // Empty filenames require the existing dynamic attrs fallback.
     Dynamic,
 }
 
@@ -381,10 +374,7 @@ struct InstructionData {
 pub struct KoloMonitor {
     #[pyo3(get)]
     tool_id: u8,
-    // `active` and `timestamp` are accessed from multiple threads at once.
-    // Using atomics / a mutex keeps mutation behind interior mutability so
-    // setters only need a shared (&self) borrow, avoiding
-    // `RuntimeError: Already borrowed` panics.
+    // Atomics/mutex so setters only need &self, avoiding `RuntimeError: Already borrowed`.
     active: AtomicBool,
     #[cfg(test)]
     writer_circuit_override: AtomicBool,
@@ -404,16 +394,11 @@ pub struct KoloMonitor {
     trace_name: Mutex<Option<String>>,
     include_frames: filters::Finders,
     ignore_frames: filters::Finders,
-    // The map is loaded once, but its processors contain mutable Python
-    // context. Keep the mutex for candidate events so free-threaded Python
-    // retains the previous serialization semantics. Cached non-candidates
-    // skip the lock entirely.
+    // Keep candidate plugin processing serialized: processors hold mutable Python context on free-threaded builds.
     default_include_frames: Mutex<HashMap<String, Vec<PluginProcessor>>>,
     #[pyo3(get)]
     line_events: bool,
-    // Hot callbacks lock only their thread's buffer. The registry mutex is
-    // needed on first use per generation; `frame_generation` invalidates TLS
-    // handles whenever build_trace/start_test detaches the registry.
+    // `frame_generation` invalidates TLS handles whenever build_trace/start_test detaches the registry.
     frames_by_thread: Mutex<HashMap<String, Arc<Mutex<FrameStore>>>>,
     trace_capture: Mutex<Arc<TraceCapture>>,
     next_thread_token: AtomicU64,
@@ -426,15 +411,8 @@ pub struct KoloMonitor {
     serializer: Serializer,
     value_interning: utils::ValueInterning,
     frame_paths: utils::FramePathCache,
-    // NOTE: `thread_local::ThreadLocal<RefCell<...>>` entries are keyed by
-    // the OS thread and persist after that thread exits — they are only
-    // reclaimed when the whole `KoloMonitor` is dropped. In practice this
-    // is bounded by the number of distinct threads the process ever spawns
-    // while tracing is active, which is small enough to ignore. We've
-    // decided the memory aspect is won't-fix; see #2535 item 1. The
-    // correctness aspect — the crate hands a dead thread's slot (values
-    // included) to the next thread that starts — is handled by
-    // `reset_recycled_thread_state` via `tls_owner_token`.
+    // ThreadLocal hands a dead thread's slot (values included) to the next thread;
+    // `reset_recycled_thread_state` handles that via `tls_owner_token`.
     call_frames: ThreadLocal<RefCell<utils::CallFrames>>,
     _frame_ids: ThreadLocal<RefCell<utils::FrameIds>>,
     /// `OS_THREAD_TOKEN` of the thread that owns this slot's per-thread
@@ -463,8 +441,6 @@ pub struct KoloMonitor {
     code_metadata_local: ThreadLocal<RefCell<HashMap<usize, LocalCodeMetadata>>>,
     get_instructions_fn: Py<PyAny>,
     config: config::Config,
-    // Trace points: when one of these functions returns, its subtree is
-    // saved as a standalone top-level trace.
     trace_point_return_targets: HashSet<String>,
     trace_point_markers: Mutex<HashMap<String, Vec<MarkerKind>>>,
     #[pyo3(get)]
@@ -527,8 +503,7 @@ impl KoloMonitor {
         let sys = PyModule::import(py, "sys")?;
         let threading = PyModule::import(py, "threading")?;
         let monitoring = sys.getattr("monitoring")?;
-        // Run the line table's layout check here, outside any event
-        // callback (it enables events on a spare tool id).
+        // Must run outside any event callback: it enables events on a spare tool id.
         #[cfg(all(kolo_line_table, Py_3_13))]
         utils::check_line_table_layout(py);
         let dis = PyModule::import(py, "dis")?;
@@ -551,7 +526,6 @@ impl KoloMonitor {
             .expect("config.get(\"filters\") should not raise.");
         let plugins = load_plugins(py, config_dict)?;
 
-        // Extract trace point return targets from config
         let mut trace_point_return_targets = HashSet::new();
         if let Ok(Some(trace_points)) = config_dict.get_item("trace_points") {
             if let Ok(trace_points_dict) = trace_points.cast::<PyDict>() {
@@ -700,8 +674,6 @@ impl KoloMonitor {
         event: Event,
         arg: &Py<PyAny>,
     ) -> Result<Option<(String, SerializedFrame)>, PyErr> {
-        // The caller must prefilter with `matches_filename`; keeping that
-        // check outside avoids resolving a Python frame for filename misses.
         if !processor.matches_event(py, pyframe.as_any(), event, arg)? {
             return Ok(None);
         }
@@ -718,8 +690,6 @@ impl KoloMonitor {
         code: &Bound<'_, PyCode>,
         arg: utils::Arg,
         event: Event,
-        // This thread's cached metadata for `code`, if `guarded_callback`
-        // already looked it up.
         local: Option<LocalCodeMetadata>,
     ) -> Result<Option<Py<PyAny>>, PyErr> {
         let mut deferred_interrupt = None;
@@ -826,7 +796,6 @@ impl KoloMonitor {
             });
             if !include_frame && !has_matching_processor {
                 if metadata.is_none() {
-                    // attrs filtering of empty filenames depends on the caller.
                     return Ok(self.context_dependent_disable(py, event));
                 }
                 return match event {
@@ -836,14 +805,9 @@ impl KoloMonitor {
                     Event::Unwind | Event::Throw => Ok(None),
                 };
             }
-            // Plugin candidates and the ordinary frame describe the same
-            // monitoring event. Resolve its live frame once rather than
-            // dispatching back through ``sys._getframe`` once per candidate
-            // and then again for the ordinary frame.
             let frame = self.sys_getframe_fn.bind(py).call1((0,))?;
             let pyframe = frame.cast::<PyFrame>()?;
             let pyframe_id = pyframe.as_ptr() as usize;
-            // On an entry this clears a marker left by an earlier frame here.
             let abandoned = self
                 ._frame_ids
                 .get_or_default()
@@ -853,9 +817,7 @@ impl KoloMonitor {
                 return Ok(None);
             }
             if let Some(processors) = processors {
-                // Convert the callback argument at most once, and only when a
-                // filename-matched plugin can actually consume it.
-                // Plugins get no value an exit was recorded without.
+                // Convert callback arguments only for matching plugins and never expose omitted exit values.
                 let plugin_arg = has_matching_processor.then(|| match utils::values_omitted() {
                     true => py.None(),
                     false => arg.clone().into_inner(py),
@@ -887,9 +849,7 @@ impl KoloMonitor {
                             }
                             continue;
                         }
-                        // Short of stack, a plugin can fail where the frame
-                        // itself still records: keep the frame's exit.
-                        // Interrupts still reach the program.
+                        // Suppress plugin-only failures when values are omitted, but let program interrupts propagate.
                         Err(err)
                             if utils::values_omitted() && !utils::reaches_program(py, &err) =>
                         {
@@ -918,16 +878,10 @@ impl KoloMonitor {
                 }
             } else if frames.is_empty() {
                 if let Some(err) = deferred_interrupt.take() {
-                    // Nothing was recorded: let CPython's repeat retry it.
                     return Err(err);
                 }
-                // Plugin matchers judge the live frame, not just the code.
                 return Ok(self.context_dependent_disable(py, event));
             }
-            // Capture whether a real target frame ("frame" type) is present
-            // before the call branches consume `frame_types`. The trace point
-            // guard below must not fire for functions that only produced
-            // default_include_frames entries.
             let target_frame_appended = frame_types.iter().any(|t| t == "frame");
             match event {
                 Event::Call | Event::Resume | Event::Throw => {
@@ -946,9 +900,7 @@ impl KoloMonitor {
             target_frame_appended
         };
 
-        // Trace points: record markers on call, save on return. Keep this in
-        // a result scope so a failed snapshot cannot skip the deferred flush
-        // below and leave the thread above its configured memory threshold.
+        // Scope trace-point snapshot errors so a failed snapshot cannot skip the deferred flush.
         let trace_point_result = (|| -> PyResult<()> {
             if !(target_frame_appended
                 && !self.trace_point_return_targets.is_empty()
@@ -1000,10 +952,6 @@ impl KoloMonitor {
                         .trace_point_markers
                         .lock_py_attached(py)
                         .expect("markers mutex");
-                    // Pop the topmost OnReturn marker. If the topmost entry is
-                    // a Test sentinel (e.g. because an Unwind already dropped
-                    // the matching OnReturn), leave the sentinel in place and
-                    // skip the save.
                     let popped = markers
                         .get_mut(&thread_id)
                         .and_then(|stack| match stack.last() {
@@ -1050,8 +998,6 @@ impl KoloMonitor {
                         .expect("markers mutex")
                         .get_mut(&thread_id)
                     {
-                        // Only pop an OnReturn marker on unwind; never drop
-                        // a Test sentinel out from under the test.
                         if matches!(stack.last(), Some(MarkerKind::OnReturn { .. })) {
                             stack.pop();
                         }
@@ -1062,14 +1008,7 @@ impl KoloMonitor {
             Ok(())
         })();
 
-        // Returning from a configured trace point is the one event where
-        // subtree persistence must wait: the flush can replace the tracked
-        // range and invalidate its marker. The snapshot above owns its own
-        // frame bytes, so normal flushing can resume immediately afterward.
-        // If this return also closed a one_trace_per_test boundary, save()
-        // already reset the subtree stack/generation; the helper may observe
-        // stale TLS counters but candidate selection is then empty and the
-        // flush is a no-op rather than crossing the boundary.
+        // Delay subtree flush until the trace-point snapshot owns its frame bytes; flushing first invalidates the marker.
         let flush_result = if defer_subtree_flush {
             self.maybe_flush_current_thread(py)
         } else {
@@ -1344,7 +1283,6 @@ impl KoloMonitor {
                         .borrow_mut()
                         .insert(code_id, LocalCodeMetadata::Full(metadata.clone()));
                 }
-                // A hit means the shared cache retains this code object.
                 CodeEventMetadataLookup::Excluded => {
                     local_cache
                         .borrow_mut()
@@ -1370,9 +1308,6 @@ impl KoloMonitor {
             .expect("default_include_frames mutex poisoned")
             .contains_key(&name);
 
-        // An excluded code object with no processor candidates can never emit
-        // a frame. Cache only its strong identity marker; paths, qualnames, and
-        // native serializer state would be allocated but never read.
         if !include_frame && !has_processor_candidates {
             let mut cache = self
                 .code_metadata_cache
@@ -1408,9 +1343,7 @@ impl KoloMonitor {
             .code_metadata_cache
             .lock_py_attached(py)
             .expect("code metadata cache mutex poisoned");
-        // Every excluded code object counts toward the retention cap. A matching
-        // co_name only makes a plugin frame possible; its path/call predicate may
-        // still reject every event, so it is not grounds for unbounded retention.
+        // Count every excluded code object; a name match alone does not justify unbounded retention.
         let metadata = cache.insert_full(code_id, metadata);
         if let CodeEventMetadataLookup::Full(metadata) = &metadata {
             if metadata.include_frame {
@@ -1445,7 +1378,6 @@ impl KoloMonitor {
         capture: &TraceCapture,
         func_name: &str,
     ) -> Result<(), PyErr> {
-        // Convert frame bytes to Python bytes objects
         let py_frames: Vec<Py<PyBytes>> = frames_slice
             .iter()
             .map(|f| PyBytes::new(py, f).unbind())
@@ -1715,9 +1647,7 @@ impl KoloMonitor {
         variables: &[String],
     ) -> PyResult<()> {
         let frame = instruction_data.line_frame.bind(py);
-        // Read every target before serializing any: a value's __repr__ could
-        // otherwise rebind a later target through the f_locals proxy.
-        // A store binds at most two variables; read both without allocating.
+        // Read every target before serializing any: a __repr__ could rebind a later target via f_locals.
         let mut reads = variables
             .iter()
             .filter(|variable| !variable.starts_with('@'))
@@ -1805,10 +1735,7 @@ impl KoloMonitor {
         let current_frames = frames_by_thread.get(&self.current_thread_id);
         match current_frames {
             Some(current_frames) => match current_frames.trace_name_observations() {
-                // Every plugin frame enters through push_frame_data's typed
-                // batch append. Direct append_encoded_frame calls emit only
-                // native execution events, none of which names a trace, so a
-                // complete empty index is authoritative.
+                // Plugin frames use typed batch append; native direct appends cannot name traces, so an empty index is authoritative.
                 Some(observations) => utils::resolve_full_trace_name(
                     &mut trace_name,
                     observations,
@@ -1944,10 +1871,6 @@ impl KoloMonitor {
             )
         };
 
-        // `ValueInterning` lives for the monitor lifetime, while captures
-        // rotate. Materialized snapshots must carry only IDs actually
-        // referenced by the retired capture; otherwise a long-lived monitor
-        // would copy its entire bounded table into every later small trace.
         let value_table = self
             .value_interning
             .snapshot_ids(&previous_capture.published_value_ids());
@@ -1980,10 +1903,6 @@ impl KoloMonitor {
             frames_by_thread.values().all(|frames| frames.is_empty()),
         );
         let trace_name = self.trace_name_for_full_capture(py, &frames_by_thread);
-        // A callback publishes its Python Thread object before it appends its
-        // first frame. A concurrent snapshot can therefore legitimately have
-        // thread metadata without a frame store. Give those empty threads a
-        // container-local token as well so the snapshot remains complete.
         let thread_tokens = self.snapshot_thread_tokens(&frames_by_thread, &threads)?;
         let prepared = utils::prepare_v3_trace_from_parts(
             py,
@@ -2111,9 +2030,6 @@ impl KoloMonitor {
 
     fn maybe_flush_current_thread(&self, py: Python) -> PyResult<()> {
         let flush_state = self.flush_thread_state.get_or_default();
-        // This runs in the same callback as the append. Trace-point bridging
-        // suspends monitoring hooks, so no event on this thread can change the
-        // TLS state between the push result and this deferred read.
         let (thread_id, current_bytes, armed) = {
             let state = flush_state.borrow();
             (state.thread_id.clone(), state.cumulative_bytes, state.armed)
@@ -2194,14 +2110,7 @@ impl KoloMonitor {
                     self.push_frame_data(py, &mut before, &frame_types[..index + 1], true)?;
                     self.save(py)?;
                     self.reset_subtree_tracking(py);
-                    // save() drained frames_by_thread via mem::take, so any
-                    // surviving OnReturn trace-point markers now index into a
-                    // buffer that no longer exists. Walk each thread's marker
-                    // stack back to (and including) the Test sentinel pushed
-                    // by the matching start_test, dropping the in-flight
-                    // OnReturn markers that sat above it. Matches the
-                    // stack-walk model the Python monitor uses so any future
-                    // marker kinds can coexist on a single stack.
+                    // After save drains frames, drop OnReturn markers through the matching Test sentinel.
                     self.drop_markers_through_test_sentinel(py);
                 }
             }
@@ -2517,7 +2426,6 @@ impl KoloMonitor {
             );
         };
 
-        // Fast path: flush disabled — no tracking at all
         if !flush_enabled {
             return Ok(Some(PushFrameDataResult {
                 thread_id,
@@ -2599,11 +2507,7 @@ impl KoloMonitor {
             .lock_py_attached(py)
             .expect("mutex poisoned") = self.explicit_trace_name.clone();
 
-        // Detach and empty every old buffer. A thread-local slot can retain
-        // its Arc after the registry is cleared, including after that OS
-        // thread exits, so clearing only the registry would retain the old
-        // frames and Vec capacity until the slot is reused or the monitor is
-        // dropped.
+        // A thread-local slot can retain its Arc after the registry is cleared, so empty every old buffer.
         let timestamp = *self
             .timestamp
             .lock_py_attached(py)
@@ -2629,12 +2533,6 @@ impl KoloMonitor {
         discard_frame_buffers(py, frame_buffers);
         drop(previous_capture);
 
-        // Walk each thread's marker stack back through the previous test's
-        // Test sentinel (if any), dropping OnReturn markers that point into
-        // the frame buffer we just wiped, then push a fresh Test sentinel on
-        // every currently-known thread. New threads that push OnReturn
-        // markers later in this test will stack above this sentinel, and
-        // end_test walks back to it to drop them cleanly.
         {
             let threads_snapshot: Vec<String> = self
                 .threads
@@ -2647,9 +2545,7 @@ impl KoloMonitor {
                 .trace_point_markers
                 .lock_py_attached(py)
                 .expect("markers mutex");
-            // Drop any leftover markers from the previous test. Frame
-            // indices referenced by OnReturn markers were invalidated when
-            // start_test wiped frames_by_thread.
+            // Clear prior markers when start_test wipes frames_by_thread.
             markers.clear();
             for thread_id in threads_snapshot {
                 markers.entry(thread_id).or_default().push(MarkerKind::Test);
@@ -2686,7 +2582,6 @@ impl KoloMonitor {
     }
 
     fn reset_subtree_tracking(&self, py: Python) {
-        // Bump generation to invalidate all TLS flush state lazily
         self.flush_generation.fetch_add(1, Ordering::Relaxed);
         subtree_flush::reset_tracking(
             &mut self
@@ -2796,10 +2691,7 @@ impl KoloMonitor {
         restore_guard.disarm();
         drop(frames);
 
-        // Fix up trace point markers for the drained range: drop any
-        // OnReturn marker that pointed inside it, shift OnReturn markers past
-        // it down to account for the placeholder replacement. Test sentinels
-        // carry no frame index so they pass through untouched.
+        // Drop markers inside the drained range and shift later OnReturn indices after replacement.
         {
             let mut markers = self
                 .trace_point_markers
@@ -2882,7 +2774,6 @@ impl KoloMonitor {
         source: CallbackSource<'_, '_>,
         callback: impl FnOnce(Option<LocalCodeMetadata>) -> Result<Option<Py<PyAny>>, PyErr>,
     ) -> PyResult<Py<PyAny>> {
-        // Every DISABLE goes through `owned_result`, whichever path makes it.
         let session = self.session_epoch.load(Ordering::Relaxed);
         let hooks = thread_hooks::get();
         if hooks & thread_hooks::OFF != 0 {
@@ -2893,9 +2784,7 @@ impl KoloMonitor {
             let result = self.disabled_result(py, event);
             return Ok(self.owned_result(py, result, session));
         }
-        // This monitor's assignment bookkeeping waiting on this thread.
-        // Another monitor's entries are never ours to process or clear; a
-        // dead monitor's are dropped here.
+        // Process only this monitor’s assignment entries; leave other live monitors’ entries untouched.
         let waiting = if hooks & thread_hooks::ASSIGNMENTS != 0 {
             let waiting = thread_hooks::assignments_for(&self.assignment_owner);
             if waiting == 0 {
@@ -2905,9 +2794,7 @@ impl KoloMonitor {
         } else {
             0
         };
-        // One lookup in this thread's cache, reused by `monitor`. An
-        // assignment waiting to be recorded must be recorded at this event,
-        // so only take the excluded shortcut when none is.
+        // Skip excluded-code shortcuts while this event owes an assignment record.
         let local = match source {
             CallbackSource::Code(code) | CallbackSource::Unwind(code, _) => {
                 self.local_code_metadata(code)
@@ -2918,16 +2805,12 @@ impl KoloMonitor {
             let result = self.static_disable(py, event);
             return Ok(self.owned_result(py, result, session));
         }
-        // Cached-excluded code returned above without the stack check: it is
-        // never recorded, and its entries were forgotten when the callback
-        // that cached it returned DISABLE (below), so no exit is owed.
         let (stack, stack_event, omitting) = match source {
             CallbackSource::Code(code) => utils::check_stack_with(stack_event, |code_id| {
                 Some(near_end_frame_id(code).unwrap_or(code_id))
             }),
             CallbackSource::Unwind(code, offset) => {
                 utils::check_stack_with(stack_event, |code_id| {
-                    // CPython never reported this frame's start: no entry.
                     if before_first_resume(code, offset) {
                         return None;
                     }
@@ -2936,7 +2819,6 @@ impl KoloMonitor {
             }
             _ => utils::check_stack_with(stack_event, Some),
         };
-        // Not DISABLE: the same code runs fine again with more stack free.
         if stack == utils::StackDecision::Skip {
             self.stack_skips.note();
             return Ok(py.None());
@@ -2972,10 +2854,8 @@ impl KoloMonitor {
         match result {
             Ok(result) => result.map(|result| {
                 if let utils::StackEvent::Enter(id) = stack_event {
-                    // Kolo filtered this frame out and its exits will skip
-                    // the stack check: forget it, so a later frame at its
-                    // address can't match it once it's gone. A PY_THROW
-                    // can't be disabled, so look its code up instead.
+                    // Forget filtered frames: their exits skip the stack check, and a later frame may reuse the address.
+                    // A PY_THROW can't be disabled, so look its code up instead.
                     let filtered = result.bind(py).is(self.disable.bind(py))
                         || matches!((event, source), (Event::Throw, CallbackSource::Code(code))
                             if matches!(self.local_code_metadata(code), Some(LocalCodeMetadata::Excluded)));
@@ -3040,10 +2920,7 @@ impl KoloMonitor {
         if !self.writer_circuit_is_open() {
             return;
         }
-        // This runs only on the callback which observes the storage timeout.
-        // Turning events off here avoids imposing an atomic circuit check on
-        // every healthy callback. Keep `active` true so normal teardown still
-        // unregisters callbacks and releases the tool ID.
+        // On writer timeout disable events but leave active true so teardown releases callbacks and the tool ID.
         self.disable_events(py);
     }
 
@@ -3078,8 +2955,6 @@ impl KoloMonitor {
         if self.cached_excluded(code) {
             return true;
         }
-        // The same decision the idle filter makes between sessions, from
-        // this monitor's immutable filters and plugin filenames.
         catch_unwind(AssertUnwindSafe(|| {
             matches!(self.idle.session_may_record(code), Ok(false))
         }))
@@ -3105,19 +2980,13 @@ impl KoloMonitor {
         hooks: u8,
         source: CallbackSource<'_, '_>,
     ) -> Py<PyAny> {
-        // Code the filters statically exclude is off for every thread, so
-        // DISABLE it whichever thread runs it first, without marking the
-        // session (the idle filter would disable it too). This is how Kolo's
-        // own save/emit/upload code on its workers stops firing.
         if let CallbackSource::Code(code) | CallbackSource::Unwind(code, _) = source {
             if self.statically_excluded(code) {
                 return self.static_disable(py, event);
             }
         }
         if hooks & thread_hooks::WORKER == 0 {
-            // A save section on a traced thread runs Kolo's own code. That
-            // depends on the thread, not the code: the tool must not carry
-            // these disabled locations into another session.
+            // Save-section exclusions depend on the thread; do not carry them into the next session’s global disabled locations.
             return self.disabled_result(py, event);
         }
         // A Kolo worker can run code the user's threads run too (callbacks,
@@ -3125,8 +2994,6 @@ impl KoloMonitor {
         // every thread. Only disable what is off for every thread anyway.
         let disable = match source {
             CallbackSource::Code(_) | CallbackSource::Unwind(..) => false,
-            // Statically excluded code first (no lock, no Python), so Kolo's
-            // own code stops firing instruction events on its first hit.
             CallbackSource::Instruction(code, offset) => {
                 self.statically_excluded(code)
                     || self
@@ -3245,8 +3112,6 @@ impl KoloMonitor {
 impl KoloMonitor {
     #[getter]
     fn trace_id(&self, py: Python) -> PyResult<String> {
-        // A caught callback panic may have poisoned this lock; the id itself
-        // is still a valid string.
         Ok(self
             .trace_id
             .lock_py_attached(py)
@@ -3256,8 +3121,6 @@ impl KoloMonitor {
 
     #[getter]
     fn root_trace_id(&self, py: Python) -> PyResult<String> {
-        // A caught callback panic may have poisoned this lock; the id itself
-        // is still a valid string.
         Ok(self
             .root_trace_id
             .lock_py_attached(py)
@@ -3281,32 +3144,23 @@ impl KoloMonitor {
         self.writer_circuit_is_open()
     }
 
-    // Explicit setter method. We intentionally do NOT expose this as a
-    // Python attribute setter (via `#[setter]`) because PyO3-generated
-    // attribute setters require an exclusive borrow on the pyclass's PyCell,
-    // which conflicts with shared borrows held by other threads still
-    // running Python-level monitoring callbacks (e.g. a background save
-    // thread). Taking `&self` avoids the exclusive-borrow requirement.
+    // Not a #[setter]: PyO3 setters need an exclusive borrow, which conflicts with callbacks
+    // still running on other threads.
     fn set_active(&self, value: bool) {
         if value {
-            // A monitor whose last session ended in idle mode but was then
-            // torn down records again when it is activated anew.
             self.idle_mode.store(false, Ordering::Relaxed);
         }
         if value {
-            // See `end_session`.
             self.assignment_owner.set_live(true);
             self.stack_skips.reset();
         }
         self.session_epoch.fetch_add(1, Ordering::Relaxed);
         self.active.store(value, Ordering::Release);
         if !value {
-            // The session is over: free the memory of cached reprs.
             self.value_interning.release_repr_reuse();
         }
     }
 
-    // See `set_active` for rationale. Uses a Mutex to store the f64.
     fn set_timestamp(&self, py: Python, value: f64) {
         *self
             .timestamp
@@ -3339,10 +3193,7 @@ impl KoloMonitor {
         let py = slf.py();
         let idle = {
             let monitor = slf.borrow();
-            // Without the GIL a callback can be on its way into session mode
-            // after the switch, and line events and trace points disable
-            // locations for reasons the idle filter cannot see.
-            // After a panic Kolo's events are off and stay off.
+            // Avoid idle handoff when free-threaded callbacks, line events or trace points may have context-disabled locations.
             if cfg!(Py_GIL_DISABLED)
                 || monitor.line_events
                 || !monitor.trace_point_return_targets.is_empty()
@@ -3351,9 +3202,6 @@ impl KoloMonitor {
                 return Ok(false);
             }
             monitor.idle_mode.store(true, Ordering::Release);
-            // The session is over, so its waiting assignments will never be
-            // recorded: let other monitors' events drop them. A later session
-            // starts afresh (`begin_session` / `set_active`).
             monitor.assignment_owner.set_live(false);
             // A session callback still running (it released the GIL) could
             // yet disable a location for a context-dependent reason.
@@ -3365,10 +3213,6 @@ impl KoloMonitor {
             }
             Bound::new(py, IdleMonitor::new(monitor.idle.clone()))?
         };
-        // Both sides are idle, so the order of the swaps does not matter.
-        // The idle monitor shares this monitor's filter, which can be dropped.
-        // If an audit hook refuses a registration, the caller's teardown
-        // releases the tool as before.
         if register_callbacks(idle.as_any(), tool_id).is_err() {
             return Ok(false);
         }
@@ -3389,12 +3233,8 @@ impl KoloMonitor {
             register_callbacks(slf.as_any(), tool_id)?;
             let monitor = slf.borrow();
             let previous = idle.get().filter();
-            // Read both flags: either side may have disabled a recordable
-            // location.
             let previous_dirty = previous.take_dirty();
             let own_dirty = monitor.idle.take_dirty();
-            // No Python code runs from here until the session starts, so no
-            // other thread can disable anything in between.
             if previous_dirty || own_dirty || !monitor.idle.same_filters(previous) {
                 restart_events(py)?;
             }
@@ -3403,7 +3243,6 @@ impl KoloMonitor {
             Ok(())
         })();
         if started.is_err() {
-            // The tool is no longer idle and this session never started.
             release_tool(py, tool_id);
         }
         started
@@ -3464,8 +3303,6 @@ impl KoloMonitor {
     }
 
     fn save(&self, py: Python) -> Result<(), PyErr> {
-        // After a caught callback panic the capture may be inconsistent and
-        // its locks poisoned. The panic was already reported; drop the trace.
         if self.panicked.load(Ordering::Relaxed) {
             return Ok(());
         }
@@ -3486,9 +3323,7 @@ impl KoloMonitor {
             frames_by_thread.values().all(|frames| frames.is_empty()),
         );
         let trace_name = self.trace_name_for_full_capture(py, &frames_by_thread);
-        // Resolve Python-derived metadata before entering the best-effort
-        // persistence boundary. Programming/environment errors must still
-        // propagate; only file-system publication errors are logged.
+        // Resolve Python metadata before the best-effort storage boundary; only filesystem publication failures are logged.
         let thread_tokens = self.snapshot_thread_tokens(&frames_by_thread, &threads)?;
         let prepared = utils::prepare_v3_trace_from_parts(
             py,
@@ -3551,10 +3386,6 @@ impl KoloMonitor {
             })()
         } else {
             (|| {
-                // Sealing the last arenas, draining the writer, fsync, rename,
-                // and the directory sync touch no Python objects. Detach so
-                // the application's other threads keep running while this
-                // save thread blocks on storage.
                 py.detach(|| -> std::io::Result<()> {
                     let layouts = frames_by_thread
                         .values_mut()
@@ -3952,9 +3783,6 @@ mod tests {
         Python::initialize();
 
         Python::attach(|py| {
-            // Every unwind CPython reports, with whether it reported the
-            // frame's entry (start, throw or resume) first. Tool id 5 is
-            // unassigned.
             let fixture = PyModule::from_code(
                 py,
                 cr#"
@@ -4025,8 +3853,6 @@ prefix = [
                 .expect("unwinds")
                 .extract()
                 .expect("code, offset and entered");
-            // A fresh generator's throw unwinds at RETURN_GENERATOR, before
-            // the first RESUME, after a PY_THROW Kolo recorded.
             assert!(unwinds.len() >= 2, "{unwinds:?}");
             for (code, offset, entered) in &unwinds {
                 assert_eq!(
@@ -4046,7 +3872,6 @@ prefix = [
                     .iter()
                     .position(|(opname, _)| opname == "RESUME")
                     .expect("a RESUME");
-                // `outer` starts with MAKE_CELL, `inner` with COPY_FREE_VARS.
                 assert!(resume > 0, "{instructions:?}");
                 for (index, (opname, offset)) in instructions.iter().enumerate() {
                     assert_eq!(
@@ -4096,8 +3921,6 @@ prefix = [
                     )
                     .expect("test monitor");
                     with_stack_below(NEAR_STACK_END_BYTES, &mut || {
-                        // `descend` runs, its entry recorded and remembered
-                        // (no Python frame here: by its code).
                         let (decision, _) = check_stack(StackEvent::Enter(code.as_ptr() as usize));
                         assert_eq!(decision, crate::_kolo::utils::StackDecision::Record);
                         assert_eq!(remembered_entries(), 1);
@@ -4107,7 +3930,6 @@ prefix = [
                             monitor
                                 .monitor_pyunwind(&code, 0, py.None().bind(py))
                                 .expect("callback succeeds");
-                            // The caller's entry is still waiting for its exit.
                             assert_eq!(remembered_entries(), 1);
                         });
                     });
@@ -4269,8 +4091,6 @@ prefix = [
             )
             .expect("test monitor");
             monitor.reset_recycled_thread_state();
-            // A deferred second store target and a pending assignment, both
-            // of which would fail to record (and stay queued) if processed.
             inject_assignment_error(&monitor, py);
             let deferred = InstructionData {
                 variables: Arc::from(["missing".to_string()]),
@@ -4295,8 +4115,6 @@ prefix = [
                 thread_hooks::PENDING_ASSIGNMENT | thread_hooks::DEFERRED_STORE
             );
 
-            // An exit recorded without its values has no stack to serialize
-            // them either, and must not leave them to be recorded after it.
             let omitting = crate::_kolo::utils::OmittingValues::start();
             let begun = monitor
                 .begin_callback(py, super::Event::Return, waiting)
@@ -4357,8 +4175,6 @@ prefix = [
             inject_assignment_error(&first, py);
             inject_assignment_error(&second, py);
 
-            // The second monitor's event processes and clears only its own
-            // waiting assignment (the injected read error is just logged).
             unwind(&second);
             assert_eq!(waiting(&second), 0);
             assert!(!holds_data(&second));
@@ -4368,12 +4184,10 @@ prefix = [
                 thread_hooks::get() & thread_hooks::ASSIGNMENTS,
                 thread_hooks::ASSIGNMENTS
             );
-            // With nothing of its own waiting, it leaves the first's alone.
             unwind(&second);
             assert_eq!(waiting(&first), thread_hooks::PENDING_ASSIGNMENT);
             assert!(holds_data(&first));
 
-            // The first monitor still processes its own at its next event.
             unwind(&first);
             assert_eq!(waiting(&first), 0);
             assert!(!holds_data(&first));
@@ -4386,7 +4200,6 @@ prefix = [
             unwind(&second);
             assert_eq!(thread_hooks::get() & thread_hooks::ASSIGNMENTS, 0);
             assert_eq!(waiting(&first), 0);
-            // Toggling `active` mid-session never retires anything.
             first.set_active(true);
             inject_assignment_error(&first, py);
             first.set_active(false);
@@ -4394,7 +4207,6 @@ prefix = [
             first.set_active(true);
             assert_eq!(waiting(&first), thread_hooks::PENDING_ASSIGNMENT);
 
-            // A dead monitor's leftovers are dropped by the next event.
             drop(first);
             unwind(&second);
             assert_eq!(thread_hooks::get() & thread_hooks::ASSIGNMENTS, 0);
@@ -4433,15 +4245,11 @@ prefix = [
                 monitor.monitor_pystart(code, 0).expect("callback succeeds")
             };
 
-            // A worker that is first to run excluded code (Kolo's own
-            // save/emit code) disables it for good...
             thread_hooks::set(thread_hooks::WORKER, true);
             assert!(start(&excluded).bind(py).is(disable));
-            // ...but never code a traced thread might still have to record.
             assert!(start(&included).bind(py).is_none());
             thread_hooks::set(thread_hooks::WORKER, false);
 
-            // A traced thread caches the exclusion and reuses it.
             assert!(start(&excluded).bind(py).is(disable));
             assert!(monitor.cached_excluded(&excluded));
             assert!(start(&excluded).bind(py).is(disable));
@@ -4458,7 +4266,6 @@ prefix = [
                 .expect("callback succeeds")
                 .bind(py)
                 .is_none());
-            // Instruction events in excluded code are disabled on first hit.
             let excluded_lines =
                 PyCode::compile(py, c"x = 1", c"<frozen hook_state_lines>", PyCodeInput::File)
                     .expect("excluded code");
@@ -4468,7 +4275,6 @@ prefix = [
                 .bind(py)
                 .is(disable));
 
-            // A save section on a worker leaves its mark alone.
             {
                 let _suspended = thread_hooks::Suspended::new();
                 assert!(start(&included).bind(py).is_none());
@@ -4479,8 +4285,6 @@ prefix = [
             // could stay armed between sessions.
             assert!(!monitor.context_disabled.load(Ordering::Relaxed));
 
-            // A save section on a traced thread disables statically excluded
-            // code without marking the session...
             {
                 let _suspended = thread_hooks::Suspended::new();
                 let library = PyCode::compile(
@@ -4493,7 +4297,6 @@ prefix = [
                 assert!(start(&library).bind(py).is(disable));
             }
             assert!(!monitor.context_disabled.load(Ordering::Relaxed));
-            // ...and anything else it runs for the thread's sake, which does.
             {
                 let _suspended = thread_hooks::Suspended::new();
                 assert!(start(&included).bind(py).is(disable));
@@ -4504,8 +4307,6 @@ prefix = [
                     .is_none());
             }
             assert_eq!(thread_hooks::get() & thread_hooks::OFF, 0);
-            // That one depended on the thread: the session must not hand
-            // its disabled locations to the next one.
             assert!(monitor.context_disabled.load(Ordering::Relaxed));
         });
     }
@@ -4536,8 +4337,6 @@ prefix = [
                     .expect("excluded code")
             };
 
-            // Under the retention cap the shared cache keeps the code alive,
-            // so its address is safe to remember on this thread.
             let retained = excluded(c"<frozen retained>");
             assert!(matches!(
                 monitor.code_event_metadata(&retained),
@@ -4545,8 +4344,6 @@ prefix = [
             ));
             assert!(monitor.cached_excluded(&retained));
 
-            // Past the cap it isn't kept alive, so once freed its address may
-            // belong to included code: it must never be remembered.
             monitor
                 .code_metadata_cache
                 .lock()
@@ -4674,8 +4471,6 @@ prefix = [
                 .bind(py)
                 .is(monitor.disable.bind(py)));
 
-            // The generic callback error path must also attempt to turn the
-            // process-wide event mask off after the circuit opens.
             monitor
                 .return_or_log(py, Err(PyRuntimeError::new_err("writer circuit")))
                 .expect("a logged error is not raised");
@@ -4705,7 +4500,6 @@ prefix = [
             .expect("test monitor");
             monitor.set_active(true);
 
-            // Panic while holding a lock, as a real mid-callback bug would.
             let result = monitor.guarded_callback(
                 py,
                 super::Event::Unwind,
@@ -4720,7 +4514,6 @@ prefix = [
             assert!(monitor.panicked.load(Ordering::Relaxed));
             assert!(!pyo3::PyErr::occurred(py));
 
-            // Later callbacks no longer run Kolo code at all.
             let result = monitor.guarded_callback(
                 py,
                 super::Event::Call,
@@ -4733,8 +4526,6 @@ prefix = [
                 .bind(py)
                 .is(monitor.disable.bind(py)));
 
-            // Teardown neither panics on the poisoned lock nor saves the
-            // possibly inconsistent capture.
             assert!(monitor.trace_id(py).is_ok());
             assert!(monitor.save(py).is_ok());
             assert!(monitor.build_trace(py).is_err());
@@ -4779,7 +4570,6 @@ prefix = [
                 .call_method1("set_events", (tool_id, py_start))
                 .unwrap();
 
-            // The session ended while these callbacks were still running.
             monitor.set_active(false);
             monitor.idle_mode.store(true, Ordering::Relaxed);
             let result = monitor.guarded_callback(
@@ -4795,7 +4585,6 @@ prefix = [
                 .store(true, Ordering::Release);
             monitor.disable_events_after_writer_circuit(py);
             let after_circuit = events();
-            // During its session the monitor still turns its events off.
             monitor.set_active(true);
             monitor.disable_events_after_writer_circuit(py);
             let during_session = events();
@@ -4841,7 +4630,6 @@ prefix = [
             };
 
             let during_session = run(&disable);
-            // The session ends, and another starts, while the callback runs.
             let after_teardown = run(&|| {
                 monitor.set_active(false);
                 disable()
@@ -4852,7 +4640,6 @@ prefix = [
                 disable()
             });
             let next_callback = run(&disable);
-            // Callbacks can still start during teardown.
             monitor.set_active(false);
             let during_teardown = run(&disable);
 
@@ -4950,7 +4737,6 @@ prefix = [
                 .expect("test monitor"),
             )
             .expect("monitor pyclass");
-            // A live session's callback, which still owns the tool's events.
             monitor.borrow(py).set_active(true);
             let capture = TraceCapture::start_with_open_test_circuit(
                 test_capture_path("value-publication-timeout"),
@@ -4990,10 +4776,7 @@ prefix = [
                 let second_is_none = invoke.call1((&value,))?.is_none();
                 let calls_before_circuit = fixture.getattr("calls")?.extract::<Vec<(u8, u32)>>()?;
 
-                // Production captures share the process-global writer runtime.
-                // This test capture uses an isolated open runtime so it cannot
-                // poison the test process; mirror the production global latch
-                // only for the callback's disable-events check.
+                // Mirror the global circuit latch without poisoning the test process's isolated writer runtime.
                 monitor
                     .borrow(py)
                     .writer_circuit_override
@@ -5054,15 +4837,10 @@ prefix = [
             (monitor, stall)
         });
 
-        // While save() waits for the stalled writer, another thread must be
-        // able to attach and run Python. If save() kept the GIL, the other
-        // thread could only run after the stall is released.
         let other_thread_ran = Arc::new(AtomicBool::new(false));
         let observer = {
             let other_thread_ran = Arc::clone(&other_thread_ran);
             std::thread::spawn(move || {
-                // Release the writer on every exit path so a failed assertion
-                // reports instead of leaving save() parked forever.
                 struct ReleaseOnDrop(super::super::trace_container::WriterStallForTest);
                 impl Drop for ReleaseOnDrop {
                     fn drop(&mut self) {
@@ -5099,8 +4877,6 @@ prefix = [
         };
 
         Python::attach(|py| {
-            // Metadata persistence may fail without a migrated database; only
-            // the detach during finalization matters here.
             let _ = monitor.save(py);
         });
         observer.join().expect("observer thread");
@@ -5168,8 +4944,6 @@ prefix = [
                     );
                     std::thread::sleep(Duration::from_millis(1));
                 }
-                // The parent's save now holds the monitor's save locks while
-                // detached on the stalled writer. Fork from another thread.
                 let child = Python::attach(|py| {
                     let pid: libc::pid_t = py
                         .import("os")
@@ -5178,8 +4952,6 @@ prefix = [
                         .expect("os.fork");
                     if pid == 0 {
                         let saved = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            // Metadata persistence may fail without a migrated
-                            // database; only reaching the end matters.
                             let _ = monitor.save(py);
                         }));
                         unsafe { libc::_exit(if saved.is_ok() { 0 } else { 2 }) };
@@ -5277,17 +5049,11 @@ prefix = [
             }
 
             let other_thread_ran = std::thread::scope(|scope| {
-                // Owned by the scope closure so a failed assertion releases the
-                // writer before the scope joins the saver; otherwise the saver
-                // would wait out the stall timeout and poison the process-wide
-                // writer runtime for later tests.
                 let stall = ReleaseOnDrop(stall);
                 assert!(
                     stall.0.wait_until_entered(Duration::from_secs(10)),
                     "writer never reached the injected stall"
                 );
-                // Fill the process-wide resident budget behind the stalled writer
-                // so the child artifact has to wait for writer progress.
                 capture
                     .publish_value(1, Arc::from(vec![0u8; 15 * 1024 * 1024]))
                     .expect("queue a large value behind the stall");

@@ -1268,6 +1268,25 @@ def has_forecast(use_cids) -> bool:
     return "all" in use_cids or any(c in _FORECAST_CID_TYPES for c in use_cids)
 
 
+def country_region_key(country, region):
+    """The ``Country Region`` join key for one row, or a Series of rows.
+
+    Matches the key ``yield_outlook._load_shapefiles`` builds from the
+    boundary file (``ADM0_NAME + " " + ADMx_NAME``, lower-cased): the config
+    country slug has its underscores turned into spaces, the region name is
+    only lower-cased. One home for an expression the outlook code restated
+    inline at six call sites.
+    """
+    def _country(c):
+        return (c.str.lower().str.replace("_", " ") if hasattr(c, "str")
+                else str(c).lower().replace("_", " "))
+
+    def _region(r):
+        return r.str.lower() if hasattr(r, "str") else str(r).lower()
+
+    return _country(country) + " " + _region(region)
+
+
 def load_country_boundary_gdf(parser, shapefile_path, *, country=None):
     """Read a boundary shapefile, apply config-driven column renames, fix the
     Tanzania short-name, drop columns that would duplicate after rename, and

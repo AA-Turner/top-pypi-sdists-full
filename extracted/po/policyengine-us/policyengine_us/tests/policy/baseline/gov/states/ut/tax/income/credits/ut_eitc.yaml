@@ -1,0 +1,27 @@
+- name: UT EITC unit test 1
+  period: 2022
+  input:
+    eitc: 1000
+    employment_income: 1000
+    state_code: UT
+    ut_income_tax_before_non_refundable_credits: 1000000
+  output:
+    ut_eitc: 150
+- name: No federal EITC
+  period: 2022
+  input:
+    eitc: 0
+    state_code: UT
+    ut_income_tax_before_non_refundable_credits: 1000000
+  output:
+    ut_eitc: 0
+
+- name: Utah EITC is capped by wages shown on the W-2
+  period: 2025
+  input:
+    eitc: 1000
+    employment_income: 150
+    state_code: UT
+    ut_income_tax_before_non_refundable_credits: 1000000
+  output:
+    ut_eitc: 150

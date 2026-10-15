@@ -1,0 +1,11 @@
+description: Nebraska provides a fee-free Child Care Subsidy program benefit to families with gross income at or below this fraction of the federal poverty guidelines.
+values:
+  2021-08-28: 1
+
+metadata:
+  unit: /1
+  period: year
+  label: Nebraska Child Care Subsidy fee-free FPG limit
+  reference:
+    - title: Nebraska FFY 2025-2027 CCDF State Plan, Section 3.3.1
+      href: https://dhhs.ne.gov/Child%20Care%20Documents/ACF-118%20CCDF%20FFY%202025-2027%20For%20Nebraska%20-%20APPROVED.pdf#page=39

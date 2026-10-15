@@ -18,7 +18,8 @@ HELP = [
     ("  free (a wound also mends with time)", 0),
     ("c clean poop", 1),
     ("o lights   v assistant - paid help:", 1),
-    ("  a fee per visit + an hourly wage", 0),
+    # menus audit 2026-10-14: billing and late-stage clocks use game time.
+    ("  a fee per visit + a game-hour wage", 0),
     ("  once it's Rookie or older", 0),
     ("ENTER accepts a found gift", 1),
     # the ✗ counter finally explained (gameplay polish #18, 2026-07-22):
@@ -29,7 +30,7 @@ HELP = [
     ("comes next and reset each stage.", 0),
     # ("elder" was the wrong axis here -- the 5-mistake death is 2 game-days
     # INTO an Ultimate/Mega stage, never the age-15 elder; audit 2026-07-25)
-    ("20 is fatal - and 2 days into an", 0),
+    ("20 is fatal - 2 game days into an", 0),
     ("Ultimate/Mega stage just 5 can be.", 0),
     # the energy dial explained (gameplay polish #6, 2026-07-22): no
     # passive decay BY DESIGN -- it is the ACTION meter, so the gauge only
@@ -46,7 +47,7 @@ HELP = [
     ("p discipline - praise & scold:", 1),
     ("  scold a tantrum (+manners), praise", 0),
     ("  a proud win; ignored tantrums", 0),
-    ("  cost a care mistake", 0),
+    ("  cost manners -5, no care mistake", 0),
     # the alarm legend (#8): the ring count is the message
     ("Alarms count the urgency: one beep", 0),
     ("routine, two a mess, three urgent.", 0),
@@ -63,10 +64,20 @@ HELP = [
     ("  answers - the feud's score lives", 0),
     ("  on the digicore PERSON page", 0),
     ("a adventure - head out on the road", 1),
-    # the 2026-10-14 world: 30 maps, one run each
-    ("  cross a map, fell its boss to open", 0),
-    ("  the next. Towns sell eggs and", 0),
-    ("  map clears unlock more of them", 0),
+    # the 2026-10-14 world: 30 maps, one run each; the fuller page is
+    # adventure call #26 = A (Joel 2026-10-15)
+    ("  30 maps, 5 areas of 6: fell a map's", 0),
+    ("  boss to open the next. Clearing an", 0),
+    ("  area opens new eggs + shop stock.", 0),
+    ("  Towns sell eggs and crests.", 0),
+    ("  SPACE hurries and ducks pounces;", 0),
+    ("  a find: time SPACE to dig it up.", 0),
+    ("  3 lives - a lost fight costs one,", 0),
+    ("  none left ends the run. A hurt pet", 0),
+    ("  can't face the boss. T road items:", 0),
+    ("  Rest Kit half energy + patch,", 0),
+    ("  Life Recovery lives, Shortcut", 0),
+    ("  straight to the boss", 0),
     ("r raid - the community boss: fight", 1),
     ("  10-round volleys, break the shared", 0),
     ("  pool together, claim the purse", 0),
@@ -80,19 +91,37 @@ HELP = [
     ("Eggs hatch, then evolve by HOW you", 0),
     ("raise them - care, train, battles.", 0),
     ("Each egg has its own line to a Mega.", 0),
+    # evolution audit 2026-10-14: a chart's Mega route isn't every branch.
+    ("Some branches stop early.", 0),
+    # final sweep 2026-10-14: explain the Godzilla chart's live dial.
+    ("Godzilla G-Cells: 0-472 points.", 0),
+    ("Local fights and drills change it;", 0),
+    ("pills and care slips lower it.", 0),
+    ("A fallen kaiju may leave a fragment", 0),
+    ("for your next Godzilla Egg.", 0),
     # "a clean hit saves your battle form" read backwards: EVERY grade
-    # saves, only MEGA is worth anything, and home fights lock their own
-    # bar -- the saved form is what LOBBY rivals face (audit 2026-07-25)
+    # saves, only MEGA is worth anything, and fights lock their own bar
+    # (battle audit 2026-10-14: proto 4 applies this to lobby duels too)
     ("t train - time the strike: PERFECT", 1),
-    ("  locks the power form your lobby", 0),
-    ("  rivals will face", 0),
+    # battle audit 2026-10-14: lobby commits a live lock, not the saved drill.
+    ("  sharpens aim; every attempt trains", 0),
+    ("  effort; battles lock their own bar", 0),
     # the DNA arc told as ONE story (Joel 2026-07-22: "what does dna even
     # do lol" -- the pages teach the pieces, the guide tells the loop)
     ("x DNA - steer the next evolution:", 1),
     ("  wager bits, mash to bank a Field,", 0),
-    ("  charge ONE Field to its threshold;", 0),
-    ("  the next evolution takes that road", 0),
+    ("  charge a road Field to its threshold", 0),
+    ("  unique leader arms; ties disarm", 0),
+    ("  growth picks one road destination", 0),
+    ("  charges clear at every evolution", 0),
+    ("  energy: -1/unit, off-Field -2;", 0),
+    ("  a charge stops at empty energy", 0),
+    ("  Effort rises up to three hearts", 0),
     ("d digicore - the pet's data book", 1),
+    # DigiCore audit 2026-10-14: SPACE changes meaning after the cover.
+    ("  SPACE on CORE: gaze; elsewhere page", 0),
+    ("  EVOLVES: ENTER for requirements", 0),
+    ("  ↑↓ scroll long rows / requirements", 0),
     ("  ENTER on its trophy page opens the", 0),
     ("  ALBUM - every species, in dex order", 0),
     # the lineage's own book (Joel 2026-07-26: "build the hall of memory")
@@ -130,12 +159,18 @@ HELP = [
     ("already banked, E takes the new one,", 0),
     ("K keeps the elder's.", 0),
     ("n starts the next egg.", 1),
+    # egg audit 2026-10-14: explain the existing estate and re-pick rules.
+    ("Bits, inventory, trophies and", 0),
+    ("banked DNA carry; body and applied", 0),
+    ("DNA reset. Unused data carries too.", 0),
+    ("Unhatched re-picks keep the gen.", 0),
     ("", 0),
     ("TIPS", 2),
     ("Feed when hungry, clean the poop,", 0),
     ("and let it sleep at night. Win cups,", 0),
     ("fell raids, link with tamers, play a", 0),
-    ("festival - every egg is earned.", 0),
+    ("festival for free egg unlocks; towns", 0),
+    ("also sell permanent egg shortcuts.", 0),
 ]
 # (the full item catalog was tried in the guide 2026-07-24 and REVERTED:
 # it doubled the guide's length and only mirrored what the shop dossier
@@ -154,7 +189,7 @@ class HelpPanel:
         self.frame_i += 1
 
     def strip(self):
-        return menu.hints(("↑↓", "scroll"), ("ESC", "out"))
+        return menu.hints(("↑↓", "scroll"), ("ESC", "back"))
 
     def _max_top(self):
         return max(0, len(HELP) - VIS)

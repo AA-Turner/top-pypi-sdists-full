@@ -18,11 +18,14 @@ from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set
 
-from .node import assignment_line, unattached_assignment_label
+from .node import (
+    EXIT_NOT_RECORDED_LABEL,
+    assignment_line,
+    unattached_assignment_label,
+)
 
 logger = logging.getLogger(__name__)
 
-# Header for emitted .py files - tells tools to ignore these auto-generated files
 PY_FILE_HEADER = """\
 # type: ignore
 # ruff: noqa
@@ -44,23 +47,17 @@ def sanitize_filename(name: str, max_length: int = 80) -> str:
     - Truncate to max_length
     - Handle edge cases
     """
-    # Lone surrogates (kept in traces since ext 10) have no filesystem encoding.
+    # Lone surrogates have no filesystem encoding.
     name = name.encode("utf-8", "backslashreplace").decode("utf-8")
-    # Replace path separators and other unsafe chars
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
-    # Replace multiple consecutive underscores/spaces
     name = re.sub(r"[_\s]+", "_", name)
-    # Remove leading/trailing underscores and dots
     name = name.strip("_. ")
-    # Truncate if too long
     if len(name) > max_length:
         name = name[:max_length].rstrip("_")
     return name
 
 
-# Maximum path length to avoid ENAMETOOLONG errors
-# macOS has a 1024 byte limit, but we need to be conservative due to
-# filesystem overhead and the initial path length
+# Conservative vs macOS's 1024-byte limit, leaving room for the base path.
 MAX_PATH_LENGTH = 600
 
 
@@ -87,11 +84,9 @@ def get_sort_prefix(trace: Trace) -> str:
     if timestamp is None:
         timestamp = datetime.now(timezone.utc).timestamp()
 
-    # Convert to milliseconds
     epoch_ms = int(timestamp * 1000)
 
-    # 36^5 = 60,466,176 (~16.8 hours of milliseconds)
-    # Invert so newer traces get smaller values (sort first)
+    # Inverted so newer traces sort first.
     max_val = 36**5 - 1
     inverted = max_val - (epoch_ms % (max_val + 1))
 
@@ -108,11 +103,9 @@ def get_human_readable_date(trace: Trace) -> str:
     if timestamp is None:
         timestamp = datetime.now().timestamp()
 
-    # Get the system's local timezone explicitly
-    # (datetime.fromtimestamp alone can be affected by TZ env var)
+    # Explicit local tz: datetime.fromtimestamp alone can be affected by the TZ env var.
     local_tz = datetime.now().astimezone().tzinfo
     dt = datetime.fromtimestamp(timestamp, tz=timezone.utc).astimezone(local_tz)
-    # Format: Jan13_1430
     return dt.strftime("%b%d_%H%M")
 
 
@@ -127,12 +120,10 @@ def get_trace_folder_name(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
     The date provides human-readable context.
     The trace ID is stored separately in {trace_id}.txt inside the folder.
     """
-    # Start with sort prefix and human-readable date
     prefix = get_sort_prefix(trace)
     date_str = get_human_readable_date(trace)
     parts = [prefix, date_str]
 
-    # Try to extract HTTP request info
     if root_nodes and root_nodes[0].type == "nested_served_http_request":
         req = root_nodes[0].data.get("request", {})
         resp = root_nodes[0].data.get("response", {})
@@ -146,23 +137,18 @@ def get_trace_folder_name(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
         if method:
             parts.append(method)
         if path:
-            # Clean up the path for use in folder name
             clean_path = path.strip("/").replace("/", "_")
             clean_path = sanitize_filename(clean_path, max_length=120)
             if clean_path:
                 parts.append(clean_path)
 
-    # Try to extract test info for test traces
     elif root_nodes and root_nodes[0].type == "frame_span":
         name = root_nodes[0].name
-        # Check if it looks like a test method (e.g., "TestClass.test_method")
         if _looks_like_test_method(name):
             clean_name = sanitize_filename(name, max_length=120)
             parts.append(clean_name)
         elif name == "__main__.<module>":
-            # Check children for actual test methods (skip conftest, fixtures, etc.)
             for child in root_nodes[0].children:
-                # Tests can be nested_test type or frame_span type
                 if child.type in (
                     "frame_span",
                     "nested_test",
@@ -171,8 +157,6 @@ def get_trace_folder_name(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
                     parts.append(clean_name)
                     break
 
-    # Fallback to trace ID if no descriptive name could be generated
-    # (parts[0:2] are sort prefix and date, so check if there's more than that)
     if len(parts) == 2:
         parts.append(trace.id)
 
@@ -192,20 +176,15 @@ def _looks_like_test_method(name: str) -> bool:
     - conftest.pytest_sessionstart
     - pytest fixtures
     """
-    # Skip common test infrastructure
     if name.startswith("conftest.") or name.startswith("pytest."):
         return False
     if "fixture" in name.lower():
         return False
 
-    # Look for actual test patterns
-    # Pattern 1: Contains "Test" and has a ".test_" method
     if "Test" in name and ".test_" in name:
         return True
-    # Pattern 2: Starts with "test_"
     if name.startswith("test_") or ".test_" in name:
         return True
-    # Pattern 3: TestCase class pattern
     if "TestCase." in name:
         return True
 
@@ -224,25 +203,20 @@ def get_node_name_for_path(node: ProcessedNode, max_name_length: int = 80) -> st
     """
     idx = f"{node.index:04d}"
 
-    # Calculate how much space we have for the variable part
-    # Reserve space for index (4 chars), underscores (2)
     reserved = len(idx) + 3
     name_budget = max(20, max_name_length - reserved)
 
     if node.type == "frame_span":
-        # Function call - use qualified name
         name = sanitize_filename(node.name, max_length=name_budget)
         return f"{idx}_{name}"
 
     elif node.type == "sql_query":
-        # SQL query - extract table name if possible
         query = node.data.get("query", "")
         table_match = re.search(
             r'(?:FROM|INTO|UPDATE)\s+"?(\w+)"?', query, re.IGNORECASE
         )
         table = table_match.group(1) if table_match else "query"
 
-        # Determine query type
         query_upper = query.strip().upper()
         if query_upper.startswith("SELECT"):
             query_type = "SELECT"
@@ -259,7 +233,6 @@ def get_node_name_for_path(node: ProcessedNode, max_name_length: int = 80) -> st
         return f"{idx}_sql_{query_type}_{table}"
 
     elif node.type == "nested_background_job":
-        # Celery task
         subtype = node.data.get("subtype", "job")
         name = sanitize_filename(
             node.data.get("name", "task"), max_length=name_budget - 10
@@ -267,7 +240,6 @@ def get_node_name_for_path(node: ProcessedNode, max_name_length: int = 80) -> st
         return f"{idx}_{subtype}_{name}"
 
     elif node.type == "nested_served_http_request":
-        # Incoming HTTP request
         request = node.data.get("request", {})
         method = request.get("method", "REQUEST")
         path = sanitize_filename(
@@ -278,12 +250,9 @@ def get_node_name_for_path(node: ProcessedNode, max_name_length: int = 80) -> st
         return f"{idx}_{method}"
 
     elif node.type == "outbound_http_request":
-        # Outbound HTTP request
-        # Data can be in nested "request" dict OR at the top level of node.data
         request = node.data.get("request", {})
         method = request.get("method") or node.data.get("method", "REQUEST")
         url = request.get("url") or node.data.get("url", "")
-        # Extract host from URL
         host_match = re.search(r"https?://([^/]+)", url)
         if host_match:
             host = sanitize_filename(
@@ -293,7 +262,6 @@ def get_node_name_for_path(node: ProcessedNode, max_name_length: int = 80) -> st
         return f"{idx}_http_{method}"
 
     elif node.type == "log_message":
-        # Log message
         level = node.data.get("level", "LOG")
         msg = node.data.get("msg", "")
         msg_preview = sanitize_filename(
@@ -302,13 +270,11 @@ def get_node_name_for_path(node: ProcessedNode, max_name_length: int = 80) -> st
         return f"{idx}_log_{level}_{msg_preview}"
 
     elif node.type == "django_template":
-        # Django template
         template_name = node.data.get("template") or "template"
         template = sanitize_filename(template_name, max_length=name_budget - 10)
         return f"{idx}_template_{template}"
 
     elif node.type == "nested_test":
-        # Test
         test_name = node.data.get("test_name", "test")
         test_class = node.data.get("test_class", "")
         if test_class:
@@ -323,25 +289,14 @@ def get_node_name_for_path(node: ProcessedNode, max_name_length: int = 80) -> st
         return f"{idx}_flushed_{name}"
 
     else:
-        # Unknown type - use what we have
         return f"{idx}_{node.type}"
 
 
-# =============================================================================
-# File Content Generators
-# =============================================================================
-
-
-# Pretty-printed values nest at most this deep, and are written on one line
-# beyond it.
 MAX_PRETTY_JSON_DEPTH = 16
 # JSON strings are parsed only below this size: parsing materializes a tree
 # many times larger than its text.
 MAX_PRETTY_JSON_CHARS = 1 << 20
-# Pretty-printing adds indentation (and pprint aligns wrapped values after
-# their dict keys), which the trace readers' expansion guard does not charge
-# for: a value whose pretty form would outgrow its one-line form by more
-# than this is written on one line instead.
+# The readers' expansion guard doesn't charge for pretty-print indentation: cap the growth.
 PRETTY_GROWTH_FACTOR = 4
 PRETTY_GROWTH_SLACK = 4096
 
@@ -416,28 +371,22 @@ def format_value(value: Any) -> str:
     import json
     import pprint
 
-    # Try to detect and pretty-print JSON strings
     if isinstance(value, str):
         parsed = None
         if len(value) <= MAX_PRETTY_JSON_CHARS:
             try:
                 parsed = json.loads(value)
             except (ValueError, RecursionError):
-                # Not JSON (or nested too deep to parse): written as text.
                 parsed = None
-        # Indentation grows with depth, so only shallow JSON is expanded.
         if isinstance(parsed, (dict, list)) and _json_depth_at_most(
             parsed, MAX_PRETTY_JSON_DEPTH
         ):
-            # As json.dumps(parsed, indent=2), within the growth cap.
             parts = json.JSONEncoder(indent=2).iterencode(parsed)
             pretty = _pretty_within(parts, len(value))
             if pretty is not None:
                 return pretty
         return repr(value)
 
-    # Use pprint for complex types. Its indentation grows with depth too, so
-    # deeper values are written on one line.
     if isinstance(value, (dict, list, set, frozenset, tuple)):
         one_line = repr(value)
         if not _json_depth_at_most(value, MAX_PRETTY_JSON_DEPTH):
@@ -448,8 +397,7 @@ def format_value(value: Any) -> str:
             width=100, indent=2, sort_dicts=False, stream=stream
         )
         try:
-            # As pprint.pformat, plus the newline pprint ends with (hence
-            # the one extra character).
+            # pprint ends with a newline, dropped below.
             printer.pprint(value)
         except _PrettyTooLong:
             return one_line
@@ -470,7 +418,6 @@ def format_locals(locals_dict: Dict[str, Any], indent: str = "") -> str:
     lines = []
     for key, value in locals_dict.items():
         formatted = format_value(value)
-        # Handle multi-line values with proper indentation
         if "\n" in formatted:
             lines.append(f"{indent}{key}:")
             for line in formatted.split("\n"):
@@ -498,14 +445,12 @@ def format_locals_diff(
     call_keys = set(call_locals.keys())
     return_keys = set(return_locals.keys())
 
-    # Check for changes and unchanged
     for key in sorted(call_keys & return_keys):
         call_val = call_locals[key]
         return_val = return_locals[key]
         if call_val == return_val:
             unchanged_count += 1
         else:
-            # Value changed
             old_formatted = format_value(call_val)
             new_formatted = format_value(return_val)
             if "\n" in old_formatted or "\n" in new_formatted:
@@ -519,7 +464,6 @@ def format_locals_diff(
             else:
                 lines.append(f"~ {key}: {old_formatted} -> {new_formatted}")
 
-    # New variables (in return but not in call)
     for key in sorted(return_keys - call_keys):
         formatted = format_value(return_locals[key])
         if "\n" in formatted:
@@ -529,11 +473,9 @@ def format_locals_diff(
         else:
             lines.append(f"+ {key}: {formatted}")
 
-    # Deleted variables (in call but not in return)
     for key in sorted(call_keys - return_keys):
         lines.append(f"- {key}")
 
-    # Summary
     if unchanged_count > 0:
         lines.append(
             f"\n({unchanged_count} variable{'s' if unchanged_count != 1 else ''} unchanged)"
@@ -614,27 +556,21 @@ def generate_frame_call_content(
     call_timestamp = call_frame.get("timestamp")
     user_code_call_site = call_frame.get("user_code_call_site")
 
-    # Use qualname if available, otherwise fall back to node.name
     display_name = qualname or node.name
 
     lines = [f"=== {display_name} ==="]
     if path:
         lines.append(f"File: {path}")
 
-    # Add function name if qualname is different from co_name
     if qualname and co_name and qualname != co_name:
         lines.append(f"Function: {co_name}")
 
     lines.append(f"Duration: {node.formatted_duration()}")
 
-    # Add timestamp
     if call_timestamp is not None:
         lines.append(f"Called at: {format_timestamp(call_timestamp)}")
 
-    # Add call site info if available
     if user_code_call_site:
-        # Use navigator to resolve path from calling frame (preferred)
-        # Fall back to denormalized path field for backward compatibility
         call_site_path = (
             navigator.get_path_from_call_site(user_code_call_site)
             if navigator
@@ -652,7 +588,6 @@ def generate_frame_call_content(
         ]
     )
 
-    # Add children summary if this node has children
     if node.children:
         lines.extend(
             [
@@ -666,6 +601,9 @@ def generate_frame_call_content(
                 if hasattr(child, "compact_tree_line")
                 else child.name
             )
+            suffix = exit_not_recorded_suffix(child)
+            if suffix:
+                child_name += suffix
             lines.append(
                 f"  {child.index:3d} {child_name} ({child.formatted_duration()})"
             )
@@ -676,6 +614,27 @@ def generate_frame_call_content(
 
 
 VALUES_OMITTED = "(not recorded: too close to the C stack limit)"
+EXIT_NOT_RECORDED = "(not recorded: the trace has no exit for this call)"
+
+
+def exit_not_recorded_suffix(node: ProcessedNode) -> str:
+    """What a tree line says after a call with no recorded exit."""
+    data = getattr(node, "data", None)
+    if isinstance(data, dict) and data.get("exit_not_recorded") is True:
+        return f" {EXIT_NOT_RECORDED_LABEL}"
+    return ""
+
+
+def exit_not_recorded_lines(node: ProcessedNode) -> List[str]:
+    """A note for a call the trace has no exit event for (see
+    ``build_frame_tree.close_without_exit``)."""
+    if not node.data.get("exit_not_recorded"):
+        return []
+    return [
+        "Did not return: no exit was recorded for this call (it was still "
+        "running when the trace ended, or its exit event was lost). The "
+        "duration runs to its caller's exit, or to the end of the trace."
+    ]
 
 
 def format_call_locals(call_frame: Dict[str, Any]) -> str:
@@ -689,6 +648,14 @@ def format_return_sections(
     call_frame: Dict[str, Any], return_frame: Dict[str, Any]
 ) -> List[str]:
     """Format a frame's return value and how its locals changed."""
+    if return_frame.get("exit_not_recorded"):
+        return [
+            "--- Return Value ---",
+            EXIT_NOT_RECORDED,
+            "",
+            "--- Locals Changed ---",
+            EXIT_NOT_RECORDED,
+        ]
     if return_frame.get("values_omitted"):
         # Kolo recorded this exit without its values to stay off the end of
         # the C stack.
@@ -702,7 +669,6 @@ def format_return_sections(
     return_value = return_frame.get("arg", None)
     return_locals = return_frame.get("locals", {})
     if call_frame.get("values_omitted"):
-        # Nothing to diff against: show the locals as they were at return.
         locals_section = ["--- Locals at Return ---", format_locals(return_locals)]
     else:
         locals_section = [
@@ -730,9 +696,9 @@ def generate_frame_return_content(node: ProcessedNode) -> str:
         f"=== {display_name} - Return ===",
         f"Duration: {node.formatted_duration()}",
     ]
+    lines.extend(exit_not_recorded_lines(node))
 
-    # Add return timestamp
-    if return_timestamp is not None:
+    if return_timestamp is not None and not node.data.get("exit_not_recorded"):
         lines.append(f"Returned at: {format_timestamp(return_timestamp)}")
 
     lines.extend(
@@ -763,17 +729,17 @@ def generate_sql_content(
     ]
     if database:
         lines.append(f"Database: {database}")
+    lines.extend(exit_not_recorded_lines(node))
+    exception = node.data.get("exception")
+    if exception:
+        lines.append(f"Raised: {exception}")
 
-    # Add timestamps
     if call_timestamp is not None:
         lines.append(f"Started: {format_timestamp(call_timestamp)}")
-    if return_timestamp is not None:
+    if return_timestamp is not None and not node.data.get("exit_not_recorded"):
         lines.append(f"Ended: {format_timestamp(return_timestamp)}")
 
-    # Add call site info if available
     if user_code_call_site:
-        # Use navigator to resolve path from calling frame (preferred)
-        # Fall back to denormalized path field for backward compatibility
         call_site_path = (
             navigator.get_path_from_call_site(user_code_call_site)
             if navigator
@@ -794,7 +760,6 @@ def generate_sql_content(
         ]
     )
 
-    # Add query template (parameterized, before substitution)
     if query_template and query_template != query:
         lines.extend(
             [
@@ -804,7 +769,6 @@ def generate_sql_content(
             ]
         )
 
-    # Add query parameters if available
     query_params = node.data.get("query_params")
     if query_params:
         lines.extend(
@@ -815,7 +779,6 @@ def generate_sql_content(
             ]
         )
 
-    # Add results if available
     if query_data is not None:
         lines.extend(
             [
@@ -859,7 +822,6 @@ def generate_http_request_content(node: ProcessedNode) -> str:
     if timestamp is not None:
         lines.append(f"Timestamp: {format_timestamp(timestamp)}")
 
-    # Add query parameters if present
     if query_params:
         lines.extend(["", "--- Query Parameters ---"])
         for key, value in query_params.items():
@@ -904,6 +866,7 @@ def generate_http_response_content(node: ProcessedNode) -> str:
     url_pattern = response.get("url_pattern")
 
     lines = ["=== HTTP Response ==="]
+    lines.extend(exit_not_recorded_lines(node))
     if status is not None:
         lines.append(f"Status: {status}")
     lines.append(f"Duration: {duration:.2f}ms")
@@ -911,7 +874,6 @@ def generate_http_response_content(node: ProcessedNode) -> str:
     if timestamp is not None:
         lines.append(f"Timestamp: {format_timestamp(timestamp)}")
 
-    # Add URL pattern / routing info
     if url_pattern:
         lines.extend(["", "--- URL Pattern ---"])
         if url_pattern.get("route"):
@@ -923,7 +885,6 @@ def generate_http_response_content(node: ProcessedNode) -> str:
         if url_pattern.get("namespace"):
             lines.append(f"Namespace: {url_pattern['namespace']}")
 
-        # View params (positional and keyword args passed to the view)
         view_params = url_pattern.get("view_params") or {}
         if view_params.get("positional") or view_params.get("keyword"):
             lines.append("View Parameters:")
@@ -934,7 +895,6 @@ def generate_http_response_content(node: ProcessedNode) -> str:
                 for k, v in keyword.items():
                     lines.append(f"  {k}: {v}")
 
-        # Route params (captured and default values)
         route_params = url_pattern.get("route_params") or {}
         if route_params.get("captured") or route_params.get("defaults"):
             captured = route_params.get("captured") or {}
@@ -967,11 +927,9 @@ def generate_http_response_content(node: ProcessedNode) -> str:
 
 def generate_outbound_http_content(node: ProcessedNode) -> str:
     """Generate content for outbound HTTP request node."""
-    # Data can be in nested "request"/"response" dicts OR at the top level of node.data
     request = node.data.get("request", {})
     response = node.data.get("response") or {}
 
-    # Fall back to top-level data if nested dicts are empty
     method = request.get("method") or node.data.get("method", "UNKNOWN")
     url = request.get("url") or node.data.get("url", "")
     req_headers = request.get("headers") or node.data.get("headers", {})
@@ -983,17 +941,16 @@ def generate_outbound_http_content(node: ProcessedNode) -> str:
         f"Duration: {node.formatted_duration()}",
     ]
 
-    # Add request timestamp if available
     if req_timestamp is not None:
         lines.append(f"Request Timestamp: {format_timestamp(req_timestamp)}")
 
-    # Add response timestamp if available (via node.end)
-    if isinstance(node.end, (int, float)):
+    if isinstance(node.end, (int, float)) and not node.data.get("exit_not_recorded"):
         lines.append(f"Response Timestamp: {format_timestamp(node.end)}")
     elif node.data.get("incomplete_at_trace_boundary"):
         lines.append(
             "Response: not captured (request was still open at trace boundary)"
         )
+    lines.extend(exit_not_recorded_lines(node))
 
     lines.extend(
         [
@@ -1018,7 +975,6 @@ def generate_outbound_http_content(node: ProcessedNode) -> str:
             ]
         )
 
-    # Check for response data in nested dict or at top level
     status = response.get("status_code") or node.data.get("status_code")
     resp_headers = response.get("headers") or node.data.get("response_headers", {})
     resp_body = response.get("body") or node.data.get("response_body", "")
@@ -1049,7 +1005,6 @@ def generate_log_content(node: ProcessedNode) -> str:
     """Generate content for log message node."""
     level = node.data.get("level", "LOG")
     msg = node.data.get("msg", "")
-    # "name" is the logger name from the logging filter
     logger_name = node.data.get("name", "") or node.data.get("logger", "")
     args = node.data.get("args")
     extra = node.data.get("extra")
@@ -1072,7 +1027,6 @@ def generate_log_content(node: ProcessedNode) -> str:
         ]
     )
 
-    # Add message formatting arguments if present
     if args:
         lines.extend(
             [
@@ -1082,7 +1036,6 @@ def generate_log_content(node: ProcessedNode) -> str:
             ]
         )
 
-    # Add extra context if present
     if extra:
         lines.extend(
             [
@@ -1092,7 +1045,6 @@ def generate_log_content(node: ProcessedNode) -> str:
             ]
         )
 
-    # Add stack trace if present
     if stack:
         lines.extend(
             [
@@ -1102,7 +1054,6 @@ def generate_log_content(node: ProcessedNode) -> str:
             ]
         )
 
-    # Add traceback if present (from exc_info)
     if traceback:
         lines.extend(
             [
@@ -1133,17 +1084,14 @@ def generate_exception_content(node: ProcessedNode) -> str:
             return f"=== Exception ===\n\n{VALUES_OMITTED}"
         return ""
 
-    # Handle case where exception is not a dict (e.g., ExtType from msgpack)
     if not isinstance(exception, dict):
         return f"=== Exception ===\n\n{repr(exception)}"
 
-    # Get exception summary
     exception_summary = exception.get("exception_summary", [])
     summary_text = (
         "".join(exception_summary).strip() if exception_summary else "Unknown exception"
     )
 
-    # Get full traceback
     exception_with_traceback = exception.get("exception_with_traceback", [])
     traceback_text = (
         "".join(exception_with_traceback) if exception_with_traceback else ""
@@ -1157,7 +1105,6 @@ def generate_exception_content(node: ProcessedNode) -> str:
         traceback_text.strip() if traceback_text else "(no traceback available)",
     ]
 
-    # Add frame locals at each level
     exception_frames = exception.get("exception_frames", [])
     if exception_frames:
         lines.extend(["", "--- Frame Locals ---"])
@@ -1167,7 +1114,6 @@ def generate_exception_content(node: ProcessedNode) -> str:
             frame_locals = exc_frame.get("locals", {})
             expanded_locals = exc_frame.get("expanded_locals", {})
 
-            # Build frame description with available info
             if path and co_name:
                 frame_desc = f"{path} in {co_name}"
             elif path:
@@ -1182,7 +1128,6 @@ def generate_exception_content(node: ProcessedNode) -> str:
             else:
                 lines.append("  (no locals)")
 
-            # Add expanded locals (Django models, etc.)
             if expanded_locals:
                 lines.append("  Expanded:")
                 for key, value in expanded_locals.items():
@@ -1203,14 +1148,13 @@ def generate_template_content(node: ProcessedNode) -> str:
     if template:
         lines.append(f"Template: {template}")
     lines.append(f"Duration: {node.formatted_duration()}")
+    lines.extend(exit_not_recorded_lines(node))
 
-    # Add timestamps
     if call_timestamp is not None:
         lines.append(f"Started: {format_timestamp(call_timestamp)}")
-    if return_timestamp is not None:
+    if return_timestamp is not None and not node.data.get("exit_not_recorded"):
         lines.append(f"Ended: {format_timestamp(return_timestamp)}")
 
-    # Add context at call time
     if call_context:
         lines.extend(
             [
@@ -1220,7 +1164,6 @@ def generate_template_content(node: ProcessedNode) -> str:
             ]
         )
 
-    # Add context at return time (if different from call context)
     if return_context and return_context != call_context:
         lines.extend(
             [
@@ -1248,11 +1191,11 @@ def generate_background_job_call_content(node: ProcessedNode) -> str:
         f"Type: {subtype}",
         f"Duration: {node.formatted_duration()}",
     ]
+    lines.extend(exit_not_recorded_lines(node))
 
-    # Add timestamps
     if call_timestamp is not None:
         lines.append(f"Started: {format_timestamp(call_timestamp)}")
-    if return_timestamp is not None:
+    if return_timestamp is not None and not node.data.get("exit_not_recorded"):
         lines.append(f"Ended: {format_timestamp(return_timestamp)}")
 
     lines.extend(
@@ -1277,6 +1220,9 @@ def generate_background_job_call_content(node: ProcessedNode) -> str:
                 if hasattr(child, "compact_tree_line")
                 else child.name
             )
+            suffix = exit_not_recorded_suffix(child)
+            if suffix:
+                child_name += suffix
             lines.append(
                 f"  {child.index:3d} {child_name} ({child.formatted_duration()})"
             )
@@ -1304,22 +1250,18 @@ def generate_leaf_frame_content(
     if path:
         lines.append(f"File: {path}")
 
-    # Add function name if qualname is different from co_name
     if qualname and co_name and qualname != co_name:
         lines.append(f"Function: {co_name}")
 
     lines.append(f"Duration: {node.formatted_duration()}")
+    lines.extend(exit_not_recorded_lines(node))
 
-    # Add timestamps
     if call_timestamp is not None:
         lines.append(f"Called at: {format_timestamp(call_timestamp)}")
-    if return_timestamp is not None:
+    if return_timestamp is not None and not node.data.get("exit_not_recorded"):
         lines.append(f"Returned at: {format_timestamp(return_timestamp)}")
 
-    # Add call site info if available
     if user_code_call_site:
-        # Use navigator to resolve path from calling frame (preferred)
-        # Fall back to denormalized path field for backward compatibility
         call_site_path = (
             navigator.get_path_from_call_site(user_code_call_site)
             if navigator
@@ -1343,11 +1285,6 @@ def generate_leaf_frame_content(
     return "\n".join(lines)
 
 
-# =============================================================================
-# Root-Level Index Files
-# =============================================================================
-
-
 def generate_overview(
     trace: Trace,
     root_nodes: List[ProcessedNode],
@@ -1363,20 +1300,16 @@ def generate_overview(
     source = meta.get("source")
     kolo_version = meta.get("version")
 
-    # Get environment info from meta
     environment = meta.get("environment", {})
     python_version = environment.get("py_version") or meta.get("python_version")
     platform_info = environment.get("platform", "")
     system_info = environment.get("system", "")
     machine_info = environment.get("machine", "")
 
-    # Get git commit SHA
     commit_sha = trace.unprocessed_data.get("current_commit_sha", "")
 
-    # Get command line args
     command_line_args = trace.unprocessed_data.get("command_line_args", [])
 
-    # Get timestamp
     timestamp = trace.unprocessed_data.get("timestamp")
     date_str = None
     if timestamp is not None:
@@ -1391,9 +1324,10 @@ def generate_overview(
             "WARNING: recovered partial trace; the end of execution "
             "and final metadata may be missing."
         )
+    repair_notes = trace.repair_notes()
+    if isinstance(repair_notes, list):
+        lines.extend(repair_notes)
 
-    # Add request summary if available. Fall back to the first thread group
-    # when the main thread recorded nothing.
     summary_nodes = root_nodes or next(
         (nodes for _, _, nodes in thread_dirs if nodes), []
     )
@@ -1403,7 +1337,6 @@ def generate_overview(
         status = resp.get("status_code")
         method = req.get("method")
         path = req.get("path_info")
-        # Build summary with available parts
         parts = [str(status) if status else "", method or "", path or ""]
         summary = " ".join(p for p in parts if p)
         if summary:
@@ -1418,16 +1351,13 @@ def generate_overview(
     if python_version:
         lines.append(f"Python: {python_version}")
 
-    # Add platform/OS info
     if platform_info or system_info:
         platform_str = platform_info or f"{system_info} {machine_info}".strip()
         lines.append(f"Platform: {platform_str}")
 
-    # Add git commit SHA
     if commit_sha:
         lines.append(f"Git Commit: {commit_sha}")
 
-    # Add command line args
     if command_line_args:
         lines.extend(
             [
@@ -1444,7 +1374,6 @@ def generate_overview(
         ]
     )
 
-    # Add compact tree
     def add_tree_lines(nodes: List[ProcessedNode], indent: str = ""):
         for node in nodes:
             tree_line = (
@@ -1452,6 +1381,9 @@ def generate_overview(
                 if hasattr(node, "compact_tree_line")
                 else node.name
             )
+            suffix = exit_not_recorded_suffix(node)
+            if suffix:
+                tree_line += suffix
             dur = node.formatted_duration()
             lines.append(f"{indent}{node.index} {tree_line} {dur}")
             add_tree_lines(node.children, indent + "  ")
@@ -1470,10 +1402,6 @@ def generate_overview(
         )
         add_tree_lines(thread_root_nodes)
 
-    # Collect flushed-subtree placeholders so the user knows where chunks of
-    # the live trace were offloaded to separate child traces. Even when emit
-    # inlines them on disk, surfacing a summary here makes byte / segment
-    # counts greppable in the overview file.
     flushed_entries: List[tuple[ProcessedNode, int]] = []
 
     def collect_flushed(nodes: List[ProcessedNode]) -> None:
@@ -1499,19 +1427,13 @@ def generate_overview(
             try:
                 total_bytes += int(flushed_bytes)
             except (TypeError, ValueError):
-                # Malformed trace data — skip this entry's bytes from the
-                # rolled-up total but still emit the per-entry line below.
                 logger.debug(
                     "non-numeric flushed_bytes %r on entry %s; skipping in total",
                     flushed_bytes,
                     flushed_trace_id,
                 )
-            # A single placeholder can stand in for multiple flushed segments,
-            # so the rolled-up "total segments" line must sum the per-entry
-            # `flushed_segment_count`, not just count placeholders. Use an
-            # explicit `is None` check (not truthiness) so a real
-            # ``flushed_segment_count == 0`` doesn't get silently rounded up
-            # to 1, masking malformed trace data.
+            # One placeholder can stand for several segments. `is None`, not truthiness, so a real 0
+            # isn't rounded up to 1.
             if segment_count is None:
                 total_segments += 1
             else:
@@ -1539,11 +1461,6 @@ def generate_overview(
         )
 
     return "\n".join(lines)
-
-
-# =============================================================================
-# Main Emit Logic
-# =============================================================================
 
 
 def _load_flushed_subtree(
@@ -1623,7 +1540,6 @@ def _remove_legacy_flat_flushed_placeholder(parent_dir: Path, node_name: str) ->
     try:
         legacy_file.unlink()
     except FileNotFoundError:
-        # The legacy flat placeholder is optional, so a missing file is fine.
         pass
     except OSError:
         logger.debug(
@@ -1708,11 +1624,8 @@ def emit_node(
     if overflow_dir is None:
         overflow_dir = parent_dir / "_deep_nodes"
 
-    # Once nesting exhausts the readable-name budget, put this node and all of
-    # its descendants directly in one fixed directory. Hashing each component
-    # alone only slowed path growth; flattening makes maximum path length
-    # independent of trace depth. The overview and per-node child summaries
-    # retain the parent/child relationship.
+    # Past the name budget, flatten this subtree into one fixed directory so max path length
+    # is independent of trace depth.
     flattened = flattened or _should_flatten_emit_node(current_path_len)
     if flattened:
         parent_dir = overflow_dir
@@ -1729,26 +1642,16 @@ def emit_node(
             PY_FILE_HEADER + content, encoding="utf-8", errors="backslashreplace"
         )
 
-    # Special-case: inline flushed subtrees at emit time. This keeps the
-    # parent ProcessedTree untouched (so navigators / overview / path budgets
-    # see the original placeholder) but materializes the child frames under a
-    # directory so users can browse them as if they had never been flushed.
-    # ``_load_flushed_subtree`` resolves the single process-wide db path
-    # internally, so this branch doesn't need a db_path argument.
     if node.type == "subtree_flushed" and not node.children:
         flushed_trace_id = node.data.get("flushed_trace_id")
-        # Drop any legacy ``{node_name}.txt`` flat placeholder left by a
-        # pre-inlining emit, and reset the inline directory so stale child
-        # frames from a previous successful inline don't linger when this
-        # emission takes the load-failure or cycle path. One rule, no
-        # bidirectional stale-state reasoning needed.
+        # Reset the inline directory so stale frames from an earlier inline don't linger on the
+        # load-failure or cycle path.
         _remove_legacy_flat_flushed_placeholder(parent_dir, node_name)
         node_dir = parent_dir / node_name
         if node_dir.exists():
             try:
                 shutil.rmtree(node_dir)
             except FileNotFoundError:
-                # Another process removed the stale dir after exists() passed.
                 pass
             except OSError:
                 logger.warning(
@@ -1758,7 +1661,6 @@ def emit_node(
                 raise
         node_dir.mkdir(exist_ok=True)
         if flushed_trace_id and flushed_trace_id in visited_trace_ids:
-            # Already inlined up-stack — just drop a summary to avoid recursion.
             _write_flushed_segment_info(
                 node,
                 node_dir,
@@ -1781,7 +1683,6 @@ def emit_node(
         _write_flushed_segment_info(
             node, node_dir, inlined=True, child_root_count=len(child_roots)
         )
-        # Assignments the flushed segment's caller made between its calls.
         write_unattached_assignments(node_dir, child_tree.unattached_assignments)
         assert isinstance(flushed_trace_id, str)
         next_visited: set[str] = visited_trace_ids | {flushed_trace_id}
@@ -1798,16 +1699,13 @@ def emit_node(
         return
 
     if node.children:
-        # This node has children - create a directory
         node_dir = parent_dir / node_name
         node_dir.mkdir(exist_ok=True)
 
-        # Create content files based on node type
         if node.type == "frame_span":
             write_py(node_dir / "call.py", generate_frame_call_content(node, navigator))
             write_py(node_dir / "return.py", generate_frame_return_content(node))
 
-            # Write exception.txt if this frame has an exception
             return_frame = node.data.get("return_frame", {})
             if return_frame.get("exception") or exception_omitted(return_frame):
                 (node_dir / "exception.txt").write_text(
@@ -1816,7 +1714,6 @@ def emit_node(
                     errors="backslashreplace",
                 )
             elif return_frame.get("annotatedExceptionMessage"):
-                # Intermediate frame in exception chain
                 msg = return_frame.get("annotatedExceptionMessage", "")
                 (node_dir / "exception.txt").write_text(
                     f"=== Exception Propagation ===\n\n{msg}\n\n"
@@ -1827,7 +1724,6 @@ def emit_node(
                 )
 
         elif node.type == "nested_served_http_request":
-            # HTTP request/response are not Python - use .txt
             (node_dir / "request.txt").write_text(
                 generate_http_request_content(node),
                 encoding="utf-8",
@@ -1849,7 +1745,6 @@ def emit_node(
                 errors="backslashreplace",
             )
 
-        # Recursively process children
         for child in node.children:
             emit_node(
                 child,
@@ -1862,8 +1757,6 @@ def emit_node(
             )
 
     else:
-        # Leaf node - create a single file
-        # Use .sql for SQL queries, .py for everything else (Python-like content)
         if node.type == "sql_query":
             file_path = parent_dir / f"{node_name}.sql"
             file_path.write_text(
@@ -1877,7 +1770,6 @@ def emit_node(
                 generate_leaf_frame_content(node, navigator),
             )
 
-            # Write exception file if this frame has an exception
             return_frame = node.data.get("return_frame", {})
             if return_frame.get("exception") or exception_omitted(return_frame):
                 (parent_dir / f"{node_name}_exception.txt").write_text(
@@ -1893,12 +1785,10 @@ def emit_node(
                     errors="backslashreplace",
                 )
         elif node.type == "log_message":
-            # Log messages are plain text
             (parent_dir / f"{node_name}.txt").write_text(
                 generate_log_content(node), encoding="utf-8", errors="backslashreplace"
             )
         elif node.type == "outbound_http_request":
-            # HTTP content is not Python
             (parent_dir / f"{node_name}.txt").write_text(
                 generate_outbound_http_content(node),
                 encoding="utf-8",
@@ -1916,7 +1806,6 @@ def emit_node(
                 errors="backslashreplace",
             )
         else:
-            # Generic fallback for unknown types
             (parent_dir / f"{node_name}.txt").write_text(
                 f"=== {node.type} #{node.index} ===\n\n{repr(node.data)}",
                 encoding="utf-8",
@@ -1994,13 +1883,8 @@ def emit_trace(
     """
     from .navigator import TraceNavigator
 
-    # Collect trees and their root nodes from ALL threads
-    # We keep track of trees to create navigators for each
     sections_and_nodes: List[tuple[ThreadSection, List[ProcessedNode]]] = []
 
-    # ``Trace`` owns the thread-to-tree mapping and caches every tree. Keep
-    # emit's historical behavior of skipping empty sections and sorting all
-    # non-empty trees by their first event below.
     for section in trace.threads:
         nodes = list(section.tree.root_nodes)
         # A thread already running when tracing started can have recorded
@@ -2008,7 +1892,6 @@ def emit_trace(
         if nodes or section.tree.unattached_assignments:
             sections_and_nodes.append((section, nodes))
 
-    # Sort threads by earliest timestamp (oldest first) for consistent execution order
     def get_earliest_timestamp(
         section_nodes: tuple[ThreadSection, List[ProcessedNode]],
     ) -> float:
@@ -2017,10 +1900,8 @@ def emit_trace(
 
     sections_and_nodes.sort(key=get_earliest_timestamp)
 
-    # Node indices restart at 0 in every thread's tree, so two threads running
-    # the same code produce identical node names. Emit the main thread at the
-    # root and every other thread into its own subdirectory so they can't
-    # overwrite each other.
+    # Node indices restart per thread, so threads running the same code produce identical names:
+    # non-main threads get their own subdirectory.
     root_group_nodes: List[ProcessedNode] = []
     thread_groups: List[tuple[ThreadSection, str, List[ProcessedNode]]] = []
     for section, nodes in sections_and_nodes:
@@ -2030,36 +1911,24 @@ def emit_trace(
         dir_name = _get_thread_dir_name(section, len(thread_groups) + 1)
         thread_groups.append((section, dir_name, nodes))
 
-    # Collect all root nodes for folder naming and overview
-    # Prioritize main_tree.root_nodes first to ensure the main thread (where profiling
-    # started) is checked first for HTTP/test naming, even if background threads exist
+    # Main thread's roots first so it wins the HTTP/test folder naming.
     all_root_nodes: List[ProcessedNode] = list(trace.main_tree.root_nodes)
     for section, nodes in sections_and_nodes:
-        # The main tree is already first. Extending every other thread directly
-        # is linear; the old per-node ``node not in all_root_nodes`` membership
-        # scan was quadratic for traces with many root calls. ProcessedNode uses
-        # identity equality, so that scan did not de-duplicate separately-built
-        # main-tree nodes anyway.
         if section.tree is not trace.main_tree:
             all_root_nodes.extend(nodes)
 
-    # Create the main trace directory with descriptive name
     folder_name = get_trace_folder_name(trace, all_root_nodes)
     trace_dir = output_dir / folder_name
     build_dir = trace_dir if staging_dir is None else staging_dir / folder_name
     build_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate root-level overview file from the emitted groups so the
-    # overview agrees with the on-disk directory layout — all_root_nodes can
-    # double-count a single frame when trace.main_tree and the per-thread tree
-    # materialize separate ProcessedNode objects for it.
+    # Build from the emitted groups: all_root_nodes can double-count a frame that main_tree and
+    # its thread tree materialize separately.
     overview = generate_overview(trace, root_group_nodes, thread_dirs=thread_groups)
     (build_dir / f"{trace.id}.txt").write_text(
         overview, encoding="utf-8", errors="backslashreplace"
     )
 
-    # Recursively create structure for each root node
-    # Each tree gets its own navigator for O(1) frame lookups
     visited_trace_ids: Set[str] = {trace.id}
     emit_groups = [(trace.main_tree, "", root_group_nodes)] + [
         (section.tree, dir_name, nodes) for section, dir_name, nodes in thread_groups
@@ -2067,7 +1936,6 @@ def emit_trace(
     for tree, dir_name, root_nodes in emit_groups:
         parent_dir = build_dir / dir_name if dir_name else build_dir
         parent_dir.mkdir(exist_ok=True)
-        # Each thread flattens its too-deep nodes inside its own directory.
         overflow_dir = parent_dir / "_deep_nodes"
         if overflow_dir.exists():
             shutil.rmtree(overflow_dir)

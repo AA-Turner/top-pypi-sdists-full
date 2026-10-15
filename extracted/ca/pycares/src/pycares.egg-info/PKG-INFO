@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycares
-Version: 5.1.0
+Version: 5.2.0
 Summary: Python interface for c-ares
 Author-email: Saúl Ibarra Corretgé <s@saghul.net>
 License-Expression: MIT
@@ -11,15 +11,15 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cffi>=1.5.0; python_version < "3.14"
@@ -134,7 +134,7 @@ Unless stated otherwise on-file pycares uses the MIT license, check LICENSE file
 Supported Python versions
 -------------------------
 
-Python >= 3.10 are supported. Both CPython and PyPy are supported.
+Python >= 3.11 are supported. Both CPython and PyPy are supported.
 
 
 Contributing

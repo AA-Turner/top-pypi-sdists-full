@@ -51,12 +51,14 @@ if TYPE_CHECKING:
     from rich.text import Text
 
     from schemathesis.cli.commands.run.context import ExecutionContext
+    from schemathesis.cli.context import BaseExecutionContext
     from schemathesis.core.spec import AuthFlowSteps
     from schemathesis.engine.run.cache import CacheReport
     from schemathesis.generation.stateful.state_machine import ExtractionFailure
 
 DISCORD_LINK = "https://discord.gg/R9ASRAmHnA"
 UNMATCHED_FILTER_TIP = "Check the filter for a typo, or update it if the operation was renamed"
+DICTIONARY_MISMATCH_REASON = "with entries that mostly fail the bound parameter's schema"
 
 
 def _auth_bootstrap_line(payload: AuthBootstrapPayload, spec: AuthFlowSteps) -> Text:
@@ -65,7 +67,9 @@ def _auth_bootstrap_line(payload: AuthBootstrapPayload, spec: AuthFlowSteps) -> 
 
     if payload.status == Status.SUCCESS:
         icon, color = "✅  ", "green"
-        text = f"signed up via {spec.register_operation} and logged in; disable with [auth] auto-signup = false"
+        text = (
+            f"signed up via {spec.register_operation} and logged in; disable with `auto-signup = false` under `[auth]`"
+        )
     else:
         icon, color = "🚫  ", "red"
         detail = " ".join(f"{payload.status_code or ''} {payload.message or ''}".split())[:100]
@@ -507,7 +511,7 @@ def warning_blocks(ctx: ExecutionContext) -> list[WarningBlock]:
             _list_block(
                 "Dictionary mismatch",
                 warnings.dictionary_mismatch,
-                " with entries that mostly fail the bound parameter's schema",
+                f" {DICTIONARY_MISMATCH_REASON}",
                 ["Fix the entries, or bind the dictionary to a parameter whose schema they match"],
                 entity="dictionary binding",
             )
@@ -555,6 +559,15 @@ def warning_blocks(ctx: ExecutionContext) -> list[WarningBlock]:
             )
         )
     return blocks
+
+
+def display_reports(ctx: BaseExecutionContext) -> None:
+    reports = ctx.all_reports()
+    if reports:
+        click.echo(_style("Reports:", bold=True))
+        for name, path in reports:
+            click.echo(_style(f"  - {name}: {path}"))
+        click.echo()
 
 
 def display_warning_blocks(blocks: list[WarningBlock]) -> None:
@@ -1160,7 +1173,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
 
     def start(self, ctx: ExecutionContext) -> None:
         display_header(SCHEMATHESIS_VERSION)
-        for message in ctx.startup_warnings:
+        for _, message in ctx.startup_warnings:
             click.secho(f"⚠️  {message}\n", fg="yellow")
 
     def shutdown(self, ctx: ExecutionContext) -> None:
@@ -1599,6 +1612,13 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         )
         self.console.print(Indent(message))
 
+    def _on_fatal_error(self, ctx: ExecutionContext, event: events.FatalError) -> None:
+        try:
+            super()._on_fatal_error(ctx, event)
+        finally:
+            # Reports are written even when the run stops before testing
+            display_reports(ctx)
+
     def _on_interrupted(self, event: events.Interrupted) -> None:
 
         if self.unit_tests_manager is not None:
@@ -1729,7 +1749,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 len(ctx.warnings.dictionary_mismatch),
                 "Dictionary mismatch",
                 "dictionary binding",
-                "with entries that mostly fail the parameter schema",
+                DICTIONARY_MISMATCH_REASON,
             ),
             (
                 len(ctx.warnings.unmatched_filter),
@@ -1776,7 +1796,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         display_final_line(
             failures=unique_failures,
             errors=len(ctx.errors),
-            warnings=ctx.warnings.kind_count + bool(ctx.startup_warnings),
+            warnings=ctx.warnings.kind_count + len({kind for kind, _ in ctx.startup_warnings}),
             running_time=event.running_time,
             total_cases=ctx.statistic.total_cases,
             nothing_tested_reason=ctx.nothing_tested_reason,
@@ -1785,14 +1805,6 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             no_checks_ran=ctx.statistic.no_checks_ran,
             interrupted=event.stop_reason == StopReason.INTERRUPTED,
         )
-
-    def display_reports(self, ctx: ExecutionContext) -> None:
-        reports = ctx.all_reports()
-        if reports:
-            click.echo(_style("Reports:", bold=True))
-            for name, path in reports:
-                click.echo(_style(f"  - {name}: {path}"))
-            click.echo()
 
     def display_seed(self) -> None:
         display_seed(self.config)
@@ -1813,7 +1825,12 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 display_section_name(label, "_", fg="red")
                 _errors = list(group_errors)
                 for idx, error in enumerate(_errors, 1):
-                    click.echo(error.info.format(bold=lambda x: click.style(x, bold=True)))
+                    click.echo(
+                        error.info.format(
+                            bold=lambda x: click.style(x, bold=True),
+                            base_url_is_set=ctx.config.base_url is not None,
+                        )
+                    )
                     if idx < len(_errors):
                         click.echo()
             click.echo(
@@ -1822,6 +1839,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                     fg="red",
                 )
             )
+            click.echo()
         display_failures(ctx.statistic, ctx.config.output, record_crashes=ctx.config.cache.enabled)
         if not ctx.warnings.is_empty:
             self.display_warnings(ctx)
@@ -1869,6 +1887,6 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             click.echo()
 
         display_test_cases(summary.test_cases)
-        self.display_reports(ctx)
+        display_reports(ctx)
         self.display_seed()
         self.display_final_line(ctx, event)

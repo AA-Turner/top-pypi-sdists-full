@@ -39,6 +39,16 @@ from .blueprint_substitute import (
     take_control_config,
     validate_write_modes,
 )
+from .coercion import JSON_STRING_COERCION, parse_json_param
+from .config_helpers.registry import validate_registry_ids
+from .config_write_helpers import (
+    apply_entity_category,
+    attach_skill_content,
+    augment_error_dict_with_skill_content,
+    augment_tool_error_with_skill_content,
+    fetch_entity_category,
+    merge_validation_meta,
+)
 from .entity_registration import resolve_entity_id_after_write
 from .helpers import (
     exception_to_structured_error,
@@ -49,28 +59,18 @@ from .helpers import (
     validate_identifier_not_empty,
 )
 from .reference_validator import validate_config_references
-from .tools_config_helpers import validate_registry_ids
-from .util_helpers import (
-    JSON_STRING_COERCION,
-    apply_entity_category,
-    attach_skill_content,
-    augment_error_dict_with_skill_content,
-    augment_tool_error_with_skill_content,
-    fetch_entity_category,
-    merge_validation_meta,
-    parse_json_param,
-    wait_for_entity_registered,
-    wait_for_entity_removed,
-)
+from .tool_hints import read_only_hints, write_hints
+from .ws_waiters import verify_entity_removed, wait_for_entity_registered
 
 logger = logging.getLogger(__name__)
 
 
-# Scripts share the automation skill mapping — both use
-# action / condition / trigger templates and benefit from the same
-# native-vs-template guidance.
+# Scripts attach the same files as automations: a script sequence uses
+# actions, conditions and ``wait_for_trigger``. The actions file comes first
+# because the strict-mode block error names the first entry.
 _SCRIPT_SKILL_FILES: tuple[str, ...] = (
-    "references/automation-patterns.md",
+    "references/automation-actions.md",
+    "references/triggers-and-conditions.md",
     "references/template-guidelines.md",
 )
 
@@ -112,12 +112,7 @@ class ConfigScriptTools:
     @tool(
         name="ha_config_get_script",
         tags={"Scripts"},
-        annotations={
-            "openWorldHint": False,
-            "idempotentHint": True,
-            "readOnlyHint": True,
-            "title": "Get Script Config",
-        },
+        annotations=read_only_hints("Get Script Config", open_world=False),
     )
     @log_tool_usage
     async def ha_config_get_script(
@@ -187,7 +182,7 @@ class ConfigScriptTools:
             return await self._legacy_get_script(script_id)
         except ToolError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             exception_to_structured_error(
                 e,
                 context={"script_id": script_id},
@@ -275,7 +270,7 @@ class ConfigScriptTools:
             result = await self._client.send_websocket_message(
                 {"type": "config/entity_registry/list"}
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug("Failed to list script entity_ids from registry: %s", e)
             return []
         entries = result.get("result", []) if isinstance(result, dict) else result
@@ -476,11 +471,12 @@ class ConfigScriptTools:
     @tool(
         name="ha_config_set_script",
         tags={"Scripts"},
-        annotations={
-            "openWorldHint": False,
-            "destructiveHint": True,
-            "title": "Create or Update Script",
-        },
+        annotations=write_hints(
+            "Create or Update Script",
+            destructive=True,
+            idempotent=False,
+            open_world=False,
+        ),
     )
     @with_auto_backup(
         domain="script", id_param="script_id", skip_fn=_skip_script_run_backup
@@ -592,8 +588,8 @@ class ConfigScriptTools:
         `for:`) over templates in logic positions; templates belong only in
         `data.*`, notification text, `event_data` and `variables`. The
         best-practice checker reports violations under `best_practice_warnings`.
-        `automation-patterns.md` and `template-guidelines.md` ship under
-        `skill_content` by default.
+        `automation-actions.md`, `triggers-and-conditions.md` and
+        `template-guidelines.md` ship under `skill_content` by default.
 
         Scripts use 'sequence', NOT 'trigger' or 'action'; for trigger-based
         execution use ha_config_set_automation.
@@ -771,7 +767,7 @@ class ConfigScriptTools:
 
         except ToolError as te:
             raise augment_tool_error_with_skill_content(te, bp_warnings) from None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             suggestions = [
                 "Ensure config includes either 'sequence' field (regular scripts) or 'use_blueprint' field (blueprint-based scripts)",
                 "For blueprint scripts, use ha_manage_blueprints(action='list', domain='script') to list available blueprints",
@@ -1093,7 +1089,7 @@ class ConfigScriptTools:
             response["took_control_of_blueprint"] = detached_blueprint
         # attach AFTER the outer dict is built so hint lands at
         # position 0 of the FINAL response (see BAT history in
-        # util_helpers._SKILL_CONTENT_OPTOUT_HINT).
+        # config_write_helpers._SKILL_CONTENT_OPTOUT_HINT).
         attach_skill_content(
             response,
             MandatoryBPS=MandatoryBPS,
@@ -1105,12 +1101,9 @@ class ConfigScriptTools:
     @tool(
         name="ha_config_remove_script",
         tags={"Scripts"},
-        annotations={
-            "openWorldHint": False,
-            "destructiveHint": True,
-            "idempotentHint": True,
-            "title": "Remove Script",
-        },
+        annotations=write_hints(
+            "Remove Script", destructive=True, idempotent=True, open_world=False
+        ),
     )
     @with_auto_backup(domain="script", id_param="script_id")
     @log_tool_usage
@@ -1146,9 +1139,10 @@ class ConfigScriptTools:
             # strip) is rejected as ``VALIDATION_INVALID_PARAMETER`` rather
             # than slipping through validate (non-empty pre-strip) and
             # producing a ``script.script.foo`` entity_id for the
-            # ``wait_for_entity_removed`` watcher below — that mis-formed
-            # entity_id never registers so the watcher times out on a
-            # phantom. Behavioral parity with ``ha_config_get_script``.
+            # ``verify_entity_removed`` check below — that mis-formed
+            # entity_id 404s, which counts as removed, so the real entity
+            # would never be checked. Behavioral parity with
+            # ``ha_config_get_script``.
             script_id = script_id.removeprefix("script.")
             # Empty/whitespace would surface as a misleading HA delete-failure.
             validate_identifier_not_empty(
@@ -1164,21 +1158,12 @@ class ConfigScriptTools:
             # Wait for script to be removed
             entity_id = f"script.{script_id}"
             if wait:
-                try:
-                    removed = await wait_for_entity_removed(self._client, entity_id)
-                    if not removed:
-                        result.setdefault("warnings", []).append(
-                            f"Deletion confirmed by API but {entity_id} may still appear briefly."
-                        )
-                except (HomeAssistantConnectionError, HomeAssistantAuthError) as e:
-                    result.setdefault("warnings", []).append(
-                        f"Deletion confirmed but removal verification failed: {e}"
-                    )
+                await verify_entity_removed(self._client, entity_id, result)
 
             return {"success": True, "action": "delete", **result}
         except ToolError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             if isinstance(e, HomeAssistantAPIError) and e.status_code == 404:
                 await self._raise_script_not_found(script_id)
             exception_to_structured_error(

@@ -19,7 +19,7 @@ from dataclasses import MISSING, asdict, fields
 
 from .pet import Pet
 from .petbase import (FRESH_OBEDIENCE, IN_TRAINING_OBEDIENCE,
-                      ROOKIE_OBED_DEFAULT)
+                      ROOKIE_OBED_DEFAULT, MAX_DNA_INVENTORY, MAX_DNA_WAGER)
 
 # the IO plumbing + the egg-bank migration live in their own modules
 # (tier-4 split 2026-07-17); the old names keep resolving from here
@@ -54,10 +54,61 @@ def load_settings(path=None):
             d = json.load(open(candidate, encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        # sync audit 2026-10-14: JSON validity alone cannot make a profile usable.
+        if not isinstance(d, dict) or any(
+                k in d and d[k] is not None and not isinstance(d[k], dict)
+                for k in ("progress", "account")):
+            continue
         if _migrate_v401_settings(d):        # .400/.401 egg indices -> .402 bank
             save_settings(d, path)
+        _bind_progress(d)
         return d
     return {}
+
+
+# ---- PER-ACCOUNT HISTORY (saves call #28 = A, Joel 2026-10-15) --------------
+# The earned history ("progress": album, wins, eggs, titles, maps...) used to
+# be ONE per device, so every account signed in here merged into it.  It is
+# kept per ACCOUNT now: settings hold `progress_by_account` {account: progress}
+# and `progress` is the signed-in account's bucket, swapped in on load and
+# filed back on save.  A pre-split file's history becomes the signed-in
+# account's (nothing is lost or re-sorted); history earned SIGNED OUT goes
+# with the first account signed into.
+_OWNER = "_progress_owner"
+
+
+def _account_key(d):
+    return ((d.get("account") or {}).get("name") or "").strip().lower()
+
+
+def _bind_progress(d):
+    buckets = d.get("progress_by_account")
+    if not isinstance(buckets, dict):
+        buckets = {}
+    key = _account_key(d)
+    if "progress_by_account" not in d:          # a pre-split file: adopt it whole
+        buckets[key] = d.get("progress") or {}
+    elif key not in buckets and key and buckets.get(""):
+        buckets[key] = buckets.pop("")          # signed-out play joins the first account
+    d["progress_by_account"] = buckets
+    d["progress"] = buckets.get(key) or {}
+    d[_OWNER] = key
+
+
+def _file_progress(d):
+    """save_settings: put the live bucket back under the account it was
+    LOADED for (set_account may have changed the name since)."""
+    if _OWNER not in d and "progress_by_account" not in d:
+        _bind_progress(d)                       # a dict built without load_settings
+    owner = d.pop(_OWNER, _account_key(d))
+    buckets = d.get("progress_by_account")
+    if not isinstance(buckets, dict):
+        buckets = {}
+    buckets[owner] = d.get("progress") or {}
+    d["progress_by_account"] = buckets
+    # `progress` stays on disk too, the signed-in account's bucket: an
+    # older build (a rollback) reads only that key
+    d["progress"] = buckets.get(_account_key(d)) or {}
 
 
 def get_auto_update():
@@ -100,7 +151,9 @@ def save_settings(d, path=None):
     # settings file created THIS session would look like a pre-migration
     # (.400/.401) file on the next load and get wrongly re-translated
     d["egg_order_v"] = EGG_ORDER_V
-    _atomic_write_json(path or SETTINGS_PATH, d, keep_bak=True)
+    out = dict(d)                               # the caller's dict stays bound
+    _file_progress(out)
+    _atomic_write_json(path or SETTINGS_PATH, out, keep_bak=True)
 
 
 def get_album():
@@ -157,6 +210,22 @@ def ladder_award_claimed(season):
     keeps its own claim ledger; this local one stops a double-grant when the
     claim message races a re-query (monthly ladder, 2026-07-14)."""
     return season in load_settings().get("progress", {}).get("ladder_claimed", [])
+
+
+def raid_paid(raid_id):
+    """Has this profile already APPLIED raid `raid_id`'s reward?  The server
+    re-sends an unacknowledged payout (battle call #23 = A, 2026-10-15);
+    this ledger keeps a re-send from paying twice."""
+    return str(raid_id) in load_settings().get("progress", {}).get("raids_paid", [])
+
+
+def note_raid_paid(raid_id):
+    d = load_settings()
+    lst = d.setdefault("progress", {}).setdefault("raids_paid", [])
+    if str(raid_id) not in lst:
+        lst.append(str(raid_id))
+        del lst[:-50]                        # the newest fifty are plenty
+        save_settings(d)
 
 
 def note_ladder_award(season):
@@ -340,6 +409,13 @@ def map_complete_add(map_index):
     _note_set("maps", int(map_index))
 
 
+def map_cleared_add(map_index):
+    """One adventure MAP's boss cleared (0-based index into the 30-map world).
+    `maps` holds whole AREAS (6 maps each); a map-specific egg gate needs the
+    map itself (Volcanic Beat egg = the Volcano road, 2026-10-14)."""
+    _note_set("maps_cleared", int(map_index))
+
+
 def zone_best_set(zone_index, score):
     """Record an adventure run's SCORE against the zone's standing best
     (arcade arc, 2026-07-21).  Returns True when it's a NEW best -- the
@@ -415,6 +491,8 @@ def snapshot_prev_gen(pet):
         # distribution (dna_applied) is the pet's own biology and dies
         # with it, exactly as before.
         "dna_owned": dict(getattr(pet, "dna_owned", {}) or {}),
+        # egg audit 2026-10-14: profile daily purchases outlive a partner.
+        "town_bought": dict(getattr(pet, "town_bought", {}) or {}),
     }
     # the LEGACY roll (sweep 2026-07-14): every retired generation used to
     # vanish -- only this gate snapshot survived, and it was never SHOWN.
@@ -425,7 +503,10 @@ def snapshot_prev_gen(pet):
         "name": getattr(pet, "name", "") or "?",
         "stage": getattr(pet, "stage", "?"),
         "age": float(getattr(pet, "age_seconds", 0.0)),
-        "cups": int(getattr(pet, "trophies", 0)),
+        "cups": int(getattr(pet, "trophies", 0)),        # the lineage total
+        # THIS life's own cups (eggs call #31 = A, Joel 2026-10-15)
+        "cups_life": max(0, int(getattr(pet, "trophies", 0))
+                         - int(getattr(pet, "trophies_at_birth", 0) or 0)),
         "dead": bool(getattr(pet, "dead", False)),
         # the HALL OF MEMORY fields (Joel 2026-07-26 "build the hall of
         # memory"): the individual, not just the count -- its form for the
@@ -467,6 +548,44 @@ def _heal_bag(inv):
             inv[new] = inv.get(new, 0) + n
     return inv
 
+def _dna_counts(value, bank=False):
+    """Normalize legacy missing slots; reject malformed counts without truncation."""
+    from . import data
+    if value is None:
+        value = {}
+    if not isinstance(value, dict):
+        raise ValueError("invalid DNA dictionary")
+    out = {f: 0 for f in data.DNA_FIELDS}
+    for field, count in value.items():
+        # DNA audit 2026-10-14: shape checks alone let poisoned banks reach UI/cloud.
+        if (field not in out or isinstance(count, bool)
+                or not isinstance(count, (int, float)) or count < 0
+                or (bank and count > MAX_DNA_INVENTORY)):
+            raise ValueError("invalid DNA count")
+        try:
+            whole = int(count)
+        except (ValueError, OverflowError):
+            raise ValueError("invalid DNA count") from None
+        if whole != count:
+            raise ValueError("invalid DNA count")
+        out[field] = whole
+    return out
+
+
+def _dna_save_fields(value):
+    """Validate the DNA portion independently of the rest of a save."""
+    out = {key: _dna_counts(value.get(key), bank=key == "dna_owned")
+           for key in ("dna_owned", "dna_applied")}
+    pending = value.get("dna_wager_pending")
+    if pending is None:
+        pending = 0
+    if (isinstance(pending, bool) or not isinstance(pending, (int, float))
+            or not 0 <= pending <= MAX_DNA_WAGER or int(pending) != pending):
+        raise ValueError("invalid DNA wager")
+    out["dna_wager_pending"] = int(pending)
+    return out
+
+
 def prev_gen_estate():
     """The device-lifetime estate the next generation inherits (bits, the bag,
     the trophy room -- canon resetToEgg preserves them all)."""
@@ -483,11 +602,56 @@ def prev_gen_estate():
     # fades with its finder.  Carrying the item without its payload would
     # deal the heir a dud -- the very thing the no-traps rule forbids.
     inv.pop("digimemory", None)
+    try:
+        bank = _dna_counts(last.get("dna_owned"), bank=True)
+    except ValueError:
+        # DNA audit 2026-10-14: archive the malformed estate, keep every valid slot.
+        quarantine_save(SETTINGS_PATH)
+        bank = _dna_counts(None)
+        raw = last.get("dna_owned")
+        if isinstance(raw, dict):
+            for field, count in raw.items():
+                try:
+                    slot = _dna_counts({field: count}, bank=True)
+                except ValueError:
+                    continue
+                bank[field] = slot[field]
     return {"bits": int(last.get("bits", 0)),
             "inventory": inv,
             "trophies": int(last.get("trophies", 0)),
             "trophies_won": tw,
-            "dna_owned": dict(last.get("dna_owned") or {})}
+            # egg audit 2026-10-14: old estates without a ledger stay compatible.
+            "town_bought": dict(last.get("town_bought") or {}),
+            "dna_owned": bank}
+
+
+_FX_SEEN = (None, None)          # (settings path, set) -- keyed by path so a
+#                                  redirected HOME never reads a stale cache
+
+
+def _fx_seen_set():
+    global _FX_SEEN
+    if _FX_SEEN[0] != SETTINGS_PATH:
+        _FX_SEEN = (SETTINGS_PATH,
+                    set((load_settings().get("progress") or {}).get("fx_seen") or []))
+    return _FX_SEEN[1]
+
+
+def fx_seen(key):
+    """Has this home show played to its end before (any life)?  The
+    animation audit's first-time/repeat split (2026-10-14).  Cached: it is
+    read at every show start."""
+    return key in _fx_seen_set()
+
+
+def mark_fx_seen(key):
+    seen = _fx_seen_set()
+    if key in seen:
+        return
+    seen.add(key)
+    d = load_settings()
+    d.setdefault("progress", {})["fx_seen"] = sorted(seen)
+    save_settings(d)
 
 
 def _note_put(key, value):
@@ -567,6 +731,7 @@ def get_progress():
         "max_stage": int(prog.get("max_stage", 0)),
         "xanti_ever": bool(prog.get("xanti_ever", False)),
         "maps": set(prog.get("maps", [])),
+        "maps_cleared": set(prog.get("maps_cleared", [])),
         "raids": int(prog.get("raids", 0)),
         "tourneys": set(prog.get("tourneys", [])),
         "last_field": last.get("field", "None"),
@@ -595,7 +760,8 @@ def get_progress():
 # The one-slot live values (last_gen, digimemory, bonus_seed, title_worn) are
 # deliberately NOT here: they are current state, not earned history, and no
 # merge of them is lose-nothing.  Deciding those is a design call, not this fix.
-_PROG_SETS = ("album", "eggs_owned", "titles_owned", "connections", "maps",
+_PROG_SETS = ("album", "eggs_owned", "titles_owned", "connections", "maps", "maps_cleared",
+              "raids_paid",
               "tourneys", "festivals", "eggs_announced", "ladder_claimed",
               "shop_unlocks")
 _PROG_MAXES = ("wins", "mega_kills", "armor_evos", "raids",
@@ -638,7 +804,11 @@ def merge_progress(incoming):
         v = incoming.get(k)
         if not isinstance(v, list) or not v:
             continue
-        merged = sorted(set(prog.get(k) or []) | set(v))
+        # sync audit 2026-10-14: junk in one earned set must not abort the pull.
+        try:
+            merged = sorted(set(prog.get(k) or []) | set(v))
+        except (TypeError, ValueError):
+            continue
         if merged != (prog.get(k) or []):
             prog[k] = merged
             changed = True
@@ -840,6 +1010,10 @@ def erase_all():
              "volume.txt"]   # never in this list before the 2026-07-19 shape sweep
     names += [os.path.basename(p) for p in
               _glob.glob(os.path.join(SAVE_DIR, "save.corrupt.*.json"))]
+    # sync audit 2026-10-14: rescue copies and interrupted writes contain the pet too.
+    names += ["save.json.tmp", "settings.json.tmp", "pending_bugs.jsonl.tmp"]
+    names += [os.path.basename(p) for p in
+              _glob.glob(os.path.join(SAVE_DIR, "save.rescue.*.json"))]
     for fn in names:
         p = os.path.join(SAVE_DIR, fn)
         try:
@@ -902,7 +1076,8 @@ def local_saved_at(path=None):
     path = path or SAVE_PATH
     try:
         return float(json.load(open(path, encoding="utf-8")).get("_saved_at") or 0.0)
-    except (ValueError, OSError, TypeError):
+    # sync audit 2026-10-14: a JSON array is unreadable save data, not a boot crash.
+    except (ValueError, OSError, TypeError, AttributeError):
         return 0.0
 
 
@@ -925,6 +1100,10 @@ def pet_from_save(data, strict=False):
     if not isinstance(data, dict):
         return None, ""
     data = dict(data)                            # don't mutate the caller's dict
+    try:
+        data.update(_dna_save_fields(data))
+    except (ValueError, OverflowError):
+        return None, ""
     _migrate_v401_save(data)                     # egg-bank reorder + ver6 cut
     # egg_type must be an INT: the 2026-07-18 'guide' incident wrote the
     # carousel's sentinel string into a save (the crash handler then saved
@@ -1037,6 +1216,9 @@ def pet_from_save(data, strict=False):
             # forms keep '' as before)
             from . import lines as _lines
             _lines.adopt_line(pet)
+    if (getattr(pet, "dna_owned", None) or {}).get("None"):
+        paid = pet.settle_dud_dna()           # DNA call #4 = A (2026-10-15)
+        msg = (msg + f"  (old dud DNA cashed in: +{paid}b)").strip()
     if getattr(pet, "dna_wager_pending", 0) > 0 and not pet.dead:
         # a paid mash was in flight at quit/crash: SETTLE it as the spoiled
         # mash it was (rate 0 -- the stabilizer band still honors a >=500
@@ -1046,7 +1228,8 @@ def pet_from_save(data, strict=False):
         amt = int(pet.dna_wager_pending)
         field = pet.dna_minigame_award(amt, 0)
         note = (f"(the interrupted DNA wager settled: {amt} on a spoiled mash"
-                + (f" → {field} banked" if field != "None" else "") + ")")
+                + (f" → {field} banked" if field != "None"
+                   else f" → {amt // 2}b back") + ")")
         msg = (msg + "  " + note).strip()
     return pet, msg
 
@@ -1074,6 +1257,7 @@ def load(path=None):
     (professionalism sweep 2026-07-14)."""
     path = path or SAVE_PATH
     broken = None                    # first candidate that existed but wouldn't load
+    broken_dna = False
     for candidate in (path, path + ".bak"):
         if not os.path.exists(candidate):
             continue
@@ -1091,9 +1275,17 @@ def load(path=None):
             # .bak -> quarantine chain, not crash the boot in app.py
             pet, msg = None, ""
         if pet is None:
+            if broken is None and isinstance(data, dict):
+                try:
+                    _dna_save_fields(data)
+                except (ValueError, OverflowError):
+                    broken_dna = True
             broken = broken or candidate
             continue
         if candidate != path:
+            # DNA audit 2026-10-14: keep the poisoned original even if backup recovers.
+            if broken_dna:
+                quarantine_save(broken)
             msg = (msg + "  " if msg else "") + "(recovered from the backup save)"
         return pet, msg
     if broken is None:

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import ast
 import functools
+import warnings
 import weakref
 from enum import IntEnum
 from typing import Any, NamedTuple
 
 from django.conf import settings
+from django.core.signals import setting_changed
 from django.template import Library, TemplateDoesNotExist
 from django.template.base import (
     Node,
@@ -29,6 +31,57 @@ from django_cotton.templatetags import (
 )
 
 register = Library()
+
+_deprecation_warned = False
+
+
+def _check_deprecated_isolation_setting():
+    """Emit a one-time DeprecationWarning if the old COTTON_ENABLE_CONTEXT_ISOLATION
+    setting is in use. It is superseded by COTTON_ISOLATE_BY_DEFAULT."""
+    global _deprecation_warned
+    if _deprecation_warned:
+        return
+    if getattr(settings, "COTTON_ENABLE_CONTEXT_ISOLATION", False):
+        warnings.warn(
+            "COTTON_ENABLE_CONTEXT_ISOLATION is deprecated and will be removed in a future "
+            "release. Use COTTON_ISOLATE_BY_DEFAULT instead — it provides the same "
+            "'Smart Isolation' behaviour (parent template vars are blocked, context "
+            "processors like request/user/messages/perms are preserved).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    _deprecation_warned = True
+
+
+@functools.lru_cache(maxsize=1)
+def _get_isolation_settings():
+    """Read the isolation settings once per process instead of once per render.
+
+    These settings are usually undefined, and LazySettings only caches lookups
+    that succeed — an uncached getattr for a missing setting raises and catches
+    an AttributeError through the lazy-object chain on every component render.
+    Caching here saves a few microseconds per render and keeps steady-state
+    renders exception-free (less noise in profilers and DEBUG tooling). The
+    cache is cleared on setting_changed so override_settings keeps working.
+    """
+    _check_deprecated_isolation_setting()
+    return (
+        getattr(settings, "COTTON_ISOLATE_BY_DEFAULT", False),
+        # Backward-compat: old experimental setting, deprecated in favour of COTTON_ISOLATE_BY_DEFAULT
+        getattr(settings, "COTTON_ENABLE_CONTEXT_ISOLATION", False),
+    )
+
+
+def _clear_settings_caches(sender, setting, **kwargs):
+    _get_isolation_settings.cache_clear()
+    # Also settings-derived: bakes COTTON_DIR / COTTON_SNAKE_CASED_NAMES into
+    # its results, keyed only by component name.
+    CottonComponentNode._generate_component_template_path.cache_clear()
+    CottonComponentNode._candidate_template_paths.cache_clear()
+
+
+setting_changed.connect(_clear_settings_caches)
+
 
 _MISSING = object()
 
@@ -191,6 +244,9 @@ class CottonComponentNode(Node):
         self.only = only
         self.active_library = active_library
         self._prepared_attrs = _prepare_attrs(attrs, active_library)
+        # Maps requested template path -> resolved path ('<name>.html' or the
+        # '<name>/index.html' fallback); see _get_cached_template.
+        self._resolved_paths = {}
 
     def render(self, context):
         cotton_data = get_cotton_data(context)
@@ -261,18 +317,19 @@ class CottonComponentNode(Node):
             "cotton_data": cotton_data,
         }
 
+        isolate_by_default, enable_context_isolation = _get_isolation_settings()
+
         if self.only:
-            # Complete isolation
+            # Total Isolation (Traditional behavior): No access to any parent or global context.
             output = template.render(Context(component_state))
+        elif isolate_by_default or enable_context_isolation:
+            # Smart Isolation (New behavior): Isolate from parent template leaks but preserve global context processors
+            new_context = self._create_partial_context(context, component_state)
+            output = template.render(new_context)
         else:
-            if getattr(settings, "COTTON_ENABLE_CONTEXT_ISOLATION", False) is True:
-                # Default - partial isolation
-                new_context = self._create_partial_context(context, component_state)
-                output = template.render(new_context)
-            else:
-                # Legacy - no isolation
-                with context.push(component_state):
-                    output = template.render(context)
+            # Legacy/No isolation: Push to existing context stack
+            with context.push(component_state):
+                output = template.render(context)
 
         cotton_data["stack"].pop()
 
@@ -288,43 +345,68 @@ class CottonComponentNode(Node):
         if template_path in cache:
             return cache[template_path]
 
-        # Try to get the primary template
-        try:
-            template = get_template(template_path)
-            if hasattr(template, "template"):
-                template = template.template
-            cache[template_path] = template
-            return template
-        except TemplateDoesNotExist:
-            # If the primary template doesn't exist, try the fallback path (index.html)
-            fallback_path = template_path.rsplit(".html", 1)[0] + "/index.html"
+        # The render_context cache above only lives for a single render, so for
+        # '<name>/index.html'-style components the primary-path probe below would
+        # raise TemplateDoesNotExist on every render. Memoize the *resolved path*
+        # (not the template object) per node: the exception is paid once per
+        # compiled template, while loading still goes through get_template so
+        # loader semantics (e.g. uncached loaders in DEBUG re-reading changed
+        # files) are preserved.
+        resolved_path = self._resolved_paths.get(template_path)
+        if resolved_path is not None:
+            template = get_template(resolved_path)
+        else:
+            candidates = self._candidate_template_paths(self.component_name, attrs.get("is"))
+            for candidate in candidates:
+                try:
+                    template = get_template(candidate)
+                except TemplateDoesNotExist:
+                    continue
+                resolved_path = candidate
+                break
+            else:
+                raise TemplateDoesNotExist(
+                    f"{template_path} (also tried: {', '.join(candidates[1:])})"
+                )
+            self._resolved_paths[template_path] = resolved_path
 
-            # Check if the fallback template is already cached
-            if fallback_path in cache:
-                return cache[fallback_path]
-
-            # Try to get the fallback template
-            template = get_template(fallback_path)
-            if hasattr(template, "template"):
-                template = template.template
-            cache[fallback_path] = template
-            return template
+        if hasattr(template, "template"):
+            template = template.template
+        cache[template_path] = template
+        return template
 
     def _create_partial_context(self, original_context, component_state):
-        # Get the request object from the original context
-        request = original_context.get("request")
+        # Smart Isolation: block parent template scope, but preserve context
+        # processor output. We reuse the processor snapshot from the parent
+        # RequestContext rather than building a new RequestContext per
+        # component (which would re-fire every processor — see issue #269).
+        processor_snapshot = self._get_processor_snapshot(original_context)
 
-        if request:
-            # Create a new RequestContext
-            new_context = RequestContext(request)
+        new_context = Context()
+        if processor_snapshot is not None:
+            new_context.dicts.append(processor_snapshot)
+        new_context.dicts.append(component_state)
 
-            # Add the component_state to the new context
-            new_context.update(component_state)
-        else:
-            # If there's no request object, create a simple Context
-            new_context = Context(component_state)
-
+        # Propagate the snapshot through nested isolated components so
+        # children can reuse it instead of looking back at a RequestContext
+        # they no longer have access to.
+        new_context._cotton_processor_snapshot = processor_snapshot
         return new_context
+
+    @staticmethod
+    def _get_processor_snapshot(original_context):
+        """Return the context-processor output dict from the parent context,
+        or None if processors haven't been bound (no request, or a parent
+        that wasn't a RequestContext)."""
+        snapshot = getattr(original_context, "_cotton_processor_snapshot", None)
+        if snapshot is not None:
+            return snapshot
+        if isinstance(original_context, RequestContext):
+            try:
+                return original_context.dicts[original_context._processors_index]
+            except (IndexError, AttributeError):
+                return None
+        return None
 
     def _extract_vars_from_template(self, template, context, attrs, slots):
         """Extract vars from any CottonVarsNode instances in the template."""
@@ -362,6 +444,24 @@ class CottonComponentNode(Node):
 
         cotton_dir = getattr(settings, "COTTON_DIR", "cotton")
         return f"{cotton_dir}/{component_tpl_path}.html"
+
+    @staticmethod
+    @functools.lru_cache(maxsize=400)
+    def _candidate_template_paths(component_name: str, is_: str | None) -> tuple[str, ...]:
+        """Template paths to try for a component, in order.
+
+        The configured location comes first, then its '<name>/index.html' form,
+        then the default layout ('cotton/' with snake_case filenames) so that
+        components laid out that way resolve whatever COTTON_DIR or
+        COTTON_SNAKE_CASED_NAMES is set to. The configured location always wins.
+        """
+        configured = CottonComponentNode._generate_component_template_path(component_name, is_)
+        name = is_ if component_name == "component" else component_name
+        default = f"cotton/{name.replace('.', '/').replace('-', '_')}.html"
+        candidates = [configured, configured[: -len(".html")] + "/index.html"]
+        if default != configured:
+            candidates += [default, default[: -len(".html")] + "/index.html"]
+        return tuple(candidates)
 
 
 def cotton_component(parser, token):

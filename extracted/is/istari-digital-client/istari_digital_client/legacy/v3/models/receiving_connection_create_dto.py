@@ -33,8 +33,9 @@ class ReceivingConnectionCreateDto(BaseModel):
     shared_id: Annotated[str, Field(min_length=1, strict=True, max_length=255)] = Field(description="The shared identifier used to pair the connection. Slashes nest the share under subfolders in the share bucket; dot-only segments such as `.` and `..` are rejected.")
     shared_secret: Annotated[str, Field(min_length=8, strict=True)] = Field(description="The shared secret used to authenticate the connection.")
     object_store_id: StrictStr = Field(description="The object store to use for this connection.")
+    tenant_id: Optional[StrictStr] = None
     transformations: Optional[List[RemoteTransformationCreateDto]] = Field(default=None, description="The set of control tag transformations.")
-    __properties: ClassVar[List[str]] = ["label", "description", "shared_id", "shared_secret", "object_store_id", "transformations"]
+    __properties: ClassVar[List[str]] = ["label", "description", "shared_id", "shared_secret", "object_store_id", "tenant_id", "transformations"]
 
     @field_validator('shared_id')
     def shared_id_validate_regular_expression(cls, value):
@@ -89,6 +90,11 @@ class ReceivingConnectionCreateDto(BaseModel):
                 if _item_transformations:
                     _items.append(_item_transformations.to_dict())
             _dict['transformations'] = _items
+        # set to None if tenant_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.tenant_id is None and "tenant_id" in self.model_fields_set:
+            _dict['tenant_id'] = None
+
         return _dict
 
     @classmethod
@@ -106,6 +112,7 @@ class ReceivingConnectionCreateDto(BaseModel):
             "shared_id": obj.get("shared_id"),
             "shared_secret": obj.get("shared_secret"),
             "object_store_id": obj.get("object_store_id"),
+            "tenant_id": obj.get("tenant_id"),
             "transformations": [RemoteTransformationCreateDto.from_dict(_item) for _item in obj["transformations"]] if obj.get("transformations") is not None else None
         })
         return _obj

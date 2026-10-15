@@ -48,7 +48,7 @@ mod windows {
     finder!(pub UPPER_LIB_FINDER = "\\Lib\\");
     finder!(pub KOLO_DIR_FINDER = "\\kolo\\");
     /// Every module and subpackage of the kolo package, relative to its directory.
-    pub const KOLO_MODULES: [&str; 43] = [
+    pub const KOLO_MODULES: [&str; 44] = [
         "__init__.py",
         "__main__.py",
         "_attach.py",
@@ -56,6 +56,7 @@ mod windows {
         "_emit_auto.py",
         "_kolotxt.py",
         "_paths.py",
+        "_platform_info.py",
         "_repr_audit.py",
         "build_frame_tree.py",
         "checks.py",
@@ -104,7 +105,7 @@ mod not_windows {
     finder!(pub LIBRARY_FINDERS = "lib/python", "lib64/python", "/site-packages/");
     finder!(pub KOLO_DIR_FINDER = "/kolo/");
     /// Every module and subpackage of the kolo package, relative to its directory.
-    pub const KOLO_MODULES: [&str; 43] = [
+    pub const KOLO_MODULES: [&str; 44] = [
         "__init__.py",
         "__main__.py",
         "_attach.py",
@@ -112,6 +113,7 @@ mod not_windows {
         "_emit_auto.py",
         "_kolotxt.py",
         "_paths.py",
+        "_platform_info.py",
         "_repr_audit.py",
         "build_frame_tree.py",
         "checks.py",
@@ -213,14 +215,10 @@ pub fn attrs_generated_filter(co_filename: &str) -> bool {
 }
 
 pub fn attrs_filter_monitoring(py: Python, co_filename: &str) -> Result<bool, PyErr> {
-    // If filename is not empty, just check if it starts with "<attrs generated"
-    // This matches the Python behavior in monitoring.py attrs_filter()
     if !co_filename.is_empty() {
         return Ok(attrs_generated_filter(co_filename));
     }
 
-    // Filename is empty - need to check parent frames for attrs code
-    // Wrap in error handling since the call stack may not be deep enough
     let sys = PyModule::import(py, "sys")?;
     let frame_1 = match sys.call_method1("_getframe", (1,)) {
         Ok(frame) => frame,

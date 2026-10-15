@@ -76,7 +76,7 @@ fn start_server(
             // chalk-queue / chalk_metrics, since these don't compile on macos
             // and windows. Built inside the runtime since it needs to `.await`.
             #[cfg(target_os = "linux")]
-            let pipeline = crate::metrics::init_pipeline().await;
+            let metrics = crate::metrics::init().await;
 
             let coalescing_queue = if max_batching_size > 0 {
                 Some(CoalescingQueue::new(
@@ -84,21 +84,29 @@ fn start_server(
                     max_batching_size,
                     max_buffer_duration_ms,
                     #[cfg(target_os = "linux")]
-                    pipeline.clone(),
+                    metrics.clone(),
                 ))
             } else {
                 None
             };
 
-            server::run_server(
+            let server = server::run_server(
                 host,
                 port,
                 python_handler,
                 coalescing_queue,
                 #[cfg(target_os = "linux")]
-                pipeline,
-            )
-            .await
+                metrics.clone(),
+            );
+
+            #[cfg(target_os = "linux")]
+            {
+                crate::metrics::run_with_metrics(metrics, server).await
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                server.await
+            }
         })
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Server error: {e}")))
     })

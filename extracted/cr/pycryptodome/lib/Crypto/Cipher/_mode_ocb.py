@@ -1,32 +1,5 @@
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
 """
 Offset Codebook (OCB) mode.
@@ -41,8 +14,7 @@ or decryption can start before the end of the message is available).
 This module implements the third and last variant of OCB (OCB3) and it only
 works in combination with a 128-bit block symmetric cipher, like AES.
 
-OCB is patented in US but `free licenses`_ exist for software implementations
-meant for non-military purposes.
+OCB was patented in USA but the author eventually `abandoned`_ the patents.
 
 Example:
     >>> from Crypto.Cipher import AES
@@ -65,28 +37,44 @@ Example:
 :undocumented: __package__
 
 .. _RFC7253: http://www.rfc-editor.org/info/rfc7253
-.. _free licenses: http://web.cs.ucdavis.edu/~rogaway/ocb/license.htm
+.. _abandoned: https://mailarchive.ietf.org/arch/msg/cfrg/qLTveWOdTJcLn4HP3ev-vrj05Vg/
 """
 
-import struct
-from binascii import unhexlify
+from __future__ import annotations
 
-from Crypto.Util.py3compat import bord, _copy_bytes, bchr
-from Crypto.Util.number import long_to_bytes, bytes_to_long
+from binascii import unhexlify
+from hmac import compare_digest
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+
+from Crypto.Cipher._state_machine import Method
+from Crypto.Random import get_random_bytes
+from Crypto.Util._raw_api import (
+    SmartPointer,
+    VoidPointer,
+    c_size_t,
+    c_uint8_ptr_len,
+    c_uint8_ptr_out,
+    create_output_buffer,
+    create_string_buffer,
+    get_raw_buffer,
+    is_buffer,
+    load_pycryptodome_raw_lib,
+)
+from Crypto.Util._threads import range_boundaries, run_in_threads, threads_param
 from Crypto.Util.strxor import strxor
 
-from Crypto.Hash import BLAKE2s
-from Crypto.Random import get_random_bytes
+if TYPE_CHECKING:
+    from types import ModuleType
 
-from Crypto.Util._raw_api import (load_pycryptodome_raw_lib, VoidPointer,
-                                  create_string_buffer, get_raw_buffer,
-                                  SmartPointer, c_size_t, c_uint8_ptr,
-                                  is_buffer)
+Buffer = Union[bytes, bytearray, memoryview]
 
-_raw_ocb_lib = load_pycryptodome_raw_lib("Crypto.Cipher._raw_ocb", """
+_raw_ocb_lib = load_pycryptodome_raw_lib(
+    "Crypto.Cipher._raw_ocb",
+    """
                                     int OCB_start_operation(void *cipher,
-                                        const uint8_t *offset_0,
-                                        size_t offset_0_len,
+                                        const uint8_t *nonce,
+                                        size_t nonce_len,
+                                        size_t tag_len,
                                         void **pState);
                                     int OCB_encrypt(void *state,
                                         const uint8_t *in,
@@ -99,29 +87,92 @@ _raw_ocb_lib = load_pycryptodome_raw_lib("Crypto.Cipher._raw_ocb", """
                                     int OCB_update(void *state,
                                         const uint8_t *in,
                                         size_t data_len);
+                                    int OCB_encrypt_at(const void *state,
+                                        const uint8_t *in,
+                                        uint8_t *out,
+                                        size_t offset,
+                                        size_t data_len,
+                                        uint8_t *checksum);
+                                    int OCB_decrypt_at(const void *state,
+                                        const uint8_t *in,
+                                        uint8_t *out,
+                                        size_t offset,
+                                        size_t data_len,
+                                        uint8_t *checksum);
+                                    int OCB_skip(void *state,
+                                        size_t data_len,
+                                        const uint8_t *checksum);
                                     int OCB_digest(void *state,
                                         uint8_t *tag,
                                         size_t tag_len);
                                     int OCB_stop_operation(void *state);
-                                    """)
+                                    """,
+)
+
+# Minimum amount of data (1 MiB) that each thread must process:
+# with less, starting the thread costs more than what it saves.
+_MIN_BYTES_PER_THREAD = 1024 * 1024
 
 
-class OcbMode(object):
+def _process_threaded(
+    state: Any, at_func: Callable[..., int], in_ptr: Any, out_ptr: Any, data_len: int, threads: int
+) -> int:
+    """Encrypt or decrypt ``data_len`` bytes by splitting them into ``threads``
+    contiguous ranges, which are processed in parallel.
+    Each range starts at a block boundary: if ``data_len`` is not a multiple
+    of 16, the last range ends with the last piece of the message.
+
+    ``at_func`` (``OCB_encrypt_at`` or ``OCB_decrypt_at``) processes one range,
+    without changing the state, and returns its share of the checksum,
+    which is an XOR over all blocks. Then, the state moves past all ranges.
+
+    :return: the error code of the C library (0 for success)
+
+    ``state``, ``in_ptr`` and ``out_ptr`` are C pointers, whose types depend
+    on the backend (cffi or ctypes): see :mod:`Crypto.Util._raw_api`.
+    """
+
+    bounds = range_boundaries(data_len, threads, 16)
+    partials = [create_string_buffer(16) for _ in range(threads)]
+
+    def worker(i: int) -> int:
+        start, end = bounds[i], bounds[i + 1]
+        return at_func(state, in_ptr, out_ptr, c_size_t(start), c_size_t(end - start), partials[i])
+
+    results: list[int] = []
+    try:
+        results = run_in_threads(worker, threads)
+    finally:
+        # Move the state forward even after an error in a thread (some ranges
+        # may be processed already), so that the same offsets are not used again
+        checksum = bytes(16)
+        for partial in partials:
+            checksum = strxor(checksum, get_raw_buffer(partial))
+        skip_result = _raw_ocb_lib.OCB_skip(state, c_size_t(data_len), checksum)
+
+    # Report the first error of a thread, if any
+    for result in results:
+        if result:
+            return result
+    return skip_result
+
+
+class OcbMode:
     """Offset Codebook (OCB) mode.
 
     :undocumented: __init__
     """
 
-    def __init__(self, factory, nonce, mac_len, cipher_params):
-
+    def __init__(
+        self, factory: ModuleType, nonce: Buffer, mac_len: int, cipher_params: dict, threads: int = 1
+    ) -> None:
         if factory.block_size != 16:
-            raise ValueError("OCB mode is only available for ciphers"
-                             " that operate on 128 bits blocks")
+            raise ValueError("OCB mode is only available for ciphers that operate on 128 bits blocks")
 
         self.block_size = 16
         """The block size of the underlying cipher, in bytes."""
 
-        self.nonce = _copy_bytes(None, None, nonce)
+        self.nonce = bytes(nonce)
         """Nonce used for this session."""
         if len(nonce) not in range(1, 16):
             raise ValueError("Nonce must be at most 15 bytes long")
@@ -129,11 +180,12 @@ class OcbMode(object):
             raise TypeError("Nonce must be bytes, bytearray or memoryview")
 
         self._mac_len = mac_len
+        self._threads = threads_param(threads)
         if not 8 <= mac_len <= 16:
             raise ValueError("MAC tag must be between 8 and 16 bytes long")
 
         # Cache for MAC tag
-        self._mac_tag = None
+        self._mac_tag: Optional[bytes] = None
 
         # Cache for unaligned associated data
         self._cache_A = b""
@@ -142,68 +194,39 @@ class OcbMode(object):
         self._cache_P = b""
 
         # Allowed transitions after initialization
-        self._next = ["update", "encrypt", "decrypt",
-                      "digest", "verify"]
-
-        # Compute Offset_0
-        params_without_key = dict(cipher_params)
-        key = params_without_key.pop("key")
-
-        taglen_mod128 = (self._mac_len * 8) % 128
-        if len(self.nonce) < 15:
-            nonce = bchr(taglen_mod128 << 1) +\
-                    b'\x00' * (14 - len(nonce)) +\
-                    b'\x01' +\
-                    self.nonce
-        else:
-            nonce = bchr((taglen_mod128 << 1) | 0x01) +\
-                    self.nonce
-
-        bottom_bits = bord(nonce[15]) & 0x3F    # 6 bits, 0..63
-        top_bits = bord(nonce[15]) & 0xC0       # 2 bits
-
-        ktop_cipher = factory.new(key,
-                                  factory.MODE_ECB,
-                                  **params_without_key)
-        ktop = ktop_cipher.encrypt(struct.pack('15sB',
-                                               nonce[:15],
-                                               top_bits))
-
-        stretch = ktop + strxor(ktop[:8], ktop[1:9])    # 192 bits
-        offset_0 = long_to_bytes(bytes_to_long(stretch) >>
-                                 (64 - bottom_bits), 24)[8:]
+        self._next = [Method.UPDATE, Method.ENCRYPT, Method.DECRYPT, Method.DIGEST, Method.VERIFY]
 
         # Create low-level cipher instance
         raw_cipher = factory._create_base_cipher(cipher_params)
         if cipher_params:
             raise TypeError("Unknown keywords: " + str(cipher_params))
 
-        self._state = VoidPointer()
-        result = _raw_ocb_lib.OCB_start_operation(raw_cipher.get(),
-                                                  offset_0,
-                                                  c_size_t(len(offset_0)),
-                                                  self._state.address_of())
+        state = VoidPointer()
+        result = _raw_ocb_lib.OCB_start_operation(
+            raw_cipher.get(),
+            self.nonce,
+            c_size_t(len(self.nonce)),
+            c_size_t(self._mac_len),
+            state.address_of(),
+        )
         if result:
-            raise ValueError("Error %d while instantiating the OCB mode"
-                             % result)
+            raise ValueError("Error %d while instantiating the OCB mode" % result)
 
         # Ensure that object disposal of this Python object will (eventually)
         # free the memory allocated by the raw library for the cipher mode
-        self._state = SmartPointer(self._state.get(),
-                                   _raw_ocb_lib.OCB_stop_operation)
+        self._state = SmartPointer(state.get(), _raw_ocb_lib.OCB_stop_operation)
 
         # Memory allocated for the underlying block cipher is now owed
         # by the cipher mode
         raw_cipher.release()
 
-    def _update(self, assoc_data, assoc_data_len):
-        result = _raw_ocb_lib.OCB_update(self._state.get(),
-                                         c_uint8_ptr(assoc_data),
-                                         c_size_t(assoc_data_len))
+    def _update(self, assoc_data: memoryview) -> None:
+        assoc_data_ptr, assoc_data_len = c_uint8_ptr_len(assoc_data)
+        result = _raw_ocb_lib.OCB_update(self._state.get(), assoc_data_ptr, c_size_t(assoc_data_len))
         if result:
             raise ValueError("Error %d while computing MAC in OCB mode" % result)
 
-    def update(self, assoc_data):
+    def update(self, assoc_data: Buffer) -> OcbMode:
         """Process the associated data.
 
         If there is any associated data, the caller has to invoke
@@ -224,16 +247,14 @@ class OcbMode(object):
             A piece of associated data.
         """
 
-        if "update" not in self._next:
-            raise TypeError("update() can only be called"
-                            " immediately after initialization")
+        if Method.UPDATE not in self._next:
+            raise TypeError("update() can only be called immediately after initialization")
 
-        self._next = ["encrypt", "decrypt", "digest",
-                      "verify", "update"]
+        self._next = [Method.ENCRYPT, Method.DECRYPT, Method.DIGEST, Method.VERIFY, Method.UPDATE]
 
         if len(self._cache_A) > 0:
             filler = min(16 - len(self._cache_A), len(assoc_data))
-            self._cache_A += _copy_bytes(None, filler, assoc_data)
+            self._cache_A += bytes(assoc_data[:filler])
             assoc_data = assoc_data[filler:]
 
             if len(self._cache_A) < 16:
@@ -244,30 +265,44 @@ class OcbMode(object):
             self.update(seg)
 
         update_len = len(assoc_data) // 16 * 16
-        self._cache_A = _copy_bytes(update_len, None, assoc_data)
-        self._update(assoc_data, update_len)
+        self._cache_A = bytes(assoc_data[update_len:])
+        # The view locks the buffer, but another thread may have shrunk it
+        # after update_len was computed: the view is then shorter
+        view = memoryview(assoc_data)[:update_len]
+        if len(view) != update_len:
+            raise ValueError("The associated data changed while being processed")
+        self._update(view)
         return self
 
-    def _transcrypt_aligned(self, in_data, in_data_len,
-                            trans_func, trans_desc):
+    def _process_all(self, in_data, in_data_len, c_func, c_desc):
+        """Encrypt or decrypt all the in_data_len bytes at once, into a new
+        buffer (unlike _process_incremental, no bytes are kept for later).
+        If in_data_len is not a multiple of 16, they end with the last
+        piece of the message."""
 
-        out_data = create_string_buffer(in_data_len)
-        result = trans_func(self._state.get(),
-                            in_data,
-                            out_data,
-                            c_size_t(in_data_len))
+        out_data = create_output_buffer(in_data_len)
+        threads = min(self._threads, in_data_len // _MIN_BYTES_PER_THREAD)
+        with c_uint8_ptr_out(out_data) as out_data_ptr:
+            if threads > 1:
+                at_func = getattr(_raw_ocb_lib, "OCB_%s_at" % c_desc)
+                result = _process_threaded(
+                    self._state.get(), at_func, in_data, out_data_ptr, in_data_len, threads
+                )
+            else:
+                result = c_func(self._state.get(), in_data, out_data_ptr, c_size_t(in_data_len))
         if result:
-            raise ValueError("Error %d while %sing in OCB mode"
-                             % (result, trans_desc))
+            raise ValueError("Error %d while %sing in OCB mode" % (result, c_desc))
         return get_raw_buffer(out_data)
 
-    def _transcrypt(self, in_data, trans_func, trans_desc):
+    def _process_incremental(self, in_data, c_func, c_desc):
+        """Encrypt or decrypt the next piece of the message.
+        Only whole blocks are processed: the bytes left over are kept
+        until the next call. With in_data None (the end of the message),
+        process the bytes left over."""
+
         # Last piece to encrypt/decrypt
         if in_data is None:
-            out_data = self._transcrypt_aligned(self._cache_P,
-                                                len(self._cache_P),
-                                                trans_func,
-                                                trans_desc)
+            out_data = self._process_all(self._cache_P, len(self._cache_P), c_func, c_desc)
             self._cache_P = b""
             return out_data
 
@@ -275,7 +310,7 @@ class OcbMode(object):
         prefix = b""
         if len(self._cache_P) > 0:
             filler = min(16 - len(self._cache_P), len(in_data))
-            self._cache_P += _copy_bytes(None, filler, in_data)
+            self._cache_P += bytes(in_data[:filler])
             in_data = in_data[filler:]
 
             if len(self._cache_P) < 16:
@@ -284,27 +319,22 @@ class OcbMode(object):
                 return b""
 
             # Clear the cache, and proceeding with any other aligned data
-            prefix = self._transcrypt_aligned(self._cache_P,
-                                              len(self._cache_P),
-                                              trans_func,
-                                              trans_desc)
+            prefix = self._process_all(self._cache_P, len(self._cache_P), c_func, c_desc)
             self._cache_P = b""
 
         # Process data in multiples of the block size
-        trans_len = len(in_data) // 16 * 16
-        result = self._transcrypt_aligned(c_uint8_ptr(in_data),
-                                          trans_len,
-                                          trans_func,
-                                          trans_desc)
+        in_data_ptr, in_data_len = c_uint8_ptr_len(in_data)
+        whole_blocks_len = in_data_len // 16 * 16
+        result = self._process_all(in_data_ptr, whole_blocks_len, c_func, c_desc)
         if prefix:
             result = prefix + result
 
         # Left-over
-        self._cache_P = _copy_bytes(trans_len, None, in_data)
+        self._cache_P = bytes(in_data[whole_blocks_len:])
 
         return result
 
-    def encrypt(self, plaintext=None):
+    def encrypt(self, plaintext: Optional[Buffer] = None) -> bytes:
         """Encrypt the next piece of plaintext.
 
         After the entire plaintext has been passed (but before `digest`),
@@ -323,17 +353,16 @@ class OcbMode(object):
             Its length may not match the length of the *plaintext*.
         """
 
-        if "encrypt" not in self._next:
-            raise TypeError("encrypt() can only be called after"
-                            " initialization or an update()")
+        if Method.ENCRYPT not in self._next:
+            raise TypeError("encrypt() can only be called after initialization or an update()")
 
         if plaintext is None:
-            self._next = ["digest"]
+            self._next = [Method.DIGEST]
         else:
-            self._next = ["encrypt"]
-        return self._transcrypt(plaintext, _raw_ocb_lib.OCB_encrypt, "encrypt")
+            self._next = [Method.ENCRYPT]
+        return self._process_incremental(plaintext, _raw_ocb_lib.OCB_encrypt, "encrypt")
 
-    def decrypt(self, ciphertext=None):
+    def decrypt(self, ciphertext: Optional[Buffer] = None) -> bytes:
         """Decrypt the next piece of ciphertext.
 
         After the entire ciphertext has been passed (but before `verify`),
@@ -352,38 +381,30 @@ class OcbMode(object):
             Its length may not match the length of the *ciphertext*.
         """
 
-        if "decrypt" not in self._next:
-            raise TypeError("decrypt() can only be called after"
-                            " initialization or an update()")
+        if Method.DECRYPT not in self._next:
+            raise TypeError("decrypt() can only be called after initialization or an update()")
 
         if ciphertext is None:
-            self._next = ["verify"]
+            self._next = [Method.VERIFY]
         else:
-            self._next = ["decrypt"]
-        return self._transcrypt(ciphertext,
-                                _raw_ocb_lib.OCB_decrypt,
-                                "decrypt")
+            self._next = [Method.DECRYPT]
+        return self._process_incremental(ciphertext, _raw_ocb_lib.OCB_decrypt, "decrypt")
 
     def _compute_mac_tag(self):
-
         if self._mac_tag is not None:
             return
 
         if self._cache_A:
-            self._update(self._cache_A, len(self._cache_A))
+            self._update(memoryview(self._cache_A))
             self._cache_A = b""
 
         mac_tag = create_string_buffer(16)
-        result = _raw_ocb_lib.OCB_digest(self._state.get(),
-                                         mac_tag,
-                                         c_size_t(len(mac_tag))
-                                         )
+        result = _raw_ocb_lib.OCB_digest(self._state.get(), mac_tag, c_size_t(len(mac_tag)))
         if result:
-            raise ValueError("Error %d while computing digest in OCB mode"
-                             % result)
-        self._mac_tag = get_raw_buffer(mac_tag)[:self._mac_len]
+            raise ValueError("Error %d while computing digest in OCB mode" % result)
+        self._mac_tag = get_raw_buffer(mac_tag)[: self._mac_len]
 
-    def digest(self):
+    def digest(self) -> bytes:
         """Compute the *binary* MAC tag.
 
         Call this method after the final `encrypt` (the one with no arguments)
@@ -395,28 +416,29 @@ class OcbMode(object):
         :Return: the MAC, as a byte string.
         """
 
-        if "digest" not in self._next:
+        if Method.DIGEST not in self._next:
             raise TypeError("digest() cannot be called now for this cipher")
 
-        assert(len(self._cache_P) == 0)
+        assert len(self._cache_P) == 0
 
-        self._next = ["digest"]
+        self._next = [Method.DIGEST]
 
         if self._mac_tag is None:
             self._compute_mac_tag()
 
+        assert self._mac_tag is not None
         return self._mac_tag
 
-    def hexdigest(self):
+    def hexdigest(self) -> str:
         """Compute the *printable* MAC tag.
 
         This method is like `digest`.
 
         :Return: the MAC, as a hexadecimal string.
         """
-        return "".join(["%02x" % bord(x) for x in self.digest()])
+        return self.digest().hex()
 
-    def verify(self, received_mac_tag):
+    def verify(self, received_mac_tag: Buffer) -> None:
         """Validate the *binary* MAC tag.
 
         Call this method after the final `decrypt` (the one with no arguments)
@@ -430,24 +452,21 @@ class OcbMode(object):
             or the key is incorrect.
         """
 
-        if "verify" not in self._next:
+        if Method.VERIFY not in self._next:
             raise TypeError("verify() cannot be called now for this cipher")
 
-        assert(len(self._cache_P) == 0)
+        assert len(self._cache_P) == 0
 
-        self._next = ["verify"]
+        self._next = [Method.VERIFY]
 
         if self._mac_tag is None:
             self._compute_mac_tag()
 
-        secret = get_random_bytes(16)
-        mac1 = BLAKE2s.new(digest_bits=160, key=secret, data=self._mac_tag)
-        mac2 = BLAKE2s.new(digest_bits=160, key=secret, data=received_mac_tag)
-
-        if mac1.digest() != mac2.digest():
+        assert self._mac_tag is not None
+        if not compare_digest(self._mac_tag, received_mac_tag):
             raise ValueError("MAC check failed")
 
-    def hexverify(self, hex_mac_tag):
+    def hexverify(self, hex_mac_tag: str) -> None:
         """Validate the *printable* MAC tag.
 
         This method is like `verify`.
@@ -462,7 +481,7 @@ class OcbMode(object):
 
         self.verify(unhexlify(hex_mac_tag))
 
-    def encrypt_and_digest(self, plaintext):
+    def encrypt_and_digest(self, plaintext: Buffer) -> tuple[bytes, bytes]:
         """Encrypt the message and create the MAC tag in one step.
 
         :Parameters:
@@ -475,9 +494,17 @@ class OcbMode(object):
             - the MAC
         """
 
+        if Method.ENCRYPT in self._next and not self._cache_P:
+            # The whole message in one go, into a single buffer
+            # (it avoids copying the ciphertext to add the last piece)
+            self._next = [Method.DIGEST]
+            in_ptr, in_len = c_uint8_ptr_len(plaintext)
+            ciphertext = self._process_all(in_ptr, in_len, _raw_ocb_lib.OCB_encrypt, "encrypt")
+            return ciphertext, self.digest()
+
         return self.encrypt(plaintext) + self.encrypt(), self.digest()
 
-    def decrypt_and_verify(self, ciphertext, received_mac_tag):
+    def decrypt_and_verify(self, ciphertext: Buffer, received_mac_tag: Buffer) -> bytes:
         """Decrypted the message and verify its authenticity in one step.
 
         :Parameters:
@@ -492,7 +519,13 @@ class OcbMode(object):
             or the key is incorrect.
         """
 
-        plaintext = self.decrypt(ciphertext) + self.decrypt()
+        if Method.DECRYPT in self._next and not self._cache_P:
+            # The whole message in one go (see encrypt_and_digest)
+            self._next = [Method.VERIFY]
+            in_ptr, in_len = c_uint8_ptr_len(ciphertext)
+            plaintext = self._process_all(in_ptr, in_len, _raw_ocb_lib.OCB_decrypt, "decrypt")
+        else:
+            plaintext = self.decrypt(ciphertext) + self.decrypt()
         self.verify(received_mac_tag)
         return plaintext
 
@@ -516,6 +549,10 @@ def _create_ocb_cipher(factory, **kwargs):
         It must be in the range ``[8..16]``.
         The default is 16 (128 bits).
 
+      threads : integer
+        The maximum number of threads used to encrypt or decrypt long data
+        (default: 1, no extra threads; 0 for all CPU cores).
+
     Any other keyword will be passed to the underlying block cipher.
     See the relevant documentation for details (at least ``key`` will need
     to be present).
@@ -526,7 +563,8 @@ def _create_ocb_cipher(factory, **kwargs):
         if nonce is None:
             nonce = get_random_bytes(15)
         mac_len = kwargs.pop("mac_len", 16)
+        threads = kwargs.pop("threads", 1)
     except KeyError as e:
         raise TypeError("Keyword missing: " + str(e))
 
-    return OcbMode(factory, nonce, mac_len, kwargs)
+    return OcbMode(factory, nonce, mac_len, kwargs, threads)

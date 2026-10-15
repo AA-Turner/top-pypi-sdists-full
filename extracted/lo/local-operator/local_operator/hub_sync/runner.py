@@ -32,15 +32,33 @@ import asyncio
 import logging
 import random
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal, Sequence, TypeVar
+from functools import partial
+from typing import Any, Callable, Literal, Mapping, Sequence, TypeVar
 
 from local_operator.hub_sync import service as svc
 from local_operator.hub_sync import store as st
+from local_operator.hub_sync.budget import OperationBudget
 from local_operator.hub_sync.check import Link, list_links
+from local_operator.hub_sync.outbox import Outbox
 from local_operator.hub_sync.report import ItemMergeReport
 from local_operator.hub_sync.settings import HubSyncSettings
 
 logger = logging.getLogger(__name__)
+
+
+def prov_fingerprint(check: Any) -> str:
+    """The input-side fingerprint a prompt-too-long eligibility check compares."""
+
+    from local_operator.hub_sync import provenance as prov
+
+    return prov.fingerprint_snapshot(check.kind, check.local or {})
+
+
+def _parse_sortable(ts: Any) -> str:
+    """A stable, sortable string for a timestamp that may be missing."""
+
+    return str(ts) if isinstance(ts, str) and ts else ""
+
 
 T = TypeVar("T")
 
@@ -52,8 +70,8 @@ MAX_ITEMS_PER_TICK = 50
 CHECK_CONCURRENCY = 2
 #: Ceiling on a whole tick's CHECK phase. Each request already has its own socket
 #: timeout (``check.REQUEST_TIMEOUT_S``); this is the belt for a hang those cannot
-#: see. A check is read-only, so abandoning its worker threads is safe — unlike an
-#: apply, which is never abandoned mid-write.
+#: see. Timed-out read-only waiters may abandon the result, but the actual worker
+#: lifetime remains tracked: a timeout cannot grant reload permission.
 CHECK_PHASE_TIMEOUT_S = 300.0
 #: Interval jitter, +-10 %.
 INTERVAL_JITTER = 0.10
@@ -100,11 +118,68 @@ class HubSyncRunner:
         self._reported: set[tuple[str, str]] = set()
         self._last_credential: str | None = None
         self.last_tick: TickReport | None = None
+        # A cancelled HTTP waiter or timed-out check does NOT stop a worker
+        # thread. Private shielded futures remain owned until actual completion,
+        # independently of the runner lock's state; reload never infers idle
+        # merely from a released asyncio.Lock or an abandoned request task.
+        self._reload_admission = asyncio.Event()
+        self._reload_admission.set()
+        self._dispatches: set[asyncio.Task[Any]] = set()
+        self._offloads: set[asyncio.Future[Any]] = set()
 
     # -- lifecycle -----------------------------------------------------------
 
     def stop(self) -> None:
         self._stop.set()
+
+    def begin_reload(self) -> None:
+        """Park future timer/manual dispatch; preserve the same runner/due state."""
+        self._reload_admission.clear()
+
+    def end_reload(self) -> None:
+        """A refused handoff resumes the old runner, without cancelling work."""
+        self._reload_admission.set()
+
+    def reload_blocker(self) -> str | None:
+        dispatches = sum(not task.done() for task in self._dispatches)
+        workers = sum(not future.done() for future in self._offloads)
+        if dispatches or workers or self._lock.locked():
+            return f"hub work is active ({dispatches} dispatches, {workers} worker offloads)"
+        return None
+
+    async def _offload(self, fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+        worker = asyncio.get_running_loop().run_in_executor(None, partial(fn, *args, **kwargs))
+        self._offloads.add(worker)
+
+        def finished(future: asyncio.Future[Any]) -> None:
+            self._offloads.discard(future)
+            if not future.cancelled():
+                future.exception()  # Observe an abandoned waiter's error too.
+
+        worker.add_done_callback(finished)
+        return await asyncio.shield(worker)
+
+    async def _dispatch(self, operation: Callable[[], Any]) -> Any:
+        async def serialized() -> Any:
+            while True:
+                await self._reload_admission.wait()
+                async with self._lock:
+                    # Reload may have fenced while this dispatch waited on the
+                    # existing lock. Never admit it using the earlier gate read.
+                    if not self._reload_admission.is_set():
+                        continue
+                    return await operation()
+
+        task = asyncio.create_task(serialized())
+        self._dispatches.add(task)
+
+        def finished(dispatch: asyncio.Task[Any]) -> None:
+            self._dispatches.discard(dispatch)
+            if not dispatch.cancelled():
+                dispatch.exception()
+
+        task.add_done_callback(finished)
+        return await asyncio.shield(task)
 
     async def _sleep(self, seconds: float) -> bool:
         """Sleep, waking early on stop. True = stopped."""
@@ -162,8 +237,8 @@ class HubSyncRunner:
     # -- one tick ---------------------------------------------------------------------
 
     async def tick(self, *, reason: Literal["timer", "startup", "manual"] = "timer") -> TickReport:
-        async with self._lock:
-            return await self._tick_locked(reason)
+        await self._reload_admission.wait()
+        return await self._dispatch(lambda: self._tick_locked(reason))
 
     async def _tick_locked(self, reason: str) -> TickReport:
         report = TickReport(reason=reason)
@@ -174,17 +249,18 @@ class HubSyncRunner:
             self._last_credential = ctx.credential
 
         settings = HubSyncSettings.read_fresh(self._cm)
-        links = await asyncio.to_thread(list_links, ctx.agents(), ctx.teams())
+        links = await self._offload(list_links, ctx.agents(), ctx.teams())
         if not links:
             report.skipped = "no-linked-items"
-            await asyncio.to_thread(self._record_tick, ctx, report)
+            await self._offload(self._record_tick, ctx, report)
             self.last_tick = report
             return report
 
         doc = ctx.store().load()
-        picked = self._pick(links, doc)
+        policies = self._link_policies(links)
+        picked = self._pick(links, doc, policies)
         lease = st.RunnerLease(ctx.config_dir)
-        if not await asyncio.to_thread(lease.acquire):
+        if not await self._offload(lease.acquire):
             report.skipped = "lease-held"
             self.last_tick = report
             return report
@@ -200,49 +276,133 @@ class HubSyncRunner:
                 return report
             report.checked = len(checks)
             report.available = sum(1 for c in checks if c.verdict == "available")
-            grace = await asyncio.to_thread(self._first_run_grace, ctx)
+            grace = await self._offload(self._first_run_grace, ctx)
+            policies = self._link_policies(links)
             for c in checks:
-                if c.verdict != "available":
+                # UP-TO-DATE items still carry an AGREEMENT (QN7): an L == R
+                # check with a live revision is where the origin's lineage
+                # becomes established and the (A, P) receipt is seeded, so those
+                # route through the SAME apply entry point too. The apply writes
+                # nothing but the baseline/receipt facts there.
+                if c.verdict not in ("available", "up-to-date"):
                     continue
                 auto = settings.auto_for(c.kind) and not grace
+                policy = policies.get(c.link_id) if c.link_id else None
                 item = doc.get("items", {}).get(st.item_key(c.kind, c.local_id), {})
-                if not auto or not st.auto_apply_due(item):
+                # INBOUND applies when this LINK's subscribe is on. An explicit
+                # per-link policy wins; a LEGACY link with no confirmed identity
+                # has never been migrated, so the kind's creation default governs
+                # (preserving a global OFF exactly once, as the addendum requires).
+                if not auto:
                     continue
-                result = await asyncio.to_thread(svc.apply_one, ctx, c, auto=True)
-                report.reports.append(result)
+                if policy is not None and not policy.subscribe:
+                    continue
+                # A prompt-too-long item keeps a cheap SCHEDULED retry but only
+                # re-sends when the input/config fingerprint moved; a plain
+                # due-time check would spend tokens re-learning "still too long"
+                # (and its fingerprint gate is unbounded, never retired).
+                if item.get("error_class") == "prompt-too-long":
+                    current_fp = prov_fingerprint(c)
+                    if not st.prompt_too_long_eligible(item, current_fp):
+                        continue
+                elif not st.auto_apply_due(item):
+                    continue
+                # Independent inbound due time: a push-only link never blocks the
+                # inbound cadence and a just-pulled item is not re-fetched.
+                if not st.pull_due(item, settings.interval_min):
+                    continue
+                result = await self._offload(svc.apply_one, ctx, c, auto=True)
+                if result.outcome != "up-to-date":
+                    report.reports.append(result)
                 if result.applied:
                     report.applied += 1
                 elif result.error_class:
                     report.failed += 1
                     self._summarise_failure(c, result.error_class)
+            # OUTBOUND: after the inbound pass, push the items whose per-link
+            # auto_push is ON and whose push interval is due. Kept separate from
+            # the inbound loop so a subscribe=OFF/auto_push=ON link still pushes
+            # (without importing anything into local).
+            await self._push_due(ctx, checks, policies, settings, grace, doc, report)
         finally:
-            await asyncio.to_thread(lease.release)
-        await asyncio.to_thread(self._record_tick, ctx, report)
+            await self._offload(lease.release)
+        await self._offload(self._record_tick, ctx, report)
         self.last_tick = report
         return report
 
-    def _pick(self, links: Sequence[Link], doc: dict[str, Any]) -> set[str]:
-        """At most :data:`MAX_ITEMS_PER_TICK` ids, oldest-checked first; 404'd items throttled."""
+    def _link_policies(self, links: Sequence[Link]) -> dict[str, Any]:
+        """Per-link policy for the links that carry a confirmed identity.
+
+        Read FRESH from config so a TUI/CLI policy edit is seen next tick; explicit
+        per-link values win and a link with no stored policy falls back to its kind's
+        creation default. Local work only.
+        """
+        from local_operator.hub_sync import policies as pol
+
+        try:
+            values = self._cm.get_config().values
+        except Exception:  # noqa: BLE001 - a bad read is treated as no explicit policy
+            return {}
+        out: dict[str, Any] = {}
+        for link in links:
+            if not link.link_id:
+                continue
+            try:
+                out[link.link_id] = pol.link_policy_for(values, link.link_id, link.kind)
+            except Exception:  # noqa: BLE001
+                continue
+        return out
+
+    def _pick(
+        self, links: Sequence[Link], doc: dict[str, Any], policies: Mapping[str, Any]
+    ) -> dict[str, set[str]]:
+        """Per-kind local ids, oldest-AND-retry-first for fairness, never a shared set.
+
+        A link is selected when its per-link policy is interested in EITHER
+        direction (``subscribe`` or ``auto_push``); a both-OFF link does no periodic
+        work (manual pull/check still works). An item whose retry is due sorts ahead
+        of one merely due on the interval, so a failing item is not starved by a
+        long healthy queue. Keying by ``(kind, local_id)`` stops one kind's ids
+        bleeding into the other.
+        """
 
         items = doc.get("items", {})
 
-        def last(link: Link) -> str:
-            return str(
-                items.get(st.item_key(link.kind, link.local_id), {}).get("last_checked_at") or ""
-            )
+        def interested(link: Link) -> bool:
+            policy = policies.get(link.link_id) if link.link_id else None
+            if policy is None:
+                # A legacy link with no identity is enumerated for the check
+                # (manual/pending compatibility); the apply gate decides the rest.
+                return True
+            return bool(policy.subscribe or policy.auto_push)
 
-        eligible = [
-            link
-            for link in links
-            if st.check_due(items.get(st.item_key(link.kind, link.local_id), {}))
-        ]
-        eligible.sort(key=last)
-        return {link.local_id for link in eligible[:MAX_ITEMS_PER_TICK]}
+        def order(link: Link) -> tuple[int, str, str]:
+            item = items.get(st.item_key(link.kind, link.local_id), {})
+            retry = _parse_sortable(item.get("next_retry_at"))
+            checked = _parse_sortable(item.get("last_checked_at"))
+            return (0 if retry else 1, retry, checked)
 
-    async def _check_bounded(self, ctx: svc.HubSyncContext, ids: set[str]) -> list[Any]:
-        """Checks run with concurrency 2, each off the loop (sync ``requests`` clients)."""
+        picked: dict[str, set[str]] = {"agent": set(), "team": set(), "skill": set()}
+        for kind in ("agent", "team", "skill"):
+            eligible = [
+                link
+                for link in links
+                if link.kind == kind
+                and interested(link)
+                and st.check_due(items.get(st.item_key(link.kind, link.local_id), {}))
+            ]
+            eligible.sort(key=order)
+            picked[kind] = {link.local_id for link in eligible[:MAX_ITEMS_PER_TICK]}
+        return picked
 
-        if not ids:
+    async def _check_bounded(self, ctx: svc.HubSyncContext, ids: dict[str, set[str]]) -> list[Any]:
+        """Checks run with concurrency 2, each off the loop (sync ``requests`` clients).
+
+        Each kind is checked with ONLY its own due ids, so a shared bare-id set
+        cannot select the wrong kind's rows.
+        """
+
+        if not any(ids.values()):
             return []
         gate = asyncio.Semaphore(CHECK_CONCURRENCY)
         results: list[Any] = []
@@ -250,14 +410,242 @@ class HubSyncRunner:
         async def one(kind: str) -> None:
             async with gate:
                 results.extend(
-                    await asyncio.to_thread(
-                        svc.check_items, ctx, kinds=(kind,), only_ids=ids, record=False
+                    await self._offload(
+                        svc.check_items,
+                        ctx,
+                        kinds=(kind,),
+                        only_ids=ids.get(kind, set()),
+                        record=False,
                     )
                 )
 
-        await asyncio.gather(one("agent"), one("team"))
-        await asyncio.to_thread(svc.record_checks, ctx, results)
+        await asyncio.gather(one("agent"), one("team"), one("skill"))
+        await self._offload(svc.record_checks, ctx, results)
         return results
+
+    async def _push_due(
+        self,
+        ctx: svc.HubSyncContext,
+        checks: Sequence[Any],
+        policies: Mapping[str, Any],
+        settings: HubSyncSettings,
+        grace: bool,
+        doc: dict[str, Any],
+        report: TickReport,
+    ) -> None:
+        """Push authored changes for links whose auto_push is ON and push is due.
+
+        ELIGIBILITY IS RECOMPUTED HERE, from the CURRENT baseline/config/status,
+        through the SAME service rule the inventory and the policy PATCH use -- a
+        hand-edited ``auto_push: true``, a revoked attestation or a deleted
+        public egress grant is a NAMED persisted skip, not a wire attempt. A push
+        also needs an OUTBOUND RECEIPT (A/P); without one it is a first
+        publication, which is a deliberate action and never unattended. The whole
+        phase is best-effort: a transport error is recorded on the item and never
+        crashes the tick.
+        """
+        if grace:
+            return
+        from local_operator.hub_sync.provenance import read_baseline
+
+        for c in checks:
+            policy = policies.get(c.link_id) if c.link_id else None
+            if policy is None or not policy.auto_push:
+                continue
+            if c.verdict == "unavailable":
+                # A check whose FETCH failed knows nothing about the remote; a
+                # push built on it would be a guess (and, before this guard, a
+                # multi-tick source outage burned the dead-letter cap on a
+                # healthy link -- round-2 R12b). Skip with the check's own named
+                # reason; nothing is attempted and nothing is settled.
+                await self._offload(self._mark_push_skipped, ctx, c, str(c.reason or "unavailable"))
+                continue
+            item = doc.get("items", {}).get(st.item_key(c.kind, c.local_id), {})
+            if not st.push_due(item, settings.interval_min) or not st.auto_apply_due(item):
+                continue
+            # Every blocking worker we add goes through ``_offload``: the
+            # reload admission counts shield-owned futures, and a raw
+            # ``to_thread`` future would leave a cancelled tick's reader/writer
+            # invisible to ``reload_blocker`` (the update lane's no-kill gate).
+            record = await self._offload(read_baseline, ctx.config_dir, c.kind, c.local_id)
+            eligibility = await self._offload(svc.push_eligibility, ctx, record)
+            if not eligibility.get("can_auto_push"):
+                await self._offload(
+                    self._mark_push_skipped,
+                    ctx,
+                    c,
+                    str(eligibility.get("reason") or "unsupported-precondition"),
+                )
+                continue
+            transporter, refused = await self._offload(self._push_transport, ctx, record)
+            if transporter is None:
+                await self._offload(self._mark_push_skipped, ctx, c, refused or "no-credential")
+                continue
+            try:
+                await self._push_one(ctx, c, record, transporter, report)
+            except Exception:  # noqa: BLE001 - a push must never kill the tick
+                logger.debug("hub push for %s %s failed", c.kind, c.local_id, exc_info=True)
+
+    def _push_transport(
+        self, ctx: svc.HubSyncContext, record: Any
+    ) -> tuple[Any | None, str | None]:
+        """A per-LINK push transport, or ``(None, named reason)`` when unavailable.
+
+        The destination is the link's own identity, not a global default: the
+        client comes from the SAME per-tenant selector the check/pull path uses
+        (publishing is a person's act, so even a public link needs the signed-in
+        client), the base is that client's configured base, and the base is
+        POSITIVELY verified against the link's recorded ``hub_source`` before any
+        credential could leave -- a mismatch is refused, never followed.
+        """
+
+        from local_operator.hub_sync.identity import LinkError, normalize_source
+
+        if record is None or record.identity is None:
+            return None, "baseline-unknown"
+        identity = record.identity
+        try:
+            # A non-None tenant selects the signed-in client from the shared
+            # selector (its docstring blesses any string, even ""); a public link
+            # publishes unauthored only if there is no login at all, in which
+            # case the selector answers None and the push is skipped.
+            client = ctx.client_for_tenant(identity.tenant_id if identity.tenant_id else "")
+        except Exception:  # noqa: BLE001 - a selector failure is simply no transport
+            return None, "no-credential"
+        if client is None:
+            return None, "no-credential"
+        try:
+            base = str(client.base_url).rstrip("/")
+            headers = dict(client.bearer_headers())
+        except Exception:  # noqa: BLE001 - an unauthorized client cannot publish
+            return None, "no-credential"
+        try:
+            if normalize_source(base) != identity.hub_source:
+                return None, "origin-conflict"
+        except LinkError:
+            return None, "origin-conflict"
+        from local_operator.hub_sync.outbox import AsyncDispatcher
+        from local_operator.hub_sync.push import HttpPushTransport
+
+        return (
+            HttpPushTransport(
+                AsyncDispatcher(),
+                kind=identity.kind,
+                hub_id=record.hub_id,
+                base_url=base,
+                headers=headers,
+                visibility=identity.visibility,
+                tenant_id=identity.tenant_id,
+            ),
+            None,
+        )
+
+    async def _push_one(
+        self,
+        ctx: svc.HubSyncContext,
+        c: Any,
+        record: Any,
+        transporter: Any,
+        report: TickReport,
+    ) -> None:
+        """Project and push one item; record the outcome (never raises to the tick)."""
+
+        from local_operator.hub_sync.push import push_item
+
+        if record is None or record.outbound is None:
+            # No outbound receipt: first publication is a deliberate action, not
+            # an unattended one -- and the skip is PERSISTED so the surface can
+            # explain why an enabled auto-push is not publishing.
+            self._mark_push_skipped(ctx, c, "no-outbound-receipt")
+            return
+        # The revision the merge derives from: the CHECK-time remote revision
+        # when the fetch exposed one, else the last ACCEPTED receipt revision
+        # (the value the server itself minted at the previous successful push),
+        # NEVER the stale inbound baseline -- that stale If-Match produced a
+        # forever-412 after the first successful push (round-2 QN2b). The
+        # transport refuses an EMPTY one; there is no unconditional-write path.
+        outbound = record.outbound
+        assert outbound is not None  # narrowed once; the calls below re-widen the attribute
+        expected = c.remote_revision or outbound.remote_revision
+        budget = OperationBudget.start("automatic", self._operation_id(c), 1)
+        outcome = await push_item(
+            kind=c.kind,
+            local_id=c.local_id,
+            captured_local=outbound.local_fields,
+            accepted=outbound.accepted_fields,
+            current_local=c.local or {},
+            remote_latest=c.remote or {},
+            expected_revision=expected,
+            transport=transporter,
+            outbox=Outbox(ctx.config_dir),
+            operation_id=self._operation_id(c),
+            budget=budget,
+            document_builder=self._document_builder(ctx, c),
+        )
+        report.skipped = None
+        await self._offload(self._record_push, ctx, c, outcome)
+
+    def _document_builder(self, ctx: svc.HubSyncContext, c: Any) -> Any:
+        """The per-kind wire-document builder the push closes over (one per attempt)."""
+
+        def build(fields: Mapping[str, Any]) -> Mapping[str, Any]:
+            from local_operator.hub_sync.adapters import publish_document
+
+            return publish_document(c.kind, ctx.config_dir, c.local_id, fields)
+
+        return build
+
+    @staticmethod
+    def _operation_id(c: Any) -> str:
+        return f"push-{c.kind}-{c.local_id}"
+
+    def _mark_push_skipped(self, ctx: svc.HubSyncContext, c: Any, reason: str) -> None:
+        """Persist WHY this link's push did not run, on the item (survives restarts)."""
+
+        key = st.item_key(c.kind, c.local_id)
+
+        def fold(doc: dict[str, Any]) -> None:
+            item = doc.get("items", {}).get(key)
+            if item is not None:
+                st.mark_push_skipped(item, reason)
+
+        ctx.store().mutate(fold)
+
+    def _record_push(self, ctx: svc.HubSyncContext, c: Any, outcome: Any) -> None:
+        """Stamp ``last_pushed_at`` on an accepted push; persist a skip otherwise.
+
+        On success the outbound RECEIPT is advanced first (A = the local input
+        that was sent, P = the server-returned canonical document, revision =
+        the accepted opaques ETag): without that, every later attempt would
+        derive from a stale pair and the QA-observed "receipt stayed r1 while the
+        server moved to r2" class of bug returns.
+        """
+
+        key = st.item_key(c.kind, c.local_id)
+        if outcome.state == "pushed":
+            result = outcome.accepted
+            accepted_doc = result.get("accepted_document") if isinstance(result, Mapping) else None
+            if isinstance(accepted_doc, Mapping):
+                svc.record_outbound_receipt(
+                    ctx,
+                    c.kind,
+                    c.local_id,
+                    accepted=accepted_doc,
+                    current_local=c.local or {},
+                    revision=outcome.revision,
+                    operation_id=str(result.get("operation_id") or "") or None,
+                )
+
+            def fold(doc: dict[str, Any]) -> None:
+                item = doc.get("items", {}).get(key)
+                if item is not None:
+                    item["last_pushed_at"] = st.now_iso()
+                    st.clear_push_skipped(item)
+
+            ctx.store().mutate(fold)
+            return
+        if outcome.reason:
+            self._mark_push_skipped(ctx, c, str(outcome.reason))
 
     def _first_run_grace(self, ctx: svc.HubSyncContext) -> bool:
         """True exactly once per config root: the first tick after upgrade never auto-applies."""
@@ -307,16 +695,23 @@ class HubSyncRunner:
         in-process callers. Nothing here swallows an exception: the caller maps it.
         """
 
-        async with self._lock:
+        await self._reload_admission.wait()
+
+        async def operation() -> T:
             ctx = await self._context()
-            return await asyncio.to_thread(fn, ctx)
+            return await self._offload(fn, ctx)
+
+        return await self._dispatch(operation)
 
     async def check_now(
-        self, *, kind: Literal["agent", "team", "all"] = "all", names: Sequence[str] | None = None
+        self,
+        *,
+        kind: Literal["agent", "team", "skill", "all"] = "all",
+        names: Sequence[str] | None = None,
     ) -> list[Any]:
         """A user-requested check: applies nothing, ignores the schedule (B5.1)."""
 
-        kinds = ("agent", "team") if kind == "all" else (kind,)
+        kinds = ("agent", "team", "skill") if kind == "all" else (kind,)
         return await self.run_exclusive(lambda ctx: svc.check_items(ctx, kinds=kinds, names=names))
 
     async def context(self) -> svc.HubSyncContext:

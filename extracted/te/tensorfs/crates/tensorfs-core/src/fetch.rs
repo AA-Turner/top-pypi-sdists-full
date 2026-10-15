@@ -248,6 +248,12 @@ impl FetchPlan {
                 );
             }
         }
+        self.complete_objects(store)
+    }
+
+    /// The residency half alone: every declared object is installed and vouched for. What a
+    /// pull of part of a checkpoint proves, whose closure walk this Store cannot yet make.
+    pub fn complete_objects(&self, store: &Store) -> Result<()> {
         for o in self.held.iter().chain(self.wanted.iter()) {
             let resident = if self.manifest.as_ref().is_some_and(|m| m.sha256 == o.sha256) {
                 manifest_presence(store, o)?
@@ -506,10 +512,7 @@ impl DeliveryGrant {
             let mut bytes = Vec::with_capacity(capacity);
             r.take(self.object.length.saturating_add(1))
                 .read_to_end(&mut bytes)
-                .map_err(|error| crate::err::Refusal {
-                    code: Code::IO_FAILED,
-                    detail: format!("read manifest body: {error}"),
-                })?;
+                .map_err(|error| crate::store::classify_io("read manifest body", error))?;
             if ObjectRef::of(&bytes) != self.object {
                 return refuse(
                     Code::OBJECT_ID_MISMATCH,

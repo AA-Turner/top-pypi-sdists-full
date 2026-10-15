@@ -1,5 +1,5 @@
 //! tfs: the Hub's TensorFS verifier, fixture writer and maintainer tool. `USAGE` lists the
-//! verbs; the library is the product path (cozy-machine links it).
+//! verbs; the library is the product path (TensorD links it).
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -54,6 +54,7 @@ const SWITCHES: &[&str] = &[
 /// are present without one.
 const VALUED: &[&str] = &[
     "allow-hosts", "blocks", "ca-file", "candidates", "carrier", "checkpoint-bytes", "closure",
+    "component",
     "config", "content-type", "credential-file", "disk-budget", "expect", "expect-length", "fault",
     "grant-file", "header", "holds", "hub", "inventory", "isolation-tier", "keep", "lane",
     "manifest", "max-download-bytes", "max-download-objects", "max-redirects", "member", "need",

@@ -131,12 +131,16 @@ def test_the_four_load_bearing_rules_survive_on_every_surface() -> None:
 # ---------------------------------------------------------------------------
 
 _FEATURE_PHRASES: dict[str, tuple[str, ...]] = {
-    # artifacts — all five anchors, byte and reference uploads
+    # artifacts — the three anchors that take writes (workspace and Shared files
+    # are read-only since the data-catalog freeze: their uploads answer 410),
+    # byte and reference uploads
     "artifact: run anchor": ("probe artifact add RUN",),
     "artifact: experiment anchor": ("--experiment",),
     "artifact: project anchor": ("--project",),
-    "artifact: personal workspace anchor": ("--workspace",),
-    "artifact: team shared folder": ("--shared",),
+    # team data: the catalog replaces the Shared folder
+    "dataset: register": ("probe dataset add",),
+    "dataset: what a run trained on": ("probe dataset use",),
+    "source": ("source add",),
     "artifact: reference instead of bytes": ("--reference",),
     "artifact: registry versions": ("version-add", 'view="versions"'),
     "artifact: producer lineage": ("probe edge", "produces"),
@@ -154,6 +158,7 @@ _FEATURE_PHRASES: dict[str, tuple[str, ...]] = {
     # the description once a run finishes); the skill says so instead.
     "description": ("description itself",),
     "question": ("--question",),
+    "conclusion": ("--conclusion",),
     # The authored Markdown is the researcher's by policy since 2026-09-17 (the
     # `--summary` flag still exists); the skill names the document and says whose it is.
     "visible Markdown": ("summary_markdown", "the RESEARCHER's - never write it"),

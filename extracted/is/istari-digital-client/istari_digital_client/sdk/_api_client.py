@@ -17,6 +17,7 @@ from pydantic import SecretStr
 
 from istari_digital_client.sdk._configuration import Configuration
 from istari_digital_client.sdk._compatibility import CompatibilityChecker
+from istari_digital_client.sdk._auth_deprecation import AuthDeprecationChecker
 from istari_digital_client.sdk._api_response import (
     ApiResponse,
     T as ApiResponseT,
@@ -91,6 +92,7 @@ class ApiClient:
         self.user_agent = "OpenAPI-Generator/1.0.0/python"
         self.client_side_validation = True
         self.compatibility_checker = CompatibilityChecker()
+        self.auth_deprecation_checker = AuthDeprecationChecker()
         self.base_url = base_url.rstrip("/") if base_url else None
         self._set_compatibility_header(spec_ids)
 
@@ -324,6 +326,11 @@ class ApiClient:
 
         try:
             self.compatibility_checker.process_response_headers(dict(response_data.getheaders()))
+        except Exception:
+            pass
+
+        try:
+            self.auth_deprecation_checker.process_response_headers(dict(response_data.getheaders()))
         except Exception:
             pass
 

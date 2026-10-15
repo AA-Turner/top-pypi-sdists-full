@@ -456,6 +456,7 @@ def test_every_top_level_command_is_classified():
 WRITE_GROUP_READS = frozenset(
     {
         "version list",
+        "checkpoint list", "dataset download", "dataset list", "dataset show", "source list", "source show",
         "artifact download", "artifact list", "artifact pin-impact", "artifact tree",
         "artifact versions",
         "experiment edges", "experiment get", "experiment inherited", "experiment lineage",
@@ -491,6 +492,7 @@ WRITE_GROUP_UNGATED = frozenset(
 WRITE_GROUP_WRITES = frozenset(
     {
         "version create",
+        "checkpoint use", "dataset add", "dataset use", "source add",
         "artifact add", "artifact gc-uploads", "artifact move", "artifact set",
         "artifact version-add",
         "edge add",

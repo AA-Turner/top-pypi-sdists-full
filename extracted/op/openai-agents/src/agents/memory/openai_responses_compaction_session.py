@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from openai import AsyncOpenAI
 
+from .._tool_identity import get_hosted_mcp_approval_request_identity
 from ..items import TResponseInputItem
 from ..logger import log_model_and_tool_action_warning
 from ..models._openai_shared import get_default_openai_client
@@ -405,15 +406,30 @@ class OpenAIResponsesCompactionSession(SessionABC, OpenAIResponsesCompactionAwar
                     return
                 suffix_start += boundary
                 session_items = session_items[boundary:]
-                # Keep tool/program groups intact. Pruning a broken group here would
-                # make replacement remove stored items absent from the compact input.
-                if (
-                    drop_orphan_function_calls(
-                        session_items, output_pruning_indexes=set(range(len(session_items)))
-                    )
-                    != session_items
-                ):
-                    return
+            # Keep tool/program groups intact, including pending approval calls in
+            # complete history. Wait for their outputs rather than compacting the
+            # calls away or sending an incomplete group to the compaction API.
+            if (
+                drop_orphan_function_calls(
+                    session_items, output_pruning_indexes=set(range(len(session_items)))
+                )
+                != session_items
+            ):
+                return
+            # Hosted MCP approvals use request IDs rather than tool call IDs, so
+            # the tool-group check above does not cover their request/response pair.
+            mcp_request_ids = {
+                identity.request_id
+                for item in session_items
+                if (identity := get_hosted_mcp_approval_request_identity(item)) is not None
+            }
+            mcp_response_ids = {
+                item.get("approval_request_id")
+                for item in session_items
+                if item.get("type") == "mcp_approval_response"
+            }
+            if mcp_request_ids != mcp_response_ids:
+                return
             compaction_candidate_items = select_compaction_candidate_items(session_items)
             # A bounded reload may include history omitted from the hook's initial
             # cached/default-limited view. Require approval of the actual snapshot.
@@ -492,7 +508,7 @@ class OpenAIResponsesCompactionSession(SessionABC, OpenAIResponsesCompactionAwar
             previous_items = await self._get_all_underlying_session_items()
             try:
                 await self._replace_underlying_session_items(
-                    output_items=stored_output_items, previous_items=previous_items
+                    output_items=stored_output_items, previous_items=previous_items, wrapper=wrapper
                 )
             except (Exception, asyncio.CancelledError):
                 self._mutation_generation += 1
@@ -545,7 +561,32 @@ class OpenAIResponsesCompactionSession(SessionABC, OpenAIResponsesCompactionAwar
         *,
         output_items: list[TResponseInputItem],
         previous_items: list[TResponseInputItem],
+        wrapper: RunContextWrapper[Any] | None = None,
     ) -> None:
+        # Resolve on the immediate backend's type: transparent __getattr__ forwarding
+        # must not bypass a wrapper's storage transforms (for example encryption).
+        atomic_replace = getattr(type(self.underlying_session), "_atomic_replace_items", None)
+        if atomic_replace is not None:
+
+            async def replace_and_publish() -> bool:
+                replaced = await atomic_replace(self.underlying_session, output_items)
+                if replaced:
+                    self._deferred_response_id = None
+                    if wrapper is not None:
+                        wrapper._session_compaction_completed = True  # type: ignore[attr-defined]
+                return bool(replaced)
+
+            try:
+                # Publish the committed outcome to Runner before caller cancellation,
+                # just as the atomic snapshot replacement path does.
+                if await _await_mutation(replace_and_publish()):
+                    return
+            except (Exception, asyncio.CancelledError):
+                # The transaction may commit before cancellation is delivered.
+                self._compaction_candidate_items = None
+                self._session_items = None
+                raise
+
         # Treat clear → add as one replacement transaction. Exception and CancelledError
         # both restore previous history, and restore settlement is always drained so a
         # cancel during restore cannot leave an empty session.

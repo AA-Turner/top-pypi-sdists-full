@@ -57,6 +57,7 @@ from ..models import (
 from ..sdk.client import _FILE_ANCHORS, Anchor, Client, Rewind
 from ..sdk.config import (
     DEFAULT_BASE_URL,
+    WORKSPACE_HANDOVER,
     clear_context,
     config_path,
     current_context_name,
@@ -3378,6 +3379,23 @@ def _wizard_session(
             # Every agent ran; a script still learns the install did not finish.
             raise typer.Exit(1)
 
+        # This computer's workspace: where every project made on it goes (the CLI,
+        # the daemon, SDK runs). After every agent applied and the credential is
+        # saved, before the import offer so imports land there too. Asks only on
+        # a guided, interactive install; `--yes`, explicit flags and no TTY never
+        # guess between several. Fail-open: it never blocks a finished install.
+        if (
+            chosen_action is actions_mod.Action.CONFIGURE
+            and installation_completion is not None
+            and installation_completion.remaining == 0
+        ):
+            from probe.cli import computer_workspace
+
+            for line in computer_workspace.choose(
+                asking=wizard.interactive() and not yes and not explicit_flags
+            ):
+                tui.say(line)
+
         # Offer imports only after every selected agent has finished setup.
         # Failed or canceled installs never reach this point; scripted installs
         # skip the offer. Back leaves the completed install in place.
@@ -5505,6 +5523,15 @@ from .feedback_cli import feedback_app  # noqa: E402 -- registration, not use
 
 app.add_typer(feedback_app, name="feedback")
 
+# -- the data catalog: sources, datasets, checkpoints, provenance (data-catalog C5)
+from .catalog_cli import checkpoint_app, dataset_app, source_app  # noqa: E402 -- registration, not use
+from .catalog_cli import provenance as provenance_cmd  # noqa: E402 -- registration, not use
+
+app.add_typer(source_app, name="source")
+app.add_typer(dataset_app, name="dataset")
+app.add_typer(checkpoint_app, name="checkpoint")
+app.command("provenance")(provenance_cmd)
+
 # -- Capy (capy.ai), a cloud agent: its sessions are pulled, not watched -------
 from .capy_cli import SOURCE as CAPY_SOURCE  # noqa: E402 -- registration, not use
 from .capy_cli import capy_app  # noqa: E402 -- registration, not use
@@ -5968,13 +5995,15 @@ workspace_app = typer.Typer(
 app.add_typer(workspace_app, name="workspace")
 
 
-def _workspace_row(ws: dict) -> dict:
+def _workspace_row(ws: dict, here: str | None = None) -> dict:
     """Show the same filing-location fields for every workspace."""
     return {
         "id": ws.get("id"),
         "name": ws.get("name"),
         "slug": ws.get("slug"),
         "projects": ws.get("project_count", 0),
+        # Where this computer's new projects go (`probe workspace use`).
+        "this_computer": here is not None and str(ws.get("id")) == here,
     }
 
 
@@ -5988,10 +6017,14 @@ def workspace_list(
         if raw:
             _print_json(rows)
             return
+        try:
+            here = _resolve_workspace(c, None)
+        except errors.ValidationError:
+            here = None  # a PROBE_WORKSPACE slug this team has no workspace for
     if not rows:
         print("no workspaces yet — a Default workspace is created on your first write")
         return
-    _print_json([_workspace_row(w) for w in rows])
+    _print_json([_workspace_row(w, here) for w in rows])
 
 
 @workspace_app.command("get")
@@ -6026,7 +6059,8 @@ def workspace_create(
 
     Anyone on the team can rename it, file into it, and delete it while it is empty.
     Use `--use` to select it for this context, or `--workspace` on a project create.
-    With no workspace selected, the server uses the oldest existing workspace.
+    New projects go into this computer's workspace (`probe workspace use`, or the
+    setup wizard's choice); a team with several workspaces and none set is refused.
     """
     with _client() as c:
         ws = c.create_workspace(slug, name)
@@ -6069,23 +6103,29 @@ def workspace_use(
         None, help="workspace slug to make active (or id:<uuid>)"
     ),
     clear: bool = typer.Option(
-        False, "--clear", help="forget the active workspace and use the server default"
+        False, "--clear", help="unset this computer's workspace"
     ),
 ) -> None:
-    """Set the active workspace for this context, or `--clear` to use the server default.
+    """Set this computer's workspace: where its new projects go. `--clear` unsets it.
 
     Clears the active project either way: a project belongs to exactly one workspace,
     so keeping the old one selected would leave the context pointing at a project that
     is not in the workspace you just switched to.
 
-    `--clear` removes the pin. Writes then carry no workspace, so the server uses
-    the oldest existing workspace, creating a Default workspace only if none remain.
+    Every client on this computer uses it: the CLI, the Probe daemon and SDK runs
+    (`PROBE_WORKSPACE` or `workspace=` overrides it for one process or call). The
+    setup wizard asks for it.
+
+    `--clear` removes it. Creates then carry no workspace: the server files into
+    the team's only workspace, and refuses (`workspace_required`) when there are
+    several.
     """
     if clear == (workspace_id is not None):
         raise typer.BadParameter("pass a workspace to switch to, or --clear, not both")
     if clear:
-        save_context({"workspace": None})
-        print("active workspace cleared — writes use the server default workspace")
+        # On purpose: the one-time handover never re-pins a legacy default here.
+        save_context({"workspace": None, WORKSPACE_HANDOVER: True})
+        print("this computer's workspace cleared — new projects need a workspace on a team with several")
         return
     with _client() as c:
         ws = c.get_workspace(_ref(c, "workspace", workspace_id).id)
@@ -6235,8 +6275,10 @@ def _resolve_workspace(client: Client | None, explicit: str | None) -> str | Non
     """
     merged = resolve(workspace=explicit).workspace
     if explicit is None:
-        # Machine-written: `workspace use` stores the id. Strip an `id:` prefix if
-        # one is there -- the API takes the uuid itself.
+        # Ambient: `workspace use` stores the id; PROBE_WORKSPACE may be an id or
+        # a slug -- the same rule the SDK applies (`Client.workspace_id_for`).
+        if client is not None:
+            return client.workspace_id_for(merged)
         return _bare_id(merged)
     if client is None:  # pragma: no cover - every caller with an explicit ref has one
         return explicit
@@ -6780,16 +6822,33 @@ def project_use(
     """Set the active project for this context, so `run start` and friends default to it."""
     with _client() as c:
         proj = c.get_project(_project_id(c, project_id))
-    # Pin the project under the workspace that actually owns it, not the ambient one:
-    # selecting a project from another workspace should move the anchor, not create a
-    # mismatched pair. workspace_id is nullable on legacy rows — fall back to ambient.
-    owner = proj.get("workspace_id") or _resolve_workspace(None, None)
+        # The FILE pin this overwrites, not PROBE_WORKSPACE (which only overrides
+        # a shell): that is what "this computer's workspace" means.
+        saved = load_context().get("workspace")
+        before = _bare_id(saved.get("id")) if isinstance(saved, dict) else None
+        if before is None and not proj.get("workspace_id"):
+            before = _resolve_workspace(c, None)
+        # Pin the project under the workspace that actually owns it, not the ambient
+        # one: selecting a project from another workspace should move the anchor, not
+        # create a mismatched pair. workspace_id is nullable on legacy rows — fall
+        # back to ambient.
+        owner = proj.get("workspace_id") or before
+        moved = owner is not None and str(owner) != str(before or "")
+        name = c.get_workspace(str(owner)).get("name") if moved else None
     # Stored in the explicit `id:` form: an id survives a rename where a slug does
     # not, but a BARE id would read as a slug when it flows back in as a default.
     save_context(
         {"workspace": {"id": str(owner) if owner else None, "project": f"id:{proj['id']}"}}
     )
     print(f"active project: {proj.get('slug')} ({proj['id']})")
+    if moved:
+        # The pin is also where this computer's NEW projects go (CLI, daemon, SDK
+        # runs), so moving it is said out loud rather than left implied.
+        print(
+            f"this computer's workspace is now {name or owner}: new projects go there "
+            "(`probe workspace use <slug>` changes it)",
+            file=sys.stderr,
+        )
 
 
 @project_app.command("set")
@@ -6997,6 +7056,27 @@ def paper_add(
     via_reason: str = typer.Option(
         None, "--via-reason", help="one sentence on why that paper led to this one"
     ),
+    relates_to: str = typer.Option(
+        None,
+        "--relates-to",
+        help=(
+            "the earlier paper in this project this one connects to (its id), chosen by "
+            "what the papers say, never the paper added last; 'none' for the first paper"
+        ),
+    ),
+    relates_reason: str = typer.Option(
+        None,
+        "--relates-reason",
+        help="required with --relates-to <id>: one or two sentences on how the two papers relate",
+    ),
+    relates_provenance: str = typer.Option(
+        "inferred",
+        "--relates-provenance",
+        help=(
+            "how the link is known: inferred (your judgment, the default) | human "
+            "(someone said so) | observed_call | provider_citation"
+        ),
+    ),
 ) -> None:
     """Record one paper against a project.
 
@@ -7029,7 +7109,34 @@ def paper_add(
     literature itself: whether one paper's bibliography names another is a
     `cites` link, which the server reads from the bibliographies on its own
     (`probe paper citations`, `probe paper graph`).
+
+    --relates-to is the earlier paper in this project the new one connects to,
+    with --relates-reason saying how the two relate; `none` for the project's
+    first paper. `paper edges` lists the links already made.
     """
+    relation = None
+    if relates_to is not None:
+        if relates_to.strip().lower() == "none":
+            relation = {"paper": None}
+        else:
+            # Checked here so the failure names the flag; the server refuses a
+            # link without a reason too.
+            if not (relates_reason or "").strip():
+                raise typer.BadParameter(
+                    "--relates-to <id> needs --relates-reason: one or two sentences on "
+                    "how the two papers relate.",
+                    param_hint="--relates-reason",
+                )
+            relation = {
+                "paper": relates_to,
+                "reason": relates_reason,
+                "provenance": relates_provenance,
+            }
+    elif relates_reason:
+        raise typer.BadParameter(
+            "--relates-reason goes with --relates-to <paper id>: name the paper it describes.",
+            param_hint="--relates-reason",
+        )
     lineage = None
     if via is not None:
         if via.strip().lower() == "none":
@@ -7060,6 +7167,7 @@ def paper_add(
             discrepancies_md=_text_value(discrepancies),
             tags=list(tag) if tag else None,
             lineage=lineage,
+            relates_to=relation,
         )
     _print_json(created)
 
@@ -7068,10 +7176,12 @@ def paper_add(
 def paper_edges(
     project_id: str = slug_ref("project"),
 ) -> None:
-    """The chain: which paper led to which, across one project's papers.
+    """The recorded links among one project's papers: which paper led to which
+    (`discovered_via`) and how each relates to an earlier one (`relates_to`,
+    with its reason).
 
-    Read it before adding a paper you reached by following another one — the
-    parent's id is what `--via` takes, and this is where you find it.
+    Read it before adding a paper: the ids `--via` and `--relates-to` take are
+    here.
     """
     with _client() as c:
         result = c.paper_edges(_project_id(c, project_id))
@@ -7494,7 +7604,10 @@ def paper_graph(
     include_discovery: bool = typer.Option(
         False,
         "--include-discovery",
-        help="also show the discovered_via edges among the papers (how you got to each)",
+        help=(
+            "also show the recorded discovered_via and relates_to links among the papers "
+            "(how you got to each, and how each relates to an earlier one)"
+        ),
     ),
     include_unresolved: bool = typer.Option(
         False,
@@ -7513,8 +7626,8 @@ def paper_graph(
     never a title match or a provider's guess. To record a suggested work, use
     `probe paper add` with its URL.
 
-    `discovered_via` edges (with --include-discovery) are your path through the
-    literature, shown as stored and never as `cites`. Read-only: nothing here
+    `discovered_via` and `relates_to` links (with --include-discovery) are the
+    recorded ones, shown as stored and never as `cites`. Read-only: nothing here
     calls a provider.
     """
     resolved = _ambient_project(project)
@@ -8917,6 +9030,20 @@ def exec(
         "--no-capture-outputs",
         help="do not capture the command's output files or its printed log (also PROBE_CAPTURE_OUTPUTS=0)",
     ),
+    input_paths: list[str] = typer.Option(
+        None,
+        "--input",
+        metavar="PATH",
+        help="a file (glob, or folder) the command READS, hashed when it starts: for steps that are not "
+        "Python (head, jq, shuf), whose reads Probe cannot see. Repeatable; identity only, never contents",
+    ),
+    output_paths: list[str] = typer.Option(
+        None,
+        "--output",
+        metavar="PATH",
+        help="a file (glob, or folder) the command WRITES, hashed when it exits (if it changed). "
+        "Repeatable; identity only, never contents",
+    ),
 ) -> None:
     """Execute a command under a run, and OWN that run while it executes.
 
@@ -8942,6 +9069,15 @@ def exec(
     on storage that lasts, or listed in `probe/outputs-manifest.json` on a
     throwaway machine. `--no-capture-outputs` turns both off. A submit-and-return
     launcher captures nothing: the job's own `probe.init()` does.
+
+    NAMED FILES (F39): what a Python command reads and writes is recorded by the
+    read hook; a shell step's (`head`, `cat | shuf`, `jq`) is not. `--input PATH`
+    and `--output PATH` (repeatable; globs and folders) name them: inputs are
+    hashed before the command starts, outputs when it exits (only those it
+    created or changed), with the recorder's hasher (rows counted, the
+    `.probe.config` `hash` floor), and sent as the run's reads and writes. A
+    submit-and-return launcher sends only the inputs. Under a `.probe.config`
+    `hash` folder the run opens and records identities only, without its log.
 
     With no run, no --project/--experiment and no active project, the run opens
     FLOATING (daemon v2): no home yet; the Probe daemon files it, or `probe run
@@ -8979,6 +9115,27 @@ def exec(
         if isinstance(launcher, str) and launcher
         else _is_submit_launcher(argv)
     )
+    # F39: the files a non-Python step names. A hand-off's outputs land after
+    # this process is gone, so only its inputs are hashed (at start).
+    named_inputs = [p for p in input_paths if isinstance(p, str) and p] if isinstance(input_paths, list) else []
+    named_outputs = (
+        [p for p in output_paths if isinstance(p, str) and p] if isinstance(output_paths, list) and not hands_off else []
+    )
+    from ..sdk import exclusions as _exclusions
+    from ..sdk import outputs as _sdk_outputs
+
+    exec_cwd = cwd if isinstance(cwd, str) and cwd else None
+    # `.probe.config` `hash` where the command runs, or any `hash`/`read`/`off`
+    # path the command names (an argument, a word of a shell string, an
+    # --input/--output): the run records identities only, never its console
+    # log, which may print the file's records (set while the child runs; it
+    # inherits it).
+    from . import write_gate as _write_gate
+
+    log_off = _exclusions.cwd_excluded(exec_cwd).excluded or _write_gate.names_excluded(
+        [*argv, *named_inputs, *named_outputs], os.path.abspath(exec_cwd or os.getcwd())
+    )
+    log_before = os.environ.get(_sdk_outputs.LOG_ENV)
 
     from . import run_lock
 
@@ -9074,6 +9231,16 @@ def exec(
                     + (f"\n       {hint}" if hint else ""),
                     err=True,
                 )
+            if log_off:
+                os.environ[_sdk_outputs.LOG_ENV] = "0"
+            named = None
+            if named_inputs or named_outputs:
+                from ..sdk import inputs as _sdk_inputs
+
+                named = _sdk_inputs.NamedFiles(
+                    c, handle.id, inputs=named_inputs, outputs=named_outputs, base=exec_cwd
+                )
+                named.start()
             # finalize=False for a hand-off: this process's exit code belongs to
             # the SUBMITTER, and recording it as the run's is the precise lie
             # this branch exists to avoid.
@@ -9084,7 +9251,14 @@ def exec(
                 outputs=outputs if isinstance(outputs, str) and outputs else None,
                 capture_outputs=False if no_capture_outputs is True else None,
             )
+            if named is not None:
+                named.finish()
         finally:
+            if log_off:
+                if log_before is None:
+                    os.environ.pop(_sdk_outputs.LOG_ENV, None)
+                else:
+                    os.environ[_sdk_outputs.LOG_ENV] = log_before
             if claim is not None:
                 claim.release()
             # The wrapped process is gone and our claim with it. `_version_notice`
@@ -10417,9 +10591,11 @@ app.add_typer(ignore_app, name="ignore")
 def ignore_check(
     paths: list[str] = typer.Argument(..., help="paths to test"),
 ) -> None:
-    """Each path's `.probe.config` level (`on`, `read`, `off`) and the line that
-    set it, as this session sees it (files above its launch folder count unless
-    set aside). `excluded`: Probe records nothing about it (`read` or `off`)."""
+    """Each path's `.probe.config` level (`on`, `read`, `hash`, `off`) and the
+    line that set it, as this session sees it (files above its launch folder
+    count unless set aside). `excluded`: Probe records nothing about it as usual
+    (`read`, `hash` or `off`); `identity_only`: the SDK records its identity
+    (path, hash, size, rows) and nothing else (`hash`)."""
     pc = session_marker.probe_config()
     sid = agent_session.session_id_from_env()
     rows = []
@@ -10431,6 +10607,7 @@ def ignore_check(
                 "path": pc.shown(os.path.abspath(os.path.expanduser(raw))),
                 "level": getattr(verdict, "level", "off" if verdict.excluded else "on"),
                 "excluded": verdict.excluded,
+                "identity_only": bool(getattr(verdict, "identity_only", False)),
                 "source": session_marker.verdict_source(verdict) if set_by else None,
                 "at": pc.shown(verdict.at) if set_by and verdict.at else None,
             }
@@ -15715,7 +15892,7 @@ _EXPERIMENT_TAGS_READ_ONLY = (
 @experiment_app.command("create")
 def experiment_create(
     slug: str = typer.Argument(..., help="url-safe identifier, unique per tenant"),
-    question: str = typer.Option(..., "--question", help="what you expect this to show"),
+    question: str = typer.Option(..., "--question", help="the one question it answers"),
     name: str = typer.Option(
         None, "--name", help="display name; omit it and the row reads as its slug"
     ),
@@ -15874,6 +16051,9 @@ def experiment_get(experiment_id: str = slug_ref("experiment")) -> None:
 def experiment_set(
     experiment_id: str = slug_ref("experiment"),
     question: str = typer.Option(None, "--question", help="replace the question"),
+    conclusion: str = typer.Option(
+        None, "--conclusion", help='the answer, once the work gives one ("" clears)'
+    ),
     name: str = typer.Option(None, "--name"),
     #: 0231: RETIRED, and declared so it can be REFUSED. Deleting the option
     #: makes Typer answer "no such option", which reads as a typo; this says
@@ -15891,7 +16071,7 @@ def experiment_set(
     set_tags: list[str] = typer.Option(None, "--set-tags", hidden=True),
     authored_by: AuthoredBy = authored_by_opt(),
 ) -> None:
-    """Amend an experiment's question, name or visible Markdown, in one command."""
+    """Amend an experiment's question, conclusion, name or visible Markdown, in one command."""
     if description is not None:
         raise typer.BadParameter(
             "an experiment's description was replaced by its QUESTION (0231). Use "
@@ -15900,9 +16080,17 @@ def experiment_set(
         )
     if _tag_flags_given(add_tag, remove_tag, set_tags):
         raise typer.BadParameter(_EXPERIMENT_TAGS_READ_ONLY)
-    fields = {"question": question, "name": name, "document": _text_value(summary)}
+    if conclusion == "-" and summary == "-":
+        # The second would read an emptied stdin as "" and clear its field.
+        raise typer.BadParameter("only one of --conclusion and --summary can read stdin (-)")
+    fields = {
+        "question": question,
+        "conclusion": _text_value(conclusion),
+        "name": name,
+        "document": _text_value(summary),
+    }
     if all(value is None for value in fields.values()):
-        raise typer.BadParameter("pass at least one of --question/--name/--summary")
+        raise typer.BadParameter("pass at least one of --question/--conclusion/--name/--summary")
     with _client() as c:
         target = _ref(c, "experiment", experiment_id)
         result = c.update_experiment(
@@ -16323,6 +16511,39 @@ def version_list(experiment_id: str = typer.Argument(...)) -> None:
 from ..sdk.key_refusal import KEY_REFUSED_LINE, credential_refused  # noqa: E402 -- kept beside its use
 
 
+#: 402 `limit`s whose figures are sizes (the storage meters).
+_BYTE_LIMITS = frozenset({"storage_bytes", "hosted_data_bytes"})
+#: The data catalog's hosted-data cap (C8, D2).
+_HOSTED_DATA_LIMIT = "hosted_data_bytes"
+
+#: What a loose-file write prints once the server has frozen them (C6).
+FILES_FROZEN = (
+    "error: the team's loose workspace and Shared files are read-only now (list, download and delete "
+    "still work). Register data as a team dataset with `probe dataset add PATH --name NAME`, or file "
+    "the file under a run or project: `probe artifact add RUN FILE`, `probe artifact add FILE --project P`."
+)
+
+#: The loose-file writes the freeze refuses: `shared add|share|unshare`, and
+#: `artifact add|version-add` aimed at a workspace or the Shared folder.
+_LOOSE_FILE_VERBS = frozenset({("shared", "add"), ("shared", "share"), ("shared", "unshare")})
+_LOOSE_FILE_FLAGS = frozenset({"--workspace", "--shared"})
+
+
+def _loose_file_write(args: list[str], exc: errors.RosError) -> bool:
+    """Was this 410 the freeze refusing a loose workspace or Shared file? A
+    command that names one (`shared add|share|unshare`, `artifact add
+    --workspace|--shared`), or the server's own `client_too_old` on an
+    `artifact version-add` (whose target's anchor the command does not show:
+    any other 410 there is the server's to explain)."""
+    words = tuple(session_marker.command_words(list(args))[:2])
+    if words in _LOOSE_FILE_VERBS:
+        return True
+    if words == ("artifact", "add"):
+        own = args[: args.index("--")] if "--" in args else args
+        return any(a in _LOOSE_FILE_FLAGS or a.split("=", 1)[0] in _LOOSE_FILE_FLAGS for a in own)
+    return words == ("artifact", "version-add") and isinstance(exc, errors.ClientTooOldError)
+
+
 def _key_refused(exc: errors.RosError) -> bool:
     if isinstance(exc, (errors.WorkspaceLockedError, errors.UnroutableEndpointError)):
         return False
@@ -16394,7 +16615,21 @@ def main(argv: list[str] | None = None) -> int:
         # the limit exists.
         print(f"error: {exc}", file=sys.stderr)
         if exc.current is not None and exc.maximum is not None:
-            print(f"       at {exc.current} of {exc.maximum}.", file=sys.stderr)
+            if exc.limit in _BYTE_LIMITS:
+                # Sizes, not bare numbers: the storage refusals send GiB.
+                from ..sdk.catalog import bytes_figure
+
+                print(f"       at {bytes_figure(exc.current)} of {bytes_figure(exc.maximum)}.", file=sys.stderr)
+            else:
+                print(f"       at {exc.current} of {exc.maximum}.", file=sys.stderr)
+        if exc.limit == _HOSTED_DATA_LIMIT:
+            # The data catalog's own cap (C8, D2): one figure over hosted
+            # datasets and checkpoints. A reference costs it nothing.
+            print(
+                "       That cap is hosted datasets and checkpoints together. Record the data as a "
+                "reference instead (leave out --upload): Probe then stores no bytes of it.",
+                file=sys.stderr,
+            )
         print(
             "       Nothing was deleted and everything already recorded stays readable.",
             file=sys.stderr,
@@ -16408,6 +16643,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"       Book 30 minutes: {exc.booking_url}", file=sys.stderr)
         return 1
     except errors.RosError as exc:
+        if exc.status == 410 and not getattr(exc, "in_trash", False) and _loose_file_write(args, exc):
+            # The freeze (data-catalog C6): the server answers a new loose
+            # workspace or Shared file with an "upgrade" 410 meant for older
+            # clients. This one already knows where the file goes instead.
+            print(FILES_FROZEN, file=sys.stderr)
+            return 1
         print(f"error: {exc}", file=sys.stderr)
         if os.environ.get("PROBE_DAEMON_SESSION") and _key_refused(exc):
             print(KEY_REFUSED_LINE, file=sys.stderr)

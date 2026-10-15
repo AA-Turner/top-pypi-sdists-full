@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
@@ -11,6 +12,18 @@ from .db import (
 from .trace_container import load_trace
 from .trace import Trace
 from .utils import pretty_byte_size, relative_time
+
+logger = logging.getLogger("kolo")
+
+
+class TraceUnreadableError(ValueError):
+    """A stored trace that could not be decoded or rendered."""
+
+    def __init__(self, trace_id: str, reason: str):
+        super().__init__(f"Could not read trace {trace_id}: {reason}")
+        self.trace_id = trace_id
+        self.reason = reason
+
 
 TRACE_TIMESTAMP_FORMATS = (
     "%Y-%m-%d %H:%M:%S.%f",
@@ -29,6 +42,17 @@ def parse_trace_timestamp(timestamp_str: str) -> datetime:
     raise ValueError(f"Unsupported trace timestamp format: {timestamp_str!r}")
 
 
+def parse_trace_timestamp_or_now(
+    timestamp_str: str,
+) -> Tuple[datetime, Optional[str]]:
+    """``parse_trace_timestamp`` for a listing: a stored timestamp that
+    cannot be parsed gives ``(now, reason)`` instead of raising."""
+    try:
+        return parse_trace_timestamp(timestamp_str), None
+    except Exception as error:
+        return datetime.now(timezone.utc), unreadable_reason(error)
+
+
 def make_json_serializable(obj):
     """Convert Python objects to JSON-serializable types.
 
@@ -40,26 +64,50 @@ def make_json_serializable(obj):
     if isinstance(obj, (set, frozenset)):
         return list(obj)
     elif isinstance(obj, dict):
-        # Convert dict keys to strings if they're not JSON-compatible
         result = {}
         for k, v in obj.items():
             if isinstance(k, (str, int, float, bool, type(None))):
                 result[k] = make_json_serializable(v)
             else:
-                # Convert non-JSON-compatible keys to string
                 result[str(k)] = make_json_serializable(v)
         return result
     elif isinstance(obj, (list, tuple)):
         return [make_json_serializable(item) for item in obj]
     else:
-        # Handle any other non-serializable types
         try:
-            # Try to serialize it (will work for primitives)
             json.dumps(obj)
             return obj
         except (TypeError, ValueError):
-            # If it can't be serialized, convert to string (Python repr)
             return str(obj)
+
+
+def unreadable_reason(error: BaseException) -> str:
+    """Why a trace could not be read, on one line."""
+    message = str(error).strip()
+    first_line = message.splitlines()[0] if message else ""
+    name = type(error).__name__
+    return f"{name}: {first_line}" if first_line else name
+
+
+def resolve_display_name(
+    msgpack_data: bytes,
+    auto_generated_name: Optional[str],
+    db_path,
+    trace_id: str,
+) -> Tuple[Optional[str], Optional[str]]:
+    """``Trace.resolve_display_name`` for a listing: ``(name, None)``, or
+    ``(None, reason)`` for a trace that cannot be read. One unreadable trace
+    must not stop the others from being listed."""
+    try:
+        return (
+            Trace.resolve_display_name(
+                msgpack_data, auto_generated_name, db_path, trace_id
+            ),
+            None,
+        )
+    except Exception as error:
+        logger.debug("Could not read trace %s", trace_id, exc_info=True)
+        return None, unreadable_reason(error)
 
 
 def format_trace_for_display(
@@ -68,8 +116,14 @@ def format_trace_for_display(
     size: int,
     trace_name: Optional[str],
     now: Optional[datetime] = None,
+    unreadable: Optional[str] = None,
 ) -> str:
     """Format a trace for display in CLI or MCP."""
+    if unreadable:
+        return (
+            f"{trace_id} ({relative_time(timestamp)}, {pretty_byte_size(size)}) "
+            f"[unreadable: {unreadable}]"
+        )
     if now is None:
         now = datetime.now(timezone.utc)
 
@@ -77,7 +131,6 @@ def format_trace_for_display(
 
     size_str = pretty_byte_size(size)
 
-    # Format output with trace_id at the end if we have a name
     if trace_name:
         return f"{trace_name} ({rel_time}, {size_str}, {trace_id})"
     return f"{trace_id} ({rel_time}, {size_str})"
@@ -91,13 +144,16 @@ def get_formatted_traces(
     traces = list_traces_with_data_from_db(db_path, count=count, reverse=reverse)
 
     for trace_id, timestamp_str, size, msgpack_data, auto_generated_name in traces:
-        timestamp = parse_trace_timestamp(timestamp_str)
+        timestamp, bad_timestamp = parse_trace_timestamp_or_now(timestamp_str)
 
-        trace_name = Trace.resolve_display_name(
+        trace_name, unreadable = resolve_display_name(
             msgpack_data, auto_generated_name, db_path, trace_id
         )
+        unreadable = unreadable or bad_timestamp
 
-        yield format_trace_for_display(trace_id, timestamp, size, trace_name, now)
+        yield format_trace_for_display(
+            trace_id, timestamp, size, trace_name, now, unreadable=unreadable
+        )
 
 
 def get_compact_trace(
@@ -191,7 +247,6 @@ def get_compact_traces(
                 compact_repr = get_compact_trace(trace_data, size, returns)
                 results.append((trace_id, compact_repr))
             except Exception as e:
-                # For pinned traces, we want to continue even if one fails
                 results.append((trace_id, f"Error: {e}"))
     elif recent > 0:
         for (
@@ -206,15 +261,16 @@ def get_compact_traces(
                 compact_repr = get_compact_trace(trace_data, size, returns)
                 results.append((trace_id, compact_repr))
             except Exception as e:
-                # For multiple traces, we want to continue even if one fails
                 results.append((trace_id, f"Error: {e}"))
     else:
-        # Single trace - let errors propagate naturally
         assert trace_id is not None
         _, timestamp_str, size, trace_data = load_trace_with_size_from_db(
             db_path, trace_id
         )
-        compact_repr = get_compact_trace(trace_data, size, returns)
+        try:
+            compact_repr = get_compact_trace(trace_data, size, returns)
+        except Exception as error:
+            raise TraceUnreadableError(trace_id, unreadable_reason(error)) from error
         results.append((trace_id, compact_repr))
 
     return results

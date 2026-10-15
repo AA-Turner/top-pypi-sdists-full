@@ -1,0 +1,18 @@
+- name: Not claimed
+  period: 2022
+  input:
+    state_code: VA
+    va_claims_refundable_eitc: true
+    va_non_refundable_eitc_if_claimed: 100
+    va_income_tax_before_non_refundable_credits: 1000000
+  output:
+    va_non_refundable_eitc: 0
+- name: Claimed
+  period: 2022
+  input:
+    state_code: VA
+    va_claims_refundable_eitc: false
+    va_non_refundable_eitc_if_claimed: 100
+    va_income_tax_before_non_refundable_credits: 1000000
+  output:
+    va_non_refundable_eitc: 100

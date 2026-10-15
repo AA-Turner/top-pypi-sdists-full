@@ -367,14 +367,19 @@ class UserAPIHandler(APIHandler):
             raise web.HTTPError(404)
         data = self.get_json_body()
         self._check_user_model(data)
+        new_name = None
         if 'name' in data and data['name'] != user_name:
             # check if the new name is already taken inside db
-            if self.find_user(data['name']):
+            new_name = self.authenticator.normalize_username(data["name"])
+            if not self.authenticator.validate_username(new_name):
                 raise web.HTTPError(
                     400,
-                    "User {} already exists, username must be unique".format(
-                        data['name']
-                    ),
+                    f"Invalid username: {safe_log(new_name)}",
+                )
+            if self.find_user(new_name):
+                raise web.HTTPError(
+                    400,
+                    f"User {new_name} already exists, username must be unique",
                 )
 
         if not self.current_user.admin:
@@ -383,6 +388,9 @@ class UserAPIHandler(APIHandler):
             if 'admin' in data and data['admin']:
                 raise web.HTTPError(403, "Only admins can grant admin permissions")
         for key, value in data.items():
+            if key == 'name':
+                # already normalized and validated
+                value = new_name
             value_s = "..." if key == "auth_state" else repr(value)
             self.log.info(
                 f"{self.current_user.name} setting {key}={value_s} for {user.name}"
@@ -475,7 +483,7 @@ class UserTokenListAPIHandler(APIHandler):
         user = self.find_user(user_name)
         kind = 'user' if isinstance(requester, User) else 'service'
         scope_filter = self.get_scope_filter('tokens')
-        if user is None or not scope_filter(user, kind):
+        if user is None or not scope_filter(user, kind="user"):
             raise web.HTTPError(
                 403,
                 f"{kind.title()} {user_name} not found or no permissions to generate tokens",

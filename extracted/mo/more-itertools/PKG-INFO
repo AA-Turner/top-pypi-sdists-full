@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: more-itertools
-Version: 11.2.0
+Version: 11.2.1
 Summary: More routines for operating on iterables, beyond itertools
 Keywords: itertools,iterator,iteration,filter,peek,peekable,chunk,chunked
 Author-email: Erik Rose <erikrose@grinchcentral.com>

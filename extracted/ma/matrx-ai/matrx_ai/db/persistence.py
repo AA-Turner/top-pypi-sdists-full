@@ -706,6 +706,52 @@ async def record_run_history_write_failure(
         pass
 
 
+def _final_assistant_text(msg_list: list[dict[str, Any]]) -> str:
+    """The text of the turn's LAST assistant message (empty when it has none)."""
+    for msg in reversed(msg_list or []):
+        if not isinstance(msg, dict) or msg.get("role") != "assistant":
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            return content.strip()
+        parts: list[str] = []
+        for block in content if isinstance(content, list) else []:
+            if isinstance(block, dict) and isinstance(block.get("text"), str):
+                if block.get("type") in (None, "text", "output_text"):
+                    parts.append(block["text"])
+        text = "\n".join(p for p in parts if p).strip()
+        if text:
+            return text
+    return ""
+
+
+def _call_request_settled_hook(
+    *,
+    conversation_id: str | None,
+    request_id: str | None,
+    ctx: Any,
+    status: str,
+    msg_list: list[dict[str, Any]],
+) -> None:
+    """Hand the host one settled stored turn. Best-effort, never raises."""
+    try:
+        from matrx_ai._ext import get_request_settled_hook
+
+        hook = get_request_settled_hook()
+        if hook is None or not conversation_id or not request_id:
+            return
+        hook(
+            conversation_id=str(conversation_id),
+            request_id=str(request_id),
+            user_id=str(getattr(ctx, "user_id", "") or "") or None,
+            organization_id=str(getattr(ctx, "organization_id", "") or "") or None,
+            status=status,
+            final_text=_final_assistant_text(msg_list),
+        )
+    except Exception as exc:  # noqa: BLE001 — a host side effect never fails a persist
+        vcprint(f"[CX PERSISTENCE] request_settled_hook failed (ignored): {exc}", color="yellow")
+
+
 async def persist_completed_request(
     completed: CompletedRequest,
     conversation_id: str | None = None,
@@ -1749,6 +1795,14 @@ async def persist_completed_request(
             # one atomic INSERT carrying both pending fields and the
             # completed aggregate. Cancellation can no longer split this.
             _queue_user_request_update(user_request_id, **ur_update_data)
+            if is_final:
+                _call_request_settled_hook(
+                    conversation_id=db_conversation_id,
+                    request_id=user_request_id,
+                    ctx=_ctx,
+                    status=str(ur_update_data["status"]),
+                    msg_list=msg_list,
+                )
 
             if tracker and emitter:
                 # Emit the ACTUAL terminal status — never hardcode 'completed'.

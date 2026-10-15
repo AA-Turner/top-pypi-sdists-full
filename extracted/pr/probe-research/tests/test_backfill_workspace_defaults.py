@@ -1,6 +1,5 @@
 """Folder imports resolve shared workspaces and keep queued destinations pinned."""
 
-from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -30,6 +29,10 @@ class Client:
     def list_workspaces(self):
         return list(self.rows)
 
+    def computer_workspace_id(self):
+        # The real Client looks a slug up; this double's refs are already ids.
+        return self.settings.workspace
+
     def get_workspace(self, ident):
         return next((row for row in self.rows if row["id"] == ident), None) or self._missing()
 
@@ -47,38 +50,34 @@ def test_single_shared_workspace_works_without_personal_metadata():
     assert client.settings.workspace is None, "the default must not overwrite CLI context"
 
 
-def test_multiple_workspaces_use_newest_recorded_creator_not_order_kind_or_owner():
+@pytest.mark.parametrize(
+    "rows",
+    [
+        # Neither recency, a recorded creator, a personal owner nor a legacy
+        # saved default (0354) picks one of several: that guess filed work under
+        # the wrong person.
+        [
+            workspace("z-new-mine", creator="user:me", created="2026-09-11T00:00:00Z"),
+            workspace("a-old-mine", creator="user:me", created="2026-09-01T00:00:00Z"),
+            workspace("other", creator="user:teammate", created="2026-09-12T00:00:00Z"),
+        ],
+        [
+            workspace("oldest", creator="user:teammate", created="2026-09-01T00:00:00Z"),
+            workspace("my-default", kind="personal", owner_user_id="me", is_default=True),
+        ],
+    ],
+)
+def test_several_workspaces_and_none_set_on_this_computer_is_refused(rows):
+    with pytest.raises(CoverageError, match="several workspaces.*probe workspace use"):
+        Scope.resolve(Client(*rows))
+
+
+def test_a_foreign_workspace_does_not_count_as_a_choice():
     client = Client(
-        workspace("z-new-mine", creator="user:me", created="2026-09-11T00:00:00Z"),
-        workspace("a-old-mine", creator="user:me", created="2026-09-01T00:00:00Z"),
-        workspace("other", creator="user:teammate", created="2026-09-12T00:00:00Z"),
-        workspace("legacy", kind="personal", owner_user_id="me",
-                  created="2026-09-13T00:00:00Z"),
+        workspace("mine"),
+        workspace("foreign", customer_id="other", is_default=True),
     )
-    assert Scope.resolve(client).workspace_id == "z-new-mine"
-    client.rows.reverse()
-    assert Scope.resolve(client).workspace_id == "z-new-mine"
-
-
-def test_creation_dates_compare_instants_and_break_ties_by_id():
-    client = Client(
-        workspace("looks-later", creator="user:me", created="2026-09-12T12:00:00+08:00"),
-        workspace("a", creator="user:me", created="2026-09-12T05:00:00Z"),
-        workspace("z", creator="user:me", created=datetime(2026, 9, 12, 5, tzinfo=timezone.utc)),
-    )
-    assert Scope.resolve(client).workspace_id == "z"
-
-
-@pytest.mark.parametrize("user_id", ["me", None])
-def test_no_recorded_creator_uses_server_oldest_default(user_id):
-    client = Client(
-        workspace("new", creator="user:None", created="2026-09-12T00:00:00Z"),
-        workspace("old", creator="user:teammate", created="2026-09-01T00:00:00Z"),
-        workspace("legacy", kind="personal", owner_user_id="me",
-                  created="2026-09-13T00:00:00Z"),
-        user_id=user_id,
-    )
-    assert Scope.resolve(client).workspace_id == "old"
+    assert Scope.resolve(client).workspace_id == "mine"
 
 
 def test_fallback_never_selects_another_tenant():
@@ -94,12 +93,6 @@ def test_fallback_never_selects_another_tenant():
 def test_missing_workspace_has_actionable_local_destination_error(rows):
     with pytest.raises(CoverageError, match="No workspace.*Create a workspace"):
         Scope.resolve(Client(*rows))
-
-
-def test_invalid_creation_date_requires_explicit_destination():
-    client = Client(workspace("one", created="not-a-date"), workspace("two"))
-    with pytest.raises(CoverageError, match="creation date.*Select a workspace"):
-        Scope.resolve(client)
 
 
 def test_explicit_workspace_remains_authoritative():
@@ -126,8 +119,10 @@ def test_saved_workspace_survives_new_workspaces_and_context_changes():
     client = Client(workspace("first", creator="user:me"))
     approved = Scope.resolve(client)
     client.rows.append(workspace("second", creator="user:me", created="2026-09-12T00:00:00Z"))
-    assert Scope.resolve(client).workspace_id == "second"
+    with pytest.raises(CoverageError, match="several workspaces"):
+        Scope.resolve(client)  # a second workspace makes it a choice, never a guess
     client.settings.workspace = "second"
+    assert Scope.resolve(client).workspace_id == "second"  # this computer's choice
     assert Scope.resolve(client, workspace_id=approved.workspace_id) == approved
 
 

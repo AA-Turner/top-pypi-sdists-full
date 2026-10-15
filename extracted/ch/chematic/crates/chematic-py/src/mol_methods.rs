@@ -13,7 +13,7 @@ use ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::{PyDict, PyList, PyTuple};
 use std::sync::Arc;
 
 type PyUffTerm = (String, Vec<usize>, Vec<f64>);
@@ -78,18 +78,22 @@ fn python_rdkit_morgan_config(
 /// generalizes `formats::bitvec2048_to_bytes` to `rdkit_ecfp_config`'s caller-chosen
 /// widths (always a multiple of 8: 128/256/512/1024/2048).
 fn bitvecn_to_bytes(fp: &chematic_fp::bitvec::BitVecN) -> Vec<u8> {
-    let byte_count = fp.bit_width() / 8;
-    (0..byte_count)
-        .map(|byte_idx| {
-            let mut byte = 0u8;
-            for bit in 0..8usize {
-                if fp.get(byte_idx * 8 + bit) {
-                    byte |= 1 << bit;
-                }
-            }
-            byte
-        })
-        .collect()
+    fp.to_le_bytes()
+}
+
+/// Expand an LSB-first packed fingerprint into the dense ``uint8`` shape used
+/// by NumPy-based ML code.  Keeping this conversion in one place prevents the
+/// individual fingerprint bindings from drifting on bit order.
+fn packed_fingerprint_to_numpy<'py>(
+    py: Python<'py>,
+    packed: &[u8],
+    n_bits: usize,
+) -> Bound<'py, PyArray1<u8>> {
+    debug_assert!(n_bits <= packed.len() * 8);
+    let bits = (0..n_bits)
+        .map(|bit| (packed[bit / 8] >> (bit % 8)) & 1)
+        .collect::<Vec<_>>();
+    Array1::from_vec(bits).into_pyarray(py)
 }
 
 pyo3::create_exception!(

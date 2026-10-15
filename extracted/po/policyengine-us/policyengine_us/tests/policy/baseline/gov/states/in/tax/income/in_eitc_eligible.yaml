@@ -1,0 +1,106 @@
+- name: in_eitc_eligible unit test 1
+  period: 2021
+  input:
+    gov.states.in.tax.income.credits.earned_income.decoupled: true
+    state_code: IN
+    eitc: 999
+    filing_status: SINGLE
+    eitc_child_count: 0
+    age_head: 64
+    dividend_income: 3_600
+  output:
+    in_eitc_eligible: true
+
+- name: in_eitc_eligible unit test 2
+  period: 2021
+  input:
+    gov.states.in.tax.income.credits.earned_income.decoupled: true
+    state_code: IN
+    eitc: 999
+    filing_status: SEPARATE
+    eitc_child_count: 0
+    age_head: 64
+    dividend_income: 3_800
+  output:
+    in_eitc_eligible: false
+
+- name: in_eitc_eligible unit test 3
+  period: 2021
+  input:
+    gov.states.in.tax.income.credits.earned_income.decoupled: true
+    state_code: IN
+    eitc: 999
+    filing_status: SINGLE
+    eitc_child_count: 0
+    age_head: 65
+    dividend_income: 3_800
+  output:
+    in_eitc_eligible: false
+
+- name: in_eitc_eligible unit test 4
+  period: 2021
+  input:
+    gov.states.in.tax.income.credits.earned_income.decoupled: true
+    state_code: IN
+    eitc: 999
+    filing_status: SINGLE
+    eitc_child_count: 0
+    age_head: 64
+    dividend_income: 3_801
+  output:
+    in_eitc_eligible: false
+
+- name: in_eitc_eligible unit test 5
+  period: 2021
+  input:
+    gov.states.in.tax.income.credits.earned_income.decoupled: true
+    state_code: IN
+    eitc: 0
+    filing_status: SINGLE
+    eitc_child_count: 0
+    age_head: 64
+    dividend_income: 3_800
+  output:
+    in_eitc_eligible: false
+
+- name: in_eitc_eligible unit test 6
+  period: 2021
+  input:
+    gov.states.in.tax.income.credits.earned_income.decoupled: false
+    state_code: IN
+    eitc: 999
+    filing_status: SEPARATE
+    eitc_child_count: 0
+    age_head: 65
+    dividend_income: 3_801
+  output:
+    in_eitc_eligible: true
+
+- name: in_eitc_eligible head-of-household ineligible when head over max age, spouse age should not be used
+  period: 2021
+  input:
+    gov.states.in.tax.income.credits.earned_income.decoupled: true
+    state_code: IN
+    eitc: 999
+    filing_status: HEAD_OF_HOUSEHOLD
+    eitc_child_count: 0
+    age_head: 65
+    age_spouse: 40
+    dividend_income: 3_600
+  output:
+    in_eitc_eligible: false
+
+- name: in_eitc_eligible unit test 8
+  period: 2025
+  input:
+    state_code: IN
+    eitc: 0
+    filing_status: HEAD_OF_HOUSEHOLD
+    eitc_child_count: 1
+    filer_adjusted_earnings: 10_000
+    adjusted_gross_income: 10_000
+    filer_meets_eitc_identification_requirements: true
+    would_file_taxes_voluntarily: true
+    takes_up_eitc: true
+  output:
+    in_eitc_eligible: true

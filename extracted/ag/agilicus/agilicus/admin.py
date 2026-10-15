@@ -241,11 +241,25 @@ def _show_status(ctx, org, **kwargs):
     _show_connectors(ctx, **kwargs)
 
 
+def _context_org_id(ctx):
+    """The org this invocation resolved, for commands that declare their own.
+
+    ``admin-org-status`` declares its own ``--org-id``, so the group-level
+    ``--org-id`` never reaches the command's kwargs and ``status()`` used to
+    print nothing at all when only the group option was given. Fall back to the
+    org the context resolved: the group option, or the org the token names.
+    """
+    obj = ctx.obj or {}
+    organisation = obj.get("ORGANISATION") or {}
+    return obj.get("ORG_ID") or organisation.get("id")
+
+
 def status(ctx, **kwargs):
     """Show snapshot of this org, trial, billing, usage, status."""
-    if "org_id" in kwargs and kwargs["org_id"] is not None:
+    kwargs["org_id"] = kwargs.get("org_id") or _context_org_id(ctx)
+    if kwargs["org_id"]:
         _show_status(ctx, org=None, **kwargs)
-    if kwargs["email"]:
+    if kwargs.get("email"):
         token = context.get_token(ctx)
         apiclient = context.get_apiclient(ctx, token)
         n_orgs = 1

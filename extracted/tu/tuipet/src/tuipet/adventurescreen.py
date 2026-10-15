@@ -36,18 +36,16 @@ from .petbase import (BATTLE_MIN_ENERGY, GCELL_ENCOUNTER_WIN, GCELL_ENCOUNTER_LO
 from . import adventure
 from . import shop
 from . import strikefx
+from .battlescreen import first_show
 from .adventure import Adventure, MAX_LIVES, ZONES
 from .theme import LCD_ON, LCD_BG, INK, INK_B, DIM, POS, NEG  # noqa: F401  (theme.apply propagation)
 
 COLS, ROWS = 40, 12           # the ONE locked LCD arena, like every other screen
 
-# the zone-change celebration (canon SpriteAnim.zoneChange, restored from the
-# old build): four zonePulse beats on the map light at interval*5/15/25/35,
-# resolution at interval*54 -- ported as backdrop pulses on the LCD (no map
-# screen on the 32-col arena).  A parade_msg boss chains the BossParade after
-# the pulse: the map's bosses march across, one at a time (the LCD's one-mon
-# rule serialises canon's three-abreast).
-PULSE_T = 54
+# Joel approved skips 2026-10-14: keep four clear pulses, then the ending
+# parade when present. Each map keeps its own first-clear ceremony flag.
+PULSE_T = 54                  # ORIGINAL SPEED (Joel 2026-10-14: "i never told you to speed up animations"); skips stay
+PULSE_REPEAT_T = 54
 PULSE_ON = ((5, 10), (15, 20), (25, 30), (35, 54))
 STRIP_W = 40                  # the message box's CELL budget (== app.HUD_W;
 #                               importing app here would be circular)
@@ -57,12 +55,10 @@ STRIP_W = 40                  # the message box's CELL budget (== app.HUD_W;
 #  hearts and the chain were sharing this 40-cell line with the keys; the road
 #  card carries every one of those now, so all three labelled keys fit at once
 #  and the line holds still.)
-PARADE_T = 40                 # ticks for one boss to march across (edge to
-#                               edge since audit A10: ~48px at ~1.2px/tick)
+PARADE_T = 40                 # ticks for one boss to march across
 
-# the investigateLeft playbook (canon SpriteAnim beats in 0.1s ticks, restored
-# from the old build): walk out to the LEFT goal, suspense dots, the reveal --
-# then the ReturnItem walk-back so the pet never teleports back to its spot
+# The investigateLeft playbook: shorten its passive legs, not the dig meter.
+# Walk left, suspense, reveal, then carry back instead of snapping home.
 INV_WALK_T = 12               # walk-left leg
 INV_REVEAL_T = 30             # dots done -> the reveal pose fires
 INV_HOLD_T = 42               # reveal held (the find shown beside the cheer)
@@ -127,11 +123,10 @@ def _fit(name, budget):
 # 1:1 onto tuipet's 0.1s tick; sounds are the canon device mapping.  Ported
 # verbatim from adventurescreen @ ed22b64 (v0.5.7) -- Joel: "same teleport
 # animation."
-TELE_LEAVE_T = 50             # flashes 3..22, swallow 23, shrink 26..40 (the
-#                               sliver then HOLDS to 43 -- both dims floor
-#                               early), depart right 44..
-TELE_ARRIVE_T = 46            # sliver zips in from the LEFT 0..5, expand
-#                               6..22, appear flicker 23..46
+TELE_LEAVE_T = 50             # ORIGINAL SPEED (Joel 2026-10-14: "i never told you to speed up animations"); skips stay
+TELE_ARRIVE_T = 46
+TELE_REPEAT_T = None          # no short repeat
+TELE_HOME_T = None            # homecoming plays the full teleport
 TELE_ON = ((3, 9), (15, 18), (21, 22))        # leave: curtain flash spans
 TELE_APPEAR_ON = ((1, 2), (5, 8), (14, 20))   # arrive: flicker spans (t-23)
 TELE_LEAVE_SNDS = {3: "strongHit", 15: "strongHit", 21: "strongHit",
@@ -201,9 +196,13 @@ class AdventurePanel(menu.SubHost):
         self._summary_shown = False   # ...so _go_home only defers to it once
         self._pulse = None            # a running zoneChange pulse celebration
         self._parade = None           # a running BossParade (map beaten)
+        self._ending_msg = None       # the final-road message survives a parade skip
         self._wx = float(grid.X0)     # the march x: the pet CROSSES the window
         # leaving home rides the canon teleport (dir "in" == INTO the adventure:
         # leave-phase plays over HOME, arrive-phase materialises on the road)
+        first = first_show("adventure_entry")
+        self._tele_leave_t = TELE_LEAVE_T if first or not TELE_REPEAT_T else TELE_REPEAT_T
+        self._tele_arrive_t = TELE_ARRIVE_T if first or not TELE_REPEAT_T else TELE_REPEAT_T
         self._trans = {"dir": "in", "phase": "leave", "t": 0}
 
     # -- clock ----------------------------------------------------------------
@@ -214,56 +213,34 @@ class AdventurePanel(menu.SubHost):
         if self._note_t > 0:              # the transient strip verdict decays
             self._note_t -= 1
         if self._trans is not None:
-            # the teleport owns the screen both ways -- canon's state machine
-            # holds every input until endAnim()
+            # Joel approved skips 2026-10-14; compress the existing curtain beats.
             tr = self._trans
+            before = self._tele_time(tr)
             tr["t"] += 1
             snds = TELE_LEAVE_SNDS if tr["phase"] == "leave" else TELE_ARRIVE_SNDS
-            snd = snds.get(tr["t"])
-            if snd:
-                self.sfx = snd
-            if tr["phase"] == "leave" and tr["t"] >= TELE_LEAVE_T:
+            for beat, snd in snds.items():
+                if before < beat <= self._tele_time(tr):
+                    self.sfx = snd
+            if tr["phase"] == "leave" and tr["t"] >= self._tele_leave_t:
                 # the sliver left the screen: the world swaps under the cut
                 # (canon teleportArrive frame 0 -- background changes, no anim)
                 tr["phase"], tr["t"] = "arrive", 0
-            elif tr["phase"] == "arrive" and tr["t"] >= TELE_ARRIVE_T:
-                self._trans = None
-                if tr["dir"] == "out":
-                    # home: the flag the body sim gates on (assistant billing,
-                    # filth, gift call -- canon _isHome) comes back down.  The
-                    # SETTER died with the old adventure and was never rewired
-                    # (found 2026-07-21 via Joel's @-line question);
-                    # _after_adventure is the one safety net (truthed
-                    # 2026-07-25: no app-side death path clears it).
-                    self.pet.away = False
-                    self.pet.away_where = ""
-                    self.auto_close = ("done", self._home_msg)   # home: close + verdict
-                else:
-                    self._landed = True                # on the road -- the march begins
-                    self.travelling = True
-                    self.pet.away = True               # canon: the teleport toggles it
-                    self.pet.away_where = self.adv.name   # the @-line's live zone
+            elif tr["phase"] == "arrive" and tr["t"] >= self._tele_arrive_t:
+                self._finish_teleport()
             return
         if self._pulse is not None:
             # zoneChange: four zonePulse beats, then home (or the parade)
             p = self._pulse
-            if any(p["t"] == on for on, _off in PULSE_ON):
+            if any(self._pulse_time(p) == on for on, _off in PULSE_ON):
                 self.sfx = "select"           # the zonePulse chirp
             p["t"] += 1
-            if p["t"] >= PULSE_T:
-                self._pulse = None
-                if p.get("parade"):
-                    self._parade = {"t": 0, "nums": p["parade"],
-                                    "msg": p.get("msg")}
-                    self.sfx = "win"          # bossParade cue
-                else:
-                    self._go_home()           # celebrated -- now the verdict
+            if p["t"] >= p.get("ticks", PULSE_T):
+                self._finish_pulse()
             return
         if self._parade is not None:
             self._parade["t"] += 1
             if self._parade["t"] >= PARADE_T * len(self._parade["nums"]):
-                self._parade = None
-                self._go_home()
+                self._finish_parade()
             return
         if (self.pet.dead and self._trans is None and not self._summary
                 and self.sub is None):
@@ -371,6 +348,9 @@ class AdventurePanel(menu.SubHost):
         what hurrying looks like -- and the march clock restarts from the
         press, so a hurry re-paces the road instead of double-stepping into
         an auto tick that was already about to fire."""
+        # adventure audit 2026-10-14: manual travel obeys the roadside nap too.
+        if self.pet.asleep:
+            return
         self._stride(max(1, TRAVEL_TICKS - self._travel_t))
         self._travel_t = 0
         self._advance()
@@ -535,6 +515,8 @@ class AdventurePanel(menu.SubHost):
         key refuses.  It slips away instead: no bout, no life, a grace leg
         -- the pilgrimage to the town's sickbed stays walkable."""
         if (cond := self.pet.battle_condition(check_energy=False)) is not None:
+            # adventure audit 2026-10-14: this slip is a flee, so it breaks the chain.
+            self.adv.chain(False)
             self.adv.resolve(False, fled=True)
             self._note = f"{cond.rstrip('.!')} — slipped away."
             self._note_t = NOTE_HOLD
@@ -607,6 +589,9 @@ class AdventurePanel(menu.SubHost):
             if out == "won":
                 unlocked = adventure.record_win(self.pet, self.adv.zone)   # progression
                 from . import persistence              # profile signals: unlocks
+                zi = adventure.zone_index(self.adv.zone)
+                if zi is not None:
+                    persistence.map_cleared_add(zi)    # map-specific egg gates
                 area = self.adv.zone.get("map")
                 area_done = (unlocked and area is not None
                              and adventure.is_map_cleared(self.pet, area))
@@ -629,7 +614,9 @@ class AdventurePanel(menu.SubHost):
                 if unlocked and adventure.zone_index(self.adv.zone) == len(ZONES) - 1:
                     paraders = [z["bosses"][0]["num"] for z in ZONES[-3:] if z["bosses"]]
                     parade_msg = adventure.FINAL_PARADE_MSG
+                clear_key = "map_clear:%s" % adventure.zone_index(self.adv.zone)
                 self._pulse = {"t": 0, "parade": paraders,
+                               "ticks": PULSE_T if first_show(clear_key) else PULSE_REPEAT_T,
                                "msg": parade_msg,
                                "line": f"{self.adv.name} — cleared!"}
             elif out == "fled":
@@ -683,7 +670,49 @@ class AdventurePanel(menu.SubHost):
                               if zi is not None else False)
             self._summary = True              # results, then a key teleports
             return
+        self._tele_leave_t = TELE_HOME_T or TELE_LEAVE_T
+        self._tele_arrive_t = TELE_HOME_T or TELE_ARRIVE_T
         self._trans = {"dir": "out", "phase": "leave", "t": 0}
+
+    def _tele_time(self, tr):
+        """Retain the carved curtain choreography on the shorter presentation clock."""
+        leave = tr["phase"] == "leave"
+        ticks = self._tele_leave_t if leave else self._tele_arrive_t
+        last = 49 if leave else 45
+        return min(last, round(tr["t"] * last / max(1, ticks - 1)))
+
+    def _finish_teleport(self):
+        tr, self._trans = self._trans, None
+        if tr is None:
+            return
+        if tr["dir"] == "out":
+            self.pet.away = False
+            self.pet.away_where = ""
+            self.auto_close = ("done", self._home_msg)
+        else:
+            self._landed = self.travelling = True
+            self.pet.away = True
+            self.pet.away_where = self.adv.name
+
+    def _pulse_time(self, pulse):
+        return min(PULSE_T - 1, pulse["t"] * PULSE_T // pulse.get("ticks", PULSE_T))
+
+    def _finish_pulse(self):
+        pulse, self._pulse = self._pulse, None
+        if pulse is None:
+            return
+        if pulse.get("parade"):
+            self._parade = {"t": 0, "nums": pulse["parade"], "msg": pulse.get("msg")}
+            self.sfx = "win"
+        else:
+            self._go_home()
+
+    def _finish_parade(self):
+        parade, self._parade = self._parade, None
+        if parade is None:
+            return
+        self._ending_msg = parade.get("msg")
+        self._go_home()
 
     def _outcome_word(self):
         if self.adv.done:
@@ -696,16 +725,27 @@ class AdventurePanel(menu.SubHost):
         if self.sub is not None:              # a fight or the town hub owns input
             self.sub_key(k, self._town_done if self._town_sub else self._battle_done)
             return None
-        if (self._trans is not None or self._scene is not None
-                or self._pulse is not None or self._parade is not None):
-            # the teleport / investigate / celebration beats own the screen
-            # (no skips: own-game law 2026-07-13 -- the beats play out).
-            # ONE exception: SPACE locks a LIVE timed-dig meter -- that's
-            # the arcade input, not a skip
+        # Joel approved skips 2026-10-14. Consume the press before the next screen.
+        if self._trans is not None:
+            self._finish_teleport()
+            return None
+        if self._pulse is not None:
+            self._finish_pulse()
+            return None
+        if self._parade is not None:
+            self._finish_parade()
+            return None
+        if self._scene is not None:
             s = self._scene
-            if (s is not None and s.get("meter") and s["grade"] is None
+            if (s.get("meter") and s["grade"] is None
                     and s["t"] >= INV_WALK_T and k in ("space", "enter")):
                 self._lock_dig()
+            elif s["grade"] is not None:
+                # The find and its bonus are already banked; skip only the show.
+                self._note, self._note_t = self._find_msg, NOTE_HOLD
+                if s["t"] < INV_REVEAL_T:
+                    self.sfx = "reward"
+                self._scene = None
             return None
         if self._heal_t > 0:
             # the rest / second-wind beat plays out -- keys used to fall
@@ -809,15 +849,22 @@ class AdventurePanel(menu.SubHost):
         if self.sub is not None:
             return self.sub.strip()            # the wild fight owns the line
         if self._trans is not None:
-            return ""                          # the teleport plays out wordless
+            return menu.hints(("any key", "skip"))
         if self._pulse is not None:
             line = self._pulse.get("line")     # the flash SAYS what it's for
-            return f"[b]★ {line}[/]" if line else ""
+            return f"[b]★ {_fit(line or 'Map clear!', 29)}[/] [dim]any key[/]"
         if self._parade is not None:
             msg = self._parade.get("msg")      # the parade carries the victory line
-            return f"[b]★ {msg}[/]" if msg else ""
+            return f"[b]★ {_fit(msg or 'The road is complete!', 29)}[/] [dim]any key[/]"
         if self._summary:
             return menu.hints(("any key", "home"))
+        # adventure audit 2026-10-14: gate input already uses this same item menu.
+        if self._transport is not None:
+            from . import shop
+            key = self._transport[self._transport_cursor]
+            name = (shop.entry(key) or {}).get("name", "Transport")
+            nav = " ↑↓" if len(self._transport) > 1 else ""
+            return f"[b]⟿ {name}[/]  [dim]ENTER use{nav} · ESC[/]"
         if self._at_gate:                      # knocked back before the boss
             hearts = "♥" * self.adv.lives + "[dim]♡[/]" * (MAX_LIVES - self.adv.lives)
             if self._heal_t > 0 and self._note:
@@ -826,31 +873,25 @@ class AdventurePanel(menu.SubHost):
                 # single spacing: the hungriest clause + a held warp ran 41
                 # cells and put the outs on the marquee (audit 2026-07-25)
                 out = "T item · " if self.adv.held_transports() else ""
-                return f"[b]{self._gate_refusal}[/] [dim]· {out}ESC home[/]"
+                return f"[b]{self._gate_refusal.rstrip('.')}[/] [dim]· {out}ESC leave[/]"
             # CELL BUDGET (audit 2026-07-25: ten boss names ran 41-45 cells
             # and scrolled the required keys off the box): the hints + hearts
             # are fixed, the NAME takes what remains, ellipsis-trimmed
             held = "T " if self.adv.held_transports() else ""
-            tail = f" {hearts} [dim]· SPACE fight {held}ESC home[/]"
+            tail = f" {hearts} [dim]· SPACE fight {held}ESC leave[/]"
             plain = f" {'♥' * self.adv.lives}{'♡' * (MAX_LIVES - self.adv.lives)}" \
-                    f" · SPACE fight {held}ESC home"
+                    f" · SPACE fight {held}ESC leave"
             return f"{_fit(self.adv.boss_name, 40 - _cells(plain))}{tail}"
         if self.travelling:
             lost = MAX_LIVES - self.adv.lives
             hearts = "♥" * self.adv.lives + "[dim]♡[/]" * lost
-            if self._transport is not None:
-                from . import shop
-                key = self._transport[self._transport_cursor]
-                name = (shop.entry(key) or {}).get("name", "Transport")
-                nav = " ↑↓" if len(self._transport) > 1 else ""
-                return f"[b]⟿ {name}[/]  [dim]ENTER use{nav} · ESC[/]"
             if self._town_prompt:
                 return "[b]⌂ A town[/]  [dim]ENTER visit · SPACE walk on[/]"
             if self.pet.asleep:
                 # unreachable today (the door disturbs sleepers, the pill
                 # refuses on the road) -- but a waiting state must name its
                 # key if it ever becomes reachable (SHOW-FLOW, audit 2026-07-25)
-                return "[dim]zzZ — a roadside nap · ESC home[/]"
+                return "[dim]zzZ — a roadside nap · ESC leave[/]"
             if self._refuse_t > 0 or self._refused:
                 # the refusal only ever fires PAST EMPTY (stop_travel_prob:
                 # negative energy only) -- say so, or the bare "SPACE urge"
@@ -858,16 +899,16 @@ class AdventurePanel(menu.SubHost):
                 # only (energy audit 2026-07-23): energy cannot rise on the
                 # road itself -- a town's rest or home are the ways out.
                 out = ("T item · " if self.adv.held_transports() else "")
-                return f"[b]Refuses — spent![/]  [dim]{out}ESC home[/]"
+                return f"[b]Refuses — spent![/]  [dim]{out}ESC leave[/]"
             if self._scene is not None:
                 s, t = self._scene, self._scene["t"]
                 if s["grade"] is None and t >= INV_WALK_T:
                     return menu.hints(("SPACE", "dig!"))   # the meter is live
                 if t >= INV_REVEAL_T:         # the reveal, unsealed
-                    return f"[b]✦ {self._find_msg}[/]"
+                    return f"[b]✦ {_fit(self._find_msg, 29)}[/] [dim]any key skip[/]"
                 if t >= INV_WALK_T:           # suspense: . .. ...
-                    dots = "." * min(3, 1 + (t - INV_WALK_T) // 6)
-                    return f"[dim]{dots}[/]"
+                    dots = "." * min(3, 1 + (t - INV_WALK_T))
+                    return f"[dim]{dots} · any key skip[/]"
                 return ""                     # the walk-out plays wordless
             if self._hazard is not None:
                 h = self._hazard
@@ -909,9 +950,9 @@ class AdventurePanel(menu.SubHost):
             # Name what the key does (KEYS SPELL THEMSELVES).
             keys = ([("SPACE", "hurry")]
                     + ([("T", "item")] if self.adv.held_transports() else [])
-                    + [("ESC", "home")])
+                    + [("ESC", "leave")])
             return menu.hints(*keys)
-        return menu.hints(("ESC", "home"))
+        return menu.hints(("ESC", "leave"))
 
     # -- render ---------------------------------------------------------------
     def _rows(self, idx):
@@ -1187,7 +1228,7 @@ class AdventurePanel(menu.SubHost):
         world flashes bright on the canon beat spans (restored old build)."""
         rows = self._rows(0)
         bg = self._road_bg()
-        if bg and any(on <= self._pulse["t"] < off for on, off in PULSE_ON):
+        if bg and any(on <= self._pulse_time(self._pulse) < off for on, off in PULSE_ON):
             bg = _brighten(bg, 0.6)            # the zonePulse light, on the LCD
         return menu.paint([(rows, self._jx(rows), True)], bg, rows=ROWS,
                           cols=COLS, clip=grid.WINDOW)
@@ -1239,7 +1280,7 @@ class AdventurePanel(menu.SubHost):
         """One frame of the canon teleport, on the side of the wipe the beat
         script says the world is showing (verbatim port)."""
         tr = self._trans
-        t, ph = tr["t"], tr["phase"]
+        t, ph = self._tele_time(tr), tr["phase"]
         # which world is under the curtain: leaving-out and arriving-in show the
         # ROAD; leaving-in and arriving-out show HOME
         home_side = (tr["dir"] == "in") == (ph == "leave")
@@ -1295,7 +1336,7 @@ class AdventurePanel(menu.SubHost):
         """The run-results card, shown on the LCD before the homecoming teleport."""
         a = self.adv
         out = menu.header("ADVENTURE", "results")
-        out.append(a.name[:26] + "\n", style=INK_B)
+        out.append((self._ending_msg or a.name[:26]) + "\n", style=INK_B)
         word = self._outcome_word()
         out.append(word + "\n", style={"Conquered!": POS, "Defeated": NEG}.get(word, DIM))
         out.append(f"Bits    +{a.bits_earned}\n", style=INK)
@@ -1314,7 +1355,7 @@ class AdventurePanel(menu.SubHost):
         # the card is 12 physical rows: pad only while both extras are absent
         if (1 if a.best_streak >= 2 else 0) + (1 if a.holiday else 0) < 2:
             out.append_text(menu.blanks(1))
-        out.append_text(menu.footer("press any key — home"))
+        out.append_text(menu.footer(""))
         return out
 
     def text(self):
@@ -1406,23 +1447,22 @@ class ZonePickPanel:
         right = "★ FESTIVAL" if self.holiday else f"{len(self.indices)}/{len(ZONES)}"
         out = menu.header("ADVENTURE", right)
         self.cursor = menu.list_window(out, self.indices, self.cursor, self.VIS, self._fmt)
-        if self.holiday:
+        # adventure audit 2026-10-14: a festival never restores a claimed boss purse.
+        if (adventure.is_conquered(self.pet, self.indices[self.cursor])
+                and self._bounty_claimed(self.indices[self.cursor])):
+            out.append_text(menu.note("✓ veteran — bounty claimed today"))
+        elif self.holiday:
             out.append_text(menu.note(f"★ {self.holiday}: 2× bits · more loot!"))
         elif adventure.is_conquered(self.pet, self.indices[self.cursor]):
             # the VETERAN ROAD tease (replay scaling 2026-07-21) -- the
-            # festival note owns the slot on the rarer festival days; the
-            # rationed bounty says so up front (audit 2026-07-25)
-            if self._bounty_claimed(self.indices[self.cursor]):
-                # <= 38 so it HOLDS STILL (a marqueeing ration notice reads
-                # as decoration)
-                out.append_text(menu.note("✓ veteran — bounty claimed today"))
-            else:
-                out.append_text(menu.note("✓ veteran road: foes fight trained "
-                                          "· bounties +50%"))
+            # festival note owns the slot when the bounty is still available
+            # (adventure audit 2026-10-14).
+            out.append_text(menu.note("✓ veteran road: foes fight trained "
+                                      "· bounties +50%"))
         else:
             # a steady card: the note row never blinks in and out as the
             # cursor crosses a conquered row (audit 2026-07-25: the footer
             # hopped a row)
             out.append_text(menu.note(""))
-        out.append_text(menu.footer("↑↓ pick   ENTER go   ESC back"))
+        out.append_text(menu.footer(""))
         return out

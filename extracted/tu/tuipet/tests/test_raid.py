@@ -90,13 +90,21 @@ def test_kill_archives_and_pays_rank_one_exactly_once(tmp_path):
     rid = srv.RAID["history"][-1]["id"]
     view = srv._raid_view("joel", now=1002.0)
     assert view["award"] and view["award"]["id"] == rid
-    r = srv._raid_claim("joel", rid, now=1002.0)
+    r = srv._raid_claim("joel", rid, now=1002.0, acks=True)
     assert r["ok"] and r["defeated"] and r["rank"] == 1
     assert r["bits"] in (srv.RAID_RANK_BITS[1], int(srv.RAID_RANK_BITS[1] * 1.5))
     assert len(r["items"]) == srv.RAID_RANK_ITEMS[1]
     from tuipet import shop
     assert all(k in shop.CATALOG for k in r["items"])   # real TUIPET prizes
-    assert not srv._raid_claim("joel", rid, now=1003.0)["ok"]   # double-claim refused
+    # battle call #23 = A (2026-10-15): until the client ACKS, a repeat claim
+    # re-sends the SAME reward (a dropped socket used to lose it) ...
+    again = srv._raid_claim("joel", rid, now=1003.0, acks=True)
+    assert again["ok"] and again["bits"] == r["bits"] and again["items"] == r["items"]
+    assert srv._raid_view("joel", now=1003.0)["award"]["pending"]
+    srv._raid_ack("joel", rid)
+    # ... and once applied, the double-claim is refused
+    assert not srv._raid_claim("joel", rid, now=1003.0)["ok"]
+    assert srv._raid_view("joel", now=1003.0)["award"] is None
     # a bystander who never hit it has nothing to claim
     assert not srv._raid_claim("kai", rid, now=1003.0)["ok"]
 
@@ -347,8 +355,12 @@ def test_the_claim_reveal_pins_the_prize_line_and_cheers_the_pet():
     """The prize toast printed once and the context alternation talked over
     it (Joel 2026-07-28: "i didnt know what i got last time either") -- a
     felled claim now holds the PET on the arena in its victory cheer with
-    the full prize line pinned for ~12s.  An escaped claim pins its
+    the full prize line pinned for ~12s. An escaped claim pins its
     consolation line but leaves the stage alone."""
+    from copy import deepcopy
+    from tuipet.raidscreen import REWARD_T
+    # Animation audit 2026-10-14: 12s reveal restored; skipping cannot claim, raid or leave.
+    assert REWARD_T == 120
     pan = _panel()
     pan.pet.name = "Blitz"
     pan.client.raid = _view(_mega(), hp=700, start=0.0, now=100.0)
@@ -361,10 +373,11 @@ def test_the_claim_reveal_pins_the_prize_line_and_cheers_the_pet():
     assert "Blitz" in plain                       # the champion owns the stage
     assert "Rank 1: 5000b" in plain               # the head of the line shows
     assert "Vitamin" in pan.msg                   # the FULL line marquees
-    for _ in range(115):                          # the whole hold: the prize
+    for _ in range(115):                 # the whole hold: the prize
         pan.anim()                                # line stays pinned -- the
         assert "weekly boss" not in pan.text().plain   # cadence never talks over
         assert "Rank 1: 5000b" in pan.msg
+    assert pan._won is not None
     for _ in range(6):
         pan.anim()
     assert pan._won is None                       # the reveal lets go
@@ -375,6 +388,13 @@ def test_the_claim_reveal_pins_the_prize_line_and_cheers_the_pet():
     assert pan._won is not None and pan._won[1] is False
     plain = pan.text().plain
     assert "consolation" in plain and "Blitz" not in plain
+    for key in ("c", "space", "escape"):
+        pan._won = (pan.frame_i + REWARD_T, False)
+        before = deepcopy(pan.pet.__dict__), list(pan.client.calls), pan.msg
+        assert pan.key(key) is None
+        assert pan._won is None and pan.sub is None
+        assert (pan.pet.__dict__, pan.client.calls, pan.msg) == before
+        assert "consolation" in pan.msg and pan.text()
 
 
 def test_an_escape_rotation_stays_quiet():
@@ -562,7 +582,8 @@ def test_the_panel_reports_honestly_and_stays_live():
     # and the promise matches the payout (the cadence line moved into
     # _context_line with the 12-row layout, raid-menu fix 2026-07-19)
     src = inspect.getsource(RaidPanel._context_line)
-    assert "weekend claims pay 1.5x" in src and "weekend pays 2x" not in src
+    # battle audit 2026-10-14: the bonus keys off end day, never claim day.
+    assert "weekend finishes pay 1.5x" in src and "weekend pays 2x" not in src
 
 
 def test_claim_key_takes_both_cases():
@@ -632,7 +653,7 @@ def test_weekend_note_follows_the_servers_clock(monkeypatch):
         pan.client.raid = v
         pan.msg = ""
         line = pan._context_line(v, v["boss"])
-        assert ("weekend claims pay 1.5x" in line) is expect, (now, line)
+        assert ("weekend finishes pay 1.5x" in line) is expect, (now, line)
 
 
 # ---- round 29 pins (raid screen tidy, 2026-07-19) --------------------------
@@ -714,7 +735,7 @@ def test_the_weekend_note_names_the_claim():
     pan.client.raid = v
     pan.msg = ""                                        # let the cadence line show
     line = pan._context_line(v, v["boss"])
-    assert "weekend claims pay 1.5x" in line
+    assert "weekend finishes pay 1.5x" in line
 
 
 def test_raid_hit_wire_carries_no_stage():
@@ -935,3 +956,39 @@ def test_the_pump_leaves_a_non_raid_sub_alone():
     pan.sub = type("X", (), {"anim": lambda self: None, "sfx": None})()
     pan._pump_pool()                                        # no enemy dict: a no-op
     assert pan._pump_i == 0 and pan.client.calls == []
+
+
+def test_a_resent_payout_is_never_applied_twice(tmp_path, monkeypatch):
+    """Battle call #23 = A: the client ledgers each raid id it applied."""
+    from tuipet import persistence
+    from tuipet.pet import Pet
+    from tuipet.raidscreen import RaidPanel
+    acks = []
+
+    class _C:
+        raid_reward = None
+        def raid_ack(self, rid):
+            acks.append(rid)
+    p = Pet(num=29, stage="Mega", attribute="Vaccine")
+    p.bits = 0
+    pan = RaidPanel.__new__(RaidPanel)
+    pan.pet, pan.client, pan.frame_i, pan._fell, pan._won = p, _C(), 0, None, None
+    pan.msg = pan.sfx = ""
+    reward = {"t": "raid_reward", "ok": True, "id": "r42", "bits": 500,
+              "items": [], "defeated": False, "rank": 2, "boss": "X"}
+    pan._apply_reward(dict(reward))
+    assert p.bits == 500 and acks == ["r42"] and persistence.raid_paid("r42")
+    pan._apply_reward(dict(reward))                 # the server re-sent it
+    assert p.bits == 500 and acks == ["r42", "r42"]
+
+
+def test_an_old_client_without_acks_is_never_offered_a_resend(tmp_path):
+    """An older build would re-claim a held payout and apply it twice."""
+    srv = _srv(tmp_path)
+    srv._raid_rotate(now=1000.0)
+    srv.RAID["boss"]["hp"] = 1
+    srv._raid_hit("joel", 10, None, now=1001.0)
+    rid = srv.RAID["history"][-1]["id"]
+    assert srv._raid_claim("joel", rid, now=1002.0)["ok"]          # no acks flag
+    assert srv._raid_view("joel", now=1003.0)["award"] is None
+    assert not srv._raid_claim("joel", rid, now=1003.0)["ok"]

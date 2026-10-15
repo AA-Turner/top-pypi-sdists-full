@@ -301,6 +301,20 @@ class AnthropicTranslator(BaseTranslator):
             if all_tools:
                 anthropic_request["tools"] = all_tools
 
+        # TAIL CHANNEL (config/live_plan.py): appended AFTER the rolling
+        # breakpoint was placed, so it is a separate, uncached text block after
+        # the newest tool_result — the cached prefix ends exactly where the last
+        # request's did, and the block sits where the model is looking.
+        tail_text = self.get_tail_context_text(config)
+        if (
+            tail_text
+            and not trailing_prefill
+            and messages
+            and messages[-1]["role"] == "user"
+            and isinstance(messages[-1].get("content"), list)
+        ):
+            messages[-1]["content"].append({"type": "text", "text": tail_text})
+
         # vcprint("\n================\n\nREMOVE THIS: Adding fake uuids to cause failures for testing", color="red")
         # anthropic_request["tools"] = ["9935dadd-2afc-41db-aeac-fc15ee842812", "2b0f6a3a-4cdb-40cb-9063-4c12d6c097f5"]
         # vcprint("="*50 + "\n", color="red")

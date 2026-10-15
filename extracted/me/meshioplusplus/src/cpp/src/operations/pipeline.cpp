@@ -51,6 +51,7 @@
 #include "meshioplusplus/operations/fit_cad.hpp"
 #include "meshioplusplus/operations/fit_primitives.hpp"
 #include "meshioplusplus/operations/segment.hpp"
+#include "meshioplusplus/operations/tessellate.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
 #include "meshioplusplus/operations/normals.hpp"
 #include "meshioplusplus/operations/quality_gate.hpp"
@@ -301,7 +302,9 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
         {"FitPrimitives",
          {"PatchData", "Tolerance", "Relative", "MinInlierFraction", "Types", "MaxIterations"}},
         {"FitCad",
-         {"Path", "Tolerance", "ExactEdges", "Types", "MeshDeflection", "MaxDemotionRounds"}},
+         {"Path", "Tolerance", "ExactEdges", "Types", "MeshDeflection", "MaxDemotionRounds",
+          "Freeform", "FreeformDegree", "FreeformMaxControl", "FreeformSplit", "Fillets",
+          "Threads"}},
         {"EditRegions", {"Edit", "Inputs", "Output", "Kind", "Dim", "Tag", "KeepInputs"}},
         {"RegionAdjacency", {"Regions"}},
         {"FindInterface",
@@ -350,6 +353,7 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
           "RotateData"}},
         {"ConvertCells", {"Mode", "RecordParentIds"}},
         {"Subdivide", {"RecordParentIds"}},
+        {"Tessellate", {"Levels", "Curved", "Fields", "RecordStencil"}},
         {"Agglomerate",
          {"TargetGroupSize", "MergeCoplanarFaces", "CoplanarAngle", "MinSphericity"}},
         {"Crop", {"Bbox", "Point", "Normal", "Where", "Compare", "Value", "Mode", "RecordIds"}},
@@ -999,6 +1003,13 @@ Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& r
             static_cast<std::int64_t>(pipe_number(rStep, "MaxDemotionRounds", 8.0));
         if (pipe_find(rStep, "Types"))
             opts.mTypes = pipe_fit_types(rStep);
+        opts.mFreeform = pipe_flag(rStep, "Freeform", true);
+        opts.mFreeformDegree = static_cast<std::int32_t>(pipe_number(rStep, "FreeformDegree", 3.0));
+        opts.mFreeformMaxControl =
+            static_cast<std::int64_t>(pipe_number(rStep, "FreeformMaxControl", 64.0));
+        opts.mFreeformSplit = pipe_flag(rStep, "FreeformSplit", true);
+        opts.mFillets = pipe_flag(rStep, "Fillets", true);
+        opts.mThreads = pipe_flag(rStep, "Threads", true);
         FitCadResult cr = fit_cad(mesh, pipe_text(rStep, "Path", ""), opts);
         pipe_push_step(rReport, rStep,
                        {{"Valid", cr.mValid ? 1.0 : 0.0},
@@ -1006,6 +1017,13 @@ Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& r
                         {"MaxDeviation", cr.mMaxDeviation},
                         {"NumFaces", static_cast<double>(cr.mNumFaces)},
                         {"NumFacetedFaces", static_cast<double>(cr.mNumFacetedFaces)},
+                        {"NumBspline", static_cast<double>(cr.mNumBspline)},
+                        {"NumSplitPatches", static_cast<double>(cr.mNumSplitPatches)},
+                        {"NumFillet", static_cast<double>(cr.mNumFillet)},
+                        {"NumHelical", static_cast<double>(cr.mNumHelical)},
+                        {"NumVariableFillet", static_cast<double>(cr.mNumVariableFillet)},
+                        {"NumBlend", static_cast<double>(cr.mNumBlend)},
+                        {"NumRoundedThread", static_cast<double>(cr.mNumRoundedThread)},
                         {"NumDemoted", static_cast<double>(cr.mNumDemoted)}});
         return std::move(cr.mMesh);
     }
@@ -1423,6 +1441,22 @@ Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& r
         auto result = subdivide(mesh, opts);
         pipe_push_step(rReport, rStep);
         return std::move(result.mMesh);
+    }
+    if (op == "Tessellate") {
+        TessellateOptions opts;
+        opts.mLevels = static_cast<std::int64_t>(pipe_number(rStep, "Levels", 2.0));
+        opts.mCurved = pipe_flag(rStep, "Curved", true);
+        opts.mFields = pipe_flag(rStep, "Fields", true);
+        opts.mRecordStencil = pipe_flag(rStep, "RecordStencil", false);
+        TessellateResult tr = tessellate(mesh, opts);
+        pipe_push_step(
+            rReport, rStep,
+            {{"NumCurvedSourceCells", static_cast<double>(tr.mNumCurvedSourceCells)},
+             {"NumPassThroughSourceCells", static_cast<double>(tr.mNumPassThroughSourceCells)},
+             {"NumPoints", static_cast<double>(tr.mNumPoints)},
+             {"NumCells", static_cast<double>(tr.mNumCells)},
+             {"NumFacetsWithBadCount", static_cast<double>(tr.mNumFacetsWithBadCount)}});
+        return std::move(tr.mMesh);
     }
     if (op == "Agglomerate") {
         AgglomerateOptions opts;

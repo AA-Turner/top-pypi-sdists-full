@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 #[cfg(target_os = "linux")]
-use chalk_metrics::PublishingMetricsPipeline;
+use crate::metrics::CallMetrics;
 use chalk_remote_call_proto::chalk::runtime::v1::async_remote_call_service_server::AsyncRemoteCallServiceServer;
 use chalk_remote_call_proto::chalk::runtime::v1::remote_call_service_server::RemoteCallServiceServer;
 use chalk_remote_call_proto::chalk::runtime::v1::FILE_DESCRIPTOR_SET;
@@ -23,7 +23,7 @@ pub async fn run_server(
     port: u16,
     python_handler: Arc<PythonHandler>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
-    #[cfg(target_os = "linux")] pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    #[cfg(target_os = "linux")] metrics: Option<Arc<CallMetrics>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Parse host — ensure IPv6 addresses are bracketed for SocketAddr parsing
     let addr_str = if host.contains(':') && !host.starts_with('[') {
@@ -82,13 +82,13 @@ pub async fn run_server(
     if let Some(cfg) = crate::self_consumer::SelfConsumerConfig::from_env() {
         // Share the synchronous gRPC server's function-call metrics pipeline.
         let consumer_handler = python_handler.clone();
-        let consumer_pipeline = pipeline.clone();
+        let consumer_metrics = metrics.clone();
         let consumer_coalescing = coalescing_queue.clone();
         tokio::spawn(async move {
             if let Err(e) = crate::self_consumer::run(
                 cfg,
                 consumer_handler,
-                consumer_pipeline,
+                consumer_metrics,
                 consumer_coalescing,
             )
             .await
@@ -103,7 +103,7 @@ pub async fn run_server(
         python_handler,
         coalescing_queue,
         #[cfg(target_os = "linux")]
-        metrics_pipeline: pipeline,
+        metrics,
     };
 
     info!("Server starting on {}", addr);

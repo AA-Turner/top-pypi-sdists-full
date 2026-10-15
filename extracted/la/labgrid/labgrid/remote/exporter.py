@@ -212,7 +212,7 @@ class SerialPortExport(ResourceExport):
                 self.ser2net_bin = "/usr/bin/ser2net"
 
     def __del__(self):
-        if self.child is not None:
+        if getattr(self, "child", None) is not None:
             self.stop()
 
     def _get_start_params(self):
@@ -618,8 +618,27 @@ class ProviderGenericExport(ResourceExport):
 
 
 exports["TFTPProvider"] = ProviderGenericExport
-exports["NFSProvider"] = ProviderGenericExport
 exports["HTTPProvider"] = ProviderGenericExport
+
+
+@attr.s(eq=False)
+class NFSProviderExport(ResourceExport):
+    """ResourceExport for the NFSProvider (no internal/external paths)"""
+
+    def __attrs_post_init__(self):
+        super().__attrs_post_init__()
+        from ..resource import provider
+
+        self.data["cls"] = "RemoteNFSProvider"
+        self.local = provider.NFSProvider(target=None, name=None, **self.local_params)
+
+    def _get_params(self):
+        return {
+            "host": self.host,
+        }
+
+
+exports["NFSProvider"] = NFSProviderExport
 
 
 @attr.s
@@ -950,13 +969,11 @@ class Exporter:
                 reexec = True
             else:
                 logging.exception("unexpected grpc error in coordinator message pump task")
+                raise
         except Exception:
             self.out_queue.put_nowait(None)  # let the sender side exit gracefully
             logging.exception("error in coordinator message pump")
-
-            # only send command response when the other updates have left the queue
-            # perhaps with queue join/task_done
-            # this should be a command from the coordinator
+            raise
 
     async def acquire(self, group_name, resource_name, place_name):
         resource = self.groups.get(group_name, {}).get(resource_name)

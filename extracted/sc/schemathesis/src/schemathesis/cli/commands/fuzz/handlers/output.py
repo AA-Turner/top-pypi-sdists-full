@@ -9,6 +9,8 @@ import click
 
 from schemathesis.cli.commands.run.handlers.base import BaseOutputHandler
 from schemathesis.cli.commands.run.handlers.output import (
+    _plural,
+    display_reports,
     display_warning_blocks,
     get_status_icon,
     unmatched_filter_block,
@@ -92,6 +94,7 @@ class FuzzProgressManager:
     title_task_id: TaskID
     live: Live | None
     total_scenarios: int
+    passed_scenarios: int
     stats: dict[Status, int]
     last_failure_time: float | None
     unique_failures: int
@@ -103,6 +106,7 @@ class FuzzProgressManager:
         "title_task_id",
         "live",
         "total_scenarios",
+        "passed_scenarios",
         "stats",
         "last_failure_time",
         "unique_failures",
@@ -115,6 +119,7 @@ class FuzzProgressManager:
         self.console = console
         self.started_at = Instant()
         self.total_scenarios = 0
+        self.passed_scenarios = 0
         self.stats: dict[Status, int] = {Status.ERROR: 0}
         self.last_failure_time = None
         self.unique_failures = 0
@@ -135,16 +140,16 @@ class FuzzProgressManager:
         rate = self.total_scenarios / elapsed if elapsed > 0 else 0.0
         return (
             f"{_INDENT}{hours}:{minutes:02d}:{seconds:02d}"
-            f"{SEPARATOR}{rate:.1f}/s{SEPARATOR}{self.total_scenarios} scenarios"
+            f"{SEPARATOR}{rate:.1f}/s{SEPARATOR}{_plural(self.total_scenarios, 'scenario')}"
         )
 
     def _counters_line(self) -> str:
         errors = self.stats[Status.ERROR]
         parts = []
         if self.unique_failures:
-            parts.append(f"❌ {self.unique_failures} unique failures")
+            parts.append(f"❌ {_plural(self.unique_failures, 'unique failure')}")
         if errors:
-            parts.append(f"🚫 {errors} errors")
+            parts.append(f"🚫 {_plural(errors, 'error')}")
         text = SEPARATOR.join(parts) if parts else "No issues found yet"
         return f"{_INDENT}{text}"
 
@@ -182,19 +187,19 @@ class FuzzProgressManager:
         stats = {
             Status.ERROR: errors,
             Status.FAILURE: self.unique_failures,
-            Status.SUCCESS: 0 if without_checks else self.total_scenarios,
-            Status.SKIP: self.total_scenarios if without_checks else 0,
+            Status.SUCCESS: 0 if without_checks else self.passed_scenarios,
+            Status.SKIP: self.passed_scenarios if without_checks else 0,
         }
         icon = get_status_icon(stats, is_interrupted=is_interrupted)
 
         parts = []
-        if self.total_scenarios:
+        if self.passed_scenarios:
             if without_checks:
-                parts.append(f"⏭  {self.total_scenarios} without checks")
+                parts.append(f"⏭  {self.passed_scenarios} without checks")
             else:
-                parts.append(f"✅ {self.total_scenarios} scenarios")
+                parts.append(f"✅ {_plural(self.passed_scenarios, 'scenario')}")
         if self.unique_failures:
-            parts.append(f"❌ {self.unique_failures} unique failures")
+            parts.append(f"❌ {_plural(self.unique_failures, 'unique failure')}")
         if errors:
             suffix = "s" if errors > 1 else ""
             parts.append(f"🚫 {errors} error{suffix}")
@@ -203,14 +208,24 @@ class FuzzProgressManager:
         duration_message = f"interrupted after {duration}" if is_interrupted else f"in {duration}"
         return f"{icon}  Fuzzing ({duration_message})\n\n    {stats_line}"
 
-    def update(self, unique_failures: int) -> None:
+    def update(self, unique_failures: int, *, passed: bool) -> None:
         self.total_scenarios += 1
+        if passed:
+            self.passed_scenarios += 1
         if unique_failures > self.unique_failures:
             self.last_failure_time = time.monotonic()
         self.unique_failures = unique_failures
 
     def update_error_count(self, error_count: int) -> None:
         self.stats[Status.ERROR] = error_count
+
+
+def _has_passed(event: FuzzScenarioFinished) -> bool:
+    # Transport errors leave steps unanswered without changing the scenario status.
+    if event.status != Status.SUCCESS:
+        return False
+    recorder = event.recorder
+    return all(recorder.find_response(case_id=case_id) is not None for case_id in recorder.cases)
 
 
 class FuzzOutputHandler(BaseOutputHandler["FuzzExecutionContext"]):
@@ -244,7 +259,9 @@ class FuzzOutputHandler(BaseOutputHandler["FuzzExecutionContext"]):
         elif isinstance(event, EngineStarted):
             self.progress_manager.start()
         elif isinstance(event, FuzzScenarioFinished):
-            self.progress_manager.update(unique_failures=len(ctx.statistic.unique_failures_map))
+            self.progress_manager.update(
+                unique_failures=len(ctx.statistic.unique_failures_map), passed=_has_passed(event)
+            )
         elif isinstance(event, NonFatalError):
             self.progress_manager.update_error_count(len(ctx.errors))
         elif isinstance(event, FatalError):
@@ -276,7 +293,12 @@ class FuzzOutputHandler(BaseOutputHandler["FuzzExecutionContext"]):
                 display_section_name(label, "_", fg="red")
                 _errors = list(group_errors)
                 for idx, error in enumerate(_errors, 1):
-                    click.echo(error.info.format(bold=lambda x: click.style(x, bold=True)))
+                    click.echo(
+                        error.info.format(
+                            bold=lambda x: click.style(x, bold=True),
+                            base_url_is_set=ctx.config.base_url is not None,
+                        )
+                    )
                     if idx < len(_errors):
                         click.echo()
 
@@ -315,6 +337,7 @@ class FuzzOutputHandler(BaseOutputHandler["FuzzExecutionContext"]):
             click.echo()
 
         display_test_cases(reduce_test_cases(ctx.statistic))
+        display_reports(ctx)
         display_seed(ctx.config)
         unique_failures = sum(
             len(group.failures) for grouped in ctx.statistic.failures.values() for group in grouped.values()

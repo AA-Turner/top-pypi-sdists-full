@@ -198,6 +198,7 @@ class SyncClient(_WsClient):
         self.save_too_big = False             # our own pre-send size refusal
         self.not_holder = None                # {'device','label'}: the CARTRIDGE
         #                                       lives elsewhere, pushes are forks
+        self.pet_erased = False               # the server refused this pet as ERASED (call #27)
         self.last_error = ""                  # last server error frame (e.g. full)
         self.uri = uri
         self.name = name
@@ -258,6 +259,13 @@ class SyncClient(_WsClient):
     def _handle(self, raw):
         m, t = parse_msg(raw)
         if t == "welcome":
+            # sync audit 2026-10-14: reconnect ownership is known before any push.
+            from . import persistence
+            holder = m.get("holder")
+            if holder and holder.get("device") != persistence.device_id():
+                self.not_holder = holder
+            else:
+                self.not_holder = None
             if self.on_pull is not None:
                 self.on_pull(m.get("save"))    # server's stored save (or None)
         elif t == "saved":
@@ -268,6 +276,10 @@ class SyncClient(_WsClient):
             why = m.get("why")
             self.cloud_dropped = (not ok) and why in (None, "lease")
             self.save_invalid = (not ok) and why == "invalid"
+            if (not ok) and why == "erased":
+                # saves call #27 = A: this account ERASED this pet elsewhere;
+                # the server refuses it for good -- the app says so and stops
+                self.pet_erased = True
             if (not ok) and why == "holder":
                 # THE CARTRIDGE: the pet is checked out to another device, so
                 # every push from here is a fork the server won't take.  .313
@@ -279,6 +291,10 @@ class SyncClient(_WsClient):
         elif t == "pm":
             # the sync ghost is the HOME-SCREEN alert channel: the app drains
             # this into the message box (presence 2026-07-05)
+            # sync audit 2026-10-14: mute applies to home alerts as well as lobby chat.
+            from . import persistence
+            if m.get("from_name", "?") in persistence.get_blocked():
+                return
             self.inbox.append((m.get("from_name", "?"), m.get("text", "")))
             del self.inbox[:-20]
         elif t == "announce":
@@ -329,7 +345,13 @@ class LobbyClient(_WsClient):
         self._send({"t": "raid_hit", "damage": int(damage)})
 
     def raid_claim(self, raid_id):
-        self._send({"t": "raid_claim", "raid": raid_id})
+        # acks: this build ledgers applied raids and sends raid_ack, so the
+        # server may hold the payout for re-send (battle call #23 = A)
+        self._send({"t": "raid_claim", "raid": raid_id, "acks": True})
+
+    def raid_ack(self, raid_id):
+        """The reward is APPLIED: the server may drop its held copy."""
+        self._send({"t": "raid_ack", "raid": raid_id})
 
     def update_pet(self, pet):
         self.pet = pet

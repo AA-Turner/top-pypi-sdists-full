@@ -55,6 +55,7 @@ def test_workspace_list_tolerates_a_legacy_null_owner_row(client, app, monkeypat
         "name": "Team (legacy)",
         "slug": "team",
         "projects": 0,
+        "this_computer": False,
     }
 
 
@@ -89,7 +90,10 @@ def test_workspace_use_clears_the_active_project(client, monkeypatch, capsys):
 def test_workspace_delete_clears_the_selected_pin_before_the_next_create(
     client, app, monkeypatch, capsys, tmp_path
 ):
-    monkeypatch.setattr(cli, "Client", lambda **kw: make_client(app, tmp_spool=tmp_path / "spool"))
+    # An UNSET computer: the pin under test is the CLI context's.
+    monkeypatch.setattr(
+        cli, "Client", lambda **kw: make_client(app, tmp_spool=tmp_path / "spool", workspace=None)
+    )
     client.delete_workspace(_WS_MINE)
     assert cli.main(["workspace", "use", "teammate"]) == 0
     capsys.readouterr()
@@ -188,11 +192,12 @@ def test_project_workspace_id_may_be_null_on_a_legacy_row(client, app):
     assert proj["workspace_id"] is None
 
 
-def test_project_create_lets_the_server_choose_a_remaining_workspace(client, app):
+def test_project_create_lets_the_server_choose_a_teams_only_workspace(client, app):
+    unset = make_client(app, workspace=None)
     client.delete_workspace(_WS_MINE)
     app.requests.clear()
 
-    project = client.create_project("remaining", kind="general")
+    project = unset.create_project("remaining", kind="general")
 
     assert project["workspace_id"] == _WS_OTHER
     assert [(r.method, r.url.path) for r in app.requests] == [("POST", "/v1/projects")]
@@ -205,7 +210,7 @@ def test_project_create_accepts_a_server_fallback_after_every_workspace_is_delet
     assert client.list_workspaces() == []
     app.requests.clear()
 
-    project = client.create_project("fallback", kind="general")
+    project = make_client(app, workspace=None).create_project("fallback", kind="general")
 
     assert [(r.method, r.url.path) for r in app.requests] == [("POST", "/v1/projects")]
     workspace = client.get_workspace(project["workspace_id"])
@@ -213,6 +218,131 @@ def test_project_create_accepts_a_server_fallback_after_every_workspace_is_delet
     assert workspace["slug"] == "default"
     assert workspace["owner_user_id"] is None
     assert workspace["id"] not in (_WS_MINE, _WS_OTHER)
+
+
+def test_an_unset_computer_on_a_team_with_several_workspaces_is_refused(app):
+    """No guess between several: the old guess (the oldest) filed every member's
+    work under the team's first member."""
+    from probe.sdk import errors
+
+    unset = make_client(app, workspace=None)
+
+    with pytest.raises(errors.WorkspaceRequired, match="probe workspace use"):
+        unset.create_project("nowhere", kind="general")
+    assert not [p for p in app.projects.values() if p["slug"] == "nowhere"]
+
+
+def test_the_handover_pins_a_members_saved_workspace_once(app, monkeypatch, capsys):
+    """A member whose 0354 default moved their work to their own workspace gets it
+    pinned on this computer instead of the refusal, and the create goes through."""
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    unset = make_client(app, workspace=None)
+
+    project = unset.create_project("handed-over", kind="general")
+
+    assert project["workspace_id"] == _WS_OTHER
+    assert load_context()["workspace"]["id"] == _WS_OTHER
+    assert "this computer's work now goes into 'Teammate'" in capsys.readouterr().err
+    assert unset.settings.workspace == _WS_OTHER
+
+
+def test_the_handover_runs_once_per_computer(app, monkeypatch):
+    """Once it ran, a computer whose pin is gone again is refused, not re-pinned."""
+    from probe.sdk import errors
+
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    make_client(app, workspace=None).create_project("first", kind="general")
+    save_context({"workspace": None})
+    app.requests.clear()
+
+    with pytest.raises(errors.WorkspaceRequired):
+        make_client(app, workspace=None).create_project("second", kind="general")
+
+    assert ("GET", "/v1/workspaces") not in [(r.method, r.url.path) for r in app.requests]
+    assert "workspace" not in load_context()
+
+
+def test_an_explicit_clear_is_never_undone_by_the_handover(app, monkeypatch, capsys):
+    """`probe workspace use --clear` means creates need a workspace again."""
+    from probe.sdk import errors
+
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    save_context({"workspace": {"id": _WS_MINE, "project": None}})
+    assert cli.main(["workspace", "use", "--clear"]) == 0
+
+    with pytest.raises(errors.WorkspaceRequired):
+        make_client(app, workspace=None).create_project("after-clear", kind="general")
+    assert "workspace" not in load_context()
+
+
+def test_the_handover_skips_a_saved_workspace_the_member_can_no_longer_write(app):
+    from probe.sdk import errors
+
+    app.workspaces[_WS_OTHER].update(is_default=True, writable=False)
+
+    with pytest.raises(errors.WorkspaceRequired):
+        make_client(app, workspace=None).create_project("locked-out", kind="general")
+    assert "workspace" not in load_context()
+
+
+def test_a_workspace_set_since_the_process_started_wins_over_the_legacy_one(app):
+    """The wizard ran in another shell after this process read its settings."""
+    app.workspaces[_WS_OTHER]["is_default"] = True
+    unset = make_client(app, workspace=None)
+    save_context({"workspace": {"id": _WS_MINE, "project": None}})
+
+    project = unset.create_project("fresh-choice", kind="general")
+
+    assert project["workspace_id"] == _WS_MINE
+    assert load_context()["workspace"]["id"] == _WS_MINE
+
+
+def test_a_failed_listing_keeps_the_refusal(app, monkeypatch):
+    from probe.sdk import errors
+
+    unset = make_client(app, workspace=None)
+
+    def down():
+        raise errors.ServerError("down", status=503)
+
+    monkeypatch.setattr(unset, "list_workspaces", down)
+    with pytest.raises(errors.WorkspaceRequired):
+        unset.create_project("no-list", kind="general")
+
+
+def test_run_files_a_new_project_into_the_named_workspace(app):
+    client = make_client(app, workspace=_WS_MINE)
+
+    run = client.run(project="fresh", experiment="e", question="does x beat y?", workspace="teammate")
+
+    project = next(p for p in app.projects.values() if p["slug"] == "fresh")
+    assert project["workspace_id"] == _WS_OTHER
+    run.finish()
+
+
+def test_run_never_moves_or_looks_up_for_an_existing_project(app):
+    client = make_client(app, workspace=_WS_MINE)
+    client.create_project("kept", kind="general")
+    app.requests.clear()
+
+    run = client.run(project="kept", experiment="e", question="does x beat y?", workspace="no-such")
+
+    assert next(p for p in app.projects.values() if p["slug"] == "kept")["workspace_id"] == _WS_MINE
+    assert ("GET", "/v1/workspaces") not in [(r.method, r.url.path) for r in app.requests]
+    run.finish()
+
+
+def test_a_workspace_slug_in_the_environment_is_looked_up(app, monkeypatch):
+    project = make_client(app, workspace="teammate").create_project("by-slug", kind="general")
+
+    assert project["workspace_id"] == _WS_OTHER
+
+
+def test_an_unknown_workspace_slug_is_refused_before_creating(app):
+    from probe.sdk import errors
+
+    with pytest.raises(errors.ValidationError, match="not a workspace on this team"):
+        make_client(app, workspace="no-such").create_project("x", kind="general")
 
 
 def test_subproject_without_workspace_keeps_the_parent_workspace(client):
@@ -281,6 +411,23 @@ def test_project_use_pins_the_owning_workspace(client, monkeypatch, capsys):
     # `project use` records the EXPLICIT id form: an id survives a rename where a
     # slug does not, but a bare id would read as a slug when it flows back in.
     assert anchor["project"] == f"id:{proj['id']}"
+    # ...and says so: the pin is also where this computer's new projects go.
+    assert "this computer's workspace is now Teammate" in capsys.readouterr().err
+
+
+def test_cli_reads_a_workspace_slug_in_the_environment(app, monkeypatch, capsys):
+    """PROBE_WORKSPACE may be a slug for the CLI too, not only the SDK."""
+    # What `resolve()` would hand a real Client under this environment.
+    monkeypatch.setattr(cli, "Client", lambda **kw: make_client(app, workspace="teammate"))
+    monkeypatch.setenv("PROBE_WORKSPACE", "teammate")
+
+    assert cli.main(["project", "create", "env-slug", "--kind", "general"]) == 0
+    assert next(p for p in app.projects.values() if p["slug"] == "env-slug")["workspace_id"] == _WS_OTHER
+    capsys.readouterr()
+
+    assert cli.main(["workspace", "list"]) == 0
+    here = [w["id"] for w in _out(capsys) if w["this_computer"]]
+    assert here == [_WS_OTHER]
 
 
 # -- anchored artifacts ------------------------------------------------------

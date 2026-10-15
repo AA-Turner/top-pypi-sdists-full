@@ -21,14 +21,23 @@ Author:
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/seq_rewriter.h"
-#include "ast/rewriter/seq_monadic.h"
+#include "ast/seq/seq_monadic.h"
+#include "ast/seq/seq_view_witness.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include "params/smt_params.h"
 #include "smt/smt_kernel.h"
+#include "solver/solver.h"
+#include "util/rlimit.h"
 #include <iostream>
 #include <sstream>
 #include <set>
+#include <tuple>
+#include <algorithm>
+#include <string>
 
 namespace {
 
@@ -41,7 +50,7 @@ class seq_monadic_test {
     plugin_registrar m_reg;
     seq_rewriter     m_rw;
     trail_stack      m_trail;
-    seq_monadic      m_mon;
+    seq::monadic     m_mon;
     seq_util         u;
     sort_ref         m_str;   // String sort
     sort_ref         m_re;    // RegEx sort over m_str
@@ -62,7 +71,9 @@ class seq_monadic_test {
     expr_ref dotstar() { return expr_ref(re().mk_full_seq(m_re), m); }
     expr_ref rng(char lo, char hi) {
         char sl[2] = { lo, 0 }, sh[2] = { hi, 0 };
-        return expr_ref(re().mk_range(u.str.mk_string(zstring(sl)), u.str.mk_string(zstring(sh))), m);
+        expr_ref lhs(u.str.mk_string(zstring(sl)), m);
+        expr_ref rhs(u.str.mk_string(zstring(sh)), m);
+        return expr_ref(re().mk_range(lhs, rhs), m);
     }
     expr_ref loop(expr* r, unsigned lo, unsigned hi) { return expr_ref(re().mk_loop(r, lo, hi), m); }
 
@@ -113,6 +124,7 @@ class seq_monadic_test {
             if (target == R) {
                 found_R = eval_guard(guard, 'a') && eval_guard(guard, 'b');
             }
+
             else if (target == dot3) {
                 found_dot3 = eval_guard(guard, 'a') && !eval_guard(guard, 'b');
             }
@@ -126,8 +138,56 @@ class seq_monadic_test {
                   << mode_name() << " cofactor construction\n";
     }
 
+    void check_view_witness() {
+        std::cout << "=== seq_view_witness: incremental product checking ===\n";
+        expr_ref x = var("view-x");
+        expr_ref aa = word("aa");
+        expr_ref a = word("a");
+        expr_ref even = star(aa);
+        expr_ref odd = cat(a, even);
+        unsigned dep_even = 0, dep_odd = 1;
+        seq::live_states live(m_rw, m_mode, 1u << 12);
+        seq::view_witness witness(m_trail, m_rw, live, m_mode);
+
+        m_trail.push_scope();
+        witness.add(x, seq::view::membership(even, m), &dep_even);
+        lbool first = witness.check();
+        unsigned calls = witness.cofactor_calls();
+        lbool repeated = witness.check();
+        bool cached = first == l_true && repeated == l_true &&
+                      calls == witness.cofactor_calls();
+
+        m_trail.push_scope();
+        witness.add(x, seq::view::membership(odd, m), &dep_odd);
+        lbool conflict = witness.check();
+        ptr_vector<void> core = witness.core();
+        bool core_ok = conflict == l_false && core.contains(&dep_even) &&
+                       core.contains(&dep_odd) && core.size() == 2;
+        m_trail.pop_scope(1);
+
+        witness.set_enable_witness(true);
+        lbool after_pop = witness.check();
+        expr_ref value = witness.materialize_witness(x);
+        bool materialized = after_pop == l_true && value;
+        m_trail.pop_scope(1);
+
+        witness.set_checkpoint([]() { return seq::view_failure_reason::budget; });
+        m_trail.push_scope();
+        witness.add(x, seq::view::membership(odd, m), nullptr);
+        lbool undef = witness.check();
+        bool reason_ok = undef == l_undef &&
+                         witness.get_failure_reason() == seq::view_failure_reason::budget;
+        m_trail.pop_scope(1);
+
+        bool ok = cached && core_ok && materialized && reason_ok;
+        if (!ok)
+            ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ")
+                  << "cache, trail, core, and witness\n";
+    }
+
     void check(char const* name, expr* term, expr* R, lbool expected) {
-        m_mon.set_gen_model(false);               // this check does not use the model
+        m_mon.set_gen_solution(false);               // this check does not use the model
         lbool got = m_mon.solve(term, R);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
@@ -147,7 +207,21 @@ class seq_monadic_test {
                      obj_map<expr, expr*> const& ve, lbool expected) {
         m_trail.push_scope();
         add_extra(term, R, ve);
-        m_mon.set_gen_model(false);               // this check does not use the model
+        m_mon.set_gen_solution(false);               // this check does not use the model
+        lbool got = m_mon.check();
+        m_trail.pop_scope(1);
+        bool ok = (got == expected);
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+    }
+
+    // decide two memberships on the same term jointly.
+    void check_split(char const* name, expr* term, expr* r0, expr* r1, lbool expected) {
+        m_trail.push_scope();
+        m_mon.add(term, r0, nullptr);
+        m_mon.add(term, r1, nullptr);
+        m_mon.set_gen_solution(true);                // the refinement loop reads the solution
         lbool got = m_mon.check();
         m_trail.pop_scope(1);
         bool ok = (got == expected);
@@ -187,13 +261,16 @@ class seq_monadic_test {
                        obj_map<expr, expr*> const& ve) {
         m_trail.push_scope();
         add_extra(term, R, ve);
-        m_mon.set_gen_model(true);                // this check verifies the extracted model
+        m_mon.set_gen_solution(true);                // this check verifies the extracted model
         lbool got = m_mon.check();
-        obj_map<expr, expr*> const& model = m_mon.get_model();
+        // The solver reports CONSTRAINTS; collapse them to values to check a witness.
+        expr_substitution model(m);
+        if (got == l_true)
+            m_mon.materialize_all(model);
         bool ok = (got == l_true) && !model.empty();
         if (ok) {
             expr_safe_replace rep(m);
-            for (auto const& kv : model) rep.insert(kv.m_key, kv.m_value);
+            for (auto const& kv : model.sub()) rep.insert(kv.m_key, kv.m_value);
             expr_ref g(m);
             rep(term, g);
             ptr_vector<expr> elems;
@@ -211,7 +288,7 @@ class seq_monadic_test {
         m_trail.push_scope();
         for (auto const& [t, r] : mems)
             m_mon.add(t, r, nullptr);
-        m_mon.set_gen_model(false);               // this check does not use the model
+        m_mon.set_gen_solution(false);               // this check does not use the model
         lbool got = m_mon.check();
         m_trail.pop_scope(1);
         bool ok = (got == expected);
@@ -233,9 +310,115 @@ class seq_monadic_test {
     // the conjunction to be UNSAT.  With minimization ON, core() must be exactly
     // `expected_core` (irrelevant constraints omitted); with minimization OFF, core()
     // must be all membership dependencies.
+    // Identity of a reported branch: the (var, state, target) triples it commits to.
+    typedef std::set<std::tuple<unsigned, unsigned, unsigned>> branch_sig;
+
+    static branch_sig sig_of(obj_map<expr, seq::view_vector> const& sol) {
+        branch_sig sig;
+        for (auto const& [var, views] : sol) {
+            for (auto const& v : views)
+                sig.insert(std::make_tuple(var->get_id(), v.m_state->get_id(),
+                                           v.m_target ? v.m_target->get_id() : UINT_MAX));
+        }
+        return sig;
+    }
+
+    // Enumerate every branch of a conjunction of memberships and check what the lazy
+    // enumeration has to guarantee:
+    //   - it terminates, and reports `count()` branches;
+    //   - no branch is reported twice (a replay that restarted instead of resuming would
+    //     hand out the same first branch forever);
+    //   - the iterator survives the trail scope its memberships were asserted in;
+    //   - it drains cleanly (nothing given up) on problems this small, and a clean drain
+    //     agrees with check(): branches were found iff the conjunction is satisfiable.
+    // `min_branches` is a lower bound, not the branch count: how many branches survive is
+    // a property of the search's pruning (an infeasible continuation is refuted, not
+    // reported), whereas the enumeration only owes the invariants above.  A bound above 1
+    // does pin down that resuming works at all, since every branch after the first comes
+    // out of a replay.
+    void check_enumerate(char const* name, vector<std::pair<expr*, expr*>> const& mems,
+                         unsigned min_branches, lbool expected) {
+        m_trail.push_scope();
+        for (auto const& [t, r] : mems)
+            m_mon.add(t, r, nullptr);
+        lbool const decided = m_mon.check();
+        obj_map<expr, seq::view_vector> first;
+        for (auto const& [var, views] : m_mon.solution())
+            first.insert(var, views);
+        branch_sig const check_sig = sig_of(first);
+        seq::monadic::iterator it = m_mon.iterate(1000);
+        m_trail.pop_scope(1);                        // the iterator owns its own copy
+
+        std::set<branch_sig> seen;
+        obj_map<expr, seq::view_vector> sol;
+        bool dup = false, first_matches = true;
+        unsigned n = 0;
+        while (it.next(sol)) {
+            branch_sig sig = sig_of(sol);
+            if (n == 0)
+                first_matches = (sig == check_sig);
+            if (!seen.insert(sig).second)
+                dup = true;
+            ++n;
+        }
+
+        bool const ok = decided == expected && !it.gave_up() && !dup && it.count() == n
+                        && (n > 0) == (expected == l_true) && n >= min_branches
+                        && first_matches;
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  branches=" << n << " expected>=" << min_branches
+                  << (dup ? " DUPLICATE" : "")
+                  << (it.gave_up() ? " GAVE-UP" : "")
+                  << (first_matches ? "" : " FIRST-DIFFERS")
+                  << "  check=" << s(decided) << " expected=" << s(expected) << "\n";
+    }
+
+    // Stronger check on a single membership: collapse every reported branch to a
+    // concrete word per variable, substitute them into the term, and decide the resulting
+    // GROUND membership with the same engine -- a path that involves no views at all.  So
+    // every branch has to be a real solution, not merely a non-empty set of views.  The
+    // nested solve() also drops the engine's whole search state between pulls, which is
+    // exactly the interleaving a suspended iterator has to survive.
+    void check_enumerate_words(char const* name, expr* term, expr* R, unsigned min_branches) {
+        m_trail.push_scope();
+        m_mon.add(term, R, nullptr);
+        seq::monadic::iterator it = m_mon.iterate(100);
+        m_trail.pop_scope(1);
+
+        expr_ref_vector grounds(m);
+        obj_map<expr, seq::view_vector> sol;
+        unsigned n = 0;
+        bool ok = true;
+        while (ok && it.next(sol)) {
+            ++n;
+            expr_safe_replace rep(m);
+            for (auto const& [var, views] : sol) {
+                expr_ref w(m);
+                if (m_mon.materialize(var, w) != l_true) {
+                    ok = false;
+                    break;
+                }
+                rep.insert(var, w);
+            }
+            if (!ok)
+                break;
+            expr_ref ground(m);
+            rep(term, ground);
+            grounds.push_back(ground);
+        }
+        ok = ok && !it.gave_up() && n >= min_branches;
+        for (unsigned i = 0; ok && i < grounds.size(); ++i)
+            ok = m_mon.solve(grounds.get(i), R) == l_true;   // independent, view-free re-check
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  branches=" << n << " expected>=" << min_branches
+                  << (it.gave_up() ? " GAVE-UP" : "") << "\n";
+    }
+
     void check_core(char const* name, vector<std::pair<expr*, expr*>> const& mems,
                     std::set<unsigned> const& expected_core) {
-        m_mon.set_gen_model(false);
+        m_mon.set_gen_solution(false);
         std::set<unsigned> all_ids, got_ids;
         for (unsigned i = 0; i < mems.size(); ++i)
             all_ids.insert(i);
@@ -270,6 +453,95 @@ class seq_monadic_test {
         std::cout << "} full=" << (ok0 ? "yes" : "no") << "\n";
     }
 
+    // One enumerated branch as a comparable string: per variable, the views it commits to.
+    std::string branch_str(obj_map<expr, seq::view_vector> const& sol) {
+        std::vector<std::string> per_var;
+        for (auto const& [v, views] : sol) {
+            std::ostringstream os;
+            os << v->get_id() << ":";
+            for (seq::view const& c : views)
+                os << " " << c.m_state->get_id() << "->"
+                   << (c.is_reach() ? c.m_target->get_id() : 0);
+            per_var.push_back(os.str());
+        }
+        std::sort(per_var.begin(), per_var.end());
+        std::string r;
+        for (std::string const& s : per_var)
+            r += s + " | ";
+        return r;
+    }
+
+    void enum_branches(vector<std::pair<expr*, expr*>> const& mems,
+                       std::vector<std::string>& out, bool& giveup,
+                       std::pair<expr*, expr*> const* itl = nullptr) {
+        m_trail.push_scope();
+        for (auto const& [t, r] : mems)
+            m_mon.add(t, r, nullptr);
+        seq::monadic::iterator it = m_mon.iterate(256);
+        m_trail.pop_scope(1);                     // the iterator owns its query
+
+        obj_map<expr, seq::view_vector> sol;
+        while (it.next(sol)) {
+            out.push_back(branch_str(sol));
+            if (itl) {
+                m_trail.push_scope();
+                m_mon.add(itl->first, itl->second, nullptr);
+                (void)m_mon.check();
+                m_trail.pop_scope(1);
+            }
+        }
+        giveup = it.gave_up();
+    }
+
+    void check_iterate(char const* name, vector<std::pair<expr*, expr*>> const& mems,
+                       std::pair<expr*, expr*> const& itl) {
+        std::vector<std::string> plain, interrupted;
+        bool g1 = true, g2 = true;
+        enum_branches(mems, plain, g1);
+        enum_branches(mems, interrupted, g2, &itl);
+
+        m_trail.push_scope();
+        for (auto const& [t, r] : mems)
+            m_mon.add(t, r, nullptr);
+        lbool direct = m_mon.check();
+        m_trail.pop_scope(1);
+
+        std::set<std::string> distinct(plain.begin(), plain.end());
+        bool prefix = interrupted.size() <= plain.size() &&
+                      std::equal(interrupted.begin(), interrupted.end(), plain.begin());
+        bool ok = !g1 && distinct.size() == plain.size() && prefix &&
+                  g2 == !plain.empty() &&           // no pull, no interruption
+                  direct == (plain.empty() ? l_false : l_true);
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  branches=" << plain.size() << " exhaustive=" << (g1 ? "no" : "yes")
+                  << " interrupted=" << interrupted.size() << (g2 ? " (gave up)" : "")
+                  << " check=" << s(direct) << "\n";
+    }
+
+    void check_budget_sweep(char const* name, vector<std::pair<expr*, expr*>> const& mems,
+                            lbool truth) {
+        unsigned const saved = m_mon.budget();
+        unsigned wrong = 0, gave_up = 0;
+        for (unsigned b = 1; b <= 60; ++b) {
+            m_mon.set_budget(b);
+            m_trail.push_scope();
+            for (auto const& [t, r] : mems)
+                m_mon.add(t, r, nullptr);
+            lbool got = m_mon.check();
+            m_trail.pop_scope(1);
+            if (got == l_undef)
+                ++gave_up;
+            else if (got != truth)
+                ++wrong;
+        }
+        m_mon.set_budget(saved);
+        bool ok = wrong == 0;
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name << "  wrong=" << wrong
+                  << " gave-up=" << gave_up << "/60\n";
+    }
+
     lbool smt_check(expr_ref_vector const& assertions, bool enable_monadic = true) {
         smt_params params;
         params.m_seq_regex_monadic = enable_monadic;
@@ -286,6 +558,37 @@ class seq_monadic_test {
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+    }
+
+    void check_smt2_no_crash(char const* name, char const* input, unsigned rlimit) {
+        cmd_context cmd(false, &m);
+        std::istringstream is(input);
+        bool ok = parse_smt2_commands(cmd, is);
+        bool resource_limited = false;
+        if (ok) {
+            params_ref p;
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (expr* a : cmd.assertions())
+                slv->assert_expr(a);
+            // Direct solver calls do not install the API's rlimit scope.
+            scoped_rlimit limit(m.limit(), rlimit);
+            try {
+                slv->check_sat(0, nullptr);
+            }
+            catch (rewriter_exception const& ex) {
+                // Internal rewriting can report the installed budget by exception.
+                if (!m.limit().is_canceled() || std::string(ex.what()) != Z3_MAX_RESOURCE_MSG)
+                    throw;
+                resource_limited = true;
+            }
+        }
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name;
+        if (!ok)
+            std::cout << " parse failed";
+        if (resource_limited)
+            std::cout << " resource limit reached";
+        std::cout << "\n";
     }
 
 public:
@@ -311,45 +614,116 @@ public:
         std::cout << "=== seq_monadic: single-variable membership (x.a.x in R) ===\n";
 
         // sanity
-        check("(a|b)*        x.a.x", xwx(x, "a"), star(alt(a, b)), l_true);
-        check("b*            x.a.x", xwx(x, "a"), star(b), l_false);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = star(alt(a, b));
+            check("(a|b)*        x.a.x", rhs1, third, l_true);
+        }
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = star(b);
+            check("b*            x.a.x", rhs1, third, l_false);
+        }
         check("Sig*aaSig*    x.a.x", xwx(x, "a"), saas, l_true);
         check("x in (a|b)*        ", x, star(alt(a, b)), l_true);
-        check("x in b* (x=aa)     ", xwx(x, "a"), star(b), l_false);
-        check("non-ground regex guard", sword("z"), star(re().mk_to_re(x)), l_undef);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = star(b);
+            check("x in b* (x=aa)     ", rhs1, third, l_false);
+        }
+        {
+            auto rhs1 = sword("z");
+            auto third = star(re().mk_to_re(x));
+            check("non-ground regex guard", rhs1, third, l_undef);
+        }
 
         // ALT = (a|b)* & ~(Sig*aaSig*) & ~(Sig*bbSig*)  (strictly alternating)
-        expr_ref altre = inter(star(alt(a, b)), inter(comp(saas), comp(sbbs)));
+        auto lhs = star(alt(a, b));
+        auto lhs1 = comp(saas);
+        auto rhs1 = comp(sbbs);
+        auto rhs2 = inter(lhs1, rhs1);
+        expr_ref altre = inter(lhs, rhs2);
         check("ALT           x.a.x", xwx(x, "a"), altre, l_true);
 
         // R*.S complement family
-        check("~(a*.b)       x.a.x", xwx(x, "a"), comp(cat(star(a), b)), l_true);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = comp(cat(star(a), b));
+            check("~(a*.b)       x.a.x", rhs1, third, l_true);
+        }
 
         // L3-02 ~((ab)*.~((ab)*))   -> unsat (odd length)
-        check("L3-02         x.a.x", xwx(x, "a"),
-              comp(cat(star(ab), comp(star(ab)))), l_false);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto lhs = star(ab);
+            auto rhs2 = comp(star(ab));
+            auto third = comp(cat(lhs, rhs2));
+            check("L3-02         x.a.x", rhs1, third, l_false);
+        }
 
         // L3-03 ~(a*.~(b*.~((ab)*)))  -> sat
-        check("L3-03         x.a.x", xwx(x, "a"),
-              comp(cat(star(a), comp(cat(star(b), comp(star(ab)))))), l_true);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto lhs = star(a);
+            auto lhs1 = star(b);
+            auto rhs2 = comp(star(ab));
+            auto rhs3 = comp(cat(lhs1, rhs2));
+            auto third = comp(cat(lhs, rhs3));
+            check("L3-03         x.a.x", rhs1, third, l_true);
+        }
 
         std::cout << "=== seq_monadic: multi-variable ===\n";
         expr_ref y = var("y");
-        check("(a|b)*        x.a.y", xay(x, y), star(alt(a, b)), l_true);
-        check("b*            x.a.y", xay(x, y), star(b), l_false);
-        check("L3-02         x.a.y", xay(x, y), comp(cat(star(ab), comp(star(ab)))), l_true);
-        check("L3-03         x.a.y", xay(x, y),
-              comp(cat(star(a), comp(cat(star(b), comp(star(ab)))))), l_true);
-        check("empty ~Sig*   x.y.x", xyx(x, y), comp(dotstar()), l_false);
+        {
+            auto rhs1 = xay(x, y);
+            auto third = star(alt(a, b));
+            check("(a|b)*        x.a.y", rhs1, third, l_true);
+        }
+        {
+            auto rhs1 = xay(x, y);
+            auto third = star(b);
+            check("b*            x.a.y", rhs1, third, l_false);
+        }
+        {
+            auto rhs1 = xay(x, y);
+            auto lhs = star(ab);
+            auto rhs2 = comp(star(ab));
+            auto third = comp(cat(lhs, rhs2));
+            check("L3-02         x.a.y", rhs1, third, l_true);
+        }
+        {
+            auto rhs1 = xay(x, y);
+            auto lhs = star(a);
+            auto lhs1 = star(b);
+            auto rhs2 = comp(star(ab));
+            auto rhs3 = comp(cat(lhs1, rhs2));
+            auto third = comp(cat(lhs, rhs3));
+            check("L3-03         x.a.y", rhs1, third, l_true);
+        }
+        {
+            auto rhs1 = xyx(x, y);
+            auto third = comp(dotstar());
+            check("empty ~Sig*   x.y.x", rhs1, third, l_false);
+        }
         check("Sig*          x.y.x", xyx(x, y), dotstar(), l_true);
-        check("(a|b)*        x.y.x", xyx(x, y), star(alt(a, b)), l_true);
+        {
+            auto rhs1 = xyx(x, y);
+            auto third = star(alt(a, b));
+            check("(a|b)*        x.y.x", rhs1, third, l_true);
+        }
 
         std::cout << "=== seq_monadic: per-variable constraints ===\n";
-        expr_ref digitp = cat(rng('0', '9'), star(rng('0', '9')));   // [0-9]+
+        auto lhs2 = rng('0', '9');
+        auto rhs3 = star(rng('0', '9'));
+        expr_ref digitp = cat(lhs2, rhs3);  // [0-9]+
         obj_map<expr, expr*> ve;
         ve.insert(y, digitp);
         // y must be in the (a|b)* tail AND in [0-9]+  -> empty -> unsat
-        check_extra("(a|b)* & y in[0-9]+ x.a.y", xay(x, y), star(alt(a, b)), ve, l_false);
+        {
+            auto rhs1 = xay(x, y);
+            auto third = star(alt(a, b));
+            check_extra("(a|b)* & y in[0-9]+ x.a.y", rhs1, third, ve, l_false);
+        }
         // y any digits, x/'a' anything -> sat
         check_extra("Sig*   & y in[0-9]+ x.a.y", xay(x, y), dotstar(), ve, l_true);
 
@@ -375,12 +749,31 @@ public:
         // ---- elements that actually satisfies the membership (not a predicate).
         std::cout << "=== seq_monadic: witness extraction (char) ===\n";
         obj_map<expr, expr*> nove;
-        check_witness("(a|b)*        x.a.x", xwx(x, "a"), star(alt(a, b)), nove);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = star(alt(a, b));
+            check_witness("(a|b)*        x.a.x", rhs1, third, nove);
+        }
         check_witness("Sig*aaSig*    x.a.x", xwx(x, "a"), saas, nove);      // forces nonempty x
-        check_witness("~(a*.b)       x.a.x", xwx(x, "a"), comp(cat(star(a), b)), nove);
-        check_witness("L3-03         x.a.x", xwx(x, "a"),
-                      comp(cat(star(a), comp(cat(star(b), comp(star(ab)))))), nove);
-        check_witness("(a|b)*        x.a.y", xay(x, y), star(alt(a, b)), nove);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = comp(cat(star(a), b));
+            check_witness("~(a*.b)       x.a.x", rhs1, third, nove);
+        }
+        {
+            auto rhs1 = xwx(x, "a");
+            auto lhs = star(a);
+            auto lhs1 = star(b);
+            auto rhs2 = comp(star(ab));
+            auto rhs3 = comp(cat(lhs1, rhs2));
+            auto third = comp(cat(lhs, rhs3));
+            check_witness("L3-03         x.a.x", rhs1, third, nove);
+        }
+        {
+            auto rhs1 = xay(x, y);
+            auto third = star(alt(a, b));
+            check_witness("(a|b)*        x.a.y", rhs1, third, nove);
+        }
         check_witness("Sig*          x.y.x", xyx(x, y), dotstar(), nove);
         check_witness("Sig* & y[0-9]+ x.a.y", xay(x, y), dotstar(), ve);    // ve: y in [0-9]+
         check_witness("[0-9]{2}&x[0-9]+ y[0-9]* x.y.x", xyx(x, y), loop22, ve2);
@@ -451,7 +844,7 @@ public:
         check_and("x.a.y & y.b.x in (a|b)*", mSat2, l_true);
 
         std::cout << "=== seq_monadic: assertion trail ===\n";
-        m_mon.set_gen_model(false);
+        m_mon.set_gen_solution(false);
         m_trail.push_scope();
         m_mon.add(x, aaS, nullptr);
         lbool before = m_mon.check();
@@ -472,7 +865,7 @@ public:
         std::cout << "=== seq_monadic: display ===\n";
         m_trail.push_scope();
         unsigned display_dep = 0;
-        m_mon.set_gen_model(true);
+        m_mon.set_gen_solution(true);
         m_mon.add(x, aaS, &display_dep);
         lbool display_result = m_mon.check();
         std::ostringstream display_out;
@@ -482,8 +875,8 @@ public:
             display_result == l_true &&
             display_text.find("(seq-monadic") != std::string::npos &&
             display_text.find(":memberships") != std::string::npos &&
-            display_text.find(":model") != std::string::npos &&
-            display_text.find(":last-result sat") != std::string::npos &&
+            display_text.find(":solution") != std::string::npos &&
+            display_text.find(":last-result l_true") != std::string::npos &&
             display_text.find(":last-internal-search") != std::string::npos &&
             display_text.find(":parsed-memberships") != std::string::npos &&
             display_text.find(":statistics") != std::string::npos &&
@@ -504,8 +897,8 @@ public:
         std::string unsat_display_text = unsat_display_out.str();
         bool unsat_display_ok =
             unsat_display_result == l_false &&
-            unsat_display_text.find(":last-result unsat") != std::string::npos &&
-            unsat_display_text.find(":model ()") != std::string::npos &&
+            unsat_display_text.find(":last-result l_false") != std::string::npos &&
+            unsat_display_text.find(":solution ()") != std::string::npos &&
             unsat_display_text.find(":last-internal-search") != std::string::npos;
         m_trail.pop_scope(1);
         m_mon.set_min_core(false);
@@ -523,10 +916,7 @@ public:
         std::ostringstream empty_display_out;
         m_mon.display(empty_display_out);
         std::string empty_display_text = empty_display_out.str();
-        bool empty_display_ok =
-            empty_display_result == l_true &&
-            empty_display_text.find(":sequence-sort null") != std::string::npos &&
-            empty_display_text.find(":element-sort null") != std::string::npos;
+        bool empty_display_ok = empty_display_result == l_true;
         if (!solve_display_ok || !empty_display_ok) ++m_fail;
         std::cout << (solve_display_ok && empty_display_ok ? "  OK   " : "  FAIL ")
                   << "display clears artifacts across solve and empty check\n";
@@ -649,9 +1039,13 @@ public:
             expr_ref sig_plus(cat(dot(), dotstar()), m);
             expr_ref has_cc(cat(dotstar(), cat(cc, dotstar())), m);
             expr_ref two_cc(cat(dotstar(), cat(cc, cat(sig_plus, cat(cc, dotstar())))), m);
-            expr_ref hexcol(star(alt(rng('0', '9'),
-                                 alt(rng('A', 'F'),
-                                 alt(rng('a', 'f'), word(":"))))), m);
+            auto lhs3 = rng('0', '9');
+            auto lhs4 = rng('A', 'F');
+            auto lhs5 = rng('a', 'f');
+            auto rhs4 = word(":");
+            auto rhs5 = alt(lhs5, rhs4);
+            auto rhs6 = alt(lhs4, rhs5);
+            expr_ref hexcol(star(alt(lhs3, rhs6)), m);
             expr_ref R6(inter(has_cc, inter(comp(two_cc), hexcol)), m);
             check_bounded("ipv6: x.y.x in R, |x|>=1, |y|>=1", [&] {
                 m_mon.add(t_xyx, R6, nullptr);
@@ -682,31 +1076,26 @@ public:
             expr_ref at(u.str.mk_at(y, i), m);
             expr_ref_vector assertions(m);
             assertions.push_back(m.mk_eq(at, u.str.mk_empty(m_str)));
-            assertions.push_back(re().mk_in_re(sword("z"), star(re().mk_to_re(at))));
+            {
+                auto lhs = sword("z");
+                auto rhs1 = star(re().mk_to_re(at));
+                assertions.push_back(re().mk_in_re(lhs, rhs1));
+            }
             check_smt("non-ground regex issue 10492", assertions, l_false);
         }
-        {
-            arith_util ar2(m);
-            expr_ref zero(ar2.mk_int(0), m);
-            expr_ref one(ar2.mk_int(1), m);
-            expr_ref y = var("issue_10511_y");
-            expr_ref o = var("issue_10511_o");
-            expr_ref lhs(u.str.mk_substr(y, zero, one), m);
-            expr_ref offset(u.str.mk_length(o), m);
-            expr_ref rhs(u.str.mk_substr(y, offset, one), m);
-            smt_params params;
-            params.m_seq_regex_monadic = true;
-            smt::kernel solver(m, params);
-            solver.assert_expr(m.mk_not(re().mk_in_re(lhs, re().mk_plus(re().mk_to_re(rhs)))));
-            expr_ref_vector assumptions(m);
-            assumptions.push_back(m.mk_eq(offset, zero));
-            lbool got = solver.check(assumptions);
-            bool ok = got == l_false;
-            if (!ok) ++m_fail;
-            std::cout << (ok ? "  OK   " : "  FAIL ")
-                      << "non-ground regex assumption issue 10511"
-                      << "  got=" << s(got) << " expected=unsat\n";
-        }
+        if (m_mode == seq::transition_mode::brzozowski_tm)
+            check_smt2_no_crash("quantified str.from_code regex issue 10651",
+                "(declare-fun v () String)\n"
+                "(declare-fun r () Bool)\n"
+                "(declare-fun w () String)\n"
+                "(declare-fun q () String)\n"
+                "(assert (forall ((v String))\n"
+                "  (or r\n"
+                "      (exists ((V String))\n"
+                "        (str.in_re\n"
+                "          (str.++ (str.++ (str.++ v V V) q (str.++ w w w)) v)\n"
+                "          (re.* (str.to_re (str.from_code (str.len V)))))))))\n",
+                100000);
         {
             arith_util ar2(m);
             expr_ref zero(ar2.mk_int(0), m);
@@ -714,12 +1103,15 @@ public:
             expr_ref k = var("issue_10379_k");
             expr_ref k0(u.str.mk_at(k, zero), m);
             expr_ref mod00(ar2.mk_mod(zero, zero), m);
-            expr_ref inner_cond(re().mk_in_re(sword("1"), re().mk_to_re(k)), m);
-            expr_ref inner(m.mk_ite(
-                inner_cond,
-                sconcat(sword("n"), k0),
-                u.str.mk_substr(k, zero, mod00)), m);
-            expr_ref outer_regex(cat(re().mk_to_re(k0), rng('a', 'z')), m);
+            auto lhs6 = sword("1");
+            expr_ref rhs7(re().mk_to_re(k), m);
+            expr_ref inner_cond(re().mk_in_re(lhs6, rhs7), m);
+            auto then_value = sconcat(sword("n"), k0);
+            expr_ref else_value(u.str.mk_substr(k, zero, mod00), m);
+            expr_ref inner(m.mk_ite(inner_cond, then_value, else_value), m);
+            expr_ref lhs7(re().mk_to_re(k0), m);
+            auto rhs8 = rng('a', 'z');
+            expr_ref outer_regex(cat(lhs7, rhs8), m);
             expr_ref outer_cond(re().mk_in_re(inner, outer_regex), m);
             expr_ref rhs(m.mk_ite(outer_cond, k0, u.str.mk_substr(k, zero, zero)), m);
             expr_ref_vector assertions(m);
@@ -786,6 +1178,75 @@ public:
 
         // ---- unsat cores: the extracted core must contain only constraints that
         // ---- participate in the contradiction, not independent ones.
+        // ---- lazy branch enumeration ---------------------------------------------------
+        // seq::monadic::iterator hands out the branches of the decomposition one at a time,
+        // suspending between them by replaying the choice path of the last one reported.
+        std::cout << "=== seq_monadic: branch enumeration ===\n";
+        {
+            expr_ref y = var("y");
+            auto ms1 = [&](expr* t, expr* r) {
+                vector<std::pair<expr*, expr*>> v;
+                v.push_back(std::make_pair(t, r));
+                return v;
+            };
+            // A single variable is one membership view and no choice at all: the recorded
+            // path is empty, which the replay has to handle as well as any other.
+            check_enumerate("x in (a|b)*", ms1(x, star(alt(a, b))), 1, l_true);
+            // Two occurrences: one branch per live state x can drive the automaton to.
+            {
+                auto lhs = xwx(x, "a");
+                auto rhs1 = star(alt(a, b));
+                check_enumerate("x.a.x in (a|b)*", ms1(lhs, rhs1), 1, l_true);
+            }
+            // Only one of x's two continuations survives here: after the other one the
+            // constant `a` has no derivative, so the branch is refuted rather than reported.
+            {
+                auto lhs = xay(x, y);
+                auto rhs1 = star(ab);
+                check_enumerate("x.a.y in (ab)*", ms1(lhs, rhs1), 1, l_true);
+            }
+            // The union keeps several states live at both variables, so the enumeration
+            // has to resume repeatedly -- and every branch it reports must be a new one.
+            {
+                auto lhs = xyx(x, y);
+                auto lhs1 = alt(a, b);
+                auto rhs1 = word("bba");
+                auto rhs2 = star(alt(lhs1, rhs1));
+                check_enumerate("x.y.x in (a|b|bba)*", ms1(lhs, rhs2), 4, l_true);
+            }
+            // Unsat: no branch at all, and the drain is clean, which is what makes "the
+            // enumerator ran out" usable as a refutation.
+            {
+                auto lhs = xwx(x, "a");
+                auto rhs1 = star(b);
+                check_enumerate("x.a.x in b*", ms1(lhs, rhs1), 0, l_false);
+            }
+            // Two memberships sharing a variable: branches over the joint decomposition.
+            {
+                vector<std::pair<expr*, expr*>> ms;
+                expr_ref term = xay(x, y);
+                expr_ref language = star(ab);
+                ms.push_back(std::make_pair(term.get(), language.get()));
+                ms.push_back(std::make_pair(x.get(), language.get()));
+                check_enumerate("x.a.y in (ab)* & x in (ab)*", ms, 1, l_true);
+            }
+            // Every branch, collapsed to concrete words, really does satisfy the
+            // membership -- decided by the engine on the ground term, without views.
+            {
+                auto rhs1 = xwx(x, "a");
+                auto third = star(alt(a, b));
+                check_enumerate_words("words: x.a.x in (a|b)*", rhs1, third, 1);
+            }
+            {
+                auto rhs1 = xyx(x, y);
+                auto lhs = alt(a, b);
+                auto rhs2 = word("bba");
+                auto third = star(alt(lhs, rhs2));
+                check_enumerate_words("words: x.y.x in (a|b|bba)*", rhs1, third, 4);
+            }
+            check_enumerate_words("words: x.a.y in Sig*aaSig*", xay(x, y), saas, 1);
+        }
+
         std::cout << "=== seq_monadic: unsat cores ===\n";
         // x in a* /\ x in ~(a*) /\ y in b*  -> unsat over x; core = {0,1}, not the y-constraint.
         {
@@ -817,6 +1278,95 @@ public:
             check_core("z in a* (& x in b* & x in a+)", ms, std::set<unsigned>{1, 2});
         }
 
+        std::cout << "=== seq_monadic: resumable enumeration ===\n";
+        {
+            expr_ref z = var("z");
+            expr_ref aStar(star(a), m), abStar(star(cat(a, b)), m);
+            expr_ref aaS(star(cat(a, a)), m), a_aaS(cat(a, star(cat(a, a))), m);
+            expr_ref t_xax = xwx(x, "a"), t_xyx = xyx(x, y), t_xay = xay(x, y);
+            std::pair<expr*, expr*> itl((expr*)z.get(), (expr*)aStar.get());  // z in a*
+
+            vector<std::pair<expr*, expr*>> ms;
+            ms.push_back(std::make_pair((expr*)t_xax.get(), (expr*)saas.get()));
+            check_iterate("x.a.x in Sig* aa Sig*", ms, itl);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t_xyx.get(), (expr*)abStar.get()));
+            check_iterate("x.y.x in (ab)*", ms, itl);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)aStar.get()));
+            ms.push_back(std::make_pair((expr*)t_xay.get(), (expr*)saas.get()));
+            check_iterate("x in a* & x.a.y in Sig* aa Sig*", ms, itl);
+
+            ms.reset();                                // two views per variable per branch
+            ms.push_back(std::make_pair((expr*)t_xax.get(), (expr*)saas.get()));
+            ms.push_back(std::make_pair((expr*)t_xax.get(), (expr*)sbbs.get()));
+            check_iterate("x.a.x in Sig* aa Sig* & in Sig* bb Sig*", ms, itl);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t_xyx.get(), (expr*)saas.get()));
+            check_iterate("x.y.x in Sig* aa Sig*", ms, itl);
+
+            ms.reset();                                // refuted: no branch at all
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)aaS.get()));
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)a_aaS.get()));
+            check_iterate("x in (aa)* & x in a(aa)*", ms, itl);
+            check_budget_sweep("x in (aa)* & x in a(aa)* (unsat)", ms, l_false);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t_xyx.get(), (expr*)saas.get()));
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)abStar.get()));
+            check_budget_sweep("x.y.x in Sig* aa Sig* & x in (ab)* (sat)", ms, l_true);
+
+            auto lhs8 = sword("a");
+            auto rhs9 = sconcat(x, sconcat(sword("a"), x));
+            expr_ref t5 = sconcat(x, sconcat(lhs8, rhs9));
+            expr_ref abS(star(alt(a, b)), m);
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t5.get(), (expr*)saas.get()));
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)abS.get()));
+            check_budget_sweep("x.a.x.a.x in Sig* aa Sig* & x in (a|b)* (sat)", ms, l_true);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t5.get(), (expr*)saas.get()));
+            ms.push_back(std::make_pair((expr*)t5.get(), (expr*)sbbs.get()));
+            check_budget_sweep("x.a.x.a.x in Sig* aa Sig* & in Sig* bb Sig* (sat)", ms, l_true);
+        }
+
+        // ---- decomposing intersections -------------------------------------------------
+        // A membership whose regex intersects a counting constraint with camouflage that
+        // the counting constraint alone already refutes.  Under a budget too small for the
+        // whole product the undivided search gives up, and only the decomposition -- which
+        // decides a relaxation keeping just the counting conjuncts -- reaches the
+        // contradiction.  A relaxation is a weaker problem, so its unsat verdict is the
+        // original's; the test therefore also pins down that the decomposition is sound.
+        std::cout << "=== seq_monadic: intersection decomposition ===\n";
+        {
+            // camouflage: forbid a handful of infixes.  Satisfied by every word the
+            // counting conjuncts allow, so it contributes nothing but product states.
+            expr_ref camo(dotstar(), m);
+            char const* infixes[] = { "bab", "bba", "abb", "bbb", "aab", "aba", "bab", "abab" };
+            for (char const* w : infixes)
+                camo = inter(camo, comp(cat(dotstar(), cat(word(w), dotstar()))));
+            expr_ref sig3(loop(dot(), 3, 3), m);
+            expr_ref mod3(star(sig3), m);                   // lengths divisible by 3
+            expr_ref mod3_1(cat(dot(), mod3), m);           // lengths 1 modulo 3
+            vector<std::pair<expr*, expr*>> ms;
+            expr_ref r0(inter(mod3, camo), m), r1(inter(mod3_1, camo), m);
+
+            unsigned const saved_budget = m_mon.budget();
+            m_mon.set_budget(8000);                         // too little for the product
+            check_split("x.y.x in Sigma^3*&camo & in Sigma.Sigma^3*&camo, split off",
+                        t_xyx, r0, r1, l_undef);
+            m_mon.set_split_rounds(8);
+            check_split("x.y.x in Sigma^3*&camo & in Sigma.Sigma^3*&camo, split on",
+                        t_xyx, r0, r1, l_false);
+            m_mon.set_split_rounds(0);
+            m_mon.set_budget(saved_budget);
+        }
+
+        check_view_witness();
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("
                   << m_fail << " fail) ===\n";
         ENSURE(m_fail == 0);

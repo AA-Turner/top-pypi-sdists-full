@@ -137,6 +137,25 @@ def test_addFeatureVariations_new_feature(varfont):
     assert _substitution_features(gsub, rec_index=1) == [(0, "rclt")]
 
 
+@pytest.mark.parametrize("same_condition", [False, True])
+def test_addFeatureVariations_prepend_lookup(varfont, same_condition):
+    condition = {"wght": (0.5, 1.0)}
+    addFeatureVariations(varfont, [([condition], {"A": "A.alt"})], featureTag="ccmp")
+    gsub = varfont["GSUB"].table
+    original_feature = (
+        gsub.FeatureVariations.FeatureVariationRecord[0]
+        .FeatureTableSubstitution.SubstitutionRecord[0]
+        .Feature
+    )
+    assert original_feature.LookupListIndex == [0]
+
+    new_condition = condition if same_condition else {"wght": (-1.0, 0.0)}
+    addFeatureVariations(varfont, [([new_condition], {"B": "B.alt"})])
+    assert original_feature.LookupListIndex == [1]
+    assert gsub.LookupList.Lookup[0].SubTable[0].mapping == {"B": "B.alt"}
+    assert gsub.LookupList.Lookup[1].SubTable[0].mapping == {"A": "A.alt"}
+
+
 def test_addFeatureVariations_existing_condition(varfont):
     assert "GSUB" not in varfont
 
@@ -167,6 +186,67 @@ def test_addFeatureVariations_existing_condition(varfont):
     assert len(gsub.LookupList.Lookup) == 2
     assert len(gsub.FeatureVariations.FeatureVariationRecord) == 1
     assert _substitution_features(gsub, rec_index=0) == [(0, "ccmp"), (1, "rlig")]
+
+
+def test_addFeatureVariations_existing_condition_sorted(varfont):
+    # Add 'rlig' first, then 'ccmp' with the same condition: 'ccmp' is inserted
+    # before 'rlig' in the FeatureList, and the FeatureTableSubstitution records
+    # must still be sorted by FeatureIndex.
+    addFeatureVariations(
+        varfont, [([{"wght": (0.5, 1.0)}], {"A": "A.alt"})], featureTag="rlig"
+    )
+    addFeatureVariations(
+        varfont, [([{"wght": (0.5, 1.0)}], {"B": "B.alt"})], featureTag="ccmp"
+    )
+
+    gsub = varfont["GSUB"].table
+    assert len(gsub.FeatureVariations.FeatureVariationRecord) == 1
+    assert _substitution_features(gsub, rec_index=0) == [(0, "ccmp"), (1, "rlig")]
+
+
+@pytest.mark.parametrize("same_condition", [False, True])
+@pytest.mark.parametrize("explicit_empty", [False, True])
+@pytest.mark.parametrize("lazy", [False, True])
+def test_addFeatureVariations_null_condition(
+    varfont, same_condition, explicit_empty, lazy
+):
+    from fontTools.ttLib.tables import otTables as ot
+
+    addFeatureVariations(
+        varfont, [([{"wght": (-1.0, 1.0)}], {"A": "A.alt"})], featureTag="ccmp"
+    )
+    record = varfont["GSUB"].table.FeatureVariations.FeatureVariationRecord[0]
+    assert record.ConditionSet is None
+    if explicit_empty:
+        record.ConditionSet = ot.ConditionSet()
+        record.ConditionSet.ConditionTable = []
+        record.ConditionSet.ConditionCount = 0
+
+    data = varfont["GSUB"].compile(varfont)
+    varfont.lazy = lazy
+    varfont["GSUB"] = newTable("GSUB")
+    varfont["GSUB"].decompile(data, varfont)
+    condition = {} if same_condition else {"wght": (0.5, 1.0)}
+    addFeatureVariations(varfont, [([condition], {"B": "B.alt"})], featureTag="rclt")
+    data = varfont["GSUB"].compile(varfont)
+    varfont["GSUB"] = newTable("GSUB")
+    varfont["GSUB"].decompile(data, varfont)
+
+    gsub = varfont["GSUB"].table
+    records = gsub.FeatureVariations.FeatureVariationRecord
+    assert len(records) == (1 if same_condition else 2)
+    assert (records[0].ConditionSet is not None) == explicit_empty
+    original_feature = records[0].FeatureTableSubstitution.SubstitutionRecord[0]
+    assert original_feature.Feature.LookupListIndex == [0]
+    if same_condition:
+        assert _substitution_features(gsub, 0) == [(0, "ccmp"), (1, "rclt")]
+        new_feature = records[0].FeatureTableSubstitution.SubstitutionRecord[1]
+    else:
+        assert _substitution_features(gsub, 0) == [(0, "ccmp")]
+        assert _substitution_features(gsub, 1) == [(1, "rclt")]
+        new_feature = records[1].FeatureTableSubstitution.SubstitutionRecord[0]
+        assert records[1].ConditionSet.ConditionTable[0].FilterRangeMinValue == 0.5
+    assert new_feature.Feature.LookupListIndex == [1]
 
 
 def _test_linear(n):
@@ -292,6 +372,50 @@ def run(test, n, quiet):
         print("Output:")
         pprint(output)
         print()
+
+
+@pytest.mark.parametrize("same_condition", [False, True])
+@pytest.mark.parametrize("explicit_empty", [False, True])
+@pytest.mark.parametrize("lazy", [False, True])
+def test_addFeatureVariations_null_substitution(
+    varfont, same_condition, explicit_empty, lazy
+):
+    condition = {"wght": (0.5, 1.0)}
+    addFeatureVariations(varfont, [([condition], {"A": "A.alt"})])
+    record = varfont["GSUB"].table.FeatureVariations.FeatureVariationRecord[0]
+    if explicit_empty:
+        record.FeatureTableSubstitution.SubstitutionRecord = []
+        record.FeatureTableSubstitution.SubstitutionCount = 0
+    else:
+        record.FeatureTableSubstitution = None
+
+    data = varfont["GSUB"].compile(varfont)
+    varfont.lazy = lazy
+    varfont["GSUB"] = newTable("GSUB")
+    varfont["GSUB"].decompile(data, varfont)
+
+    new_condition = condition if same_condition else {"wght": (-1.0, 0.0)}
+    addFeatureVariations(
+        varfont, [([new_condition], {"B": "B.alt"})], featureTag="ccmp"
+    )
+
+    data = varfont["GSUB"].compile(varfont)
+    varfont["GSUB"] = newTable("GSUB")
+    varfont["GSUB"].decompile(data, varfont)
+    gsub = varfont["GSUB"].table
+    records = gsub.FeatureVariations.FeatureVariationRecord
+    assert len(records) == (1 if same_condition else 2)
+    if not same_condition:
+        if explicit_empty:
+            assert records[0].FeatureTableSubstitution.SubstitutionCount == 0
+        else:
+            assert records[0].FeatureTableSubstitution is None
+    substitution = records[-1].FeatureTableSubstitution.SubstitutionRecord[0]
+    assert (
+        gsub.FeatureList.FeatureRecord[substitution.FeatureIndex].FeatureTag == "ccmp"
+    )
+    assert substitution.Feature.LookupListIndex == [1]
+    assert gsub.LookupList.Lookup[1].SubTable[0].mapping == {"B": "B.alt"}
 
 
 if __name__ == "__main__":

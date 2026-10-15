@@ -7,6 +7,7 @@ from urllib.parse import urlparse, parse_qs, urlencode, urljoin
 
 import tldextract
 from functools import lru_cache
+import threading
 
 from matrx_utils import vcprint
 
@@ -349,6 +350,10 @@ class AdblockConfigLoader:
         return results
 
 
+#: One filter list load per process, however many threads parse at once.
+_DOMAIN_FILTER_INIT_LOCK = threading.RLock()
+
+
 class DomainFilter:
     """
     A domain filter that can load and merge multiple adblock lists.
@@ -374,22 +379,24 @@ class DomainFilter:
         return cls._instances[key_set]
 
     def __init__(self, list_keys, file_manager: "FileManager | LocalTempFiles | None" = None):
-        # If already initialized, don't re-do it.
-        if hasattr(self, "_initialized") and self._initialized:
-            return
+        # If already initialized, don't re-do it. Under the lock: parsers run in worker threads, and several
+        # pages parsed at once on a cold process used to each download the list again and merge it N times
+        # (proven 2026-10-14: four parallel page reads -> four downloads, 193k rules instead of 48k).
+        with _DOMAIN_FILTER_INIT_LOCK:
+            if getattr(self, "_initialized", False):
+                return
 
-        # Normalize list_keys
-        if isinstance(list_keys, str):
-            list_keys = [list_keys]
+            # Normalize list_keys
+            if isinstance(list_keys, str):
+                list_keys = [list_keys]
 
-        self.file_manager = file_manager or default_file_manager()
-        self.list_keys = list_keys
-        self.blocked_domains = set()
-        self.loaded_count = 0
-        self.skipped_count = 0
-        self._initialized = True
-
-        self._load_filters()
+            self.file_manager = file_manager or default_file_manager()
+            self.list_keys = list_keys
+            self.blocked_domains = set()
+            self.loaded_count = 0
+            self.skipped_count = 0
+            self._load_filters()
+            self._initialized = True
 
     def _load_filters(self):
         """

@@ -1,0 +1,115 @@
+version: 6.60.5
+type: DeclarativeSource
+
+definitions:
+  paginator:
+    type: DefaultPaginator
+    page_token_option:
+      type: RequestOption
+      inject_into: request_parameter
+      field_name: cursor
+    page_size_option:
+      type: RequestOption
+      inject_into: request_parameter
+      field_name: limit
+    pagination_strategy:
+      type: CursorPagination
+      page_size: 1000
+      cursor_value: "{{ response.next_cursor }}"
+
+  requester:
+    type: HttpRequester
+    url_base: https://slack.com/api/
+    path: "{{ parameters['path'] }}"
+    http_method: GET
+
+  channels_stream:
+    type: DeclarativeStream
+    name: channels
+    $parameters:
+      path: conversations.list
+    retriever:
+      type: SimpleRetriever
+      requester:
+        $ref: "#/definitions/requester"
+        request_parameters:
+          types: public_channel
+      paginator:
+        $ref: "#/definitions/paginator"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: [channels]
+
+  messages_stream:
+    type: DeclarativeStream
+    name: messages
+    $parameters:
+      path: conversations.history
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: CustomRequester
+        class_name: source_example.components.MessagesRequester
+        url_base: https://slack.com/api/
+        path: "{{ parameters['path'] }}"
+        http_method: GET
+      paginator:
+        $ref: "#/definitions/paginator"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: [messages]
+      partition_router:
+        type: SubstreamPartitionRouter
+        parent_stream_configs:
+          - type: ParentStreamConfig
+            parent_key: id
+            partition_field: channel
+            request_option:
+              type: RequestOption
+              inject_into: request_parameter
+              field_name: channel
+            stream:
+              $ref: "#/definitions/channels_stream"
+    incremental_sync:
+      type: DatetimeBasedCursor
+      cursor_field: ts
+      datetime_format: "%s"
+      start_datetime: "{{ config['start_date'] }}"
+      start_time_option:
+        type: RequestOption
+        inject_into: request_parameter
+        field_name: oldest
+
+  members_stream:
+    type: DeclarativeStream
+    name: members
+    $parameters:
+      path: conversations.members
+    retriever:
+      type: SimpleRetriever
+      requester:
+        $ref: "#/definitions/requester"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: [members]
+
+streams:
+  - "#/definitions/channels_stream"
+  - "#/definitions/messages_stream"
+  - "#/definitions/members_stream"
+
+check:
+  type: CheckStream
+  stream_names: [channels]
+
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}

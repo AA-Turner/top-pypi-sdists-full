@@ -24,10 +24,10 @@ from typing_extensions import Self
 
 class LlmModelDto(BaseModel):
     """
-    One model configuration under an endpoint.
+    One model configuration, backed by exactly one of an endpoint (legacy env-slot) or a connection (F25).  Exactly one of ``endpoint_id``/``connection_id`` is set; the other is ``None``. One type serves both the endpoint catalog and the connection catalog so the clients get a single model type.
     """ # noqa: E501
     id: StrictStr
-    endpoint_id: StrictStr
+    endpoint_id: Optional[StrictStr]
     name: StrictStr
     model_id: StrictStr
     path: Optional[StrictStr]
@@ -37,13 +37,15 @@ class LlmModelDto(BaseModel):
     priority: StrictInt
     user_selectable: StrictBool
     max_iterations: Optional[StrictInt] = None
+    connection_id: Optional[StrictStr] = None
+    max_tokens: Optional[StrictInt] = None
     carry_tool_context: Optional[StrictBool] = False
     return_thinking_blocks: Optional[StrictBool] = False
     carry_tool_max_calls: Optional[StrictInt] = None
     carry_tool_max_chars: Optional[StrictInt] = None
     carry_args_max_chars: Optional[StrictInt] = None
     extra_params: Optional[Dict[str, Any]] = None
-    __properties: ClassVar[List[str]] = ["id", "endpoint_id", "name", "model_id", "path", "disable_system_prompt", "disable_native_tools", "enabled", "priority", "user_selectable", "max_iterations", "carry_tool_context", "return_thinking_blocks", "carry_tool_max_calls", "carry_tool_max_chars", "carry_args_max_chars", "extra_params"]
+    __properties: ClassVar[List[str]] = ["id", "endpoint_id", "name", "model_id", "path", "disable_system_prompt", "disable_native_tools", "enabled", "priority", "user_selectable", "max_iterations", "connection_id", "max_tokens", "carry_tool_context", "return_thinking_blocks", "carry_tool_max_calls", "carry_tool_max_chars", "carry_args_max_chars", "extra_params"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -84,6 +86,11 @@ class LlmModelDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if endpoint_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.endpoint_id is None and "endpoint_id" in self.model_fields_set:
+            _dict['endpoint_id'] = None
+
         # set to None if path (nullable) is None
         # and model_fields_set contains the field
         if self.path is None and "path" in self.model_fields_set:
@@ -93,6 +100,16 @@ class LlmModelDto(BaseModel):
         # and model_fields_set contains the field
         if self.max_iterations is None and "max_iterations" in self.model_fields_set:
             _dict['max_iterations'] = None
+
+        # set to None if connection_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.connection_id is None and "connection_id" in self.model_fields_set:
+            _dict['connection_id'] = None
+
+        # set to None if max_tokens (nullable) is None
+        # and model_fields_set contains the field
+        if self.max_tokens is None and "max_tokens" in self.model_fields_set:
+            _dict['max_tokens'] = None
 
         # set to None if carry_tool_max_calls (nullable) is None
         # and model_fields_set contains the field
@@ -137,6 +154,8 @@ class LlmModelDto(BaseModel):
             "priority": obj.get("priority"),
             "user_selectable": obj.get("user_selectable"),
             "max_iterations": obj.get("max_iterations"),
+            "connection_id": obj.get("connection_id"),
+            "max_tokens": obj.get("max_tokens"),
             "carry_tool_context": obj.get("carry_tool_context") if obj.get("carry_tool_context") is not None else False,
             "return_thinking_blocks": obj.get("return_thinking_blocks") if obj.get("return_thinking_blocks") is not None else False,
             "carry_tool_max_calls": obj.get("carry_tool_max_calls"),

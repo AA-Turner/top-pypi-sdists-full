@@ -241,12 +241,15 @@ void test_symbol_escape() {
     std::cout << "testing Z3_eval_smtlib2_string\n";
 
     try {
+        // Per the SMT-LIB 2.5+ standard, quoted symbols support no escape
+        // mechanism: '|' always terminates the token and '\' is not a
+        // legal character inside a quoted symbol (it must be rejected).
         test_name(SYMBOL_ASSERTION("|a|"), "a");
         test_name(SYMBOL_ASSERTION("|a\\|"), nullptr);
-        test_name(SYMBOL_ASSERTION("|a\\||"), "a|");
-        test_name(SYMBOL_ASSERTION("|a\\\\|"), "a\\");
+        test_name(SYMBOL_ASSERTION("|a\\||"), nullptr);
+        test_name(SYMBOL_ASSERTION("|a\\\\|"), nullptr);
         test_name(SYMBOL_ASSERTION("|a\\\\||"), nullptr);
-        test_name(SYMBOL_ASSERTION("|a\\a|"), "a\\a");
+        test_name(SYMBOL_ASSERTION("|a\\a|"), nullptr);
         test_name(SYMBOL_ASSERTION("|a\\a"), nullptr);
     }
     catch(...) {
@@ -349,6 +352,26 @@ void tst_smt2print_parse() {
 
     test_parseprint(spec6);
 
+    {
+        Z3_context ctx = Z3_mk_context(nullptr);
+        Z3_set_error_handler(ctx, setError);
+        is_error = false;
+        std::string response = Z3_eval_smtlib2_string(ctx,
+            "(declare-const s (Seq Int))\n"
+            "(declare-const t (Seq Int))\n"
+            "(declare-const r (RegEx (Seq Int)))\n"
+            "(assert (not (and\n"
+            "  (= (seq.replace_all \"aaa\" \"a\" \"b\") (str.replace_all \"aaa\" \"a\" \"b\"))\n"
+            "  (= (seq.replace_re \"aba\" (str.to_re \"a\") \"b\") (str.replace_re \"aba\" (str.to_re \"a\") \"b\"))\n"
+            "  (= (seq.replace_re_all \"aba\" (str.to_re \"a\") \"b\") (str.replace_re_all \"aba\" (str.to_re \"a\") \"b\"))\n"
+            "  (= (seq.replace_all s t s) (str.replace_all s t s))\n"
+            "  (= (seq.replace_re s r t) (str.replace_re s r t))\n"
+            "  (= (seq.replace_re_all s r t) (str.replace_re_all s r t)))))\n"
+            "(check-sat)\n");
+        ENSURE(!is_error && response == "unsat\n");
+        Z3_del_context(ctx);
+    }
+
     // Test ?
 
     test_repeated_eval();
@@ -357,6 +380,27 @@ void tst_smt2print_parse() {
 
     test_symbol_escape();
     test_builtin_signature_clash();
+
+    // Regression test for GitHub issue #10815:
+    // Internal bit-vector division and remainder operators emitted by simplify
+    // must be accepted under QF_AUFBV.
+    {
+        char const* spec =
+            "(set-logic QF_AUFBV)\n"
+            "(declare-const x (_ BitVec 32))\n"
+            "(declare-const y (_ BitVec 32))\n"
+            "(assert (= (bvsdiv_i x y) (bvsdiv_i x y)))\n"
+            "(assert (= (bvudiv_i x y) (bvudiv_i x y)))\n"
+            "(assert (= (bvsrem_i x y) (bvsrem_i x y)))\n"
+            "(assert (= (bvurem_i x y) (bvurem_i x y)))\n"
+            "(assert (= (bvsmod_i x y) (bvsmod_i x y)))\n"
+            "(check-sat)\n";
+
+        Z3_context ctx = Z3_mk_context(nullptr);
+        Z3_set_error_handler(ctx, setError);
+        test_eval(ctx, spec, false);
+        Z3_del_context(ctx);
+    }
 
     // Regression test for GitHub issue #10166:
     // With (set-option :smtlib2_compliant true), a formula involving to_real

@@ -105,8 +105,9 @@ class MarketplaceMeteringClient(BaseClient):
         self, **kwargs: Unpack[BatchMeterUsageRequestTypeDef]
     ) -> BatchMeterUsageResultTypeDef:
         """
-        Amazon Web Services Marketplace is introducing Concurrent Agreements, enabling
-        buyers to make multiple purchases per Amazon Web Services account.
+        The Amazon Web Services Marketplace AI Metering Agent Skill
+        (<code>aws-marketplace-metering</code>) helps an AI coding agent integrate your
+        SaaS product's usage reporting with the <code>BatchMeterUsage</code> API.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/meteringmarketplace/client/batch_meter_usage.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_meteringmarketplace/client/#batch_meter_usage)

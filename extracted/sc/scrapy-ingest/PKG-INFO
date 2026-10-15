@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapy-ingest
-Version: 1.7.0
+Version: 1.8.0
 Summary: One pipeline. Full crawl observability in SQL or Elasticsearch.
 Home-page: https://github.com/fawadss1/scrapy-ingest
 Author: Fawad Ali
@@ -214,7 +214,7 @@ Indexes are created on first write if they do not exist.
 |-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `ingest_jobs`     | One row per crawl: `id`, unique `job_id` string, spider, status, start/finish, counts, items/min, stats. `errors_count` = failed requests + standalone ERROR/CRITICAL logs (not double-counted from `scrapy.core.scraper` when the request is already failed) |
 | `ingest_items`    | JSON items (`crawled_at` added). `job_id` → `ingest_jobs.id` (`fk_ingest_items_job_id`, ON DELETE CASCADE)                                                                                                                                                    |
-| `ingest_requests` | url, parent_url, parent_id, status, response_time_secs, fingerprint, error, success (download errors, HTTP 4xx/5xx, spider callback tracebacks). FKs: `job_id` → jobs, `parent_id` → self                                                                   |
+| `ingest_requests` | url, parent_url, parent_id, status, response_time_secs, fingerprint, error, success (download errors, HTTP 4xx/5xx, spider callback tracebacks). FKs: `job_id` → jobs, `parent_id` → self                                                                     |
 | `ingest_logs`     | time, logger, level, message, exception; `job_id` → jobs (CASCADE)                                                                                                                                                                                            |
 
 Indexes on `job_id`, filters (`spider_name`, `status`, `level`, …), and lookup columns (`fingerprint`, `parent_id`, `created_at`) are created automatically. `ingest_jobs.job_id` has a named unique constraint (`uq_ingest_jobs_job_id`).
@@ -314,8 +314,8 @@ List recent jobs or print one job summary from SQL or Elasticsearch/OpenSearch (
 scrapy-ingest jobs show                                    # list recent jobs
 scrapy-ingest jobs show --limit 20                         # list up to 20 jobs
 scrapy-ingest jobs show --status running                   # filter by status (list mode)
-scrapy-ingest jobs show --spider Rs_Spider                 # filter by spider (list mode)
-scrapy-ingest jobs show Rs_Spider-178826754-a1b2            # one job (Field | Value table)
+scrapy-ingest jobs show --spider my_spider                 # filter by spider (list mode)
+scrapy-ingest jobs show my_spider-1735123456-a1b2          # one job (Field | Value table)
 scrapy-ingest jobs show --search-url "http://localhost:9200"
 ```
 
@@ -351,7 +351,7 @@ See [CLI docs](https://scrapy-ingest.readthedocs.io/en/latest/cli.html) for deta
 | `DB_TYPE`                                                   | `postgres`     | `postgres` / `mysql` / `mariadb` for discrete `DB_*` fields |
 | `ITEMS_TABLE`, `REQUESTS_TABLE`, `LOGS_TABLE`, `JOBS_TABLE` | see defaults   | Override SQL table and index names (same value for both)    |
 | `TIMEZONE`                                                  | `Asia/Karachi` | Timezone for `created_at`                                   |
-| `JOB_ID`                                                    | auto           | Omit to auto-generate (`Rs_Spider-178826754-a1b2`)          |
+| `JOB_ID`                                                    | auto           | Omit to auto-generate (`my_spider-1735123456-a1b2`)         |
 
 ## Troubleshooting
 

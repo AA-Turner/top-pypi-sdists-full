@@ -326,7 +326,7 @@ class ClickHouseGenerator(generator.Generator):
         exp.IsNan: rename_func("isNaN"),
         exp.JarowinklerSimilarity: jarowinkler_similarity("jaroWinklerSimilarity"),
         exp.JSONCast: _json_cast_sql,
-        exp.JSONExtract: json_extract_segments("JSONExtractString", quoted_index=False),
+        exp.JSONExtract: json_extract_segments("JSONExtractRaw", quoted_index=False),
         exp.JSONExtractScalar: json_extract_segments("JSONExtractString", quoted_index=False),
         exp.JSONPathKey: json_path_key_only_name,
         exp.JSONPathRoot: lambda *_: "",
@@ -503,6 +503,14 @@ class ClickHouseGenerator(generator.Generator):
         if isinstance(this, exp.StrToDate) and expression.to == exp.DType.DATETIME.into_expr():
             return self.sql(this)
 
+        this = this.unnest()
+        if (
+            isinstance(this, exp.JSONExtract)
+            and this.args.get("requires_json")
+            and expression.to.is_type(*exp.DataType.TEXT_TYPES)
+        ):
+            return self.func("JSONExtract", this, exp.Literal.string("Nullable(String)"))
+
         return super().cast_sql(expression, safe_prefix=safe_prefix)
 
     def trycast_sql(self, expression: exp.TryCast) -> str:
@@ -542,6 +550,30 @@ class ClickHouseGenerator(generator.Generator):
 
     def neq_sql(self, expression: exp.NEQ) -> str:
         return self._any_to_has(expression, super().neq_sql, "NOT ")
+
+    def regexpcount_sql(self, expression: exp.RegexpCount) -> str:
+        this = expression.this
+        pattern = expression.expression
+        position = expression.args.get("position")
+        parameters = expression.args.get("parameters")
+
+        if position:
+            # SUBSTRING counts bytes in ClickHouse, the position counts characters
+            this = self.func("substringUTF8", this, position)
+
+        if parameters:
+            flags = parameters.name if parameters.is_string else ""
+            if not parameters.is_string or set(flags) - set("cims"):
+                self.unsupported("Only literal 'c', 'i', 'm' and 's' regexp flags are supported")
+            # "c" (case-sensitive) is the default, and the last of "c" and "i" wins
+            if flags.rfind("c") > flags.rfind("i"):
+                flags = flags.replace("i", "")
+            flags = "".join(f for f in flags if f in "ims")
+            if flags:
+                # countMatches has no flags argument, so they are embedded in the pattern
+                pattern = self.func("CONCAT", exp.Literal.string(f"(?{flags})"), pattern)
+
+        return self.func("countMatches", this, pattern)
 
     def regexpilike_sql(self, expression: exp.RegexpILike) -> str:
         # Manually add a flag to make the search case-insensitive

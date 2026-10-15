@@ -1186,8 +1186,10 @@ class TestRegionalConfigKeys(unittest.TestCase):
         from geocif.experiments import s2s_africa as mod
 
         src = inspect.getsource(mod.run)
-        self.assertIn("if region_label:", src)
-        self.assertIn("suffix +=", src)
+        self.assertIn("suffix += region_suffix(region_label)", src)
+        self.assertEqual(mod.region_suffix("southern Africa"),
+                         "_southern_africa")
+        self.assertEqual(mod.region_suffix(""), "")
 
     def test_unknown_country_is_warned_not_dropped_silently(self):
         import inspect
@@ -1319,8 +1321,8 @@ class TestForecastOffsetPinning(unittest.TestCase):
         from geocif.experiments import s2s_africa as mod
 
         src = inspect.getsource(mod.run)
-        self.assertEqual(re.findall(r"if forecast_offset\s*(?:\n|:|$|else)",
-                                    src), [])
+        self.assertEqual(re.findall(
+            r"if (?:forecast_offset|off_pin)\s*(?:\n|:|$|else)", src), [])
 
     def test_pinned_offset_replaces_the_freshest_init_search(self):
         import ast
@@ -1342,7 +1344,9 @@ class TestForecastOffsetPinning(unittest.TestCase):
         self.assertIsInstance(assigns[0].value, ast.IfExp)
         names = {n.id for n in ast.walk(assigns[0].value)
                  if isinstance(n, ast.Name)}
-        self.assertIn("forecast_offset", names)
+        # off_pin is forecast_offset, or the per-combination offset of an
+        # as_of_init replay
+        self.assertIn("off_pin", names)
 
     def test_pinned_run_gets_its_own_output_directory(self):
         import ast

@@ -1,0 +1,20 @@
+description: Age range defining eligibility for Colorado AND-CS (ages 0-59, blind or disabled).
+brackets:
+  - threshold:
+      2002-01-01: 0
+    amount:
+      2002-01-01: true
+  - threshold:
+      2002-01-01: 60
+    amount:
+      2002-01-01: false
+metadata:
+  type: single_amount
+  rate_unit: bool
+  threshold_unit: year
+  label: "Colorado AND-CS age range"
+  reference:
+    - title: 9 CCR 2503-5, Section 3.520, Age Requirements
+      href: https://www.coloradosos.gov/CCR/GenerateRulePdf.do?ruleVersionId=5834#page=25
+    - title: 9 CCR 2503-5, Section 3.546, AND-CS Program (effective 2023)
+      href: https://www.coloradosos.gov/CCR/GenerateRulePdf.do?ruleVersionId=10694#page=73

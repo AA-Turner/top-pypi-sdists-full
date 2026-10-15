@@ -1,0 +1,127 @@
+- name: Child CHIP category
+  period: 2023
+  input:
+    people:
+      head:
+        is_chip_eligible_child: True
+        is_chip_eligible_standard_pregnant_person: False
+        is_chip_fcep_eligible_person: False
+  output:
+    chip_category: CHILD
+
+- name: Standard pregnant CHIP category
+  period: 2023
+  input:
+    people:
+      head:
+        is_chip_eligible_child: False
+        is_chip_eligible_standard_pregnant_person: True
+        is_chip_fcep_eligible_person: False
+  output:
+    chip_category: PREGNANT_STANDARD
+
+- name: FCEP pregnant CHIP category
+  period: 2023
+  input:
+    people:
+      head:
+        is_chip_eligible_child: False
+        is_chip_eligible_standard_pregnant_person: False
+        is_chip_fcep_eligible_person: True
+  output:
+    chip_category: PREGNANT_FCEP
+
+- name: Child and Standard pregnant prioritizes child
+  period: 2023
+  input:
+    people:
+      head:
+        is_chip_eligible_child: True
+        is_chip_eligible_standard_pregnant_person: True
+        is_chip_fcep_eligible_person: False
+  output:
+    chip_category: CHILD
+
+- name: Child and FCEP pregnant prioritizes child
+  period: 2023
+  input:
+    people:
+      head:
+        is_chip_eligible_child: True
+        is_chip_eligible_standard_pregnant_person: False
+        is_chip_fcep_eligible_person: True
+  output:
+    chip_category: CHILD
+
+- name: Standard pregnant and FCEP pregnant prioritizes standard
+  period: 2023
+  input:
+    people:
+      head:
+        is_chip_eligible_child: False
+        is_chip_eligible_standard_pregnant_person: True
+        is_chip_fcep_eligible_person: True
+  output:
+    chip_category: PREGNANT_STANDARD
+
+- name: All categories prioritizes child
+  period: 2023
+  input:
+    people:
+      head:
+        is_chip_eligible_child: True
+        is_chip_eligible_standard_pregnant_person: True
+        is_chip_fcep_eligible_person: True
+  output:
+    chip_category: CHILD
+
+- name: No eligibility
+  period: 2023
+  input:
+    people:
+      head:
+        is_chip_eligible_child: False
+        is_chip_eligible_standard_pregnant_person: False
+        is_chip_fcep_eligible_person: False
+  output:
+    chip_category: NONE
+
+- name: California CCHIP child category
+  period: 2025
+  input:
+    people:
+      head:
+        is_chip_eligible_child: False
+        ca_cchip_eligible: True
+        is_chip_eligible_standard_pregnant_person: False
+        is_chip_fcep_eligible_person: False
+  output:
+    chip_category: CHILD_CCHIP
+    is_chip_eligible: True
+
+# The select order is child, then CCHIP, then standard pregnant, then FCEP.
+- name: Child and California CCHIP prioritizes child
+  period: 2025
+  input:
+    people:
+      head:
+        is_chip_eligible_child: True
+        ca_cchip_eligible: True
+        is_chip_eligible_standard_pregnant_person: False
+        is_chip_fcep_eligible_person: False
+  output:
+    chip_category: CHILD
+    is_chip_eligible: True
+
+- name: California CCHIP and both pregnant categories prioritizes CCHIP
+  period: 2025
+  input:
+    people:
+      head:
+        is_chip_eligible_child: False
+        ca_cchip_eligible: True
+        is_chip_eligible_standard_pregnant_person: True
+        is_chip_fcep_eligible_person: True
+  output:
+    chip_category: CHILD_CCHIP
+    is_chip_eligible: True

@@ -1,0 +1,13 @@
+# Retain the legacy subtractions parameter path for reform compatibility.
+description: Virginia caps the Commonwealth Savers account contributions deduction at this amount per account per year.
+values:
+  2021-01-01: 4_000
+metadata:
+  unit: currency-USD
+  period: year
+  label: Virginia 529 plan contribution deduction cap per account
+  reference:
+  - title: Va. Code § 58.1-322.03(7)(a)
+    href: https://law.lis.virginia.gov/vacode/title58.1/chapter3/section58.1-322.03/
+  - title: 2024 Form 760 Instructions, Deductions from Income, Code 104
+    href: https://www.tax.virginia.gov/sites/default/files/vatax-pdf/2024-760-instructions.pdf#page=28

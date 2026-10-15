@@ -45,10 +45,12 @@ class ReceivingConnectionUpdateResultDto(BaseModel):
     infosec_level_mappings: Optional[List[ReceivingConnectionInfosecLevelMappingDto]] = Field(default=None, description="Mappings from incoming (sender-schema) infosec levels to local infosec levels, applied to resources imported over this connection.")
     received_access_level: ReceivedAccessLevel = Field(description="The sender-declared access-level ceiling for this connection (Editor or Viewer). Read-only; surfaced for display.")
     allow_reshare: StrictBool = Field(description="Whether the sender permits files received over this connection to be shared onward over this instance's sending connections (daisy chaining). Read-only; learned from the sender on sync.")
+    tenant_id: StrictStr = Field(description="The tenant that owns this connection.")
+    has_cross_tenant_members: Optional[StrictBool] = None
     is_starred: Optional[StrictBool] = Field(default=False, description="Whether the requesting user has starred this connection. Stars are per-user: one admin's star is invisible to every other admin. False on a freshly created connection; star or unstar with `/api/v3/user/favorites/connections/{connection_id}`.")
     created: datetime = Field(description="Creation timestamp.")
     outcomes: ConnectionUpdateOutcomesDto = Field(description="What the update did, or would do under `dry_run=true`.")
-    __properties: ClassVar[List[str]] = ["id", "label", "is_archived", "description", "shared_id", "object_store_id", "transformations", "incoming_infosec_level_id", "incoming_max_infosec_level_id", "incoming_infosec_schema_id", "incoming_infosec_schema_name", "infosec_level_mappings", "received_access_level", "allow_reshare", "is_starred", "created", "outcomes"]
+    __properties: ClassVar[List[str]] = ["id", "label", "is_archived", "description", "shared_id", "object_store_id", "transformations", "incoming_infosec_level_id", "incoming_max_infosec_level_id", "incoming_infosec_schema_id", "incoming_infosec_schema_name", "infosec_level_mappings", "received_access_level", "allow_reshare", "tenant_id", "has_cross_tenant_members", "is_starred", "created", "outcomes"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -126,6 +128,11 @@ class ReceivingConnectionUpdateResultDto(BaseModel):
         if self.incoming_infosec_schema_name is None and "incoming_infosec_schema_name" in self.model_fields_set:
             _dict['incoming_infosec_schema_name'] = None
 
+        # set to None if has_cross_tenant_members (nullable) is None
+        # and model_fields_set contains the field
+        if self.has_cross_tenant_members is None and "has_cross_tenant_members" in self.model_fields_set:
+            _dict['has_cross_tenant_members'] = None
+
         return _dict
 
     @classmethod
@@ -152,6 +159,8 @@ class ReceivingConnectionUpdateResultDto(BaseModel):
             "infosec_level_mappings": [ReceivingConnectionInfosecLevelMappingDto.from_dict(_item) for _item in obj["infosec_level_mappings"]] if obj.get("infosec_level_mappings") is not None else None,
             "received_access_level": obj.get("received_access_level"),
             "allow_reshare": obj.get("allow_reshare"),
+            "tenant_id": obj.get("tenant_id"),
+            "has_cross_tenant_members": obj.get("has_cross_tenant_members"),
             "is_starred": obj.get("is_starred") if obj.get("is_starred") is not None else False,
             "created": obj.get("created"),
             "outcomes": ConnectionUpdateOutcomesDto.from_dict(obj["outcomes"]) if obj.get("outcomes") is not None else None

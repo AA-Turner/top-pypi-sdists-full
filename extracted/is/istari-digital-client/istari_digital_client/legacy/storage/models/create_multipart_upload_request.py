@@ -30,7 +30,8 @@ class CreateMultipartUploadRequest(BaseModel):
     sha: StrictStr
     num_parts: Annotated[int, Field(le=10000, strict=True, ge=1)]
     model_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["sha", "num_parts", "model_id"]
+    receiving_remote_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["sha", "num_parts", "model_id", "receiving_remote_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -76,6 +77,11 @@ class CreateMultipartUploadRequest(BaseModel):
         if self.model_id is None and "model_id" in self.model_fields_set:
             _dict['model_id'] = None
 
+        # set to None if receiving_remote_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.receiving_remote_id is None and "receiving_remote_id" in self.model_fields_set:
+            _dict['receiving_remote_id'] = None
+
         return _dict
 
     @classmethod
@@ -90,6 +96,7 @@ class CreateMultipartUploadRequest(BaseModel):
         _obj = cls.model_validate({
             "sha": obj.get("sha"),
             "num_parts": obj.get("num_parts"),
-            "model_id": obj.get("model_id")
+            "model_id": obj.get("model_id"),
+            "receiving_remote_id": obj.get("receiving_remote_id")
         })
         return _obj

@@ -1,43 +1,19 @@
 #
 # SecretSharing.py : distribute a secret amongst a group of participants
 #
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
-from Crypto.Util.py3compat import is_native_int
-from Crypto.Util import number
-from Crypto.Util.number import long_to_bytes, bytes_to_long
+from __future__ import annotations
+
+from typing import Optional, Union
+
 from Crypto.Random import get_random_bytes as rng
+from Crypto.Util import number
+from Crypto.Util.number import bytes_to_long, long_to_bytes
 
 
-def _mult_gf2(f1, f2):
+def _mult_gf2(f1: int, f2: int) -> int:
     """Multiply two polynomials in GF(2)"""
 
     # Ensure f2 is the smallest
@@ -52,7 +28,7 @@ def _mult_gf2(f1, f2):
     return z
 
 
-def _div_gf2(a, b):
+def _div_gf2(a: int, b: int) -> tuple[int, int]:
     """
     Compute division of polynomials over GF(2).
     Given a and b, it finds two polynomials q and r such that:
@@ -60,7 +36,7 @@ def _div_gf2(a, b):
     a = b*q + r with deg(r)<deg(b)
     """
 
-    if (a < b):
+    if a < b:
         return 0, a
 
     deg = number.size
@@ -74,14 +50,14 @@ def _div_gf2(a, b):
     return (q, r)
 
 
-class _Element(object):
+class _Element:
     """Element of GF(2^128) field"""
 
     # The irreducible polynomial defining
     # this field is 1 + x + x^2 + x^7 + x^128
-    irr_poly = 1 + 2 + 4 + 128 + 2 ** 128
+    irr_poly: int = 1 + 2 + 4 + 128 + 2**128
 
-    def __init__(self, encoded_value):
+    def __init__(self, encoded_value: Union[int, bytes]) -> None:
         """Initialize the element to a certain value.
 
         The value passed as parameter is internally encoded as
@@ -89,26 +65,27 @@ class _Element(object):
         coefficient. The LSB is the constant coefficient.
         """
 
-        if is_native_int(encoded_value):
+        if isinstance(encoded_value, int):
             self._value = encoded_value
         elif len(encoded_value) == 16:
             self._value = bytes_to_long(encoded_value)
         else:
             raise ValueError("The encoded value must be an integer or a 16 byte string")
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, _Element):
+            return NotImplemented
         return self._value == other._value
 
-    def __int__(self):
+    def __int__(self) -> int:
         """Return the field element, encoded as a 128-bit integer."""
         return self._value
 
-    def encode(self):
+    def encode(self) -> bytes:
         """Return the field element, encoded as a 16 byte string."""
         return long_to_bytes(self._value, 16)
 
-    def __mul__(self, factor):
-
+    def __mul__(self, factor: _Element) -> _Element:
         f1 = self._value
         f2 = factor._value
 
@@ -119,7 +96,7 @@ class _Element(object):
         if self.irr_poly in (f1, f2):
             return _Element(0)
 
-        mask1 = 2 ** 128
+        mask1 = 2**128
         v, z = f1, 0
         while f2:
             # if f2 ^ 1: z ^= v
@@ -132,10 +109,10 @@ class _Element(object):
             f2 >>= 1
         return _Element(z)
 
-    def __add__(self, term):
+    def __add__(self, term: _Element) -> _Element:
         return _Element(self._value ^ term._value)
 
-    def inverse(self):
+    def inverse(self) -> _Element:
         """Return the inverse of this element in GF(2^128)."""
 
         # We use the Extended GCD algorithm
@@ -152,14 +129,14 @@ class _Element(object):
             s0, s1 = s1, s0 ^ _mult_gf2(q, s1)
         return _Element(s0)
 
-    def __pow__(self, exponent):
+    def __pow__(self, exponent: int) -> _Element:
         result = _Element(self._value)
         for _ in range(exponent - 1):
             result = result * self
         return result
 
 
-class Shamir(object):
+class Shamir:
     """Shamir's secret sharing scheme.
 
     A secret is split into ``n`` shares, and it is sufficient to collect
@@ -167,7 +144,7 @@ class Shamir(object):
     """
 
     @staticmethod
-    def split(k, n, secret, ssss=False):
+    def split(k: int, n: int, secret: bytes, ssss: Optional[bool] = False) -> list[tuple[int, bytes]]:
         """Split a secret into ``n`` shares.
 
         The secret can be reconstructed later using just ``k`` shares
@@ -231,7 +208,7 @@ class Shamir(object):
         return [(i, make_share(i, coeffs, ssss)) for i in range(1, n + 1)]
 
     @staticmethod
-    def combine(shares, ssss=False):
+    def combine(shares: list[tuple[int, bytes]], ssss: Optional[bool] = False) -> bytes:
         """Recombine a secret, if enough shares are presented.
 
         Args:
@@ -270,14 +247,14 @@ class Shamir(object):
 
         k = len(shares)
 
-        gf_shares = []
+        gf_shares: list[tuple[_Element, _Element]] = []
         for x in shares:
             idx = _Element(x[0])
             value = _Element(x[1])
             if any(y[0] == idx for y in gf_shares):
                 raise ValueError("Duplicate share")
             if ssss:
-                value += idx ** k
+                value += idx**k
             gf_shares.append((idx, value))
 
         result = _Element(0)

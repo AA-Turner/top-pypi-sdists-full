@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from sqlglot import tokens
 from sqlglot.dialects.dialect import DialectType
+from sqlglot.errors import TokenError
 from sqlglot.generators.athena import AthenaGenerator
 from sqlglot.parsers.athena import AthenaParser
 from sqlglot.tokens import TokenType, Token
@@ -74,7 +75,22 @@ class Athena(Trino):
             self._trino_tokenizer = _TrinoTokenizer(Trino())
 
         def tokenize(self, sql: str) -> list[Token]:
-            tokens = super().tokenize(sql)
+            try:
+                tokens = super().tokenize(sql)
+            except TokenError:
+                # Combined rules can reject literals valid in only one engine.
+                for tokenizer, hive in (
+                    (self._trino_tokenizer, False),
+                    (self._hive_tokenizer, True),
+                ):
+                    try:
+                        tokens = tokenizer.tokenize(sql)
+                    except TokenError:
+                        continue
+
+                    if _tokenize_as_hive(tokens) == hive:
+                        return [Token(TokenType.HIVE_TOKEN_STREAM, "")] + tokens if hive else tokens
+                raise
 
             if _tokenize_as_hive(tokens):
                 return [Token(TokenType.HIVE_TOKEN_STREAM, "")] + self._hive_tokenizer.tokenize(sql)

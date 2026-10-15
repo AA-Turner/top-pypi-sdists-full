@@ -1,0 +1,12 @@
+description: California partition payment level based on age threshold.
+
+metadata:
+  label: California CalWORKs Child Care lower age threshold
+  unit: year
+  period: year
+  reference:
+    - title: Los Angeles Department of Public Social Services E-Policy | RMR Ceilings Exhibit I
+      href: https://my.dpss.lacounty.gov/public/en/home/epolicy/program/child-care/regional-market-rate-ceilings.html
+
+values:
+  2018-01-01: 2

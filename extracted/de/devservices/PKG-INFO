@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: devservices
-Version: 1.5.1
+Version: 1.5.4
 Requires-Python: >=3.11
 License-File: LICENSE.md
 Requires-Dist: pyyaml

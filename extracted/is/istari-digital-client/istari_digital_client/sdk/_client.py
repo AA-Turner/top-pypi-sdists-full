@@ -13,7 +13,12 @@ from functools import cached_property
 
 from istari_digital_client.sdk._configuration import Configuration
 
+from istari_digital_client.sdk._auth_deprecation import AuthDeprecationResult
+from istari_digital_client.sdk._base import _Manager
 from istari_digital_client.sdk._engine import _Engine
+from istari_digital_client.sdk._generated.v2.models.healthcheck_report import (
+    HealthcheckReport,
+)
 from istari_digital_client.sdk._admin import (
     Identity,
     Infosec,
@@ -58,6 +63,37 @@ class _ClosableClient:
     def __exit__(self, exc_type, exc_value, traceback):
         """Release the connection pool on context exit."""
         self.close()
+
+    @property
+    def auth_deprecation(self) -> AuthDeprecationResult | None:
+        """The most recent PAT auth-deprecation advisory, or ``None``.
+
+        When the registry runs in Identity Service mode and this client still
+        authenticates with a legacy personal access token, the registry tags
+        responses with an advisory. It is captured passively from response
+        headers as ordinary calls are made (including idle polling), so this
+        reflects whatever the last response carried — no dedicated request.
+        """
+        return self._engine._api_client.auth_deprecation_checker.last_result
+
+    def readiness(self) -> HealthcheckReport:
+        """Check whether the registry is ready to serve requests.
+
+        A dependency-aware probe (the registry checks its own backing services).
+        Returns the HealthcheckReport as-is — inspect ``report.healthy`` and
+        ``report.checks`` to see which dependency is degraded. Raises an
+        ``IstariError`` subclass only if the registry is unreachable.
+        """
+        return _Manager(self._engine)._call(self._engine.v2_api.readiness_check)
+
+    def liveness(self) -> HealthcheckReport:
+        """Check whether the registry process is alive.
+
+        A shallow liveness probe. Returns the HealthcheckReport as-is (inspect
+        ``report.healthy``); raises an ``IstariError`` subclass only if the
+        registry is unreachable.
+        """
+        return _Manager(self._engine)._call(self._engine.v2_api.liveness_check)
 
 
 class Istari(_ClosableClient):

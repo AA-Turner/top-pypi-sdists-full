@@ -175,6 +175,19 @@ def coerce_conversation_type(value: str | None) -> str:
     return ConversationType.STANDARD.value
 
 
+def honest_lineage_type(conversation_type: str, parent_conversation_id: str | None) -> str:
+    """``subagent`` means "has a parent conversation"; a parentless one is ``auto``.
+
+    A server root run (mandate, pipeline, background job) is forked through the
+    child-agent path with no caller conversation. Labelling it ``subagent`` made
+    ~8,300 root runs look like helpers. Every writer of the label passes through
+    this one rule (and the gate re-applies it once the parent row is verified).
+    """
+    if conversation_type == ConversationType.SUBAGENT.value and not parent_conversation_id:
+        return ConversationType.AUTO.value
+    return conversation_type
+
+
 def derive_conversation_type(
     *,
     explicit: str | None,
@@ -201,7 +214,7 @@ def derive_conversation_type(
     """
     coerced = coerce_conversation_type(explicit) if explicit else ConversationType.STANDARD.value
     if coerced != ConversationType.STANDARD.value:
-        return coerced
+        return honest_lineage_type(coerced, parent_conversation_id)
 
     if is_internal_agent and parent_conversation_id:
         return ConversationType.SUBAGENT.value

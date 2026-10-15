@@ -186,21 +186,27 @@ def _plain(value: Any) -> Any:
     return getattr(value, "value", value)
 
 
-def reach_of(kd: Any, system_org_id: str) -> dict[str, Any]:
+def reach_of(kd: Any, system_org_id: str, asset_org_id: str | None = None) -> dict[str, Any]:
     """The reach a generated skill must carry: a MIRROR of its shape's reach, so whoever can
     use the shape can read the skill that teaches it. ``is_system`` follows the shape's
     organization being the system organization (the id is passed in, never hardcoded here).
-    T-13: only the two access words are mirrored."""
+    T-13: only the two access words are mirrored.
+
+    ``asset_org_id`` is the organization the skill row actually lives in when that differs
+    from the shape's (a non-admin caller's own org for a system-org shape, see
+    ``asset_organization_id``): ``is_system`` follows the SKILL's organization, so such a
+    skill is never marked system."""
+    home = asset_org_id if asset_org_id is not None else getattr(kd, "organization_id", "")
     return {
         "shown_to": _plain(getattr(kd, "shown_to", None)),
         "published_to_web": bool(getattr(kd, "published_to_web", False)),
-        "is_system": str(getattr(kd, "organization_id", "")) == str(system_org_id),
+        "is_system": str(home) == str(system_org_id),
     }
 
 
 def reach_changes(existing: Any, kd: Any, system_org_id: str) -> dict[str, Any]:
     """The reach fields of ``existing`` that differ from its shape's (empty = in sync)."""
-    want = reach_of(kd, system_org_id)
+    want = reach_of(kd, system_org_id, str(getattr(existing, "organization_id", "") or "") or None)
     return {
         k: v
         for k, v in want.items()

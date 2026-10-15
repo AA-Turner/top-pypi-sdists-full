@@ -229,7 +229,8 @@ def _config_checker(deps: Deps, cwd: Path) -> Any:
     from probe.sdk import session_marker
 
     _start, skip = pc.session_view(session_marker.sessions_dir(), deps.session_id)
-    return pc.Checker(cwd=str(cwd), skip=skip, legacy=True)
+    # `hash` is `off` to the daemon (C9).
+    return pc.Checker(cwd=str(cwd), skip=skip, legacy=True, daemon=True)
 
 
 def _off_check(deps: Deps, cwd: Path) -> Any:
@@ -1078,7 +1079,7 @@ def _config_block(deps: Deps, parsed: precheck.Parsed, here: Path) -> precheck.B
         from probe.sdk import session_marker
 
         _start, skip = pc.session_view(session_marker.sessions_dir(), deps.session_id)
-        checker = pc.Checker(cwd=str(here), skip=skip, legacy=True)
+        checker = pc.Checker(cwd=str(here), skip=skip, legacy=True, daemon=True)
         return precheck.check_config(parsed, cwd=here, checker=checker, document=_document_path(deps, parsed))
     except Exception as exc:  # noqa: BLE001
         return precheck.Block(precheck.new_block_id(),

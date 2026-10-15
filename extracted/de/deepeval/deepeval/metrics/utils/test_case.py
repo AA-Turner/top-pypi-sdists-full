@@ -110,6 +110,20 @@ def check_conversational_test_case_params(
         metric.error = error_str
         raise MissingTestCaseParamsError(error_str)
 
+    if MultiTurnParams.PROVIDER_TRANSCRIPT in test_case_params and not any(
+        turn.provider_transcript is not None for turn in test_case.turns
+    ):
+        error_str = f"No turn in the conversational test case has a 'provider_transcript', which the '{metric.__name__}' metric needs. Only voice connectors that report the agent's own transcription of the caller populate it, so a phone call or a text conversation will never have one."
+        metric.error = error_str
+        raise MissingTestCaseParamsError(error_str)
+
+    if MultiTurnParams.AUDIO in test_case_params and not any(
+        turn.audio is not None for turn in test_case.turns
+    ):
+        error_str = f"No turn in the conversational test case has 'audio', which the '{metric.__name__}' metric needs. Voice simulations attach each turn's clip as `Turn.audio`; for a recorded call, cut the recording into one clip per turn and attach them with `Audio.from_bytes(..., start_time=...)`."
+        metric.error = error_str
+        raise MissingTestCaseParamsError(error_str)
+
 
 def check_llm_test_case_params(
     test_case: LLMTestCase,

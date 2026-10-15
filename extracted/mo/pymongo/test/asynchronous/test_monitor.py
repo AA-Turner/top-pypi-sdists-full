@@ -30,7 +30,11 @@ from test.asynchronous import AsyncIntegrationTest, async_client_context, connec
 from test.asynchronous.utils import (
     async_wait_until,
 )
-from test.utils_shared import ServerAndTopologyEventListener, gevent_monkey_patched
+from test.utils_shared import (
+    ServerAndTopologyEventListener,
+    gevent_monkey_patched,
+    suppress_fork_deprecation,
+)
 
 _IS_SYNC = False
 
@@ -57,7 +61,6 @@ class TestMonitor(AsyncIntegrationTest):
         await connected(client)
         return client
 
-    @unittest.skipIf("PyPy" in sys.version, "PYTHON-5283 fails often on PyPy")
     @unittest.skipIf(
         gevent_monkey_patched(), "PYTHON-5516 Resources are not cleared when using gevent"
     )
@@ -113,9 +116,10 @@ class TestMonitor(AsyncIntegrationTest):
             "-c",
             "from pymongo import AsyncMongoClient; c = AsyncMongoClient()",
         ]
-        completed_process: subprocess.CompletedProcess = subprocess.run(
-            command, capture_output=True
-        )
+        with suppress_fork_deprecation():
+            completed_process: subprocess.CompletedProcess = subprocess.run(
+                command, capture_output=True
+            )
 
         self.assertFalse(completed_process.stderr)
         self.assertFalse(completed_process.stdout)

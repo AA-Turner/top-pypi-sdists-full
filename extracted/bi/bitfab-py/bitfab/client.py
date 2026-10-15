@@ -13,6 +13,7 @@ import os
 import sys
 import threading
 import uuid
+import weakref
 from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from contextvars import ContextVar
 from typing import (
@@ -29,8 +30,8 @@ from typing import (
 from typing_extensions import ParamSpec
 
 from bitfab import subtree
-from bitfab.assertion_categories import AssertionCategoriesClient
 from bitfab.baml import run_function_with_baml
+from bitfab.categories import CategoriesClient
 from bitfab.commit_ref import CommitRef, current_commit_ref, start_commit_ref_resolution
 from bitfab.constants import (
     DEFAULT_SERVICE_URL,
@@ -430,6 +431,22 @@ _active_trace_states: dict[str, TraceState] = {}
 _node_variant: ContextVar[tuple[Callable[..., Any], str | None] | None] = ContextVar(
     "bitfab_node_variant", default=None
 )
+
+_trace_root_wrappers: weakref.WeakSet[Callable[..., Any]] = weakref.WeakSet()
+_node_wrapper_bodies: weakref.WeakKeyDictionary[
+    Callable[..., Any], Callable[..., Any]
+] = weakref.WeakKeyDictionary()
+
+
+def _is_trace_root(fn: Callable[..., Any]) -> bool:
+    return fn in _trace_root_wrappers
+
+
+def _without_node_settings(fn: Callable[..., Any]) -> Callable[..., Any]:
+    try:
+        return _node_wrapper_bodies.get(fn, fn)
+    except TypeError:
+        return fn
 
 
 def _missing_recording_error(
@@ -1087,7 +1104,7 @@ class Bitfab:
         self.http_client.release_held_external_spans = self._simulation_plan.release
         self.http_client.stop_simulation_plan = self._simulation_plan.stop
         self.datasets = DatasetsClient(self.http_client)
-        self.assertion_categories = AssertionCategoriesClient(self.http_client)
+        self.categories = CategoriesClient(self.http_client)
         self.organization_members = OrganizationMembersClient(self.http_client)
         self.traces = TracesClient(self.http_client)
         self.spans = SpansClient(self.http_client)
@@ -1363,6 +1380,15 @@ class Bitfab:
         traced call would. Replay records inside its items, and ``seed_trace``
         records its one call, even when this is False."""
         return self._is_capture_enabled()
+
+    @property
+    def assertion_categories(self) -> CategoriesClient:
+        """Deprecated alias for ``categories``. Use ``client.categories`` instead."""
+        warn_once(
+            "deprecated-assertion-categories",
+            "Bitfab.assertion_categories is deprecated; use Bitfab.categories instead.",
+        )
+        return self.categories
 
     @property
     def enabled(self) -> bool:
@@ -3334,7 +3360,9 @@ class Bitfab:
                 guard_without_session=True,
                 replay_reusable=replay_reusable,
                 variant=variant,
+                runs_as_trace_root=_is_trace_root(fn),
             )
+            _node_wrapper_bodies[configured] = fn
             configured._bitfab_node = True  # type: ignore[attr-defined]
             configured._bitfab_node_options = options  # type: ignore[attr-defined]
             return configured
@@ -3403,6 +3431,7 @@ class Bitfab:
         replay_reusable: bool = False,
         instrumentation: SpanInstrumentation | None = None,
         variant: str | Callable[..., str | None] | None = None,
+        runs_as_trace_root: bool = False,
     ) -> Callable[P, T]:
         code = getattr(fn, "__code__", None)
         node_span_name = name or _function_span_name(fn)
@@ -3506,6 +3535,10 @@ class Bitfab:
                     async for value in without_session(*args, **kwargs):
                         yield value
                     return
+                if runs_as_trace_root:
+                    async for value in fn(*args, **kwargs):
+                        yield value
+                    return
                 if not captures_node(session):
                     with subtree.suppressed_node(code, session, all_sessions=True):
                         async for value in fn(*args, **kwargs):
@@ -3530,6 +3563,8 @@ class Bitfab:
                 if session is None:
                     guard_outside_trace()
                     return await without_session(*args, **kwargs)
+                if runs_as_trace_root:
+                    return await fn(*args, **kwargs)
                 if not captures_node(session):
                     with subtree.suppressed_node(code, session, all_sessions=True):
                         return await fn(*args, **kwargs)
@@ -3549,6 +3584,8 @@ class Bitfab:
             if session is None:
                 guard_outside_trace()
                 return without_session(*args, **kwargs)
+            if runs_as_trace_root:
+                return fn(*args, **kwargs)
             if not captures_node(session):
                 with subtree.suppressed_node(code, session, all_sessions=True):
                     return fn(*args, **kwargs)
@@ -3713,8 +3750,9 @@ class Bitfab:
         self._simulation_plan.refresh()
 
         def decorator(fn: Callable[P, T]) -> Callable[P, T]:
-            roots = subtree.roots_for(fn)
-            code = getattr(fn, "__code__", None)
+            body = _without_node_settings(fn)
+            roots = subtree.roots_for(body)
+            code = getattr(body, "__code__", None)
 
             if not subtree.SUPPORTED:
                 warn_once(
@@ -3761,7 +3799,7 @@ class Bitfab:
                 @functools.wraps(fn)
                 async def inner(*args: P.args, **kwargs: P.kwargs) -> Any:
                     session = build()
-                    iterator = fn(*args, **kwargs)
+                    iterator = body(*args, **kwargs)
                     try:
                         while True:
                             with subtree.begin(session, code, finish_on_exit=False):
@@ -3782,14 +3820,14 @@ class Bitfab:
                 @functools.wraps(fn)
                 async def inner(*args: P.args, **kwargs: P.kwargs) -> Any:  # type: ignore[misc]
                     with subtree.begin(build(), code):
-                        return await fn(*args, **kwargs)
+                        return await body(*args, **kwargs)
 
             else:
 
                 @functools.wraps(fn)
                 def inner(*args: P.args, **kwargs: P.kwargs) -> Any:  # type: ignore[misc]
                     with subtree.begin(build(), code):
-                        return fn(*args, **kwargs)
+                        return body(*args, **kwargs)
 
             spanned = self._span_impl(
                 trace_function_key,
@@ -3815,7 +3853,7 @@ class Bitfab:
                 async def detached(*args: P.args, **kwargs: P.kwargs) -> Any:
                     root_stack = root_span_stack()
                     if root_stack is None:
-                        absorbed = fn(*args, **kwargs)
+                        absorbed = body(*args, **kwargs)
                         try:
                             async for item in absorbed:
                                 yield item
@@ -3847,7 +3885,7 @@ class Bitfab:
                 async def detached(*args: P.args, **kwargs: P.kwargs) -> Any:  # type: ignore[misc]
                     root_stack = root_span_stack()
                     if root_stack is None:
-                        return await fn(*args, **kwargs)
+                        return await body(*args, **kwargs)
                     token = _span_stack.set(root_stack)
                     try:
                         return await spanned(*args, **kwargs)
@@ -3860,11 +3898,12 @@ class Bitfab:
                 def detached(*args: P.args, **kwargs: P.kwargs) -> Any:  # type: ignore[misc]
                     root_stack = root_span_stack()
                     if root_stack is None:
-                        return fn(*args, **kwargs)
+                        return body(*args, **kwargs)
                     return _run_with_span_stack(
                         root_stack, lambda: spanned(*args, **kwargs)
                     )
 
+            _trace_root_wrappers.add(detached)
             return detached  # type: ignore[return-value]
 
         return decorator

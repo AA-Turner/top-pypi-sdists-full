@@ -1,0 +1,79 @@
+from policyengine_us.model_api import *
+from policyengine_us.variables.household.marginal_tax_rate_helpers import (
+    user_set_variables,
+)
+
+
+class marginal_tax_rate_including_health_benefits(Variable):
+    label = "Marginal tax rate including health benefits"
+    documentation = (
+        "Fraction of marginal income gains that do not increase household net income."
+        " Simulated only where marginal_tax_rate_computed is true: for up to"
+        " simulation.marginal_tax_rate_adults adults per household, those with"
+        " the highest market income. Zero for everyone else."
+    )
+    entity = Person
+    definition_period = YEAR
+    value_type = float
+    unit = "/1"
+
+    def formula(person, period, parameters):
+        netinc_base = person.household(
+            "household_net_income_including_health_benefits", period
+        )
+        delta = parameters(period).simulation.marginal_tax_rate_delta
+        adult_count = parameters(period).simulation.marginal_tax_rate_adults
+        sim = person.simulation
+        mtr_values = np.zeros(person.count, dtype=np.float32)
+        adult_indexes = person("adult_earnings_index", period)
+        employment_income = person("employment_income", period)
+        self_employment_income = person("self_employment_income", period)
+        sstb_self_employment_income = person("sstb_self_employment_income", period)
+        emp_self_emp_ratio = person("emp_self_emp_ratio", period)
+        positive_self_employment_income = max_(0, self_employment_income)
+        positive_sstb_self_employment_income = max_(0, sstb_self_employment_income)
+        positive_self_employment_total = (
+            positive_self_employment_income + positive_sstb_self_employment_income
+        )
+        non_sstb_share = where(
+            positive_self_employment_total > 0,
+            positive_self_employment_income / positive_self_employment_total,
+            1,
+        )
+        sstb_share = where(
+            positive_self_employment_total > 0,
+            positive_sstb_self_employment_income / positive_self_employment_total,
+            0,
+        )
+
+        inputs = user_set_variables(sim)
+        for adult_index in range(1, 1 + adult_count):
+            alt_sim = sim.get_branch(f"mtr_for_adult_{adult_index}")
+            for variable in sim.tax_benefit_system.variables:
+                if variable not in inputs or variable == "employment_income":
+                    alt_sim.delete_arrays(variable)
+            mask = adult_index == adult_indexes
+            alt_sim.set_input(
+                "employment_income",
+                period,
+                employment_income + mask * delta * emp_self_emp_ratio,
+            )
+            self_employment_delta = mask * delta * (1 - emp_self_emp_ratio)
+            alt_sim.set_input(
+                "self_employment_income",
+                period,
+                self_employment_income + self_employment_delta * non_sstb_share,
+            )
+            alt_sim.set_input(
+                "sstb_self_employment_income",
+                period,
+                sstb_self_employment_income + self_employment_delta * sstb_share,
+            )
+            alt_person = alt_sim.person
+            netinc_alt = alt_person.household(
+                "household_net_income_including_health_benefits", period
+            )
+            increase = netinc_alt - netinc_base
+            mtr_values += where(mask, 1 - increase / delta, 0)
+            del sim.branches[f"mtr_for_adult_{adult_index}"]
+        return mtr_values

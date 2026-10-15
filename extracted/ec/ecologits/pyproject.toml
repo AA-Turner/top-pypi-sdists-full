@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ecologits"
-version = "0.11.2"
+version = "0.11.3"
 description = "EcoLogits tracks and estimates the energy consumption and environmental impacts of using generative AI models through APIs."
 authors = [
     {name = "Samuel Rincé"},
@@ -38,7 +38,7 @@ classifiers = [
 ]
 requires-python = ">=3.10,<4"
 dependencies = [
-    "wrapt>=1.14.1,<2.0.0",
+    "wrapt>=1.14.1,<3.0.0",
     "pydantic>=1.9.0,<3",
     "packaging>=24.2",
 ]

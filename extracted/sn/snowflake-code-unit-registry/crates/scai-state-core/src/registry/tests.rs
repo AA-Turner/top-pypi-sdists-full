@@ -53,10 +53,77 @@ fn init_bare(path: &std::path::Path) -> CodeUnitRegistry {
     let registry_dir = root.join("registry");
     fs::create_dir_all(registry_dir.join(".locks")).unwrap();
     CodeUnitRegistry {
+        storage: storage::Storage::open(&registry_dir).unwrap(),
         root,
         hooks: vec![],
-        in_hook: std::sync::atomic::AtomicBool::new(false),
+        in_hook: Default::default(),
     }
+}
+
+// ── Raw file access ──────────────────────────────────────────────────────
+//
+// These bypass hooks, migration and the typed write path, so tests can seed
+// arbitrary (even corrupt) documents and inspect exactly what was persisted.
+// Writes go in the way git does (temp file + rename), so the index sees them
+// as external changes.
+
+/// Store raw `text` under `id`. It need not be valid JSON, and its embedded
+/// `id` need not match the key.
+fn write_raw(registry: &CodeUnitRegistry, id: &str, text: &str) {
+    registry.storage.put_raw_text(id, text).unwrap();
+}
+
+/// Store `value` (pretty-printed, as the library writes it) under `id`.
+fn write_raw_value(registry: &CodeUnitRegistry, id: &str, value: &serde_json::Value) {
+    write_raw(registry, id, &serde_json::to_string_pretty(value).unwrap());
+}
+
+/// Text of the file for `id`; panics if absent.
+fn read_raw_text(registry: &CodeUnitRegistry, id: &str) -> String {
+    let path = registry.storage.files().path_for(id);
+    fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+}
+
+/// The file for `id`, parsed as untyped JSON (no migration).
+fn read_raw_value(registry: &CodeUnitRegistry, id: &str) -> serde_json::Value {
+    serde_json::from_str(&read_raw_text(registry, id)).unwrap()
+}
+
+/// Whether a file is stored for `id`.
+fn stored(registry: &CodeUnitRegistry, id: &str) -> bool {
+    registry.storage.files().path_for(id).exists()
+}
+
+// ── Index observability ──────────────────────────────────────────────────
+
+/// Whether this process runs with the SQLite index (`SCAI_REGISTRY_INDEX`
+/// unset or not `off`/`0`/`false`). Read-only: tests never set env vars.
+fn index_enabled() -> bool {
+    !matches!(
+        std::env::var(storage::INDEX_ENV_VAR)
+            .map(|v| v.trim().to_ascii_lowercase())
+            .as_deref(),
+        Ok("off" | "0" | "false")
+    )
+}
+
+/// The registry's index directory (`registry/.index/`).
+fn index_dir(registry: &CodeUnitRegistry) -> std::path::PathBuf {
+    registry.storage.files().dir().join(storage::INDEX_DIR)
+}
+
+/// Run `f` and, when the index is enabled, assert the index served at least
+/// one of its reads — so an index-vs-files comparison can't pass vacuously.
+fn index_served<T>(registry: &CodeUnitRegistry, label: &str, f: impl FnOnce() -> T) -> T {
+    let before = registry.storage.index_reads();
+    let result = f();
+    if index_enabled() {
+        assert!(
+            registry.storage.index_reads() > before,
+            "{label}: expected the index to serve this read"
+        );
+    }
+    result
 }
 
 fn make_code_unit(id: &str, name: &str, object_type: CodeUnitObjectType) -> CodeUnit {
@@ -157,9 +224,26 @@ fn test_exists_before_and_after_init() {
 #[test]
 fn test_init_registry() {
     let dir = temp_dir();
-    let _registry = CodeUnitRegistry::init(dir.path()).unwrap();
-    assert!(dir.path().join("registry").exists());
-    assert!(dir.path().join("registry").join(".locks").exists());
+    let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+    let registry_dir = dir.path().join("registry");
+    assert!(registry_dir.exists());
+    assert!(registry_dir.join(".locks").exists());
+
+    let gitignore = fs::read_to_string(registry_dir.join(".gitignore")).unwrap();
+    assert!(gitignore.contains(".locks/"));
+
+    // The index is created on first use and ignores itself.
+    registry.find_all(FindOptions::default()).unwrap();
+    if index_enabled() {
+        let index_dir = registry_dir.join(storage::INDEX_DIR);
+        assert!(index_dir.is_dir(), "{} missing", index_dir.display());
+        let ignore = fs::read_to_string(index_dir.join(".gitignore")).unwrap();
+        assert!(ignore.lines().any(|line| line.trim() == "*"), "{ignore:?}");
+        // The project's own .gitignore is left alone.
+        let gitignore_after = fs::read_to_string(registry_dir.join(".gitignore")).unwrap();
+        assert_eq!(gitignore_after, gitignore);
+    }
+    drop(registry);
 }
 
 #[test]
@@ -178,7 +262,7 @@ fn test_id_to_path() {
 
     let id = "abcdef12-3456-7890-abcd-ef1234567890";
     let expected = dir.path().join("registry").join(format!("{}.json", id));
-    assert_eq!(registry.id_to_path(id), expected);
+    assert_eq!(registry.storage.files().path_for(id), expected);
 }
 
 #[test]
@@ -524,8 +608,10 @@ fn test_delete_syncs() {
     let mut cu = make_code_unit("id_del", "T", CodeUnitObjectType::Table);
     registry.create(&mut cu, None).unwrap();
 
+    assert!(stored(&registry, "id_del"));
+
     registry.delete("id_del").unwrap();
-    assert!(!registry.id_to_path("id_del").exists());
+    assert!(!stored(&registry, "id_del"));
 }
 
 #[test]
@@ -591,6 +677,8 @@ fn test_upsert_merges_existing() {
         Some("artifacts/dbo/Tables/Table1")
     );
 
+    // Close storage first: Windows refuses to delete an open SQLite database.
+    drop(registry);
     fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -958,9 +1046,7 @@ fn test_example_json_roundtrip_fidelity() {
     let mut code_unit: CodeUnit = serde_json::from_str(example).unwrap();
     let id = registry.create(&mut code_unit, None).unwrap();
 
-    let file_path = registry.id_to_path(&id);
-    let on_disk = fs::read_to_string(&file_path).unwrap();
-    let roundtripped: serde_json::Value = serde_json::from_str(&on_disk).unwrap();
+    let roundtripped = read_raw_value(&registry, &id);
 
     let mut original_norm = original.clone();
     let mut roundtripped_norm = roundtripped.clone();
@@ -1022,9 +1108,7 @@ fn test_etl_example_json_roundtrip_fidelity() {
     let mut code_unit: CodeUnit = serde_json::from_str(example).unwrap();
     let id = registry.create(&mut code_unit, None).unwrap();
 
-    let file_path = registry.id_to_path(&id);
-    let on_disk = fs::read_to_string(&file_path).unwrap();
-    let roundtripped: serde_json::Value = serde_json::from_str(&on_disk).unwrap();
+    let roundtripped = read_raw_value(&registry, &id);
 
     let mut original_norm = original.clone();
     let mut roundtripped_norm = roundtripped.clone();
@@ -1125,10 +1209,6 @@ fn test_loads_legacy_document_without_new_optional_fields() {
     let dir = temp_dir();
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
     let legacy_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-    let path = dir
-        .path()
-        .join("registry")
-        .join(format!("{legacy_id}.json"));
     let json = r#"{
   "schemaVersion": 1,
   "kind": "databaseObject",
@@ -1146,7 +1226,7 @@ fn test_loads_legacy_document_without_new_optional_fields() {
     "name": "P1"
   }
 }"#;
-    fs::write(&path, json).unwrap();
+    write_raw(&registry, legacy_id, json);
 
     let loaded = registry.get_by_id(legacy_id, None).unwrap();
     assert_eq!(
@@ -1451,9 +1531,11 @@ fn make_unit_with_deps(id: &str, dep_ids: &[&str]) -> CodeUnit {
     unit
 }
 
+/// Stored document under `id`, parsed the way the registry reads it
+/// (schema migration + path normalization) but without going through the
+/// query layer.
 fn read_unit(registry: &CodeUnitRegistry, id: &str) -> CodeUnit {
-    let path = registry.root().join("registry").join(format!("{id}.json"));
-    registry.read_json(&path).unwrap()
+    CodeUnitRegistry::parse_unit(&read_raw_text(registry, id)).unwrap()
 }
 
 #[test]
@@ -1555,14 +1637,13 @@ fn create_with_corrupt_sibling_succeeds_without_hooks() {
         .create(&mut make_unit_with_deps("good", &[]), None)
         .unwrap();
 
-    let corrupt_path = registry.root().join("registry").join("corrupt.json");
-    std::fs::write(&corrupt_path, "NOT VALID JSON").unwrap();
+    write_raw(&registry, "corrupt", "NOT VALID JSON");
 
     registry
         .create(&mut make_unit_with_deps("new_unit", &[]), None)
         .unwrap();
 
-    assert!(registry.id_to_path("new_unit").exists());
+    assert!(stored(&registry, "new_unit"));
 }
 
 #[test]
@@ -1570,8 +1651,7 @@ fn create_batch_with_corrupt_sibling_succeeds_without_hooks() {
     let dir = temp_dir();
     let registry = init_bare(dir.path());
 
-    let corrupt_path = registry.root().join("registry").join("corrupt.json");
-    std::fs::write(&corrupt_path, "NOT VALID JSON").unwrap();
+    write_raw(&registry, "corrupt", "NOT VALID JSON");
 
     let mut batch = vec![
         make_unit_with_deps("b1", &[]),
@@ -1682,11 +1762,12 @@ fn refresh_is_idempotent() {
 
 #[test]
 fn refresh_preserves_external_writes_in_load_to_write_window() {
-    // Contract: `write_json`'s read-modify-write is the defense against
-    // *uncooperating* writers (editors, scripts, git, IDEs) modifying
-    // `<id>.json` between `refresh_and_sync`'s load and its per-unit write.
-    // The advisory `acquire_lock` only coordinates cooperating registry
-    // instances; it does not stop external file writes.
+    // Contract: the persist path's read-modify-write is the defense against
+    // *uncooperating* writers (editors, scripts, git, IDEs, or a second
+    // storage handle) modifying a stored document between
+    // `refresh_and_sync`'s load and its per-unit write. The advisory
+    // `acquire_lock` only coordinates cooperating registry instances; it
+    // does not stop external writes.
     //
     // Any optimization that caches raw JSON at load time and reuses it at
     // write time MUST NOT regress this property. Forward-compat fields
@@ -1698,37 +1779,32 @@ fn refresh_preserves_external_writes_in_load_to_write_window() {
     let dir = temp_dir();
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
 
-    // Seed a unit directly on disk with no derived state — bypasses the
+    // Seed a unit directly in storage with no derived state — bypasses the
     // auto-refresh write-hook so refresh_dependencies will mark it dirty
     // and enter the per-unit write loop.
-    let path = registry.id_to_path("a");
     let initial = serde_json::json!({
         SCHEMA_VERSION_FIELD: CURRENT_SCHEMA_VERSION,
         "id": "a",
     });
-    fs::write(&path, serde_json::to_string_pretty(&initial).unwrap()).unwrap();
+    write_raw_value(&registry, "a", &initial);
 
     // Hook fires after load + graph refresh, before the first write.
-    // Simulates an uncooperating external writer that adds a forward-compat
-    // field unknown to the typed `CodeUnit`.
-    let inject_path = path.clone();
+    // Simulates an uncooperating external writer — a separately opened
+    // storage handle, as another process would have — that adds a
+    // forward-compat field unknown to the typed `CodeUnit`.
+    let root = dir.path().to_path_buf();
     set_after_load_hook(move || {
-        let mut current: serde_json::Value =
-            serde_json::from_str(&fs::read_to_string(&inject_path).unwrap()).unwrap();
+        let external = CodeUnitRegistry::open(&root).unwrap();
+        let mut current = read_raw_value(&external, "a");
         current["futureField"] = serde_json::json!("external-value");
-        fs::write(
-            &inject_path,
-            serde_json::to_string_pretty(&current).unwrap(),
-        )
-        .unwrap();
+        write_raw_value(&external, "a", &current);
     });
 
     let result = registry.refresh_dependencies();
     clear_after_load_hook();
     result.unwrap();
 
-    let final_value: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    let final_value = read_raw_value(&registry, "a");
     assert_eq!(
         final_value.get("futureField"),
         Some(&serde_json::json!("external-value")),
@@ -2958,7 +3034,7 @@ fn hook_error_aborts_create() {
     assert_eq!(err.error_code_i32(), 1007);
 
     assert!(
-        !registry.id_to_path("hf1").exists(),
+        !stored(&registry, "hf1"),
         "unit should NOT be written when hook aborts"
     );
 }
@@ -3069,7 +3145,7 @@ fn delete_hook_can_cancel_delete() {
     registry.delete("cd1").unwrap();
 
     assert!(
-        registry.id_to_path("cd1").exists(),
+        stored(&registry, "cd1"),
         "unit should still exist after hook cancelled delete"
     );
 }
@@ -4143,7 +4219,7 @@ fn validate_valid_registry() {
 fn validate_detects_invalid_json() {
     let dir = temp_dir();
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
-    fs::write(dir.path().join("registry/bad.json"), "not json{{{").unwrap();
+    write_raw(&registry, "bad", "not json{{{");
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(!report.is_valid);
     assert_eq!(report.files_checked, 1);
@@ -4185,11 +4261,7 @@ fn migrate_schema_all_future_version_reports_failure() {
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
 
     let doc = serde_json::json!({(SCHEMA_VERSION_FIELD): 999, "id": "future"});
-    fs::write(
-        dir.path().join("registry/future.json"),
-        serde_json::to_string_pretty(&doc).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "future", &doc);
 
     let result = registry.migrate_schema_all().unwrap();
     assert!(result.succeeded.is_empty());
@@ -4204,11 +4276,7 @@ fn migrate_schema_all_malformed_version_reports_failure() {
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
 
     let doc = serde_json::json!({(SCHEMA_VERSION_FIELD): "bad", "id": "broken"});
-    fs::write(
-        dir.path().join("registry/broken.json"),
-        serde_json::to_string_pretty(&doc).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "broken", &doc);
 
     let result = registry.migrate_schema_all().unwrap();
     assert!(result.succeeded.is_empty());
@@ -4222,7 +4290,7 @@ fn migrate_schema_all_invalid_json_reports_failure() {
     let dir = temp_dir();
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
 
-    fs::write(dir.path().join("registry/garbage.json"), "not json{{{").unwrap();
+    write_raw(&registry, "garbage", "not json{{{");
 
     let result = registry.migrate_schema_all().unwrap();
     assert!(result.succeeded.is_empty());
@@ -4240,11 +4308,7 @@ fn migrate_schema_all_partial_failure_isolates_errors() {
     registry.create(&mut good, None).unwrap();
 
     let bad_doc = serde_json::json!({(SCHEMA_VERSION_FIELD): 999, "id": "bad-1"});
-    fs::write(
-        dir.path().join("registry/bad-1.json"),
-        serde_json::to_string_pretty(&bad_doc).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "bad-1", &bad_doc);
 
     let result = registry.migrate_schema_all().unwrap();
     assert_eq!(result.failed.len(), 1);
@@ -4262,11 +4326,7 @@ fn validate_rejects_future_schema_version() {
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
 
     let doc = serde_json::json!({ (SCHEMA_VERSION_FIELD): 9999 });
-    fs::write(
-        dir.path().join("registry/future.json"),
-        serde_json::to_string_pretty(&doc).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "future", &doc);
 
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(!report.is_valid);
@@ -4284,11 +4344,7 @@ fn validate_rejects_malformed_schema_version() {
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
 
     let doc = serde_json::json!({ (SCHEMA_VERSION_FIELD): "bad" });
-    fs::write(
-        dir.path().join("registry/bad-version.json"),
-        serde_json::to_string_pretty(&doc).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "bad-version", &doc);
 
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(!report.is_valid);
@@ -4306,11 +4362,7 @@ fn validate_detects_schema_violation() {
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
 
     let doc = serde_json::json!({ (SCHEMA_VERSION_FIELD): 1, "isMissing": "not-a-bool" });
-    fs::write(
-        dir.path().join("registry/bad-type.json"),
-        serde_json::to_string_pretty(&doc).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "bad-type", &doc);
 
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(!report.is_valid);
@@ -4336,11 +4388,7 @@ fn validate_allows_root_issues_on_etl() {
         "files": { "source": { "path": "source/_etl/Package.dtsx" } },
         "issues": [{ "code": "X", "severity": "low", "count": 1 }],
     });
-    fs::write(
-        dir.path().join("registry/etl-with-root-issues.json"),
-        serde_json::to_string_pretty(&doc).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "etl-with-root-issues", &doc);
 
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(
@@ -4390,11 +4438,7 @@ fn validate_rejects_unknown_platform_and_format_values() {
             }
         }
     });
-    fs::write(
-        dir.path().join("registry/bad-platform-format.json"),
-        serde_json::to_string_pretty(&doc).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "bad-platform-format", &doc);
 
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(!report.is_valid);
@@ -4426,11 +4470,7 @@ fn validate_detects_id_filename_mismatch() {
     let dir = temp_dir();
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
     let unit = serde_json::json!({ "id": "wrong-id" });
-    fs::write(
-        dir.path().join("registry/correct-name.json"),
-        serde_json::to_string_pretty(&unit).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "correct-name", &unit);
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(!report.is_valid);
     assert!(report
@@ -4445,16 +4485,8 @@ fn validate_detects_duplicate_ids() {
     let registry = init_bare(dir.path());
     let unit_a = serde_json::json!({ "id": "dup" });
     let unit_b = serde_json::json!({ "id": "dup" });
-    fs::write(
-        dir.path().join("registry/dup.json"),
-        serde_json::to_string_pretty(&unit_a).unwrap(),
-    )
-    .unwrap();
-    fs::write(
-        dir.path().join("registry/dup2.json"),
-        serde_json::to_string_pretty(&unit_b).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "dup", &unit_a);
+    write_raw_value(&registry, "dup2", &unit_b);
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(!report.is_valid);
     let dup_issues: Vec<_> = report
@@ -4509,8 +4541,8 @@ fn validate_unit_not_found() {
 fn validate_collects_multiple_issues() {
     let dir = temp_dir();
     let registry = init_bare(dir.path());
-    fs::write(dir.path().join("registry/bad1.json"), "not-json").unwrap();
-    fs::write(dir.path().join("registry/bad2.json"), "also-bad").unwrap();
+    write_raw(&registry, "bad1", "not-json");
+    write_raw(&registry, "bad2", "also-bad");
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(!report.is_valid);
     assert_eq!(report.files_checked, 2);
@@ -4531,11 +4563,7 @@ fn validate_detects_missing_id() {
         "source": { "objectType": "table", "database": "DB", "schema": "dbo", "name": "T" },
         "target": { "objectType": "table", "database": "DB", "schema": "DBO", "name": "T" }
     });
-    fs::write(
-        dir.path().join("registry/no-id-unit.json"),
-        serde_json::to_string_pretty(&unit_without_id).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "no-id-unit", &unit_without_id);
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(!report.is_valid);
     assert!(
@@ -4636,12 +4664,7 @@ fn read_normalizes_backslash_paths_on_disk() {
             "source": { "path": "source\\Sales\\file.sql" }
         }
     });
-    let registry_dir = dir.path().join("registry");
-    fs::write(
-        registry_dir.join("pn2.json"),
-        serde_json::to_string_pretty(&raw_json).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "pn2", &raw_json);
 
     let loaded = registry.get_by_id("pn2", None).unwrap();
     assert_eq!(
@@ -4687,12 +4710,7 @@ fn validate_reports_non_canonical_paths() {
             "source": { "path": "source\\Sales\\file.sql" }
         }
     });
-    let registry_dir = dir.path().join("registry");
-    fs::write(
-        registry_dir.join("pn4.json"),
-        serde_json::to_string_pretty(&raw_json).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "pn4", &raw_json);
 
     let report = registry.validate(ChecksumMode::NONE).unwrap();
     assert!(
@@ -4763,7 +4781,7 @@ fn test_registry_aware_failing(_ctx: &mut SchemaMigrationContext) -> crate::erro
     .fail()
 }
 
-/// Write a minimal JSON document at the given schema version.
+/// Store a minimal JSON document at the given schema version.
 fn write_test_doc(registry: &CodeUnitRegistry, id: &str, version: i64) {
     let doc = serde_json::json!({
         (SCHEMA_VERSION_FIELD): version,
@@ -4772,14 +4790,7 @@ fn write_test_doc(registry: &CodeUnitRegistry, id: &str, version: i64) {
         "source": {"objectType": "table", "name": id},
         "target": {"objectType": "table", "name": id}
     });
-    let path = registry.id_to_path(id);
-    fs::write(&path, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
-}
-
-/// Read raw JSON from disk (bypasses registry read APIs).
-fn read_raw_doc(registry: &CodeUnitRegistry, id: &str) -> serde_json::Value {
-    let path = registry.id_to_path(id);
-    serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap()
+    write_raw_value(registry, id, &doc);
 }
 
 #[test]
@@ -4800,11 +4811,11 @@ fn test_migrate_schema_all_with_registry_aware_step() {
     assert_eq!(result.succeeded.len(), 2);
     assert!(result.failed.is_empty());
 
-    let doc1 = read_raw_doc(&registry, "ra-1");
+    let doc1 = read_raw_value(&registry, "ra-1");
     assert_eq!(doc1[SCHEMA_VERSION_FIELD], 2);
     assert_eq!(doc1["peerCount"], 2);
 
-    let doc2 = read_raw_doc(&registry, "ra-2");
+    let doc2 = read_raw_value(&registry, "ra-2");
     assert_eq!(doc2[SCHEMA_VERSION_FIELD], 2);
     assert_eq!(doc2["peerCount"], 2);
 }
@@ -4827,14 +4838,14 @@ fn test_migrate_schema_all_registry_aware_can_read_non_target_documents() {
     assert_eq!(result.succeeded.len(), 1);
     assert!(result.failed.is_empty());
 
-    let target = read_raw_doc(&registry, "target-1");
+    let target = read_raw_value(&registry, "target-1");
     assert_eq!(target[SCHEMA_VERSION_FIELD], 2);
     assert_eq!(
         target["peerCount"], 2,
         "should see total count including non-target"
     );
 
-    let non_target = read_raw_doc(&registry, "already-v2");
+    let non_target = read_raw_value(&registry, "already-v2");
     assert_eq!(
         non_target[SCHEMA_VERSION_FIELD], 2,
         "non-target version unchanged"
@@ -4875,12 +4886,12 @@ fn test_migrate_schema_all_registry_aware_failure_is_all_or_nothing() {
         "no prior failures in this test"
     );
 
-    let doc1 = read_raw_doc(&registry, "aon-1");
+    let doc1 = read_raw_value(&registry, "aon-1");
     assert_eq!(
         doc1[SCHEMA_VERSION_FIELD], 1,
-        "on failure, documents must not be modified on disk"
+        "on failure, documents must not be modified in storage"
     );
-    let doc2 = read_raw_doc(&registry, "aon-2");
+    let doc2 = read_raw_value(&registry, "aon-2");
     assert_eq!(doc2[SCHEMA_VERSION_FIELD], 1);
 }
 
@@ -4892,11 +4903,7 @@ fn test_migrate_schema_all_registry_aware_failure_includes_prior_failures() {
     write_test_doc(&registry, "prior-good", 1);
     // Invalid JSON triggers a load-time failure recorded in BatchResult
     // *before* the registry-aware step runs.
-    fs::write(
-        dir.path().join("registry/prior-bad.json"),
-        "not valid json{{{",
-    )
-    .unwrap();
+    write_raw(&registry, "prior-bad", "not valid json{{{");
 
     let steps: &[(i64, SchemaMigrationStep)] = &[(
         1,
@@ -4944,7 +4951,7 @@ fn test_migrate_schema_all_mixed_chain() {
     assert_eq!(result.succeeded.len(), 2);
     assert!(result.failed.is_empty());
 
-    let doc1 = read_raw_doc(&registry, "mix-1");
+    let doc1 = read_raw_value(&registry, "mix-1");
     assert_eq!(doc1[SCHEMA_VERSION_FIELD], 3);
     assert_eq!(doc1["addedInV2"], "hello");
     assert!(
@@ -4952,7 +4959,7 @@ fn test_migrate_schema_all_mixed_chain() {
         "registry-aware step should have run"
     );
 
-    let doc2 = read_raw_doc(&registry, "mix-2");
+    let doc2 = read_raw_value(&registry, "mix-2");
     assert_eq!(doc2[SCHEMA_VERSION_FIELD], 3);
     assert_eq!(doc2["addedInV2"], "hello");
 }
@@ -4963,11 +4970,7 @@ fn test_migrate_schema_all_records_each_failed_document_once() {
     let registry = init_bare(dir.path());
 
     let future_doc = serde_json::json!({(SCHEMA_VERSION_FIELD): 999, "id": "future-dedup"});
-    fs::write(
-        dir.path().join("registry/future-dedup.json"),
-        serde_json::to_string_pretty(&future_doc).unwrap(),
-    )
-    .unwrap();
+    write_raw_value(&registry, "future-dedup", &future_doc);
     write_test_doc(&registry, "good-dedup", 1);
 
     let steps: &[(i64, SchemaMigrationStep)] = &[(
@@ -5010,7 +5013,7 @@ fn test_migrate_schema_all_registry_aware_preserves_doc_count() {
     assert!(result.failed.is_empty());
 
     for id in &["count-1", "count-2", "count-3"] {
-        let doc = read_raw_doc(&registry, id);
+        let doc = read_raw_value(&registry, id);
         assert_eq!(doc[SCHEMA_VERSION_FIELD], 2);
         assert_eq!(doc["peerCount"], 3);
     }
@@ -5047,10 +5050,10 @@ fn test_migrate_schema_all_registry_aware_failure_restores_docs() {
         .unwrap_err();
     assert_eq!(err.error_code_i32(), 1021);
 
-    let doc1 = read_raw_doc(&registry, "restore-1");
+    let doc1 = read_raw_value(&registry, "restore-1");
     assert!(
         doc1.get("shouldNotPersist").is_none(),
-        "on-disk documents must not reflect in-memory mutations from a failed step"
+        "stored documents must not reflect in-memory mutations from a failed step"
     );
     assert_eq!(doc1[SCHEMA_VERSION_FIELD], 1);
 }
@@ -5070,7 +5073,7 @@ fn test_migrate_schema_all_per_file_only_short_circuit() {
     assert_eq!(result.succeeded.len(), 1);
     assert!(result.failed.is_empty());
 
-    let doc = read_raw_doc(&registry, "pf-1");
+    let doc = read_raw_value(&registry, "pf-1");
     assert_eq!(doc[SCHEMA_VERSION_FIELD], 2);
     assert_eq!(doc["addedInV2"], "hello");
 }
@@ -5085,13 +5088,11 @@ fn test_unknown_fields_preserved_through_update() {
     let mut cu = make_code_unit("preserve-001", "T1", CodeUnitObjectType::Table);
     registry.create(&mut cu, None).unwrap();
 
-    let file_path = registry.id_to_path("preserve-001");
-    let mut raw: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&file_path).unwrap()).unwrap();
+    let mut raw = read_raw_value(&registry, "preserve-001");
     raw["futureField"] = serde_json::json!("preserved_value");
     raw["futureObject"] = serde_json::json!({"nested": true, "count": 42});
     raw["source"]["futureSourceField"] = serde_json::json!("nested_preserved");
-    fs::write(&file_path, serde_json::to_string_pretty(&raw).unwrap()).unwrap();
+    write_raw_value(&registry, "preserve-001", &raw);
 
     registry
         .update(
@@ -5101,8 +5102,7 @@ fn test_unknown_fields_preserved_through_update() {
         )
         .unwrap();
 
-    let on_disk: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&file_path).unwrap()).unwrap();
+    let on_disk = read_raw_value(&registry, "preserve-001");
     assert_eq!(on_disk["futureField"], "preserved_value");
     assert_eq!(on_disk["futureObject"]["nested"], true);
     assert_eq!(on_disk["futureObject"]["count"], 42);
@@ -5118,11 +5118,9 @@ fn test_unknown_fields_preserved_through_upsert() {
     let mut cu = make_code_unit("preserve-002", "T2", CodeUnitObjectType::Table);
     registry.create(&mut cu, None).unwrap();
 
-    let file_path = registry.id_to_path("preserve-002");
-    let mut raw: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&file_path).unwrap()).unwrap();
+    let mut raw = read_raw_value(&registry, "preserve-002");
     raw["futureField"] = serde_json::json!("keep_me");
-    fs::write(&file_path, serde_json::to_string_pretty(&raw).unwrap()).unwrap();
+    write_raw_value(&registry, "preserve-002", &raw);
 
     let mut patch = CodeUnit {
         id: Some("preserve-002".to_string()),
@@ -5134,8 +5132,7 @@ fn test_unknown_fields_preserved_through_upsert() {
     };
     registry.upsert(&mut patch, None).unwrap();
 
-    let on_disk: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&file_path).unwrap()).unwrap();
+    let on_disk = read_raw_value(&registry, "preserve-002");
     assert_eq!(on_disk["futureField"], "keep_me");
     assert_eq!(on_disk["source"]["name"], "MergedName");
 }
@@ -5148,18 +5145,15 @@ fn test_unknown_fields_preserved_through_dependency_refresh() {
     let mut dep = make_code_unit("dep-target", "DepTarget", CodeUnitObjectType::Table);
     registry.create(&mut dep, None).unwrap();
 
-    let dep_path = registry.id_to_path("dep-target");
-    let mut raw: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&dep_path).unwrap()).unwrap();
+    let mut raw = read_raw_value(&registry, "dep-target");
     raw["futureDepField"] = serde_json::json!("dep_preserved");
-    fs::write(&dep_path, serde_json::to_string_pretty(&raw).unwrap()).unwrap();
+    write_raw_value(&registry, "dep-target", &raw);
 
     let mut dependent = make_code_unit("dep-source", "DepSource", CodeUnitObjectType::View);
     set_dependency_ids(&mut dependent, &["dep-target"]);
     registry.create(&mut dependent, None).unwrap();
 
-    let on_disk: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&dep_path).unwrap()).unwrap();
+    let on_disk = read_raw_value(&registry, "dep-target");
     assert_eq!(on_disk["futureDepField"], "dep_preserved");
 }
 
@@ -5171,12 +5165,10 @@ fn test_unknown_fields_preserved_through_hooks() {
     let mut cu = make_code_unit("preserve-hooks", "HookTest", CodeUnitObjectType::Table);
     registry.create(&mut cu, None).unwrap();
 
-    let file_path = registry.id_to_path("preserve-hooks");
-    let mut raw: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&file_path).unwrap()).unwrap();
+    let mut raw = read_raw_value(&registry, "preserve-hooks");
     raw["futureHookField"] = serde_json::json!({"nested": "value"});
     raw["codeStatus"]["futurePhase"] = serde_json::json!({"status": "testing"});
-    fs::write(&file_path, serde_json::to_string_pretty(&raw).unwrap()).unwrap();
+    write_raw_value(&registry, "preserve-hooks", &raw);
 
     registry
         .update(
@@ -5189,8 +5181,7 @@ fn test_unknown_fields_preserved_through_hooks() {
         )
         .unwrap();
 
-    let on_disk: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&file_path).unwrap()).unwrap();
+    let on_disk = read_raw_value(&registry, "preserve-hooks");
     assert_eq!(on_disk["futureHookField"]["nested"], "value");
     assert_eq!(on_disk["codeStatus"]["futurePhase"]["status"], "testing");
     assert_eq!(on_disk["codeStatus"]["registration"]["status"], "completed");
@@ -5204,30 +5195,34 @@ fn test_unknown_fields_preserved_through_migrate_schema_all() {
     let mut cu = make_code_unit("preserve-migrate", "MigTest", CodeUnitObjectType::Table);
     registry.create(&mut cu, None).unwrap();
 
-    let file_path = registry.id_to_path("preserve-migrate");
-    let mut raw: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&file_path).unwrap()).unwrap();
+    let mut raw = read_raw_value(&registry, "preserve-migrate");
     raw["futureFieldFromNewerSchema"] = serde_json::json!("should_survive_migration");
     raw["source"]["futureNested"] = serde_json::json!(42);
-    fs::write(&file_path, serde_json::to_string_pretty(&raw).unwrap()).unwrap();
+    write_raw_value(&registry, "preserve-migrate", &raw);
 
     // migrate_schema_all is a no-op at schema v1 (no migrations exist yet),
     // so also exercise the write path that migrate_schema_file uses when a
-    // real migration runs: read → mutate → validate → write_json_inner.
+    // real migration runs: read → mutate → validate → storage put of the
+    // migrated value as-is (see `write_changed_schema_docs`).
     let result = registry.migrate_schema_all().unwrap();
     assert!(result.failed.is_empty());
 
-    let mut migrated =
-        serde_json::from_str::<serde_json::Value>(&fs::read_to_string(&file_path).unwrap())
-            .unwrap();
+    let mut migrated = read_raw_value(&registry, "preserve-migrate");
     migrated["source"]["name"] = serde_json::json!("MigratedName");
     let _validated: CodeUnit = serde_json::from_value(migrated.clone()).unwrap();
-    registry
-        .write_json_inner(&file_path, &migrated, false, false)
-        .unwrap();
+    let lock = registry.acquire_lock().unwrap();
+    let outcomes = registry.storage.write_batch(
+        &lock,
+        &[storage::StorageWrite::Put {
+            id: "preserve-migrate",
+            value: &migrated,
+        }],
+        false,
+    );
+    assert_eq!(outcomes.len(), 1);
+    outcomes.into_iter().for_each(|outcome| outcome.unwrap());
 
-    let on_disk: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&file_path).unwrap()).unwrap();
+    let on_disk = read_raw_value(&registry, "preserve-migrate");
     assert_eq!(
         on_disk["futureFieldFromNewerSchema"],
         "should_survive_migration"
@@ -5244,9 +5239,7 @@ fn test_create_does_not_introduce_phantom_fields() {
     let mut cu = make_code_unit("phantom-check", "PC", CodeUnitObjectType::Table);
     let id = registry.create(&mut cu, None).unwrap();
 
-    let file_path = registry.id_to_path(&id);
-    let on_disk: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&file_path).unwrap()).unwrap();
+    let on_disk = read_raw_value(&registry, &id);
 
     let loaded = registry.get_by_id(&id, None).unwrap();
     let from_struct = serde_json::to_value(&loaded).unwrap();
@@ -5374,7 +5367,10 @@ fn canonical_name_updated_on_update() {
     );
 }
 
-fn make_etl_code_unit(id: &str, parts_config: Vec<(&str, &str, Vec<(&str, &[&str])>)>) -> CodeUnit {
+/// `(part_id, target_format, [(dep_id, relation_types)])` for [`make_etl_code_unit`].
+type EtlPartConfig<'a> = (&'a str, &'a str, Vec<(&'a str, &'a [&'a str])>);
+
+fn make_etl_code_unit(id: &str, parts_config: Vec<EtlPartConfig<'_>>) -> CodeUnit {
     let parts = parts_config
         .into_iter()
         .map(|(part_id, target_format, deps)| Part {
@@ -5924,12 +5920,6 @@ mod script_bindings_tests {
         );
     }
 
-    /// A `database-bindings.yml` drives `find_all` end to end.
-    ///
-    /// This is the whole point of `database_bindings`: the caller supplies the file
-    /// SnowConvert generated, not a hand-wrapped token map, and the read returns
-    /// physical names.
-    #[test]
     /// A bindings file whose key case differs from the case the conversion wrote
     /// must still resolve, end to end through `find_all` — not merely produce a
     /// map containing the right keys.
@@ -5992,6 +5982,12 @@ mod script_bindings_tests {
         );
     }
 
+    /// A `database-bindings.yml` drives `find_all` end to end.
+    ///
+    /// This is the whole point of `database_bindings`: the caller supplies the file
+    /// SnowConvert generated, not a hand-wrapped token map, and the read returns
+    /// physical names.
+    ///
     /// The caller passes a *path* and gets bound units — no parsing, no token map,
     /// and both sides resolved in one read.
     #[test]
@@ -6705,7 +6701,6 @@ mod script_bindings_tests {
                             .unwrap()
                             .with_timezone(&chrono::Utc),
                     ),
-                    ..Default::default()
                 }),
                 ..Default::default()
             }),
@@ -6785,7 +6780,6 @@ mod script_bindings_tests {
                             .unwrap()
                             .with_timezone(&chrono::Utc),
                     ),
-                    ..Default::default()
                 }),
                 ..Default::default()
             }),
@@ -7013,4 +7007,2095 @@ mod custom_kind_e2e_tests {
             report.issues
         );
     }
+}
+
+// ── Filter pushdown differential tests ───────────────────────────────────
+//
+// Pushdown may only change *how many* documents are loaded, never the
+// result: every query below must return exactly what a full load returns.
+
+/// Regular documents spanning every indexed field's value shapes: absent
+/// fields, numeric-looking strings, `inScope` absent (defaults to true).
+fn seed_pushdown_registry(registry: &CodeUnitRegistry) {
+    let types = [
+        CodeUnitObjectType::Table,
+        CodeUnitObjectType::View,
+        CodeUnitObjectType::Procedure,
+    ];
+    let databases = [
+        Some("DB"),
+        Some("01"),
+        Some("1"),
+        Some("true"),
+        Some(""),
+        None,
+    ];
+    let schemas = [Some("dbo"), Some("SALES"), Some("1e3"), None];
+    let waves = [None, Some(0), Some(1), Some(2), Some(3), Some(10), Some(-1)];
+    let mut batch = Vec::new();
+    for i in 0..120usize {
+        let id = if i % 40 == 7 {
+            i.to_string()
+        } else {
+            format!("unit-{i:03}")
+        };
+        let mut unit = make_code_unit(&id, &format!("OBJ_{i}"), types[i % types.len()]);
+        let source = unit.source.as_mut().unwrap();
+        source.database = databases[i % databases.len()].map(str::to_string);
+        source.schema = schemas[(i / 2) % schemas.len()].map(str::to_string);
+        let target = unit.target.as_mut().unwrap();
+        target.object_type = Some(types[(i + 1) % types.len()]);
+        target.database = databases[(i / 3) % databases.len()].map(str::to_string);
+        target.schema = schemas[(i / 5) % schemas.len()].map(str::to_string);
+        unit.in_scope = i % 3 != 0;
+        if let Some(wave) = waves[i % waves.len()] {
+            unit.planning.get_or_insert_with(Default::default).wave = Some(wave);
+        }
+        batch.push(unit);
+    }
+    let result = registry.create_batch(&mut batch, None).unwrap();
+    assert!(result.failed.is_empty(), "{:?}", result.failed);
+    // Stored without `inScope` at all: serde materializes `true` on read.
+    let mut raw = read_raw_value(registry, "unit-001");
+    raw.as_object_mut().unwrap().remove("inScope");
+    write_raw_value(registry, "unit-001", &raw);
+}
+
+const PUSHDOWN_FILTERS: &[&str] = &[
+    "id = 'unit-005'",
+    "id IN ('unit-001', 'unit-002', 'unit-119', 'nope')",
+    "id = '7'",
+    "id = 7",
+    "id IN ('7', 'unit-047')",
+    "source.objectType = 'procedure'",
+    "target.objectType IN ('table', 'view')",
+    "source.database = 'DB'",
+    "source.database = '1'",
+    "source.database = 1",
+    "source.database IN ('01', '1')",
+    "source.database = 'true'",
+    "source.database = ''",
+    "source.database IS NULL",
+    "source.database IS NOT NULL",
+    "source.database = 'DB' AND source.schema = 'dbo'",
+    "target.database = 'DB' AND target.schema IN ('SALES', '1e3')",
+    "source.schema = '1e3'",
+    "source.schema = 1000",
+    "planning.wave = 2",
+    "planning.wave = '2'",
+    "planning.wave = 2.0",
+    "planning.wave IN (1, 3)",
+    "planning.wave IN ('1', '3.0')",
+    "planning.wave > 1",
+    "planning.wave >= 0 AND planning.wave < 3",
+    "planning.wave BETWEEN 1 AND 3",
+    "planning.wave IS NULL",
+    "planning.wave <> 2",
+    "inScope",
+    "inScope = true",
+    "inScope = false",
+    "inScope = 1",
+    "inScope = 'true'",
+    "NOT inScope",
+    "inScope IS TRUE",
+    "inScope IS FALSE",
+    "inScope AND planning.wave BETWEEN 1 AND 3",
+    "inScope = false OR planning.wave = 10",
+    "(id = 'unit-003') OR (source.schema = 'dbo' AND source.name = 'OBJ_8')",
+    "source.objectType = 'table' AND source.name LIKE 'OBJ_1%'",
+    "source.name LIKE 'OBJ_1%'",
+    "NOT (source.objectType = 'table')",
+    "source.objectType <> 'table'",
+    "source.objectType NOT IN ('table')",
+    "kind = 'databaseObject' AND source.objectType = 'view'",
+];
+
+fn sorted_values(units: Vec<CodeUnit>) -> Vec<serde_json::Value> {
+    let mut values: Vec<serde_json::Value> = units
+        .iter()
+        .map(|u| serde_json::to_value(u).unwrap())
+        .collect();
+    // By id, then by content: projections without `id` still compare as
+    // multisets, independent of the order documents were loaded in.
+    values.sort_by_cached_key(|v| (v["id"].as_str().map(str::to_string), v.to_string()));
+    values
+}
+
+#[test]
+fn pushdown_find_all_matches_full_load() {
+    let dir = temp_dir();
+    let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+    seed_pushdown_registry(&registry);
+
+    let fields: &[&str] = &["id", "source", "planning", "inScope"];
+    for filter in PUSHDOWN_FILTERS {
+        for projection in [None, Some(fields)] {
+            let options = FindOptions {
+                filter: Some(filter),
+                fields: projection,
+                ..FindOptions::default()
+            };
+            let label = format!("filter {filter:?}, fields {projection:?}");
+            let pushed = sorted_values(
+                index_served(&registry, &label, || registry.find_all(options)).unwrap(),
+            );
+            let full =
+                sorted_values(test_hooks::without_index(|| registry.find_all(options)).unwrap());
+            assert_eq!(pushed, full, "{label}");
+        }
+    }
+}
+
+#[test]
+fn pushdown_find_by_object_matches_full_load() {
+    let dir = temp_dir();
+    let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+    seed_pushdown_registry(&registry);
+
+    let partials = [
+        serde_json::json!({ "id": "unit-010" }),
+        serde_json::json!({ "source": { "objectType": "view" } }),
+        serde_json::json!({ "source": { "database": "1", "schema": "dbo" } }),
+        serde_json::json!({ "source": { "database": 1 } }),
+        serde_json::json!({ "inScope": true }),
+        serde_json::json!({ "inScope": false, "planning": { "wave": 3 } }),
+        serde_json::json!({ "planning": { "wave": 2.0 } }),
+        serde_json::json!({ "planning": { "wave": null } }),
+        serde_json::json!({ "target": { "objectType": "table", "name": "OBJ_4" } }),
+    ];
+    for partial in &partials {
+        let label = format!("partial {partial}");
+        let pushed = sorted_values(
+            index_served(&registry, &label, || registry.find_by_object(partial, None)).unwrap(),
+        );
+        let full = sorted_values(
+            test_hooks::without_index(|| registry.find_by_object(partial, None)).unwrap(),
+        );
+        assert_eq!(pushed, full, "{label}");
+    }
+}
+
+#[test]
+fn pushdown_update_where_and_sql_changes_match_full_load() {
+    let dir = temp_dir();
+    let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+    seed_pushdown_registry(&registry);
+
+    for filter in ["inScope AND planning.wave = 2", "source.database = '01'"] {
+        let pushed = index_served(&registry, filter, || {
+            registry.find_sql_file_changes(ChecksumMode::default(), Some(filter))
+        })
+        .unwrap();
+        let full = test_hooks::without_index(|| {
+            registry.find_sql_file_changes(ChecksumMode::default(), Some(filter))
+        })
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(&pushed).unwrap(),
+            serde_json::to_value(&full).unwrap(),
+            "filter {filter:?}"
+        );
+    }
+
+    let filter = "source.objectType = 'view' AND inScope";
+    let expected: Vec<String> = test_hooks::without_index(|| {
+        registry.find_all(FindOptions {
+            filter: Some(filter),
+            ..FindOptions::default()
+        })
+    })
+    .unwrap()
+    .into_iter()
+    .filter_map(|u| u.id)
+    .collect();
+    let result = index_served(&registry, filter, || {
+        registry.update_where(
+            filter,
+            &[("source.name", serde_json::json!("RENAMED"))],
+            None,
+        )
+    })
+    .unwrap();
+    assert!(result.failed.is_empty(), "{:?}", result.failed);
+    let mut updated = result.succeeded.clone();
+    updated.retain(|id| expected.contains(id));
+    updated.sort();
+    let mut expected = expected;
+    expected.sort();
+    assert_eq!(updated, expected);
+}
+
+/// Irregular documents are always candidates, so a corrupt document still
+/// fails a selective filtered read exactly like a full load does.
+#[test]
+fn pushdown_keeps_strict_loading_for_irregular_documents() {
+    let corruptions: [(&str, &str); 4] = [
+        ("corrupt", "NOT VALID JSON"),
+        (
+            "wrong-type",
+            r#"{"id":"wrong-type","source":{"database":5}}"#,
+        ),
+        ("future", r#"{"id":"future","schemaVersion":999}"#),
+        ("mismatch", r#"{"id":"someone-else"}"#),
+    ];
+    for (key, text) in corruptions {
+        let dir = temp_dir();
+        let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+        seed_pushdown_registry(&registry);
+        write_raw(&registry, key, text);
+
+        for filter in [
+            "id = 'unit-005'",
+            "source.database = 'DB'",
+            "planning.wave = 2",
+        ] {
+            let options = FindOptions {
+                filter: Some(filter),
+                ..FindOptions::default()
+            };
+            let label = format!("{key}: filter {filter:?}");
+            let pushed = index_served(&registry, &label, || registry.find_all(options))
+                .map(|_| ())
+                .map_err(|e| e.error_code());
+            let full = test_hooks::without_index(|| registry.find_all(options))
+                .map(|_| ())
+                .map_err(|e| e.error_code());
+            assert!(full.is_err(), "{key}: full load should reject the document");
+            assert_eq!(pushed, full, "{label}");
+        }
+    }
+}
+
+#[test]
+fn pushdown_include_dependencies_matches_full_load() {
+    let dir = temp_dir();
+    let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+    // a → b → c → d, e → (dangling), x ↔ y (cycle), p → {a, x}, q (isolated).
+    let edges: &[(&str, &[&str])] = &[
+        ("a", &["b"]),
+        ("b", &["c"]),
+        ("c", &["d"]),
+        ("d", &[]),
+        ("e", &["does-not-exist"]),
+        ("x", &["y"]),
+        ("y", &["x"]),
+        ("p", &["a", "x"]),
+        ("q", &[]),
+    ];
+    let mut batch: Vec<CodeUnit> = edges
+        .iter()
+        .map(|(id, deps)| {
+            let mut unit = make_code_unit(id, &id.to_uppercase(), CodeUnitObjectType::View);
+            set_dependency_ids(&mut unit, deps);
+            unit
+        })
+        .collect();
+    let result = registry.create_batch(&mut batch, None).unwrap();
+    assert!(result.failed.is_empty(), "{:?}", result.failed);
+
+    let filters = [
+        "id = 'a'",
+        "id = 'c'",
+        "id IN ('e', 'x')",
+        "id = 'p'",
+        "id = 'q'",
+        "id = 'nope'",
+        "source.name = 'B'",
+        "source.name LIKE 'P%'",
+    ];
+    for filter in filters {
+        let options = FindOptions {
+            filter: Some(filter),
+            include_dependencies: true,
+            ..FindOptions::default()
+        };
+        let label = format!("filter {filter:?}");
+        let pushed =
+            sorted_values(index_served(&registry, &label, || registry.find_all(options)).unwrap());
+        let full = sorted_values(test_hooks::without_index(|| registry.find_all(options)).unwrap());
+        assert_eq!(pushed, full, "{label}");
+    }
+}
+
+/// Guards against pushdown silently degrading to full loads: production
+/// filter shapes must be served by indexes and load only their candidates.
+#[test]
+fn pushdown_serves_production_filters_from_indexes() {
+    if !index_enabled() {
+        return; // Nothing to push down to: every read comes from the files.
+    }
+    let dir = temp_dir();
+    let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+    seed_pushdown_registry(&registry);
+    let total = registry.storage.file_ids().unwrap().len();
+
+    let cases: &[(&str, usize)] = &[
+        ("id = 'unit-005'", 1),
+        ("id IN ('unit-001', 'unit-002', 'unit-119')", 3),
+        (
+            "inScope = true AND isMissing = false AND planning.wave = 2",
+            20,
+        ),
+        ("kind = 'etl'", 0),
+        ("source.objectType = 'procedure'", 40),
+        (
+            "(source.canonicalName = 'nope' OR (source.schema = 'dbo' AND source.name = 'OBJ_8'))",
+            1,
+        ),
+    ];
+    for (filter, max_candidates) in cases {
+        let prefilter = pushdown::from_filter(&Filter::parse(filter).unwrap())
+            .unwrap_or_else(|| panic!("{filter:?} did not translate"));
+        let candidates = index_served(&registry, filter, || {
+            registry
+                .storage
+                .load_candidates(&prefilter, |key, _| key.to_string())
+        })
+        .unwrap()
+        .unwrap_or_else(|| panic!("{filter:?} fell back to a full scan"));
+        assert!(
+            candidates.len() <= *max_candidates && candidates.len() < total,
+            "{filter:?}: {} candidates of {total}",
+            candidates.len()
+        );
+    }
+}
+
+/// Review repro: a sibling document with an enum value serde rejects makes
+/// every filtered read fail, as it does when reading the files — even a
+/// filter the sibling cannot match.
+#[test]
+fn pushdown_invalid_enum_sibling_fails_filtered_reads_like_a_full_load() {
+    let dir = temp_dir();
+    let registry = init_bare(dir.path());
+    write_raw(
+        &registry,
+        "good",
+        r#"{"id":"good","kind":"databaseObject"}"#,
+    );
+    write_raw(&registry, "bad", r#"{"id":"bad","kind":"invalid-kind"}"#);
+
+    for filter in [
+        "id = 'good'",
+        "kind = 'databaseObject'",
+        "kind = 'invalid-kind'",
+        "source.schema = 'nope'",
+    ] {
+        let options = FindOptions {
+            filter: Some(filter),
+            ..FindOptions::default()
+        };
+        let pushed = read_outcome(index_served(&registry, filter, || {
+            registry.find_all(options)
+        }));
+        let full = read_outcome(test_hooks::without_index(|| registry.find_all(options)));
+        assert!(full.is_err(), "{filter:?}: the files reject 'bad'");
+        assert_eq!(pushed, full, "{filter:?}");
+    }
+    let partial = serde_json::json!({ "id": "good" });
+    let pushed = read_outcome(index_served(&registry, "partial", || {
+        registry.find_by_object(&partial, None)
+    }));
+    let full = read_outcome(test_hooks::without_index(|| {
+        registry.find_by_object(&partial, None)
+    }));
+    assert!(full.is_err());
+    assert_eq!(pushed, full);
+}
+
+/// Review repro: with duplicate keys serde keeps the last one, so the
+/// indexed value must be the last one too (SQLite's `json_extract` would
+/// read the first).
+#[test]
+fn pushdown_finds_documents_by_their_last_duplicate_key() {
+    let dir = temp_dir();
+    let registry = init_bare(dir.path());
+    write_raw(
+        &registry,
+        "duplicate",
+        r#"{"id":"duplicate","source":{"schema":"A","schema":"B"}}"#,
+    );
+    write_raw(
+        &registry,
+        "plain",
+        r#"{"id":"plain","source":{"schema":"A"}}"#,
+    );
+
+    for (filter, want) in [
+        ("source.schema = 'B'", vec!["duplicate"]),
+        ("source.schema = 'A'", vec!["plain"]),
+        ("source.schema IN ('B', 'C')", vec!["duplicate"]),
+    ] {
+        let options = FindOptions {
+            filter: Some(filter),
+            ..FindOptions::default()
+        };
+        let pushed = read_outcome(index_served(&registry, filter, || {
+            registry.find_all(options)
+        }));
+        let full = read_outcome(test_hooks::without_index(|| registry.find_all(options)));
+        assert_eq!(pushed, full, "{filter:?}");
+        let ids: Vec<&str> = full
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|v| v["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, want, "{filter:?}");
+    }
+    for (partial, want) in [
+        (
+            serde_json::json!({ "source": { "schema": "B" } }),
+            vec!["duplicate"],
+        ),
+        (
+            serde_json::json!({ "source": { "schema": "A" } }),
+            vec!["plain"],
+        ),
+    ] {
+        let label = format!("partial {partial}");
+        let pushed = read_outcome(index_served(&registry, &label, || {
+            registry.find_by_object(&partial, None)
+        }));
+        let full = read_outcome(test_hooks::without_index(|| {
+            registry.find_by_object(&partial, None)
+        }));
+        assert_eq!(pushed, full, "{label}");
+        let ids: Vec<&str> = full
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|v| v["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, want, "{label}");
+    }
+}
+
+/// Deterministic generator for [`derived_values_match_what_predicates_see`]:
+/// the state, and how many duplicate keys it generated.
+struct DocRng(u64, usize);
+
+impl DocRng {
+    fn next(&mut self) -> u64 {
+        // splitmix64
+        self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    }
+
+    fn below(&mut self, n: usize) -> usize {
+        (self.next() % n as u64) as usize
+    }
+
+    fn chance(&mut self, num: usize, den: usize) -> bool {
+        self.below(den) < num
+    }
+
+    fn pick<'a>(&mut self, options: &[&'a str]) -> &'a str {
+        options[self.below(options.len())]
+    }
+}
+
+/// A JSON object that may hold duplicate keys, rendered as text.
+struct DupObject(Vec<(String, String)>);
+
+impl DupObject {
+    fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    fn insert(&mut self, key: &str, raw: String) {
+        self.0.push((key.to_string(), raw));
+    }
+
+    /// Possibly repeat one key with another value, before or after it.
+    fn duplicate(&mut self, r: &mut DocRng, other: impl FnOnce(&mut DocRng, &str) -> String) {
+        if self.0.is_empty() || !r.chance(1, 4) {
+            return;
+        }
+        let at = r.below(self.0.len());
+        let key = self.0[at].0.clone();
+        let value = other(r, &key);
+        let position = if r.chance(1, 2) { at } else { self.0.len() };
+        self.0.insert(position, (key, value));
+        r.1 += 1;
+    }
+
+    fn render(&self) -> String {
+        let fields: Vec<String> = self
+            .0
+            .iter()
+            .map(|(k, v)| format!("{}:{v}", serde_json::to_string(k).unwrap()))
+            .collect();
+        format!("{{{}}}", fields.join(","))
+    }
+}
+
+const GEN_TEXTS: &[&str] = &[
+    "\"A\"", "\"B\"", "\"01\"", "\"1\"", "\"\"", "\"x'y\"", "null", "5", "{}",
+];
+const GEN_KINDS: &[&str] = &[
+    "\"databaseObject\"",
+    "\"script\"",
+    "\"etl\"",
+    "\"custom\"",
+    "\"invalid-kind\"",
+    "\"Script\"",
+    "null",
+    "5",
+    "[\"x\"]",
+];
+const GEN_OBJECT_TYPES: &[&str] = &[
+    "\"table\"",
+    "\"view\"",
+    "\"procedure\"",
+    "\"TABLE\"",
+    "null",
+    "3",
+];
+const GEN_WAVES: &[&str] = &[
+    "0",
+    "1",
+    "2",
+    "3",
+    "-1",
+    "10",
+    "9007199254740993",
+    "null",
+    "\"2\"",
+    "1.5",
+    "2.0",
+    "99999999999999999999",
+];
+const GEN_BOOLS: &[&str] = &["true", "false", "true", "false", "null", "\"yes\"", "1"];
+
+/// Value for `key` at one level of a generated document (raw JSON text):
+/// from the valid domain only (`valid`), or from every shape.
+fn gen_value(r: &mut DocRng, key: &str, valid: bool) -> String {
+    let pick = |r: &mut DocRng, options: &[&str], valid_prefix: usize| -> String {
+        let n = if valid { valid_prefix } else { options.len() };
+        options[r.below(n)].to_string()
+    };
+    match key {
+        "kind" => pick(r, GEN_KINDS, 4),
+        "objectType" => pick(r, GEN_OBJECT_TYPES, 3),
+        "wave" => pick(r, GEN_WAVES, 8),
+        "inScope" | "isMissing" => pick(r, GEN_BOOLS, 4),
+        "schemaVersion" => pick(r, &["1", "0", "2", "999", "\"1\"", "1.0", "null"], 1),
+        "id" => pick(r, &["null", "\"other\"", "7"], 1),
+        _ => pick(r, GEN_TEXTS, 7),
+    }
+}
+
+/// A random stored document for `key`: two thirds drawn from valid values
+/// only (duplicate keys and unknown fields included), the rest with every
+/// kind of irregularity (invalid enums, wrong types, other schema versions,
+/// id mismatch, duplicate keys at every level, non-object and invalid JSON).
+fn gen_stored_doc(r: &mut DocRng, key: &str) -> String {
+    let valid = r.chance(2, 3);
+    if !valid {
+        match r.below(10) {
+            0 => return r.pick(&["[1,2]", "5", "\"s\"", "null", "true"]).to_string(),
+            1 => {
+                return r
+                    .pick(&["{", "{ not json", "", "{\"a\":1,}", "{a:1}"])
+                    .to_string()
+            }
+            _ => {}
+        }
+    }
+    let value = |r: &mut DocRng, key: &str| gen_value(r, key, valid);
+    let mut doc = DupObject::new();
+    match r.below(8) {
+        0 => {}
+        1 => doc.insert("id", value(r, "id")),
+        _ => doc.insert("id", serde_json::to_string(key).unwrap()),
+    }
+    if r.chance(1, 6) {
+        doc.insert("schemaVersion", value(r, "schemaVersion"));
+    }
+    if r.chance(3, 4) {
+        doc.insert("kind", value(r, "kind"));
+    }
+    for side in ["source", "target"] {
+        match r.below(12) {
+            0 => continue,
+            1 => {
+                let n = if valid { 1 } else { 3 };
+                doc.insert(side, ["null", "\"TABLE\"", "[]"][r.below(n)].to_string());
+                continue;
+            }
+            _ => {}
+        }
+        let mut m = DupObject::new();
+        let fields: &[&str] = if side == "source" {
+            &["objectType", "database", "schema", "name", "canonicalName"]
+        } else {
+            &["objectType", "database", "schema", "name"]
+        };
+        for field in fields {
+            if r.chance(2, 3) {
+                m.insert(field, value(r, field));
+            }
+        }
+        if r.chance(1, 8) {
+            m.insert("unknownField", "{\"nested\":[1]}".to_string());
+        }
+        m.duplicate(r, value);
+        doc.insert(side, m.render());
+    }
+    match r.below(8) {
+        0 => {}
+        1 => {
+            let n = if valid { 1 } else { 3 };
+            doc.insert("planning", ["{}", "null", "[3]"][r.below(n)].to_string());
+        }
+        _ => {
+            let mut m = DupObject::new();
+            m.insert("wave", value(r, "wave"));
+            if r.chance(1, 4) {
+                m.insert("waveRank", "4".to_string());
+            }
+            m.duplicate(r, value);
+            doc.insert("planning", m.render());
+        }
+    }
+    for flag in ["inScope", "isMissing"] {
+        if r.chance(1, 2) {
+            doc.insert(flag, value(r, flag));
+        }
+    }
+    if r.chance(1, 10) {
+        doc.insert("notes", "\"unknown top-level field\"".to_string());
+    }
+    if !valid && r.chance(1, 10) {
+        doc.insert("issues", "[{\"severity\":\"nope\"}]".to_string());
+    }
+    doc.duplicate(r, value);
+    doc.render()
+}
+
+/// The filter text testing `path` against the indexed `value`, which the
+/// predicate must accept.
+fn filter_for(
+    path: &str,
+    value: Option<&storage::index::IndexValue>,
+    kind: storage::index::FieldKind,
+) -> String {
+    use storage::index::{FieldKind, IndexValue};
+    match (value, kind) {
+        (None, _) => format!("{path} IS NULL"),
+        (Some(IndexValue::Text(s)), _) => format!("{path} = '{}'", s.replace('\'', "''")),
+        (Some(IndexValue::Integer(i)), FieldKind::Bool) => format!("{path} = {}", *i == 1),
+        // A string literal: the filter engine has no negative literals
+        // (unary minus), but compares numeric-looking strings as numbers.
+        (Some(IndexValue::Integer(i)), _) => format!("{path} = '{i}'"),
+    }
+}
+
+/// `value` nested under `path`, as a `find_by_object` partial.
+fn partial_for(path: &[&str], value: serde_json::Value) -> serde_json::Value {
+    path.iter().rev().fold(
+        value,
+        |inner, segment| serde_json::json!({ *segment: inner }),
+    )
+}
+
+/// Differential property: for generated documents of every shape, a
+/// document is regular exactly when the files-only strict read accepts it,
+/// and its indexed values are exactly what `Filter` and `matches_partial`
+/// see in the loaded unit. Every irregular document — and every regular one
+/// a predicate accepts — is a candidate for every prefilter.
+#[test]
+fn derived_values_match_what_predicates_see() {
+    use storage::index::{derive, FieldKind, IndexValue, IndexedField, Prefilter};
+    const DOCS: usize = 1500;
+    let mut r = DocRng(0x5eed_f00d_d0c5, 0);
+    // (key, text, whether it repeats a key)
+    let docs: Vec<(String, String, bool)> = (0..DOCS)
+        .map(|i| {
+            let key = format!("k{i:04}");
+            let before = r.1;
+            let text = gen_stored_doc(&mut r, &key);
+            (key, text, r.1 > before)
+        })
+        .collect();
+
+    // Per document: the files-only strict read of a registry holding it alone.
+    let dir = temp_dir();
+    let single = init_bare(dir.path());
+    let mut seen: Vec<Option<serde_json::Value>> = Vec::with_capacity(DOCS);
+    let (mut regular, mut duplicates) = (0, 0);
+    for (key, text, duplicated) in &docs {
+        write_raw(&single, key, text);
+        let read = test_hooks::without_index(|| single.find_all(FindOptions::default()));
+        fs::remove_file(single.storage.files().path_for(key)).unwrap();
+        let derived = derive(key, text);
+        let loaded = read.ok().map(|units| {
+            assert_eq!(units.len(), 1, "{text}");
+            serde_json::to_value(&units[0]).unwrap()
+        });
+        assert_eq!(derived.regular, loaded.is_some(), "regular? {key}: {text}");
+        if let Some(json) = &loaded {
+            regular += 1;
+            duplicates += usize::from(*duplicated);
+            for field in IndexedField::ALL {
+                let mut at = Some(json);
+                for segment in field.path() {
+                    at = at.and_then(|v| v.get(*segment));
+                }
+                let expected = match at {
+                    None | Some(serde_json::Value::Null) => None,
+                    Some(serde_json::Value::String(s)) => Some(IndexValue::Text(s.clone())),
+                    Some(serde_json::Value::Bool(b)) => Some(IndexValue::Integer(i64::from(*b))),
+                    Some(serde_json::Value::Number(n)) => {
+                        Some(IndexValue::Integer(n.as_i64().unwrap()))
+                    }
+                    Some(other) => panic!("{field:?} = {other} in {json}"),
+                };
+                let value = derived.value(field);
+                assert_eq!(value, expected.as_ref(), "{field:?} of {key}: {text}");
+                if field.kind() == FieldKind::Bool {
+                    assert!(value.is_some(), "{field:?} is never NULL: {text}");
+                }
+                // The predicates agree with the indexed value.
+                let path = field.path().join(".");
+                let filter = filter_for(&path, value, field.kind());
+                assert!(
+                    Filter::parse(&filter).unwrap().matches(json),
+                    "{filter} on {json}"
+                );
+                if let Some(v) = value {
+                    let not_null = format!("{path} IS NOT NULL");
+                    assert!(
+                        Filter::parse(&not_null).unwrap().matches(json),
+                        "{not_null}"
+                    );
+                    let leaf = match (v, field.kind()) {
+                        (IndexValue::Text(s), _) => serde_json::json!(s),
+                        (IndexValue::Integer(i), FieldKind::Bool) => serde_json::json!(*i == 1),
+                        (IndexValue::Integer(i), _) => serde_json::json!(i),
+                    };
+                    let partial = partial_for(field.path(), leaf);
+                    assert!(matches_partial(&partial, json), "{partial} on {json}");
+                }
+            }
+        } else {
+            assert!(derived.values.iter().all(Option::is_none), "{text}");
+        }
+        seen.push(loaded);
+    }
+    // The generator covers both sides well.
+    assert!(
+        regular > DOCS / 5 && regular < DOCS * 4 / 5,
+        "{regular} regular of {DOCS}"
+    );
+    assert!(
+        duplicates > 100,
+        "{duplicates} regular documents with duplicate keys"
+    );
+
+    // All documents in one registry: candidates for every prefilter.
+    let dir = temp_dir();
+    let all = init_bare(dir.path());
+    for (key, text, _) in &docs {
+        write_raw(&all, key, text);
+    }
+    let irregular: std::collections::BTreeSet<&str> = docs
+        .iter()
+        .zip(&seen)
+        .filter(|(_, s)| s.is_none())
+        .map(|((key, _, _), _)| key.as_str())
+        .collect();
+    let filters: Vec<String> = PUSHDOWN_FILTERS
+        .iter()
+        .map(|f| f.to_string())
+        .chain(
+            [
+                "kind = 'script'",
+                "kind IN ('etl', 'custom')",
+                "source.schema = 'B'",
+                "source.schema = 'x''y'",
+                "target.name = 'A' OR source.canonicalName = '01'",
+                "source.objectType = 'table' AND planning.wave >= 2",
+                "planning.wave = 9007199254740993",
+                "planning.wave < 0",
+                "isMissing AND NOT inScope",
+                "id = 'k0003'",
+                "id IN ('k0001', 'k0002', 'k1499')",
+            ]
+            .map(String::from),
+        )
+        .collect();
+    let mut prefilters: Vec<(String, Prefilter)> = filters
+        .iter()
+        .filter_map(|f| pushdown::from_filter(&Filter::parse(f).unwrap()).map(|p| (f.clone(), p)))
+        .collect();
+    prefilters.push((
+        "constant false".into(),
+        Prefilter::In(IndexedField::Kind, vec![]),
+    ));
+    let mut served = 0;
+    for (label, prefilter) in &prefilters {
+        let Some(candidates) = all
+            .storage
+            .load_candidates(prefilter, |key, _| key.to_string())
+            .unwrap()
+        else {
+            continue; // Not servable (or no index): the caller scans.
+        };
+        served += 1;
+        let candidates: std::collections::BTreeSet<String> = candidates.into_iter().collect();
+        for key in &irregular {
+            assert!(
+                candidates.contains(*key),
+                "{label}: irregular {key} missing"
+            );
+        }
+        if let Ok(filter) = Filter::parse(label) {
+            for ((key, text, _), json) in docs.iter().zip(&seen) {
+                if json.as_ref().is_some_and(|json| filter.matches(json)) {
+                    assert!(
+                        candidates.contains(key),
+                        "{label}: match {key} missing: {text}"
+                    );
+                }
+            }
+        }
+    }
+    if index_enabled() {
+        assert!(
+            served > prefilters.len() / 2,
+            "{served} of {} served",
+            prefilters.len()
+        );
+    }
+
+    // Regular documents only: indexed reads equal files-only reads.
+    let dir = temp_dir();
+    let regular_only = init_bare(dir.path());
+    for ((key, text, _), json) in docs.iter().zip(&seen) {
+        if json.is_some() {
+            write_raw(&regular_only, key, text);
+        }
+    }
+    for filter in &filters {
+        let options = FindOptions {
+            filter: Some(filter),
+            ..FindOptions::default()
+        };
+        let pushed = read_outcome(index_served(&regular_only, filter, || {
+            regular_only.find_all(options)
+        }));
+        let full = read_outcome(test_hooks::without_index(|| regular_only.find_all(options)));
+        assert!(full.is_ok(), "{filter}: {full:?}");
+        assert_eq!(pushed, full, "{filter}");
+    }
+}
+
+// ── Projected-read fast path ─────────────────────────────────────────────
+//
+// Unfiltered `find_all` with `fields` decodes only the needed top-level keys;
+// it must return exactly what a full parse + projection returns.
+
+/// Seed `registry` with created units plus raw documents covering the
+/// shapes the fast path handles differently from a full decode.
+fn seed_projection_registry(registry: &CodeUnitRegistry) {
+    seed_pushdown_registry(registry);
+    let mut with_files = make_code_unit_with_files(
+        "with-files",
+        Some("source/a.sql".to_string()),
+        Some("snowflake/a.sql".to_string()),
+        None,
+    );
+    set_dependency_ids(&mut with_files, &["unit-001", "unit-002"]);
+    registry.create(&mut with_files, None).unwrap();
+
+    let mut raw = read_raw_value(registry, "with-files");
+    let doc = raw.as_object_mut().unwrap();
+    // Path normalization only happens on read (strip `./`).
+    doc["files"]["source"]["path"] = serde_json::json!("./source/a.sql");
+    doc.insert("futureTopLevel".into(), serde_json::json!({ "x": 1 }));
+    doc["source"]["futureNested"] = serde_json::json!(true);
+    doc["source"]["schema"] = serde_json::Value::Null;
+    write_raw_value(registry, "with-files", &raw);
+
+    // No embedded id (derived from the key), no inScope (defaults to true),
+    // explicit schemaVersion.
+    let mut raw = read_raw_value(registry, "unit-002");
+    let doc = raw.as_object_mut().unwrap();
+    doc.remove("id");
+    doc.remove("inScope");
+    doc.insert("schemaVersion".into(), serde_json::json!(1));
+    write_raw_value(registry, "unit-002", &raw);
+}
+
+const PROJECTIONS: &[&[&str]] = &[
+    &["id"],
+    &[
+        "id",
+        "kind",
+        "source",
+        "target",
+        "codeStatus",
+        "planning",
+        "inScope",
+        "isMissing",
+    ],
+    &["inScope"],
+    &["isMissing", "schemaVersion"],
+    &["planning.wave"],
+    &["source.name", "target"],
+    &["source.schema"],
+    &["source.futureNested"],
+    &["files"],
+    &["files.source.path"],
+    &["dependencies"],
+    &["id", "dependencies.dependsOn"],
+    &["futureTopLevel"],
+    &["extensions"],
+    &["nonexistent"],
+    &[],
+];
+
+#[test]
+fn fast_projection_matches_full_parse() {
+    let dir = temp_dir();
+    let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+    seed_projection_registry(&registry);
+    for fields in PROJECTIONS {
+        let options = FindOptions {
+            fields: Some(fields),
+            ..FindOptions::default()
+        };
+        let label = format!("{fields:?}");
+        let fast =
+            sorted_values(index_served(&registry, &label, || registry.find_all(options)).unwrap());
+        let full = sorted_values(
+            test_hooks::without_fast_projection(|| registry.find_all(options)).unwrap(),
+        );
+        assert_eq!(fast.len(), full.len(), "{label}");
+        assert_eq!(fast, full, "{label}");
+        // The fast path over the index equals the fast path over the files.
+        let from_files =
+            sorted_values(test_hooks::without_index(|| registry.find_all(options)).unwrap());
+        assert_eq!(fast, from_files, "{label}: index vs files");
+    }
+}
+
+/// Every document is still syntax-, version-, and id-checked; only a type
+/// error in a field outside the projection no longer fails the read.
+#[test]
+fn fast_projection_strictness() {
+    let fails_both: [(&str, &str); 4] = [
+        ("corrupt", "NOT VALID JSON"),
+        ("array", "[1, 2]"),
+        ("future", r#"{"id":"future","schemaVersion":999}"#),
+        ("mismatch", r#"{"id":"someone-else"}"#),
+    ];
+    for (key, text) in fails_both {
+        let dir = temp_dir();
+        let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+        seed_pushdown_registry(&registry);
+        write_raw(&registry, key, text);
+        let options = FindOptions {
+            fields: Some(&["id"]),
+            ..FindOptions::default()
+        };
+        let fast = index_served(&registry, key, || registry.find_all(options))
+            .map(|_| ())
+            .map_err(|e| e.error_code());
+        let full = test_hooks::without_fast_projection(|| registry.find_all(options))
+            .map(|_| ())
+            .map_err(|e| e.error_code());
+        let from_files = test_hooks::without_index(|| registry.find_all(options))
+            .map(|_| ())
+            .map_err(|e| e.error_code());
+        assert!(full.is_err(), "{key}: full parse should fail");
+        assert_eq!(fast, full, "{key}");
+        assert_eq!(fast, from_files, "{key}: index vs files");
+    }
+
+    // A type error in a projected field still fails; outside the
+    // projection it is no longer decoded, so the read succeeds.
+    let dir = temp_dir();
+    let registry = CodeUnitRegistry::init(dir.path()).unwrap();
+    seed_pushdown_registry(&registry);
+    write_raw(&registry, "bad-source", r#"{"id":"bad-source","source":5}"#);
+    let read = |fields: &'static [&'static str]| {
+        registry.find_all(FindOptions {
+            fields: Some(fields),
+            ..FindOptions::default()
+        })
+    };
+    assert!(
+        index_served(&registry, "projected type error", || read(&["source"])).is_err(),
+        "projected type error"
+    );
+    let ids: Vec<String> = index_served(&registry, "unprojected type error", || read(&["id"]))
+        .unwrap()
+        .into_iter()
+        .filter_map(|u| u.id)
+        .collect();
+    assert!(ids.contains(&"bad-source".to_string()));
+    assert!(
+        test_hooks::without_fast_projection(|| read(&["id"])).is_err(),
+        "the full parse still rejects it"
+    );
+}
+
+// ── Git simulation: the files change behind the library's back ───────────
+//
+// The JSON files are the record; git (checkout, pull, rebase), editors, and
+// other tools change them without the library. Whatever the index serves
+// afterwards must equal a files-only read (`without_index`). Each case
+// applies one external change right before every query shape, so each shape
+// is exercised as the first read after a change. Changes and reads run back
+// to back, as real tools do, usually within one filesystem clock tick; the
+// only sleep (`wait_out_racy_window`) is before the `update_where` check
+// that requires the index to serve the write's own selection.
+
+/// A query shape served by the index (when trusted) on the read path.
+enum Shape {
+    Filtered(&'static str),
+    WithDependencies(&'static str),
+    ByObject(serde_json::Value),
+    Projected(&'static [&'static str]),
+}
+
+impl Shape {
+    fn run(&self, registry: &CodeUnitRegistry) -> Result<Vec<CodeUnit>> {
+        match self {
+            Shape::Filtered(filter) => registry.find_all(FindOptions {
+                filter: Some(filter),
+                ..FindOptions::default()
+            }),
+            Shape::WithDependencies(filter) => registry.find_all(FindOptions {
+                filter: Some(filter),
+                include_dependencies: true,
+                ..FindOptions::default()
+            }),
+            Shape::ByObject(partial) => registry.find_by_object(partial, None),
+            Shape::Projected(fields) => registry.find_all(FindOptions {
+                fields: Some(fields),
+                ..FindOptions::default()
+            }),
+        }
+    }
+
+    fn label(&self) -> String {
+        match self {
+            Shape::Filtered(filter) => format!("find_all {filter:?}"),
+            Shape::WithDependencies(filter) => format!("find_all+deps {filter:?}"),
+            Shape::ByObject(partial) => format!("find_by_object {partial}"),
+            Shape::Projected(fields) => format!("find_all fields {fields:?}"),
+        }
+    }
+}
+
+/// Every shape the git-simulation cases check. External changes write
+/// `planning.wave` 7/8 and names `EXTERNAL`, so these filters see them.
+fn git_shapes() -> Vec<Shape> {
+    vec![
+        // Indexed filters.
+        Shape::Filtered("planning.wave = 7"),
+        Shape::Filtered("planning.wave IN (2, 8)"),
+        Shape::Filtered("source.objectType = 'view' AND inScope"),
+        Shape::Filtered("source.schema = 'SALES'"),
+        Shape::Filtered("source.name = 'EXTERNAL'"),
+        Shape::Filtered("id IN ('unit-003', 'unit-010', 'unit-031', 'added-000', 'renamed-010')"),
+        // Unindexed filters.
+        Shape::Filtered("source.name LIKE 'OBJ_1%'"),
+        Shape::Filtered("target.name = 'EXTERNAL'"),
+        Shape::ByObject(serde_json::json!({ "planning": { "wave": 7 } })),
+        Shape::ByObject(
+            serde_json::json!({ "source": { "objectType": "view", "schema": "SALES" } }),
+        ),
+        Shape::ByObject(serde_json::json!({ "target": { "name": "EXTERNAL" } })),
+        Shape::Projected(&["id", "planning", "source.name", "dependencies.dependsOn"]),
+        Shape::WithDependencies("id = 'unit-040'"),
+        Shape::WithDependencies("planning.wave = 7"),
+        Shape::WithDependencies("source.name = 'EXTERNAL'"),
+    ]
+}
+
+/// A read's result, comparable across the index and files-only paths.
+fn read_outcome(result: Result<Vec<CodeUnit>>) -> std::result::Result<Vec<serde_json::Value>, u32> {
+    result.map(sorted_values).map_err(|e| e.error_code())
+}
+
+/// Assert `shape` on `registry` equals the files-only reference, returning
+/// the outcome. With `expect_index`, the index must have served the read.
+fn check_shape_outcome(
+    registry: &CodeUnitRegistry,
+    label: &str,
+    shape: &Shape,
+    expect_index: bool,
+) -> std::result::Result<Vec<serde_json::Value>, u32> {
+    let label = format!("{label}: {}", shape.label());
+    let actual = if expect_index {
+        read_outcome(index_served(registry, &label, || shape.run(registry)))
+    } else {
+        read_outcome(shape.run(registry))
+    };
+    let expected = read_outcome(test_hooks::without_index(|| shape.run(registry)));
+    assert_eq!(actual, expected, "{label}");
+    actual
+}
+
+/// [`check_shape_outcome`] when only the comparison matters.
+fn check_shape(registry: &CodeUnitRegistry, label: &str, shape: &Shape, expect_index: bool) {
+    let _ = check_shape_outcome(registry, label, shape, expect_index);
+}
+
+/// For each shape: apply `change(round)`, then check that shape first. Then
+/// check every shape again on the settled state, and finally `update_where`
+/// right after one more change.
+fn check_after_each_change(
+    registry: &CodeUnitRegistry,
+    label: &str,
+    expect_index: bool,
+    mut change: impl FnMut(&CodeUnitRegistry, usize),
+) {
+    let shapes = git_shapes();
+    for (round, shape) in shapes.iter().enumerate() {
+        change(registry, round);
+        check_shape(
+            registry,
+            &format!("{label} round {round}"),
+            shape,
+            expect_index,
+        );
+    }
+    for shape in &shapes {
+        check_shape(registry, &format!("{label} settled"), shape, expect_index);
+    }
+    // Right after a change, the write's own selection may come from the
+    // files (its sweep can't vouch for the racy directory mtime): correctness
+    // only. Once the change is older than a clock tick, the index serves it.
+    let rounds = shapes.len();
+    change(registry, rounds);
+    check_update_where(registry, label, "planning.wave IN (7, 8)", false);
+    change(registry, rounds + 1);
+    check_update_where(registry, label, "target.name = 'EXTERNAL'", expect_index);
+    change(registry, rounds + 2);
+    // Broad, so it writes some units in every case.
+    check_update_where(registry, label, "source.objectType = 'view'", false);
+}
+
+/// Rounds [`check_after_each_change`] calls `change` for.
+fn change_rounds() -> usize {
+    git_shapes().len() + 3
+}
+
+/// Sleep until the registry directory's last change is older than any
+/// same-tick race the index guards against (coarse kernel clocks: ≤ 10 ms
+/// ticks; whole-second mtimes: filesystems with 1–2 s granularity), the way
+/// a later command in a real session would run.
+fn wait_out_racy_window(registry: &CodeUnitRegistry) {
+    let mtime = fs::metadata(registry.storage.files().dir())
+        .unwrap()
+        .modified()
+        .unwrap();
+    let whole_second = mtime
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .subsec_nanos()
+        == 0;
+    let margin = std::time::Duration::from_millis(if whole_second { 2_100 } else { 50 });
+    while std::time::SystemTime::now() < mtime + margin {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+}
+
+/// Units for the git-simulation cases: indexed fields varied, plus
+/// `dependsOn` chains (`unit-i` → `unit-i/2`) for `include_dependencies`.
+fn seed_git_registry(registry: &CodeUnitRegistry) {
+    let types = [
+        CodeUnitObjectType::Table,
+        CodeUnitObjectType::View,
+        CodeUnitObjectType::Procedure,
+    ];
+    let mut batch = Vec::new();
+    for i in 0..60usize {
+        let mut unit = make_code_unit(&git_id(i), &format!("OBJ_{i}"), types[i % 3]);
+        unit.source.as_mut().unwrap().schema = Some(["dbo", "SALES"][i % 2].to_string());
+        unit.in_scope = i % 4 != 0;
+        unit.planning.get_or_insert_with(Default::default).wave = Some((i % 5) as i64);
+        if i > 0 && i % 3 != 0 {
+            set_dependency_ids(&mut unit, &[&git_id(i / 2)]);
+        }
+        batch.push(unit);
+    }
+    let result = registry.create_batch(&mut batch, None).unwrap();
+    assert!(result.failed.is_empty(), "{:?}", result.failed);
+}
+
+fn git_id(i: usize) -> String {
+    format!("unit-{:03}", i % 60)
+}
+
+/// A git-sim registry: seeded, with the index warmed by one read.
+fn init_git_registry(path: &std::path::Path) -> CodeUnitRegistry {
+    let registry = CodeUnitRegistry::init(path).unwrap();
+    seed_git_registry(&registry);
+    index_served(&registry, "warm-up", || {
+        registry.find_all(FindOptions::default())
+    })
+    .unwrap();
+    registry
+}
+
+/// Externally replace `id`'s file (temp + rename, as git does) with `edit`
+/// applied to its current document.
+fn replace_external(
+    registry: &CodeUnitRegistry,
+    id: &str,
+    edit: impl FnOnce(&mut serde_json::Value),
+) {
+    let mut doc = read_raw_value(registry, id);
+    edit(&mut doc);
+    write_raw_value(registry, id, &doc);
+}
+
+/// Set `planning.wave` to 7, or to 8 if it already is 7.
+fn toggle_wave(doc: &mut serde_json::Value) {
+    let wave = if doc["planning"]["wave"] == 7 { 8 } else { 7 };
+    doc["planning"]["wave"] = serde_json::json!(wave);
+}
+
+/// A unit document as another library instance (a teammate) would write it.
+fn teammate_doc(unit: CodeUnit) -> String {
+    let dir = temp_dir();
+    let teammate = CodeUnitRegistry::init(dir.path()).unwrap();
+    let id = unit.id.clone().unwrap();
+    teammate.create(&mut unit.clone(), None).unwrap();
+    read_raw_text(&teammate, &id)
+}
+
+/// Copy the record (the JSON files only, no index) into `root/registry`.
+fn copy_registry(registry: &CodeUnitRegistry, root: &std::path::Path) -> CodeUnitRegistry {
+    let target = CodeUnitRegistry::init(root).unwrap();
+    for id in registry.storage.file_ids().unwrap() {
+        fs::copy(
+            registry.storage.files().path_for(&id),
+            target.storage.files().path_for(&id),
+        )
+        .unwrap();
+    }
+    target
+}
+
+/// Make `registry`'s files equal `branch`'s, the way `git checkout` does:
+/// changed and new files are replaced/created, missing ones deleted. Every
+/// other changed file is written by unlink + create (what git itself does),
+/// the rest by temp + rename.
+fn checkout(registry: &CodeUnitRegistry, branch: &CodeUnitRegistry) {
+    let wanted = branch.storage.file_ids().unwrap();
+    for id in registry.storage.file_ids().unwrap() {
+        if !wanted.contains(&id) {
+            fs::remove_file(registry.storage.files().path_for(&id)).unwrap();
+        }
+    }
+    for (n, id) in wanted.iter().enumerate() {
+        let text = read_raw_text(branch, id);
+        let path = registry.storage.files().path_for(id);
+        if fs::read_to_string(&path).ok().as_deref() == Some(text.as_str()) {
+            continue;
+        }
+        if n % 2 == 0 {
+            write_raw(registry, id, &text);
+        } else {
+            let _ = fs::remove_file(&path);
+            fs::write(&path, &text).unwrap();
+        }
+    }
+}
+
+/// The record with `updatedAt` stamps removed, for comparing two registries
+/// that ran the same writes at slightly different times.
+fn record_snapshot(
+    registry: &CodeUnitRegistry,
+) -> std::collections::BTreeMap<String, serde_json::Value> {
+    fn strip(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(map) => {
+                map.remove("updatedAt");
+                map.values_mut().for_each(strip);
+            }
+            serde_json::Value::Array(items) => items.iter_mut().for_each(strip),
+            _ => {}
+        }
+    }
+    registry
+        .storage
+        .file_ids()
+        .unwrap()
+        .into_iter()
+        .map(|id| {
+            let text = read_raw_text(registry, &id);
+            let mut value = serde_json::from_str(&text).unwrap_or(serde_json::Value::String(text));
+            strip(&mut value);
+            (id, value)
+        })
+        .collect()
+}
+
+type BatchOutcome = std::result::Result<(Vec<String>, Vec<(String, i32)>, Vec<String>), u32>;
+
+fn batch_outcome(result: Result<BatchResult>) -> BatchOutcome {
+    result
+        .map(|r| {
+            let mut succeeded = r.succeeded;
+            succeeded.sort();
+            let mut failed: Vec<(String, i32)> =
+                r.failed.into_iter().map(|f| (f.id, f.error.code)).collect();
+            failed.sort();
+            let mut side_effects = r.side_effect_ids;
+            side_effects.sort();
+            (succeeded, failed, side_effects)
+        })
+        .map_err(|e| e.error_code())
+}
+
+/// `update_where` on `registry` must select and write exactly what it does
+/// on a files-only copy of the same record: same result, same files after.
+fn check_update_where(registry: &CodeUnitRegistry, label: &str, filter: &str, expect_index: bool) {
+    let label = format!("{label}: update_where {filter:?}");
+    let reference_dir = temp_dir();
+    let reference = copy_registry(registry, reference_dir.path());
+    let updates = [
+        ("target.name", serde_json::json!("UPDATED")),
+        ("planning.waveRank", serde_json::json!(5)),
+    ];
+    if expect_index {
+        wait_out_racy_window(registry);
+    }
+    let run = |r: &CodeUnitRegistry| batch_outcome(r.update_where(filter, &updates, None));
+    let actual = if expect_index {
+        index_served(registry, &label, || run(registry))
+    } else {
+        run(registry)
+    };
+    let expected = test_hooks::without_index(|| run(&reference));
+    assert_eq!(actual, expected, "{label}");
+    assert_eq!(
+        record_snapshot(registry),
+        record_snapshot(&reference),
+        "{label}: files"
+    );
+}
+
+/// (a) An external replace changing an indexed field is seen by the very
+/// next filtered read.
+#[test]
+fn git_sim_external_replace_is_seen_by_next_filtered_read() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+
+    replace_external(&registry, "unit-012", toggle_wave);
+    let wave7 = check_shape_outcome(
+        &registry,
+        "replace",
+        &Shape::Filtered("planning.wave = 7"),
+        true,
+    );
+    let ids: Vec<_> = wave7.unwrap().iter().map(|u| u["id"].clone()).collect();
+    assert_eq!(ids, [serde_json::json!("unit-012")]);
+
+    // Same size, possibly the same mtime: only the file id tells them apart.
+    replace_external(&registry, "unit-012", |doc| {
+        doc["planning"]["wave"] = 8.into()
+    });
+    let wave8 = check_shape_outcome(
+        &registry,
+        "same size",
+        &Shape::Filtered("planning.wave = 8"),
+        true,
+    );
+    assert_eq!(wave8.unwrap().len(), 1);
+
+    check_after_each_change(&registry, "replace", true, |registry, round| {
+        replace_external(registry, &git_id(round * 7 + 1), toggle_wave);
+    });
+}
+
+/// (b) An externally added unit file shows up.
+#[test]
+fn git_sim_external_add() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    check_after_each_change(&registry, "add", true, |registry, round| {
+        let id = format!("added-{round:03}");
+        let mut unit = make_code_unit(&id, "EXTERNAL", CodeUnitObjectType::View);
+        unit.target.as_mut().unwrap().name = Some("EXTERNAL".into());
+        unit.planning.get_or_insert_with(Default::default).wave = Some(7 + (round % 2) as i64);
+        set_dependency_ids(&mut unit, &[&git_id(round * 3 + 40)]);
+        write_raw(registry, &id, &teammate_doc(unit));
+    });
+}
+
+/// (c) An externally deleted unit file disappears, also from dependency
+/// closures that reached it.
+#[test]
+fn git_sim_external_delete() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    check_after_each_change(&registry, "delete", true, |registry, round| {
+        let path = registry.storage.files().path_for(&git_id(round * 7 + 2));
+        fs::remove_file(path).unwrap();
+    });
+}
+
+/// (d) An external rename (`git mv`) changes the key: same inode, size,
+/// and mtime, under a different name.
+#[test]
+fn git_sim_external_rename() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    // Documents without an embedded `id` take theirs from the file name, so
+    // a pure rename stays a valid unit.
+    let renamed: Vec<String> = (0..change_rounds())
+        .map(|round| git_id(round * 7 + 3))
+        .collect();
+    for id in &renamed {
+        replace_external(&registry, id, |doc| {
+            doc.as_object_mut().unwrap().remove("id");
+        });
+    }
+    check_shape(
+        &registry,
+        "id-less",
+        &Shape::Filtered("source.objectType = 'view'"),
+        true,
+    );
+
+    check_after_each_change(&registry, "rename", true, |registry, round| {
+        let from = &renamed[round];
+        let to = from.replace("unit-", "renamed-");
+        let files = registry.storage.files();
+        fs::rename(files.path_for(from), files.path_for(&to)).unwrap();
+    });
+    let ids = check_shape_outcome(
+        &registry,
+        "renamed",
+        &Shape::Filtered("id = 'renamed-010'"),
+        true,
+    );
+    assert_eq!(ids.unwrap().len(), 1, "unit-010 was renamed in round 1");
+}
+
+/// (e) Switching branches back and forth: half the files replaced, some
+/// deleted, some added on every switch.
+#[test]
+fn git_sim_branch_checkout() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    let main_dir = temp_dir();
+    let main = copy_registry(&registry, main_dir.path());
+
+    // The feature branch: a teammate's library changes on a copy.
+    let feature_dir = temp_dir();
+    let feature = copy_registry(&registry, feature_dir.path());
+    let updates: Vec<(String, Vec<(&str, serde_json::Value)>)> = (0..60)
+        .step_by(2)
+        .map(|i| {
+            let wave = if i % 4 == 0 { 7 } else { 8 };
+            (
+                git_id(i),
+                vec![
+                    ("planning.wave", serde_json::json!(wave)),
+                    ("target.name", serde_json::json!("EXTERNAL")),
+                ],
+            )
+        })
+        .collect();
+    let batch: Vec<(&str, Vec<(&str, serde_json::Value)>)> = updates
+        .iter()
+        .map(|(id, fields)| (id.as_str(), fields.clone()))
+        .collect();
+    let result = feature.update_batch(&batch, None).unwrap();
+    assert!(result.failed.is_empty(), "{:?}", result.failed);
+    for i in [5, 11, 17, 23, 29] {
+        feature.delete(&git_id(i)).unwrap();
+    }
+    for n in 0..5 {
+        let mut unit = make_code_unit(
+            &format!("added-{n:03}"),
+            "EXTERNAL",
+            CodeUnitObjectType::View,
+        );
+        unit.planning.get_or_insert_with(Default::default).wave = Some(7);
+        set_dependency_ids(&mut unit, &[&git_id(40 + n)]);
+        feature.create(&mut unit, None).unwrap();
+    }
+    let changed = registry
+        .storage
+        .file_ids()
+        .unwrap()
+        .iter()
+        .filter(|id| {
+            !stored(&feature, id) || read_raw_text(&feature, id) != read_raw_text(&registry, id)
+        })
+        .count();
+    assert!(
+        changed >= 30,
+        "only {changed} files differ between the branches"
+    );
+
+    check_after_each_change(&registry, "checkout", true, |registry, round| {
+        checkout(registry, if round % 2 == 0 { &feature } else { &main });
+    });
+}
+
+/// (f) An in-place rewrite (same inode) doesn't change the directory mtime:
+/// a read right away may still see the old value (documented limit), but
+/// after the periodic sweep interval it must see the new one.
+#[test]
+fn git_sim_in_place_edit_is_seen_after_periodic_sweep() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    for (round, shape) in git_shapes().iter().enumerate() {
+        let label = format!("in-place round {round}");
+        let before = read_outcome(test_hooks::without_index(|| shape.run(&registry)));
+        // Size changes, so the fingerprint differs whatever the clock tick.
+        let id = git_id(round * 7 + 4);
+        let mut doc = read_raw_value(&registry, &id);
+        toggle_wave(&mut doc);
+        doc["source"]["name"] = "EXTERNAL".into();
+        doc["target"]["name"] = format!("EXTERNAL_{round}").into();
+        let path = registry.storage.files().path_for(&id);
+        fs::write(&path, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
+
+        let after = read_outcome(test_hooks::without_index(|| shape.run(&registry)));
+        let immediate = read_outcome(shape.run(&registry));
+        assert!(
+            immediate == before || immediate == after,
+            "{label}: {}: neither the old nor the new result",
+            shape.label()
+        );
+        // Each round is another 31 s later than the last.
+        let later = std::time::Duration::from_secs(31 * (round as u64 + 1));
+        let sweeps = registry.storage.sweeps();
+        test_hooks::with_clock_offset(later, || {
+            assert_eq!(check_shape_outcome(&registry, &label, shape, true), after);
+        });
+        if index_enabled() {
+            assert!(
+                registry.storage.sweeps() > sweeps,
+                "{label}: the periodic sweep should have run"
+            );
+        }
+    }
+}
+
+/// (f, racy) An in-place, same-size rewrite in the same clock tick as the
+/// library write that produced the file leaves size, mtime, and inode all
+/// unchanged; the periodic sweep must still not trust the stale row.
+#[test]
+fn git_sim_same_tick_in_place_edit_is_seen_after_periodic_sweep() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    for round in 0..5usize {
+        let id = git_id(round * 11 + 6);
+        registry
+            .update(&id, &[("planning.wave", serde_json::json!(7))], None)
+            .unwrap();
+        let path = registry.storage.files().path_for(&id);
+        let text = fs::read_to_string(&path).unwrap();
+        let edited = text.replacen("\"wave\": 7", "\"wave\": 8", 1);
+        assert_ne!(edited, text);
+        fs::write(&path, edited).unwrap();
+
+        let later = std::time::Duration::from_secs(31 * (round as u64 + 1));
+        test_hooks::with_clock_offset(later, || {
+            let label = format!("same-tick in-place round {round}");
+            let wave8 = check_shape_outcome(
+                &registry,
+                &label,
+                &Shape::Filtered("planning.wave = 8"),
+                true,
+            );
+            let ids: Vec<_> = wave8.unwrap().iter().map(|u| u["id"].clone()).collect();
+            assert!(ids.contains(&serde_json::json!(id)), "{label}: {ids:?}");
+        });
+    }
+}
+
+/// An external replace right after a library write (same clock tick, after
+/// the write's own bookkeeping) is seen by the next read.
+#[test]
+fn git_sim_external_replace_right_after_library_write() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    for round in 0..10usize {
+        registry
+            .update(
+                &git_id(round),
+                &[("target.name", serde_json::json!("LIB"))],
+                None,
+            )
+            .unwrap();
+        let id = git_id(round * 7 + 30);
+        replace_external(&registry, &id, toggle_wave);
+        let label = format!("after library write round {round}");
+        for shape in [
+            Shape::Filtered("planning.wave IN (7, 8)"),
+            Shape::Filtered("target.name = 'LIB'"),
+        ] {
+            check_shape(&registry, &label, &shape, true);
+        }
+    }
+}
+
+/// (g) The index directory deleted while registries are open.
+#[cfg(unix)] // Windows can't delete an open database.
+#[test]
+fn git_sim_index_dir_deleted_while_open() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    let index = index_dir(&registry);
+    let _ = fs::remove_dir_all(&index);
+
+    // Another process (here: instance) opening afterwards rebuilds it.
+    let other = CodeUnitRegistry::open(dir.path()).unwrap();
+    check_shape(
+        &other,
+        "rebuilt",
+        &Shape::Filtered("planning.wave = 2"),
+        true,
+    );
+    if index_enabled() {
+        assert!(index.is_dir(), "the index is rebuilt on first use");
+    }
+
+    check_after_each_change(&registry, "index deleted", false, |registry, round| {
+        if round % 3 == 0 {
+            let _ = fs::remove_dir_all(index_dir(registry));
+        }
+        replace_external(registry, &git_id(round * 7 + 1), toggle_wave);
+        if round % 2 == 0 {
+            other
+                .update(
+                    &git_id(round * 7 + 5),
+                    &[("target.name", "EXTERNAL".into())],
+                    None,
+                )
+                .unwrap();
+        }
+    });
+    for shape in git_shapes() {
+        check_shape(&other, "other instance", &shape, false);
+    }
+}
+
+fn index_db_files(registry: &CodeUnitRegistry) -> Vec<std::path::PathBuf> {
+    let Ok(entries) = fs::read_dir(index_dir(registry)) else {
+        return Vec::new();
+    };
+    entries
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            let name = path.file_name().unwrap().to_string_lossy();
+            name.starts_with('v') && name.ends_with(".db")
+        })
+        .collect()
+}
+
+fn write_garbage_over_index(registry: &CodeUnitRegistry) {
+    let dbs = index_db_files(registry);
+    if index_enabled() {
+        assert!(
+            !dbs.is_empty(),
+            "no v*.db in {}",
+            index_dir(registry).display()
+        );
+    }
+    for db in dbs {
+        fs::write(
+            &db,
+            b"<<<<<<< HEAD\nnot a database\n>>>>>>> theirs\n".repeat(64),
+        )
+        .unwrap();
+    }
+}
+
+/// (h) Garbage written over `registry/.index/v*.db`: while closed (rebuilt
+/// on open) and while open.
+#[test]
+fn git_sim_garbage_index_file() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    drop(registry);
+    let registry = CodeUnitRegistry::open(dir.path()).unwrap();
+    write_garbage_over_index(&registry);
+    drop(registry);
+
+    let registry = CodeUnitRegistry::open(dir.path()).unwrap();
+    replace_external(&registry, "unit-012", toggle_wave);
+    // Rebuilt from the files, so the index serves again.
+    check_shape(
+        &registry,
+        "garbage while closed",
+        &Shape::Filtered("planning.wave = 7"),
+        true,
+    );
+
+    #[cfg(unix)] // Windows may refuse to overwrite an open database.
+    {
+        write_garbage_over_index(&registry);
+        check_after_each_change(&registry, "garbage while open", false, |registry, round| {
+            if round % 4 == 0 {
+                write_garbage_over_index(registry);
+            }
+            replace_external(registry, &git_id(round * 7 + 1), toggle_wave);
+        });
+        let fresh = CodeUnitRegistry::open(dir.path()).unwrap();
+        for shape in git_shapes() {
+            check_shape(&fresh, "fresh instance", &shape, false);
+        }
+    }
+}
+
+/// (i) A read-only index directory: the index can't be updated, so reads
+/// must not trust it (they may come from the files) and stay correct.
+#[cfg(unix)]
+#[test]
+fn git_sim_read_only_index_dir() {
+    use std::os::unix::fs::PermissionsExt;
+
+    /// Restores write permission so the temp dir can be cleaned up.
+    struct Restore(std::path::PathBuf);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            if let Ok(entries) = fs::read_dir(&self.0) {
+                let _ = fs::set_permissions(&self.0, fs::Permissions::from_mode(0o755));
+                for entry in entries.flatten() {
+                    let _ = fs::set_permissions(entry.path(), fs::Permissions::from_mode(0o644));
+                }
+            }
+        }
+    }
+
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    let index = index_dir(&registry);
+    let _restore = Restore(index.clone());
+    if let Ok(entries) = fs::read_dir(&index) {
+        for entry in entries.flatten() {
+            fs::set_permissions(entry.path(), fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        fs::set_permissions(&index, fs::Permissions::from_mode(0o555)).unwrap();
+    }
+
+    check_after_each_change(&registry, "read-only index", false, |registry, round| {
+        replace_external(registry, &git_id(round * 7 + 1), toggle_wave);
+        if round % 3 == 1 {
+            registry
+                .update(
+                    &git_id(round * 7 + 5),
+                    &[("target.name", "EXTERNAL".into())],
+                    None,
+                )
+                .unwrap();
+        }
+    });
+    let fresh = CodeUnitRegistry::open(dir.path()).unwrap();
+    replace_external(&fresh, "unit-013", toggle_wave);
+    for shape in git_shapes() {
+        check_shape(&fresh, "fresh instance", &shape, false);
+    }
+}
+
+/// (j) A library write right after an external change must not record the
+/// directory as in sync over the unswept change (`prepare_write` sweeps).
+#[test]
+fn git_sim_library_write_after_external_change() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    check_after_each_change(&registry, "library write", true, |registry, round| {
+        let external = git_id(round * 7 + 1);
+        replace_external(registry, &external, toggle_wave);
+        if round % 3 == 0 {
+            fs::remove_file(registry.storage.files().path_for(&git_id(round * 7 + 2))).unwrap();
+        }
+        match round % 4 {
+            // Another unit.
+            0 => registry
+                .update(
+                    &git_id(round * 7 + 3),
+                    &[("target.name", "EXTERNAL".into())],
+                    None,
+                )
+                .unwrap(),
+            // The externally changed unit itself: the merge reads the file.
+            1 => registry
+                .update(&external, &[("source.name", "EXTERNAL".into())], None)
+                .unwrap(),
+            2 => {
+                let mut unit =
+                    make_code_unit(&format!("lib-{round:03}"), "LIB", CodeUnitObjectType::Table);
+                set_dependency_ids(&mut unit, &[&external]);
+                registry.create(&mut unit, None).unwrap();
+            }
+            _ => {
+                let result = registry
+                    .update_where(
+                        "source.name = 'OBJ_44'",
+                        &[("target.name", "EXTERNAL".into())],
+                        None,
+                    )
+                    .unwrap();
+                assert!(result.failed.is_empty(), "{:?}", result.failed);
+            }
+        }
+    });
+    let wave = read_raw_value(&registry, "unit-001")["planning"]["wave"].clone();
+    let shape =
+        Shape::ByObject(serde_json::json!({ "id": "unit-001", "planning": { "wave": wave } }));
+    assert_eq!(
+        check_shape_outcome(&registry, "external value kept", &shape, true)
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+/// (k) Two instances in one process (`init` + `open`) writing alternately:
+/// each sees the other's writes in filtered reads. A third instance without
+/// the index (an older library, or `SCAI_REGISTRY_INDEX=off`) writes too:
+/// its writes are external changes to the other two.
+#[test]
+fn git_sim_two_instances_write_alternately() {
+    let dir = temp_dir();
+    let first = init_git_registry(dir.path());
+    let second = CodeUnitRegistry::open(dir.path()).unwrap();
+    let without_index = CodeUnitRegistry::with_storage(
+        dir.path().to_path_buf(),
+        storage::Storage::open_without_index(&dir.path().join("registry")),
+    );
+    // (instance, whether its reads are served by the index)
+    let instances = [(&first, true), (&second, true), (&without_index, false)];
+    for (round, shape) in git_shapes().iter().enumerate() {
+        let (writer, writer_indexed) = instances[round % 3];
+        let (reader, reader_indexed) = instances[(round + 1) % 3];
+        let id = git_id(round * 7 + 1);
+        let wave = if round % 2 == 0 { 7 } else { 8 };
+        writer
+            .update(&id, &[("planning.wave", wave.into())], None)
+            .unwrap();
+        let mut unit = make_code_unit(
+            &format!("added-{round:03}"),
+            "EXTERNAL",
+            CodeUnitObjectType::View,
+        );
+        set_dependency_ids(&mut unit, &[&id]);
+        writer.create(&mut unit, None).unwrap();
+        if round % 3 == 2 {
+            writer.delete(&git_id(round * 7 + 2)).unwrap();
+        }
+        let label = format!("instances round {round}");
+        let by_wave = Shape::Filtered(if wave == 7 {
+            "planning.wave = 7"
+        } else {
+            "planning.wave IN (2, 8)"
+        });
+        let found = check_shape_outcome(reader, &label, &by_wave, reader_indexed).unwrap();
+        assert!(
+            found.iter().any(|u| u["id"] == id.as_str()),
+            "{label}: {id} missing"
+        );
+        check_shape(reader, &label, shape, reader_indexed);
+        check_shape(writer, &label, shape, writer_indexed);
+        // The instance that neither wrote nor read yet this round.
+        let (third, third_indexed) = instances[(round + 2) % 3];
+        check_shape(third, &label, &by_wave, third_indexed);
+    }
+    check_update_where(&second, "second", "planning.wave = 7", true);
+    check_update_where(&first, "first", "target.name = 'UPDATED'", true);
+    check_update_where(&without_index, "without index", "planning.wave = 8", false);
+    for shape in git_shapes() {
+        check_shape(&first, "first settled", &shape, true);
+        check_shape(&second, "second settled", &shape, true);
+    }
+}
+
+/// (l) Strict-load errors introduced externally still fail filtered reads
+/// (and `update_where` before it writes anything); fixing the file heals.
+#[test]
+fn git_sim_external_strict_load_errors() {
+    let dir = temp_dir();
+    let registry = init_git_registry(dir.path());
+    let original = read_raw_text(&registry, "unit-020");
+    let conflict = original.replacen(
+        "\"wave\": 0",
+        "<<<<<<< HEAD\n    \"wave\": 0\n=======\n    \"wave\": 7\n>>>>>>> feature",
+        1,
+    );
+    assert_ne!(conflict, original);
+    let mut future: serde_json::Value = serde_json::from_str(&original).unwrap();
+    future[SCHEMA_VERSION_FIELD] = serde_json::json!(999);
+    let future = serde_json::to_string_pretty(&future).unwrap();
+
+    // (key, text): a merge conflict, a newer library's document, and a
+    // copy-pasted file whose embedded id is another unit's.
+    let corruptions = [
+        ("unit-020", conflict.as_str()),
+        ("unit-020", future.as_str()),
+        ("unit-020-copy", original.as_str()),
+    ];
+    for (key, text) in corruptions {
+        for (round, shape) in git_shapes().iter().enumerate() {
+            let label = format!("{key} round {round}");
+            write_raw(&registry, key, text);
+            let broken = check_shape_outcome(&registry, &label, shape, true);
+            assert!(
+                broken.is_err(),
+                "{label}: {}: the files-only read rejects it",
+                shape.label()
+            );
+            if key == "unit-020" {
+                write_raw(&registry, key, &original);
+            } else {
+                fs::remove_file(registry.storage.files().path_for(key)).unwrap();
+            }
+            assert!(check_shape_outcome(&registry, &format!("{label} fixed"), shape, true).is_ok());
+        }
+        write_raw(&registry, key, text);
+        check_update_where(&registry, key, "planning.wave = 2", true);
+        if key == "unit-020" {
+            write_raw(&registry, key, &original);
+        } else {
+            fs::remove_file(registry.storage.files().path_for(key)).unwrap();
+        }
+        check_update_where(&registry, key, "planning.wave = 2", true);
+    }
+}
+
+/// Many threads writing and reading one registry at once must not deadlock.
+///
+/// With `SCAI_REGISTRY_THREADS` set, operations run as jobs in a dedicated
+/// pool, and a pool thread waiting inside one write can pick up another
+/// queued operation. A writer that blocked on the write lock *inside* the
+/// pool could then wait on a lock held further down its own stack, so
+/// writers take the lock on the calling thread first. Run the suite with
+/// `SCAI_REGISTRY_THREADS=2` to exercise the dedicated pool.
+#[test]
+fn concurrent_writers_and_readers_do_not_deadlock() {
+    let dir = temp_dir();
+    let registry = std::sync::Arc::new(CodeUnitRegistry::init(dir.path()).unwrap());
+    let mut seed: Vec<CodeUnit> = (0..40)
+        .map(|i| {
+            make_code_unit(
+                &format!("u{i:02}"),
+                &format!("T{i}"),
+                CodeUnitObjectType::Table,
+            )
+        })
+        .collect();
+    registry.create_batch(&mut seed, None).unwrap();
+
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    let handles: Vec<_> = (0..8)
+        .map(|t| {
+            let registry = registry.clone();
+            let done_tx = done_tx.clone();
+            std::thread::spawn(move || {
+                for round in 0..10 {
+                    let id = format!("u{:02}", (t * 5 + round) % 40);
+                    registry
+                        .update(
+                            &id,
+                            &[("source.name", serde_json::json!(format!("R{t}-{round}")))],
+                            None,
+                        )
+                        .unwrap();
+                    let filter = format!("id = '{id}'");
+                    let found = registry
+                        .find_all(FindOptions {
+                            filter: Some(&filter),
+                            ..FindOptions::default()
+                        })
+                        .unwrap();
+                    assert_eq!(found.len(), 1);
+                    registry.find_all(FindOptions::default()).unwrap();
+                }
+                done_tx.send(()).unwrap();
+            })
+        })
+        .collect();
+    drop(done_tx);
+    for _ in 0..handles.len() {
+        done_rx
+            .recv_timeout(std::time::Duration::from_secs(120))
+            .expect("a writer/reader thread hung: possible lock deadlock");
+    }
+    for handle in handles {
+        handle.join().unwrap();
+    }
+}
+
+/// Registry calls made from another rayon pool's worker threads must not run
+/// (or wait) by executing that pool's other jobs.
+///
+/// Each job lazily initializes one shared `OnceLock` with a registry query.
+/// If the initializing worker waited by stealing — running the registry's
+/// parallel work on the caller's pool, or `install`ing into a registry pool
+/// from it — it could pick up a sibling job that re-enters the same
+/// `OnceLock` on the same thread and deadlocks. Writers run alongside.
+#[test]
+fn calls_from_another_rayon_pool_do_not_reenter_its_jobs() {
+    let dir = temp_dir();
+    let registry = std::sync::Arc::new(CodeUnitRegistry::init(dir.path()).unwrap());
+    let mut seed: Vec<CodeUnit> = (0..2000)
+        .map(|i| {
+            make_code_unit(
+                &format!("u{i:04}"),
+                &format!("T{i}"),
+                CodeUnitObjectType::Table,
+            )
+        })
+        .collect();
+    registry.create_batch(&mut seed, None).unwrap();
+
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    let registry_for_pool = registry.clone();
+    std::thread::spawn(move || {
+        let caller_pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
+        let cell = std::sync::OnceLock::new();
+        caller_pool.scope(|scope| {
+            for job in 0..64 {
+                let registry = &registry_for_pool;
+                let cell = &cell;
+                scope.spawn(move |_| {
+                    if job % 8 == 0 {
+                        let id = format!("u{:04}", job);
+                        registry
+                            .update(&id, &[("source.name", serde_json::json!("RENAMED"))], None)
+                            .unwrap();
+                    }
+                    let count: &usize = cell
+                        .get_or_init(|| registry.find_all(FindOptions::default()).unwrap().len());
+                    assert_eq!(*count, 2000);
+                    let found = registry
+                        .find_all(FindOptions {
+                            filter: Some("source.objectType = 'table'"),
+                            fields: Some(&["id"]),
+                            ..FindOptions::default()
+                        })
+                        .unwrap();
+                    assert_eq!(found.len(), 2000);
+                });
+            }
+        });
+        done_tx.send(()).unwrap();
+    });
+    done_rx
+        .recv_timeout(std::time::Duration::from_secs(120))
+        .expect("registry calls from another rayon pool deadlocked");
 }

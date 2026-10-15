@@ -1701,7 +1701,7 @@ class ToolExecutor:
             candidate_disposition=containment.as_record() if containment is not None else None,
         )
 
-        stream = ToolStreamManager(ctx.emitter, ctx.call_id, tool_name)
+        stream = ToolStreamManager(ctx.emitter, ctx.call_id, tool_name, row_id=str(row_id) if row_id else None)
 
         # --- Guardrails ---
         guardrail_result = await self.guardrails.check(tool_name, arguments, ctx, tool_def)

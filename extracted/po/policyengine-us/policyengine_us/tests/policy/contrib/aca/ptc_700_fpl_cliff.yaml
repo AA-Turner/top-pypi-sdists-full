@@ -1,0 +1,300 @@
+- name: Single filer at 0% FPL - zero contribution
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 0.0
+  output:
+    aca_required_contribution_percentage: 0.0
+
+- name: Single filer at 150% FPL - zero contribution
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 1.5
+  output:
+    aca_required_contribution_percentage: 0.0
+
+- name: Single filer at 200% FPL - 2% contribution
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 2.0
+  output:
+    aca_required_contribution_percentage: 0.02
+
+- name: Single filer at 250% FPL - 4% contribution
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 2.5
+  output:
+    aca_required_contribution_percentage: 0.04
+
+- name: Single filer at 300% FPL - 6% contribution
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 3.0
+  output:
+    aca_required_contribution_percentage: 0.06
+
+- name: Single filer at 400% FPL - 8.5% contribution (old cliff point)
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 4.0
+  output:
+    aca_required_contribution_percentage: 0.085
+
+- name: Single filer at 500% FPL - 8.5% contribution (flat rate)
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 5.0
+  output:
+    aca_required_contribution_percentage: 0.085
+
+- name: Single filer at 600% FPL - 8.5% contribution (flat rate continues)
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 6.0
+  output:
+    aca_required_contribution_percentage: 0.085
+
+- name: Single filer at 700% FPL - 9.25% contribution (new cliff point)
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 7.0
+  output:
+    aca_required_contribution_percentage: 0.0925
+
+- name: Single filer at 175% FPL - interpolated 1% contribution
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 1.75
+  output:
+    aca_required_contribution_percentage: 0.01
+
+- name: Single filer at 350% FPL - interpolated 7.25% contribution
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 3.5
+  output:
+    aca_required_contribution_percentage: 0.0725
+
+- name: Single filer at 650% FPL - interpolated 8.875% contribution
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  absolute_error_margin: 0.00001
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    aca_magi_fraction: 6.5
+  output:
+    # 8.5% + (9.25% - 8.5%) * 0.5 = 8.5% + 0.375% = 8.875%
+    aca_required_contribution_percentage: 0.08875
+
+- name: Baseline comparison at 400% FPL - shows elimination of cliff
+  period: 2026
+  absolute_error_margin: 0.00001
+  input:
+    aca_magi_fraction: 4.0
+  output:
+    aca_required_contribution_percentage: 0.0996
+
+- name: Baseline comparison at 500% FPL - above post-ARPA cliff
+  period: 2026
+  absolute_error_margin: 0.00001
+  input:
+    aca_magi_fraction: 5.0
+  output:
+    aca_required_contribution_percentage: 0
+
+# Eligibility exclusion regression tests (issue #8745): the reform must reuse
+# the baseline coverage/premium gate (gov.aca.ineligible_coverage via
+# pays_aca_premium) rather than a narrower hardcoded exclusion list.
+- name: Reform excludes Basic Health Program (NY Essential Plan) enrollee
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    people:
+      person1:
+        age: 40
+        immigration_status: CITIZEN
+        medicaid_income_level: 2.3
+        is_aca_eshi_eligible: false
+        is_medicare_eligible: false
+        is_chip_eligible: false
+    tax_units:
+      tax_unit:
+        members: [person1]
+        aca_magi_fraction: 2.3
+        filing_status: SINGLE
+    households:
+      household:
+        members: [person1]
+        state_code: NY
+  output:
+    is_basic_health_program_eligible: [true]
+    pays_aca_premium: [false]
+    is_aca_ptc_eligible: [false]
+
+- name: Reform excludes person with VA health coverage above the 400% cliff
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    people:
+      person1:
+        age: 40
+        has_va_health_coverage_at_interview: true
+        is_medicaid_eligible: false
+        is_aca_eshi_eligible: false
+        is_medicare_eligible: false
+        is_chip_eligible: false
+    tax_units:
+      tax_unit:
+        members: [person1]
+        aca_magi_fraction: 5.0
+        filing_status: SINGLE
+    households:
+      household:
+        members: [person1]
+        state_code: TX
+  output:
+    pays_aca_premium: [false]
+    is_aca_ptc_eligible: [false]
+
+- name: Reform excludes Oregon Healthier Oregon enrollee within reform income range
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    people:
+      person1:
+        age: 40
+        immigration_status: TPS
+        medicaid_income_level: 1.3
+        is_medicaid_eligible: false
+        is_aca_eshi_eligible: false
+        is_medicare_eligible: false
+        is_chip_eligible: false
+    tax_units:
+      tax_unit:
+        members: [person1]
+        aca_magi_fraction: 1.3
+        filing_status: SINGLE
+    households:
+      household:
+        members: [person1]
+        state_code: OR
+  output:
+    or_healthier_oregon_eligible: [true]
+    pays_aca_premium: [false]
+    is_aca_ptc_eligible: [false]
+
+- name: Reform still extends PTC to uncovered filer above the 400% FPL cliff
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    people:
+      person1:
+        age: 40
+        immigration_status: CITIZEN
+        is_medicaid_eligible: false
+        is_aca_eshi_eligible: false
+        is_medicare_eligible: false
+        is_chip_eligible: false
+    tax_units:
+      tax_unit:
+        members: [person1]
+        aca_magi_fraction: 5.0
+        filing_status: SINGLE
+    households:
+      household:
+        members: [person1]
+        state_code: TX
+  output:
+    pays_aca_premium: [true]
+    is_aca_ptc_eligible: [true]
+
+- name: Reform excludes married filing separately filer above the 400% FPL cliff
+  period: 2026
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    people:
+      person1:
+        age: 40
+        immigration_status: CITIZEN
+        is_medicaid_eligible: false
+        is_aca_eshi_eligible: false
+        is_medicare_eligible: false
+        is_chip_eligible: false
+    tax_units:
+      tax_unit:
+        members: [person1]
+        aca_magi_fraction: 5.0
+        filing_status: SEPARATE
+    households:
+      household:
+        members: [person1]
+        state_code: TX
+  output:
+    pays_aca_premium: [true]
+    is_aca_ptc_eligible: [false]
+
+- name: Reform preserves below-FPL immigration exception (2025)
+  period: 2025
+  reforms: policyengine_us.reforms.aca.aca_ptc_700_fpl_cliff.aca_ptc_700_fpl_cliff
+  input:
+    gov.contrib.aca.ptc_700_fpl_cliff.in_effect: true
+    people:
+      person1:
+        age: 40
+        immigration_status: TPS
+        is_medicaid_eligible: false
+        is_chip_eligible: false
+        is_basic_health_program_eligible: false
+        is_aca_eshi_eligible: false
+        is_medicare_eligible: false
+    tax_units:
+      tax_unit:
+        members: [person1]
+        aca_magi_fraction: 0.75
+        filing_status: SINGLE
+    households:
+      household:
+        members: [person1]
+        state_code: TX
+        state_fips: 48
+  output:
+    aca_ptc_below_fpl_immigration_exception: true
+    is_aca_ptc_eligible: [true]

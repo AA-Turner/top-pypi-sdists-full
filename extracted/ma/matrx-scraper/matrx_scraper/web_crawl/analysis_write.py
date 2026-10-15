@@ -17,9 +17,13 @@ and hands them over; these functions own the DB contract:
 - `severity` comes from the catalogue row's own `severity_map` bands, never
   from a provider's opinion.
 - `web.finding` is the mutable register: warn/fail opens-or-refreshes-or-
-  REOPENS, pass resolves, everything else (`n_a`/`error`) leaves the register
-  untouched — an unanswerable check must never silently resolve a real open
-  finding.
+  REOPENS, pass resolves, `n_a` CLOSES AS UNVERIFIED (resolved, with the
+  check's own reason stored in ``metadata.unverified``), `error` leaves it
+  untouched. An unanswerable check never resolves a finding silently — but it
+  never keeps one open either: on 2026-10-14, 113 "page has no title" findings
+  stood open on pages whose titles were fine, because the page later became
+  un-judgeable and nothing could ever close them. A later warn/fail reopens
+  the same row.
 - Suppression is user-owned state and is NEVER written here.
 - A finding row is the DURABLE identity of `(site, subject, item)`. A condition
   that comes back reopens THAT row (`status='reopened'`), never a fresh one —
@@ -27,6 +31,8 @@ and hands them over; these functions own the DB contract:
 """
 
 from __future__ import annotations
+
+from collections import defaultdict
 
 from datetime import UTC, datetime
 
@@ -132,6 +138,8 @@ async def reconcile_findings(
     results: list[tuple[dict, WebAnalysisResult]],
     summary: AnalysisSummary,
     site_scoped_item_ids: frozenset[str] | set[str] = frozenset(),
+    rolled_up: dict[tuple[str, str], str] | None = None,
+    rollup_item_ids: frozenset[str] | set[str] = frozenset(),
 ) -> None:
     """Open/refresh/reopen a finding per warn/fail result; resolve on pass.
 
@@ -151,7 +159,15 @@ async def reconcile_findings(
     has always rendered.
 
     Suppression itself is user state and is never modified here.
+
+    ``rolled_up`` maps ``(page subject id, item id)`` to the site result that
+    names the shared cause (``web_crawl/rollup.py``): such a page row opens no
+    page finding, and an open one closes with ``metadata.rolled_up`` pointing
+    at the site result. ``rollup_item_ids`` are the checks that MAY roll up;
+    an open SITE finding for one of them that got no site row this run closes,
+    because the shared cause is gone (or no longer shared).
     """
+    rolled_up = rolled_up or {}
 
     findings = await WebFinding.filter(site_id=site_id, deleted_at__isnull=True).all()
     open_by_key: dict[tuple[str, str], WebFinding] = {}
@@ -199,15 +215,38 @@ async def reconcile_findings(
     refreshes: list[dict] = []
     reopens: list[dict] = []
     resolves: list[dict] = []
+    unverified: list[dict] = []
+    covered: list[dict] = []
     for row, created in results:
         key = (str(row["subject_id"]), str(row["item_id"]))
         existing = open_by_key.get(key)
+        if key in rolled_up and row["status"] in ("warn", "fail"):
+            if existing is not None:
+                covered.append(
+                    {
+                        "id": str(existing.id),
+                        "status": "resolved",
+                        "resolved_at": computed_at,
+                        "last_result_id": str(created.id),
+                        "metadata": {
+                            **(getattr(existing, "metadata", None) or {}),
+                            "rolled_up": {"site_result_id": rolled_up[key]},
+                        },
+                    }
+                )
+            continue
         if row["status"] in ("warn", "fail"):
             if existing is None and key in resolved_by_key:
                 # It came back. Same row, same history, same suppression.
+                prior = resolved_by_key.pop(key)
                 reopens.append(
                     {
-                        "id": str(resolved_by_key.pop(key).id),
+                        "id": str(prior.id),
+                        "metadata": {
+                            k: v
+                            for k, v in (getattr(prior, "metadata", None) or {}).items()
+                            if k not in ("unverified", "rolled_up")
+                        },
                         "status": "reopened",
                         "resolved_at": None,
                         "severity": row["severity"],
@@ -244,6 +283,20 @@ async def reconcile_findings(
                         "last_detected_at": computed_at,
                     }
                 )
+        elif row["status"] == "n_a" and existing is not None:
+            reason = (row.get("metadata") or {}).get("reasoning")
+            unverified.append(
+                {
+                    "id": str(existing.id),
+                    "status": "resolved",
+                    "resolved_at": computed_at,
+                    "last_result_id": str(created.id),
+                    "metadata": {
+                        **(getattr(existing, "metadata", None) or {}),
+                        "unverified": {"at": computed_at.isoformat(), "reason": reason},
+                    },
+                }
+            )
         elif row["status"] == "pass" and existing is not None:
             resolves.append(
                 {
@@ -253,6 +306,59 @@ async def reconcile_findings(
                     "last_result_id": str(created.id),
                 }
             )
+
+    # A roll-up site finding whose shared cause is gone: no site row this run.
+    answered_rollups = {
+        str(row["item_id"])
+        for row, _created in results
+        if row["subject_type"] == "site" and str(row["item_id"]) in rollup_item_ids
+    }
+    # "The shared cause is gone" needs most pages actually re-judged: when most
+    # came back n_a (stale lab data, blocked fetches) the close is UNVERIFIED,
+    # with the reason, never a silent "fixed".
+    gone_rollups: list[dict] = []
+    judged: dict[str, int] = defaultdict(int)
+    page_rows: dict[str, int] = defaultdict(int)
+    for row, _created in results:
+        if row["subject_type"] != "page":
+            continue
+        page_rows[str(row["item_id"])] += 1
+        if row["status"] in ("pass", "warn", "fail"):
+            judged[str(row["item_id"])] += 1
+    for f in findings:
+        item = str(f.item_id)
+        if (
+            f.subject_type != "site"
+            or f.status == "resolved"
+            or item not in rollup_item_ids
+            or item in answered_rollups
+            or judged[item] == 0
+        ):
+            continue
+        mostly_judged = judged[item] * 2 >= page_rows[item]
+        gone_rollups.append(
+            {
+                "id": str(f.id),
+                "status": "resolved",
+                "resolved_at": computed_at,
+                "metadata": {
+                    **(getattr(f, "metadata", None) or {}),
+                    **(
+                        {"cause_gone": {"at": computed_at.isoformat()}}
+                        if mostly_judged
+                        else {
+                            "unverified": {
+                                "at": computed_at.isoformat(),
+                                "reason": (
+                                    f"Only {judged[item]} of {page_rows[item]} pages could be "
+                                    "rechecked, so we can't confirm the shared cause is fixed."
+                                ),
+                            }
+                        }
+                    ),
+                },
+            }
+        )
 
     if creates:
         async with transaction(WEB_DB_NAME):
@@ -286,6 +392,7 @@ async def reconcile_findings(
                     "severity": "text",
                     "last_result_id": "uuid",
                     "last_detected_at": "timestamptz",
+                    "metadata": "jsonb",
                 },
             )
         summary.findings_reopened += len(reopens)
@@ -310,6 +417,42 @@ async def reconcile_findings(
                 },
             )
         summary.findings_resolved += len(resolves)
+    if unverified:
+        async with transaction(WEB_DB_NAME):
+            await bulk_update_by_pk(
+                WebFinding,
+                unverified,
+                casts={
+                    "id": "uuid",
+                    "status": "text",
+                    "resolved_at": "timestamptz",
+                    "last_result_id": "uuid",
+                    "metadata": "jsonb",
+                },
+            )
+        summary.findings_resolved += len(unverified)
+    if gone_rollups:
+        async with transaction(WEB_DB_NAME):
+            await bulk_update_by_pk(
+                WebFinding,
+                gone_rollups,
+                casts={"id": "uuid", "status": "text", "resolved_at": "timestamptz", "metadata": "jsonb"},
+            )
+        summary.findings_resolved += len(gone_rollups)
+    if covered:
+        async with transaction(WEB_DB_NAME):
+            await bulk_update_by_pk(
+                WebFinding,
+                covered,
+                casts={
+                    "id": "uuid",
+                    "status": "text",
+                    "resolved_at": "timestamptz",
+                    "last_result_id": "uuid",
+                    "metadata": "jsonb",
+                },
+            )
+        summary.findings_resolved += len(covered)
 
 
 __all__ = ["insert_results", "reconcile_findings", "severity_for"]

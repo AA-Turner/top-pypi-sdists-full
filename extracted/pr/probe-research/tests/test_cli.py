@@ -13,7 +13,7 @@ import pytest
 import probe
 from probe import cli
 from probe.sdk.surface import Surface
-from tests.conftest import make_client
+from tests.conftest import _WS_MINE, make_client
 
 
 @pytest.fixture
@@ -1417,14 +1417,14 @@ def test_the_old_kind_spelling_is_accepted_but_never_offered(capsys):
     assert "'inference'" not in err
 
 
-def test_workspace_create_makes_a_team_workspace_and_leaves_the_default_alone(
+def test_workspace_create_makes_a_team_workspace_and_pins_nothing_locally(
     wired, capsys
 ):
     """Creating one must not silently become "and now file everything there".
 
     The second half is the point: after the create, a `project create` with no
-    `--workspace` still sends NO workspace_id, so the server files it in the
-    oldest existing workspace. Workspace selection belongs to the server.
+    `--workspace` still goes to THIS COMPUTER's workspace (the fake client is a
+    set-up computer pinned to "Mine"), never the workspace just made.
     """
     rc = cli.main(["workspace", "create", "engineering", "--name", "Engineering"])
     assert rc == 0
@@ -1434,7 +1434,7 @@ def test_workspace_create_makes_a_team_workspace_and_leaves_the_default_alone(
 
     cli.main(["project", "create", "--kind", "general", "after-create"])
     sent = json.loads(wired.requests[-1].content)
-    assert "workspace_id" not in sent or sent["workspace_id"] is None
+    assert sent["workspace_id"] == _WS_MINE
 
 
 def test_workspace_create_use_switches_the_context(wired, capsys):
@@ -1448,15 +1448,27 @@ def test_workspace_create_use_switches_the_context(wired, capsys):
     assert sent["workspace_id"] == team["id"]
 
 
-def test_workspace_use_clear_goes_back_to_the_server_default(wired, capsys):
-    """Clearing the pin lets the server choose from the workspaces still present."""
+def test_workspace_use_clear_leaves_a_team_with_several_needing_a_choice(
+    wired, capsys, monkeypatch, tmp_path
+):
+    """With this computer's workspace cleared, a team with several workspaces is
+    refused rather than guessed for, and the refusal names the fix."""
+    monkeypatch.setattr(
+        cli, "Client", lambda **_kw: make_client(wired, tmp_spool=tmp_path / "spool2", workspace=None)
+    )
     cli.main(["workspace", "create", "engineering", "--use"])
     cli.main(["workspace", "use", "--clear"])
-    assert "server default workspace" in capsys.readouterr().out
+    assert "this computer's workspace cleared" in capsys.readouterr().out
 
-    cli.main(["project", "create", "--kind", "general", "back-home"])
-    sent = json.loads(wired.requests[-1].content)
-    assert "workspace_id" not in sent or sent["workspace_id"] is None
+    assert cli.main(["project", "create", "--kind", "general", "nowhere"]) != 0
+    assert "probe workspace use" in capsys.readouterr().err
+    assert not [p for p in wired.projects.values() if p["slug"] == "nowhere"]
+
+
+def test_the_retired_workspace_default_command_is_gone(wired, capsys):
+    """Per-person defaults were retired (2026-10-14): `probe workspace use` sets
+    this computer's workspace."""
+    assert cli.main(["workspace", "default", "mine"]) != 0
 
 
 def test_workspace_use_refuses_a_ref_and_clear_together(wired, capsys):
@@ -1502,8 +1514,15 @@ def test_workspace_list_uses_one_shape_without_an_identity_lookup(wired, capsys)
     rows = json.loads(capsys.readouterr().out)
 
     assert [row["name"] for row in rows] == ["Engineering", "Mine", "Teammate"]
-    assert all(set(row) == {"id", "name", "slug", "projects"} for row in rows)
+    assert all(set(row) == {"id", "name", "slug", "projects", "this_computer"} for row in rows)
+    assert not any(row["this_computer"] for row in rows)  # nothing pinned in this context
     assert [(r.method, r.url.path) for r in wired.requests] == [("GET", "/v1/workspaces")]
+
+    cli.main(["workspace", "use", "engineering"])
+    capsys.readouterr()
+    cli.main(["workspace", "list"])
+    rows = json.loads(capsys.readouterr().out)
+    assert [row["name"] for row in rows if row["this_computer"]] == ["Engineering"]
 
 
 def test_workspace_delete_accepts_an_empty_legacy_personal_workspace(wired, capsys):

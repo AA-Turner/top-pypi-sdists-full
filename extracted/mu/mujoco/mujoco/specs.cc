@@ -509,6 +509,87 @@ PYBIND11_MODULE(_specs, m, pybind11::mod_gil_not_used()) {
             reinterpret_cast<uintptr_t>(self.Compile(vfs_ptr)));
       },
       py::arg("vfs") = py::none());
+  mjSpec.def(
+      "fuse_static",
+      [](MjSpec& self, std::optional<MjVfs*> vfs) {
+        self.FuseStatic(vfs.has_value() ? (*vfs)->get() : nullptr);
+      },
+      py::arg("vfs") = py::none(),
+      R"mydelimiter(
+    Fuses the static bodies of the spec with their parents.
+
+    Each fused body becomes a frame in its parent, holding what the body held.
+    Objects referring to the fused bodies must not be used afterwards. Assets
+    are read as in compile().
+
+    Parameters
+    ----------
+    vfs : MjVfs, optional
+        A VFS to read assets from. Cannot be used with assets.
+    )mydelimiter");
+  mjSpec.def(
+      "discard_visual",
+      [](MjSpec& self, std::optional<MjVfs*> vfs) {
+        self.DiscardVisual(vfs.has_value() ? (*vfs)->get() : nullptr);
+      },
+      py::arg("vfs") = py::none(),
+      R"mydelimiter(
+    Discards the visual elements of the spec.
+
+    All materials and textures are discarded, as are the geoms which do not
+    collide and are not referenced, and the meshes which are then not used.
+    Objects referring to the discarded elements must not be used afterwards.
+    Assets are read as in compile(), and only if body inertia is inferred from
+    a discarded geom.
+
+    Parameters
+    ----------
+    vfs : MjVfs, optional
+        A VFS to read assets from. Cannot be used with assets.
+    )mydelimiter");
+  mjSpec.def(
+      "adopt_inertial",
+      [](MjSpec& self, raw::MjsBody* body, std::optional<MjVfs*> vfs) {
+        self.AdoptInertial(body, vfs.has_value() ? (*vfs)->get() : nullptr);
+      },
+      py::arg("body"), py::arg("vfs") = py::none(),
+      R"mydelimiter(
+    Makes the inertial which compilation infers for a body part of the spec.
+
+    The mass, inertia and inertial frame calculated from the geoms of the body
+    become its explicit inertial, and no longer follow changes to the geoms.
+    Assets are read as in compile().
+
+    Parameters
+    ----------
+    body : MjsBody
+        A body of this spec.
+    vfs : MjVfs, optional
+        A VFS to read assets from. Cannot be used with assets.
+    )mydelimiter");
+  mjSpec.def(
+      "copy_back",
+      [](MjSpec& self, py::object model) {
+        auto& wrapper = py::cast<_impl::MjModelWrapper&>(model);
+        if (!mj_copyBack(self.ptr, wrapper.get())) {
+          throw py::value_error(mjs_getError(self.ptr));
+        }
+      },
+      py::arg("model"),
+      R"mydelimiter(
+    Writes to the spec what was changed in a model compiled from it.
+
+    Each value of the model which is not the one that the spec was compiled to
+    is written to the spec as what compiles to it, so that it is in the models
+    which are compiled from the spec afterwards and in the XML which is saved.
+    Raises ValueError, and writes nothing, if a change cannot be expressed in
+    the spec.
+
+    Parameters
+    ----------
+    model : MjModel
+        The model which was last compiled from this spec.
+    )mydelimiter");
   mjSpec.def_property(
       "assets", [](MjSpec& self) -> py::dict { return self.assets; },
       [](MjSpec& self, py::dict& assets) {
@@ -858,10 +939,22 @@ PYBIND11_MODULE(_specs, m, pybind11::mod_gil_not_used()) {
          int elastic2d, std::optional<std::vector<double>> pos,
          std::optional<std::vector<double>> quat,
          std::optional<std::vector<double>> origin,
-         std::optional<std::string> file, MjVfs* vfs) -> raw::MjsFlex* {
+         std::optional<std::string> file, std::optional<std::string> mesh,
+         MjVfs* vfs) -> raw::MjsFlex* {
         const char* type_str = type.has_value() ? type->c_str() : nullptr;
         const char* dof_str = dof.has_value() ? dof->c_str() : nullptr;
         const char* file_str = file.has_value() ? file->c_str() : nullptr;
+        if (mesh.has_value()) {
+          if (file.has_value()) {
+            throw pybind11::value_error(
+                "both 'file' and 'mesh' specified");
+          }
+          if (!mjs_findElement(mjs_getSpec(self.element), mjOBJ_MESH,
+                               mesh->c_str())) {
+            throw pybind11::value_error("mesh '" + *mesh + "' not found");
+          }
+          file_str = mesh->c_str();
+        }
         const mjVFS* vfs_ptr = vfs ? vfs->get() : nullptr;
 
         int count_arr[3] = {10, 10, 10};
@@ -947,8 +1040,8 @@ PYBIND11_MODULE(_specs, m, pybind11::mod_gil_not_used()) {
       py::arg("equality") = 0, py::arg("rigid") = 0, py::arg("flatskin") = 0,
       py::arg("elastic2d") = 0, py::arg("pos") = py::none(),
       py::arg("quat") = py::none(), py::arg("origin") = py::none(),
-      py::arg("file") = py::none(), py::arg("vfs") = py::none(),
-      py::return_value_policy::reference_internal);
+      py::arg("file") = py::none(), py::arg("mesh") = py::none(),
+      py::arg("vfs") = py::none(), py::return_value_policy::reference_internal);
   mjsBody.def(
       "find_child",
       [](raw::MjsBody& self, std::string& name) -> raw::MjsBody* {
@@ -1442,6 +1535,106 @@ PYBIND11_MODULE(_specs, m, pybind11::mod_gil_not_used()) {
         }
       },
       py::arg("resolution") = std::array<int, 2>{0, 0});
+  mjsMesh.def(
+      "make_grid",
+      [](raw::MjsMesh* self, std::vector<int> count,
+         std::vector<double> spacing, int dim) {
+        if (count.size() != 3 || spacing.size() != 3) {
+          throw pybind11::value_error("count and spacing must have 3 elements");
+        }
+        double params[7] = {
+            static_cast<double>(count[0]), static_cast<double>(count[1]),
+            static_cast<double>(count[2]), spacing[0], spacing[1], spacing[2],
+            static_cast<double>(dim)};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_GRID, params, 7)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("count"), py::arg("spacing"), py::arg("dim") = 3);
+  mjsMesh.def(
+      "make_box",
+      [](raw::MjsMesh* self, std::vector<int> count,
+         std::vector<double> spacing, int dim) {
+        if (count.size() != 3 || spacing.size() != 3) {
+          throw pybind11::value_error("count and spacing must have 3 elements");
+        }
+        double params[7] = {
+            static_cast<double>(count[0]), static_cast<double>(count[1]),
+            static_cast<double>(count[2]), spacing[0], spacing[1], spacing[2],
+            static_cast<double>(dim)};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_BOX, params, 7)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("count"), py::arg("spacing"), py::arg("dim") = 3);
+  mjsMesh.def(
+      "make_cylinder",
+      [](raw::MjsMesh* self, std::vector<int> count,
+         std::vector<double> spacing, int dim) {
+        if (count.size() != 3 || spacing.size() != 3) {
+          throw pybind11::value_error("count and spacing must have 3 elements");
+        }
+        double params[7] = {
+            static_cast<double>(count[0]), static_cast<double>(count[1]),
+            static_cast<double>(count[2]), spacing[0], spacing[1], spacing[2],
+            static_cast<double>(dim)};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_CYLINDER, params, 7)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("count"), py::arg("spacing"), py::arg("dim") = 3);
+  mjsMesh.def(
+      "make_ellipsoid",
+      [](raw::MjsMesh* self, std::vector<int> count,
+         std::vector<double> spacing, int dim) {
+        if (count.size() != 3 || spacing.size() != 3) {
+          throw pybind11::value_error("count and spacing must have 3 elements");
+        }
+        double params[7] = {
+            static_cast<double>(count[0]), static_cast<double>(count[1]),
+            static_cast<double>(count[2]), spacing[0], spacing[1], spacing[2],
+            static_cast<double>(dim)};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_ELLIPSOID, params, 7)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("count"), py::arg("spacing"), py::arg("dim") = 3);
+  mjsMesh.def(
+      "make_square",
+      [](raw::MjsMesh* self, std::vector<int> count,
+         std::vector<double> spacing) {
+        if (count.size() < 2 || spacing.size() < 2) {
+          throw pybind11::value_error(
+              "count and spacing must have at least 2 elements");
+        }
+        int c2 = (count.size() >= 3) ? count[2] : 1;
+        double s2 = (spacing.size() >= 3) ? spacing[2] : 0.0;
+        double params[6] = {
+            static_cast<double>(count[0]), static_cast<double>(count[1]),
+            static_cast<double>(c2), spacing[0], spacing[1], s2};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_SQUARE, params, 6)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("count"), py::arg("spacing"));
+  mjsMesh.def(
+      "make_disc",
+      [](raw::MjsMesh* self, std::vector<int> count,
+         std::vector<double> spacing) {
+        if (count.size() < 2 || spacing.size() < 2) {
+          throw pybind11::value_error(
+              "count and spacing must have at least 2 elements");
+        }
+        int c2 = (count.size() >= 3) ? count[2] : 1;
+        double s2 = (spacing.size() >= 3) ? spacing[2] : 0.0;
+        double params[6] = {
+            static_cast<double>(count[0]), static_cast<double>(count[1]),
+            static_cast<double>(c2), spacing[0], spacing[1], s2};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_DISC, params, 6)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("count"), py::arg("spacing"));
 
   // ============================= MJSPAIR =====================================
   mjSpec.def("delete", [](MjSpec& self, raw::MjsPair& obj) {

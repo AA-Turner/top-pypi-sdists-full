@@ -1,0 +1,78 @@
+- name: Countable income over payment standard, clothing allowance is added.
+  period: 2021
+  input:
+    ma_tafdc_payment_standard: 2_100
+    ma_tafdc_clothing_allowance: 400
+    ma_tafdc_exceeds_eaedc: true
+    ma_tafdc_eligible: true
+    ma_tafdc_applicable_income_grant_amount: 2_200
+  output:
+    ma_tafdc: 400
+
+- name: Countable income under payment standard
+  period: 2021
+  input:
+    ma_tafdc_payment_standard: 2_100
+    ma_tafdc_clothing_allowance: 400
+    ma_tafdc_exceeds_eaedc: true
+    ma_tafdc_eligible: true
+    ma_tafdc_applicable_income_grant_amount: 1_000
+  output:
+    ma_tafdc: 1_500
+
+- name: Not eligible for TAFDC
+  period: 2021
+  input:
+    ma_tafdc_payment_standard: 2_100
+    ma_tafdc_clothing_allowance: 400
+    ma_tafdc_exceeds_eaedc: false
+    ma_tafdc_eligible: false
+    ma_tafdc_applicable_income_grant_amount: 2_400
+  output:
+    ma_tafdc: 0
+
+- name: Integration test, pregnant single parent with rent
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 19
+        is_pregnant: true
+        employment_income_before_lsr: 9_600
+        rent: 1_200
+        weekly_hours_worked: 13.3
+      person2:
+        age: 4
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+        ma_eaedc_living_arrangement: A
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: MA
+        #is_in_public_housing: true
+  output:
+    ma_tcap_gross_earned_income: [9_600, 0] # 800 per month
+    ma_tafdc_countable_earned_income: [1_800, 0]
+    ma_tafdc_applicable_income_grant_amount: 1_800
+    ma_tafdc_exceeds_eaedc: true
+    ma_tafdc_payment_standard: 8_841 # 688*3 + 753*9 (FY25 raise effective 2025-04-01)
+    ma_tafdc_eligible_dependent: [False, True]
+    ma_tafdc_dependent_care_deduction: 0
+    ma_tafdc: 7_541 # 579.67*3 + 644.67*9
+    ma_eaedc_eligible: false
+    ma_eaedc_immigration_status_eligible: true
+    # financial_eligible / income_eligible flip true after FY25 raise (standard_assistance > net_income)
+    ma_eaedc_financial_eligible: true
+    ma_eaedc_non_financial_eligible: false
+    ma_eaedc_income_eligible: true
+    ma_eaedc_assets_limit_eligible: true
+    # Jan-Mar 2025 (pre-FY25): 522*3 = 1566; Apr-Dec 2025 (post-FY25): 574.2*9 = 5167.8
+    ma_eaedc_standard_assistance: 6_733.80
+    ma_eaedc_net_income: 6_087.6
+    # ma_eaedc_living_arrangement: E
+    ma_eaedc: 0

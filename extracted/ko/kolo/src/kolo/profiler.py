@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import inspect
 import logging
-import platform
 import sys
 import threading
 import time
@@ -15,6 +14,7 @@ import ulid
 
 from kolo.threads import get_thread_id
 
+from . import _platform_info
 from .config import (
     CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE,
     resolve_flush_subtree_bytes as _resolve_flush_subtree_bytes,
@@ -174,8 +174,6 @@ class KoloProfiler:
         self.thread_locals = KoloLocals()
         self.timestamp = time.time()
         self.rust_profiler = None
-        # Set when the code holding this session open finished on a thread
-        # that cannot clear this one's profile hook.
         self.orphaned = False
         self.thread = threading.current_thread()
         self.omit_return_locals = self.config.get("omit_return_locals", False)
@@ -213,14 +211,7 @@ class KoloProfiler:
         return {
             "version": __version__,
             "source": self.source,
-            "environment": {
-                "py_version": platform.python_version(),
-                "py_version_full": sys.version,
-                "platform": platform.platform(),
-                "system": platform.system(),
-                "machine": platform.machine(),
-                "processor": platform.processor(),
-            },
+            "environment": _platform_info.environment(),
             "config": config,
         }
 
@@ -315,9 +306,7 @@ class KoloProfiler:
                         frame.f_code.co_filename,
                         frame.f_code.co_name,
                         event,
-                        dict(
-                            frame.f_locals
-                        ),  # Convert for Python 3.13+ FrameLocalsProxy
+                        dict(frame.f_locals),
                         exc_info=e,
                     )
                     continue
@@ -337,9 +326,7 @@ class KoloProfiler:
                         frame.f_code.co_filename,
                         frame.f_code.co_name,
                         event,
-                        dict(
-                            frame.f_locals
-                        ),  # Convert for Python 3.13+ FrameLocalsProxy
+                        dict(frame.f_locals),
                         exc_info=e,
                     )
                     continue
@@ -355,9 +342,7 @@ class KoloProfiler:
                         frame.f_code.co_filename,
                         frame.f_code.co_name,
                         event,
-                        dict(
-                            frame.f_locals
-                        ),  # Convert for Python 3.13+ FrameLocalsProxy
+                        dict(frame.f_locals),
                         exc_info=e,
                     )
                     continue
@@ -373,9 +358,7 @@ class KoloProfiler:
                         frame.f_code.co_filename,
                         frame.f_code.co_name,
                         event,
-                        dict(
-                            frame.f_locals
-                        ),  # Convert for Python 3.13+ FrameLocalsProxy
+                        dict(frame.f_locals),
                         exc_info=e,
                     )
                     continue
@@ -391,7 +374,7 @@ class KoloProfiler:
                     frame.f_code.co_filename,
                     frame.f_code.co_name,
                     event,
-                    dict(frame.f_locals),  # Convert for Python 3.13+ FrameLocalsProxy
+                    dict(frame.f_locals),
                     exc_info=e,
                 )
 
@@ -589,16 +572,8 @@ class KoloProfiler:
         return True
 
     def _save_subtrace_chunks(self, subtrace_id: str, chunks) -> None:
-        # Runs under _subtree_flush_lock. Suspend sys.setprofile on the current
-        # thread while saving so the hot callback path stays free of save guards.
-        # NOTE (#2535 item 4): we deliberately do NOT mirror KoloMonitor's
-        # `thread_locals.is_saving` guard here. The two backends use different
-        # APIs — sys.setprofile supports per-thread unregister with zero hot-path
-        # cost, while sys.monitoring does not, which is why the monitor needs an
-        # in-band re-entrance flag. Adding the same flag to the profiler costs a
-        # threading.local lookup on every callback (~12% slowdown on
-        # benchmark_chaos_exclude[with_python_profiler] when measured), so the
-        # unification is not worth it.
+        # Runs under _subtree_flush_lock. Deliberately no is_saving guard like KoloMonitor's:
+        # a threading.local lookup per callback measured ~12% slower.
         timeout = self.config.get("sqlite_busy_timeout", 60)
         db_path = self.db_path
 
@@ -641,7 +616,6 @@ class KoloProfiler:
             try:
                 from ._kolo import register_profiler
             except ImportError as e:  # pragma: no cover
-                # Useful for PyPy, which doesn't do Rust
                 logger.debug(
                     "Rust profiler import failed (%s), using Python profiler", e
                 )
@@ -769,9 +743,7 @@ class KoloProfiler:
             frame_id = f"frm_{ulid.new()}"
             self.thread_locals._frame_ids[id(frame)] = frame_id
         elif event == "return":  # pragma: no branch
-            # Like monitoring's _end_frame: skip a return whose call wasn't
-            # recorded (e.g. a return-only include filter) rather than raise
-            # or pop the caller's entry.
+            # Skip returns whose calls were not recorded; do not pop the caller's entry.
             recorded_id = self.thread_locals._frame_ids.get(id(frame))
             if (
                 recorded_id is None

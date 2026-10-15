@@ -235,7 +235,8 @@ public static class Download
 
         if (!string.IsNullOrEmpty(key))
         {
-            var info = License.ValidateLicense(key);
+            // Sync HTTP on a cache miss: run it off the caller's thread (e.g. a UI thread).
+            var info = await Task.Run(() => License.ValidateLicense(key)).ConfigureAwait(false);
             if (info != null && info.Valid)
             {
                 // Free tier always gets the latest build. Drop any version pin: the
@@ -454,7 +455,7 @@ public static class Download
 
         // GetProLatestVersion() is rate-limited to one network call per hour and returns a
         // cached string in between, so this foreground check stays cheap steady-state.
-        var latest = License.GetProLatestVersion(releaseChannel);
+        var latest = await Task.Run(() => License.GetProLatestVersion(releaseChannel)).ConfigureAwait(false);
 
         // Tell the user when they asked for Preview but the server has no preview build
         // for this platform, so the Stable build is used instead. The lookup is a cache
@@ -462,7 +463,7 @@ public static class Download
         // network on the once-an-hour refresh.
         if (Config.NormalizeReleaseChannel(releaseChannel) == "preview")
         {
-            var release = License.GetProLatestRelease(releaseChannel);
+            var release = await Task.Run(() => License.GetProLatestRelease(releaseChannel)).ConfigureAwait(false);
             if (release is { Fallback: true })
                 WarnPreviewFallback();
         }
@@ -1246,7 +1247,7 @@ public static class Download
     public static async Task<string?> CheckForProUpdateAsync(
         string licenseKey, CancellationToken ct = default, string? releaseChannel = null)
     {
-        var latest = License.GetProLatestVersion(releaseChannel);
+        var latest = await Task.Run(() => License.GetProLatestVersion(releaseChannel)).ConfigureAwait(false);
         if (string.IsNullOrEmpty(latest)) return null;
 
         var effective = Config.GetEffectiveVersion(pro: true, releaseChannel: releaseChannel);

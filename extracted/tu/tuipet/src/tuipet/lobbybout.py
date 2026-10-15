@@ -9,6 +9,7 @@ wire card passes through it.
 from __future__ import annotations
 
 import hashlib
+import math
 import random
 
 from rich.cells import cell_len, chop_cells, set_cell_size  # noqa: F401
@@ -44,7 +45,9 @@ def _clamp_card(card):
     Module-level because seeded PvP feeds BOTH engines identically-clamped
     cards -- including one's own, clamped exactly as the peer clamps it."""
     def _n(v, d=0, lo=0, hi=999):
-        if not isinstance(v, (int, float)) or isinstance(v, bool):
+        # battle audit 2026-10-14: peer JSON can contain NaN/Infinity.
+        if not isinstance(v, (int, float)) or isinstance(v, bool) \
+                or (isinstance(v, float) and not math.isfinite(v)):
             v = d
         return max(lo, min(int(v), hi))
     card = dict(card)
@@ -60,6 +63,11 @@ def _clamp_card(card):
     card["trainings_total"] = _n(card.get("trainings_total"), 0, 0, 9999)
     card["battles"] = _n(card.get("battles"), 0, 0, 10 ** 6)
     card["wins"] = _n(card.get("wins"), 0, 0, card["battles"])
+    # battle call #21 = B: trained HP and attribute powers ride the card --
+    # bounded to what the game can award (+1 HP; powers past the cap add nothing)
+    card["hp"] = _n(card.get("hp"), 5, 5, 6)
+    raw = card.get("powers") if isinstance(card.get("powers"), dict) else {}
+    card["powers"] = {a: _n(raw.get(a), 0, 0, 25) for a in ("Vaccine", "Data", "Virus")}
     if card.get("hit_type") not in ("mega", "normal", "miss"):
         card["hit_type"] = "miss"
     card["num"] = _n(card.get("num"), 0, 0, 10 ** 6)
@@ -82,7 +90,7 @@ def _clamp_card(card):
             card["stage"] = "Rookie"
         if card.get("attribute") not in ("Vaccine", "Virus", "Data", "Free"):
             card["attribute"] = "Free"
-    card["hp"] = 5
+    # (the old `card["hp"] = 5` pin left: hp is bounded above, battle call #21)
     return card
 
 
@@ -186,9 +194,17 @@ class BoutMixin:
         rng = random.Random(seed).random
         host = battle.Side.of_card(dict(host_card))
         guest = battle.Side.of_card(dict(guest_card))
+        # initiative from the SHARED seed, so both peers agree (battle call
+        # #20 = A, 2026-10-15: the host used to strike first every bout)
+        host_first = rng() < 0.5
         seq, hhp, ghp = battle.generate(host, guest, rounds=battle.ROUNDS_ONLINE,
-                                        rng=rng)
-        self.battle = {"seq": seq, "host_hp": 5, "guest_hp": 5, "i": 0}
+                                        rng=rng, me_first=host_first)
+        if self.bshow is not None:           # the duel card's HP maxima (call #21 = B)
+            self.bshow.hp_max = ((host.hp, guest.hp) if self.is_host
+                                 else (guest.hp, host.hp))
+            self.bshow.hud_php, self.bshow.hud_fhp = self.bshow.hp_max
+        self.battle = {"seq": seq, "host_hp": host.hp, "guest_hp": guest.hp, "i": 0,
+                       "host_first": host_first}
         self.bphase = "fight"
         self._play_next_round()
     def _play_next_round(self):
@@ -238,8 +254,7 @@ class BoutMixin:
         report = getattr(self.client, "ladder_report", None)
         if report and opp_nm and not draw:
             report(won, opp_nm)
-        from .pet import online_reward
-        purse = online_reward(won, draw=draw)
+        purse = self._paid_purse(won, draw=draw)
         self.pet.record_battle(won and not draw, online=True)
         # pet.add_bits died with the classic revert (v0.5.0) -- every online
         # payout has crashed on BOTH sides since; caught by the live two-bot
@@ -283,14 +298,19 @@ class BoutMixin:
         try:
             if self.bshow is None:
                 return
-            self.bshow.duel_volley(my0, opp0, dealt, taken)
+            self.bshow.duel_volley(my0, opp0, dealt, taken,
+                                   (self.battle or {}).get("host_first", True) == self.is_host)
         except Exception:
             self.bshow = None               # presentation must never break the bout
     def _key_battle(self, k):
         """The duel's keys read like a battle's now: SPACE locks the bar, then
-        HURRIES each volley, then closes the result.  ESC is always the way
-        out (a free back-out before the fight is seeded, a forfeit after)."""
+        HURRIES each volley, then closes the result. During the passive intro
+        any key skips only; afterward ESC backs out before seeding or forfeits."""
         show = self.bshow
+        if show is not None and getattr(show, "phase", None) == "intro":
+            # Joel approved skips 2026-10-14: this press never locks or forfeits.
+            show.key(k)
+            return None
         if show is not None and self.bphase == "lock":
             if k in ("space", "enter"):
                 show.key(k)                      # the panel grades its own bar
@@ -333,6 +353,26 @@ class BoutMixin:
             self.client.relay(self.partner[0], {"kind": "battle", "abort": True})
         self._return_to_lobby("Forfeit — counted as a loss." if counted
                               else "You forfeited.")
+    PAID_DUELS_PER_HOUR = 3            # per opponent (audit 2026-10-14)
+
+    def _paid_purse(self, won, draw=False):
+        """The purse for a FINISHED duel, paid for at most three duels per
+        opponent per hour; past that the bout still counts, it just pays 0."""
+        import time as _time
+        from .pet import online_reward
+        opp = (self.partner or (0, ""))[1] or (self.opp_card or {}).get("name") or "?"
+        now = _time.time()
+        led = dict(getattr(self.pet, "duel_paid", None) or {})
+        recent = [t for t in led.get(opp, []) if now - t < 3600]
+        if len(recent) >= self.PAID_DUELS_PER_HOUR:
+            led[opp] = recent
+            self.pet.duel_paid = led
+            return 0
+        led[opp] = recent + [now]
+        self.pet.duel_paid = {k: v for k, v in led.items()
+                              if any(now - t < 3600 for t in v)}
+        return online_reward(won, draw=draw)
+
     def _opp_fled(self):
         """The partner walked out of a RUNNING seeded fight (abort relay or
         roster vanish): that is THEIR forfeit.  File the winner's half so the
@@ -343,14 +383,12 @@ class BoutMixin:
         report = getattr(self.client, "ladder_report", None)
         if report and opp_nm:
             report(True, opp_nm)
-        from .pet import online_reward
-        purse = online_reward(True)
+        # a FORFEIT pays no purse (shop/loot audit 2026-10-14): a friend
+        # starting and abandoning bouts minted 200b a time.  The win still
+        # counts on the record and the ladder.
         self.pet.record_battle(True, online=True)
-        self.pet.bits += int(purse)
         self.bt_outcome = "Opponent fled — you win!"
-        from .pet import weekend_bonus
-        self.bt_reward = f"+{purse}b" + ("  (weekend bonus!)"      # calendar, not amount
-                                         if weekend_bonus() > 1 else "") + _evo_note(self.pet)
+        self.bt_reward = "no purse for a forfeit" + _evo_note(self.pet)
         self.bt_payload = ("battle_msg", self.bt_outcome)
         self.bphase = "over"
         self._show_verdict(True, False, "your rival walked out")

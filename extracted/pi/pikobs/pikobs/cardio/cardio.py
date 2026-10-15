@@ -127,6 +127,9 @@ Only the ``USER SETTINGS`` block of a wrapper is meant to be edited.
 3. Choosing the stations and channels
 =====================================
 
+Every token, with examples for each family (radiances, aircraft,
+radiosondes, surface), is on :doc:`stations`. In short:
+
 ``ID_STN`` takes the tokens of the rest of Pikobs, and each one is its own
 series of figures:
 
@@ -1259,7 +1262,7 @@ def _report_timing(timing: Dict[str, Any], pathwork: str) -> None:
         f"{timing['runs']} run(s)",
         flush=True,
     )
-    for phase in ("extraction", "plots"):
+    for phase in ("extraction", "plots", "summaries"):
         if phase in sec:
             print(f"[cardio] {phase:<12s} {sec[phase]:>8.1f} s", flush=True)
     print(
@@ -1394,7 +1397,7 @@ def _cardio_options(
 
 def _cardio_viewer(
     items, pathwork, missing_input, datestart, dateend, all_runs, control, families,
-    both: bool = False,
+    both: bool = False, summaries: Optional[str] = None,
 ):
     """The viewer: one page over every cardiogram written."""
 
@@ -1435,6 +1438,14 @@ def _cardio_viewer(
             "experience, blue the control.</b> With a control, a circle "
             "marks a cycle where the change passes the test: red where "
             "Exp is better, blue where Ctl is."
+            + (
+                " <b>Channel summaries:</b> choose <i>summary</i> in the channel selector "
+                "to see every channel at once; "
+                f'<a href="{os.path.basename(summaries)}" target="_blank">the interactive '
+                "pages</a> give the channel, the cycle and the value under the mouse."
+                if summaries
+                else ""
+            )
             + runs_block(all_runs, control, (datestart, dateend))
         ),
         image_subdir_key="family",
@@ -1574,6 +1585,25 @@ def _draw_cardiograms(plot_tasks, client, timing):
     return results
 
 
+def _draw_summaries(plot_tasks, client, timing):
+    """The channel summaries: every channel of a selection in one figure,
+    <family>_resume for one run, <family>_scorecard for a comparison."""
+    from pikobs.cardio.cardio_summary import summary_task, summary_tasks
+
+    tasks = summary_tasks(plot_tasks)
+    t0 = time.time()
+    print(f"[cardio] channel summaries: {len(tasks)} tasks", flush=True)
+    res = run_tasks(summary_task, [(t,) for t in tasks], client, label="summaries")
+    timing["seconds"]["summaries"] = time.time() - t0
+    print(
+        f"[cardio] summary time: {timing['seconds']['summaries']:.1f}s "
+        f"({sum(r is not None for r in res)}/{len(tasks)} written; a selection "
+        f"with a single channel or level has none)",
+        flush=True,
+    )
+    return tasks, res
+
+
 def make_cardio(
     runs,
     pathwork,
@@ -1662,6 +1692,8 @@ def make_cardio(
     client, dask_dir = start_workers(n_cpu, "cardio")
     plot_tasks: List[Dict[str, Any]] = []
     results: List[Any] = []
+    sum_tasks: List[Dict[str, Any]] = []
+    sum_results: List[Any] = []
     try:
 
         _extract_cycles(tasks, n_cpu, client, timing)
@@ -1720,9 +1752,15 @@ def make_cardio(
             )
             return 1
         results = _draw_cardiograms(plot_tasks, client, timing)
+        sum_tasks, sum_results = _draw_summaries(plot_tasks, client, timing)
     finally:
         stop_workers(client, dask_dir)
     items = build_viewer_items(plot_tasks, results)
+    from pikobs.cardio.cardio_summary import viewer_items as _summary_items
+    from pikobs.cardio.cardio_summary import write_index as _summary_index
+
+    items += _summary_items(sum_tasks, sum_results, _chan_text)
+    summaries = _summary_index(pathwork, sum_tasks, sum_results)
     if not items:
         print(
             "[cardio] ERROR: no figure was produced, viewer not written.",
@@ -1731,7 +1769,7 @@ def make_cardio(
         )
         return 1
     _cardio_viewer(items, pathwork, missing_input, datestart, dateend, all_runs, control, families,
-                   both=both)
+                   both=both, summaries=summaries)
 
     timing["seconds"]["total"] = time.time() - t_start
     _report_timing(timing, pathwork)

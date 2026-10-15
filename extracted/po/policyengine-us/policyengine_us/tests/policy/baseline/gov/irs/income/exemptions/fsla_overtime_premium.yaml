@@ -1,0 +1,13 @@
+- name: Case 1, FLSA overtime premium defaults to zero.
+  period: 2024
+  input:
+    employment_income: 30000
+  output:
+    fsla_overtime_premium: 0
+
+- name: Case 2, FLSA overtime premium accepts annual input.
+  period: 2024
+  input:
+    fsla_overtime_premium: 5000
+  output:
+    fsla_overtime_premium: 5000

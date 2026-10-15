@@ -56,8 +56,8 @@ use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use chalk_metrics::metrics::tags::Mode;
-use chalk_metrics::PublishingMetricsPipeline;
+use crate::metrics::CallMetrics;
+use crate::metrics::Mode;
 
 use crate::coalesce::{BufferedCall, CoalescingQueue};
 use crate::python_bridge::{CallerInput, ChunkBuffer, PythonHandler};
@@ -475,11 +475,11 @@ type LiveCalls = Arc<DashMap<String, QueueReceipt>>;
 pub async fn run(
     config: SelfConsumerConfig,
     handler: Arc<PythonHandler>,
-    metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    metrics: Option<Arc<CallMetrics>>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if config.consumer_endpoint.is_some() {
-        return run_fnq(config, handler, metrics_pipeline, coalescing_queue).await;
+        return run_fnq(config, handler, metrics, coalescing_queue).await;
     }
     let client = Client::open(config.redis_url.clone())?;
     let conn = ConnectionManager::new(client).await?;
@@ -531,7 +531,7 @@ pub async fn run(
             consumer_name,
             live_calls,
             handler,
-            metrics_pipeline,
+            metrics,
             coalescing_queue,
         )
         .await;
@@ -546,7 +546,7 @@ pub async fn run(
         consumer_name,
         live_calls,
         handler,
-        metrics_pipeline,
+        metrics,
         coalescing_queue,
     )
     .await
@@ -557,7 +557,7 @@ pub async fn run(
 async fn run_fnq(
     config: SelfConsumerConfig,
     handler: Arc<PythonHandler>,
-    metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    metrics: Option<Arc<CallMetrics>>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
 ) -> Result<(), OutputError> {
     let endpoint = config
@@ -619,7 +619,7 @@ async fn run_fnq(
                 let live = live.clone();
                 let handler = handler.clone();
                 let coalescer = coalescing_queue.clone();
-                let metrics = metrics_pipeline.clone();
+                let metrics = metrics.clone();
                 let flush_timeout = config.flush_timeout;
                 tasks.spawn(async move {
                     let result = AssertUnwindSafe(async {
@@ -720,7 +720,7 @@ async fn run_list_dispatch_loop(
     consumer_name: String,
     live_calls: LiveCalls,
     handler: Arc<PythonHandler>,
-    metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    metrics: Option<Arc<CallMetrics>>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut backoff = config.poll_backoff_initial;
@@ -788,7 +788,7 @@ async fn run_list_dispatch_loop(
             lease,
             live_calls.clone(),
             config.flush_timeout,
-            metrics_pipeline.clone(),
+            metrics.clone(),
         );
         // Loop immediately — dispatch as fast as we can acquire + pop. The
         // semaphore (not this loop) is what bounds in-flight work.
@@ -806,7 +806,7 @@ async fn run_stream_dispatch_loop(
     consumer_name: String,
     live_calls: LiveCalls,
     handler: Arc<PythonHandler>,
-    metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    metrics: Option<Arc<CallMetrics>>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut backoff = config.poll_backoff_initial;
@@ -905,7 +905,7 @@ async fn run_stream_dispatch_loop(
                 lease,
                 live_calls.clone(),
                 config.flush_timeout,
-                metrics_pipeline.clone(),
+                metrics.clone(),
             );
         }
     }
@@ -922,7 +922,7 @@ fn dispatch_delivery(
     lease: SemaphoreLease,
     live_calls: LiveCalls,
     flush_timeout: Duration,
-    metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    metrics: Option<Arc<CallMetrics>>,
 ) {
     live_calls.insert(lease.token().to_string(), delivery.receipt.clone());
     match coalescing_queue {
@@ -935,7 +935,7 @@ fn dispatch_delivery(
                 delivery,
                 lease,
                 live_calls,
-                metrics_pipeline,
+                metrics,
             ));
         }
         None => {
@@ -948,7 +948,7 @@ fn dispatch_delivery(
                 lease,
                 live_calls,
                 flush_timeout,
-                metrics_pipeline,
+                metrics,
             ));
         }
     }
@@ -967,7 +967,7 @@ async fn run_one_call(
     lease: SemaphoreLease,
     live_calls: LiveCalls,
     flush_timeout: Duration,
-    metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    metrics: Option<Arc<CallMetrics>>,
 ) {
     let attempt = match input_queue.delivery_attempt(&delivery).await {
         Ok(attempt) => attempt,
@@ -1045,7 +1045,7 @@ async fn run_one_call(
         work.clone(),
         flush_timeout,
         final_attempt,
-        metrics_pipeline.as_ref(),
+        metrics.as_ref(),
     ))
     .catch_unwind()
     .await
@@ -1133,7 +1133,7 @@ async fn run_one_coalesced_call(
     delivery: DequeuedCall,
     lease: SemaphoreLease,
     live_calls: LiveCalls,
-    metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    metrics: Option<Arc<CallMetrics>>,
 ) {
     let attempt = match input_queue.delivery_attempt(&delivery).await {
         Ok(attempt) => attempt,
@@ -1210,7 +1210,7 @@ async fn run_one_coalesced_call(
         &mut output,
         work,
         final_attempt,
-        metrics_pipeline.as_ref(),
+        metrics.as_ref(),
     )
     .await
     {
@@ -1244,7 +1244,7 @@ async fn coalesced_execute_and_write(
     output: &mut CallOutput,
     work: QueuedCall,
     final_attempt: bool,
-    metrics_pipeline: Option<&Arc<PublishingMetricsPipeline>>,
+    metrics: Option<&Arc<CallMetrics>>,
 ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
     let ipc_bytes = work.call.feather_bytes()?;
     let function_name = work.call.name.clone();
@@ -1275,7 +1275,7 @@ async fn coalesced_execute_and_write(
     // Record metrics once the batch has produced this caller's result, before
     // stream writes below — parity with the streaming path.
     let success = matches!(response, Some(Ok(_)));
-    if let Some(p) = metrics_pipeline {
+    if let Some(p) = metrics {
         crate::metrics::record_completed_call(
             p,
             &function_name,
@@ -1356,7 +1356,7 @@ async fn execute_and_write(
     work: QueuedCall,
     flush_timeout: Duration,
     final_attempt: bool,
-    metrics_pipeline: Option<&Arc<PublishingMetricsPipeline>>,
+    metrics: Option<&Arc<CallMetrics>>,
 ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
     let ipc_bytes = work.call.feather_bytes()?;
     let function_name = work.call.name.clone();
@@ -1417,7 +1417,7 @@ async fn execute_and_write(
     // Emit metrics as soon as execution finishes, before result-stream writes,
     // so every executed call is recorded regardless of downstream Redis write
     // failure. Mirrors the catalog consumer's per-call emission.
-    if let Some(p) = metrics_pipeline {
+    if let Some(p) = metrics {
         crate::metrics::record_completed_call(
             p,
             &function_name,

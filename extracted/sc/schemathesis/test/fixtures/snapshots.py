@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import platform
 import re
+import sys
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -78,6 +79,7 @@ class CliSnapshotConfig:
     replace_seed: bool = True
     replace_reproduce_with: bool = False
     replace_test_cases: bool = True
+    replace_generated: bool = False
     replace_phase_statistic: bool = False
     replace_cycle_metrics: bool = False
     replace_stateful_statistic: bool = True
@@ -108,6 +110,7 @@ class CliSnapshotConfig:
         # Order matters: later steps match the text earlier steps produce.
         flagged = [
             (self.replace_test_cases, _mask_test_cases),
+            (self.replace_generated, _mask_generated),
             (self.replace_server_host, self._mask_server_host),
             (True, _mask_local_ports),
             (self.replace_tmp_dir, self._mask_tmp_dir),
@@ -160,7 +163,7 @@ def _mask_test_cases(data: str) -> str:
     data = re.sub(r"Test cases:\n  \d+ generated, \d+ errored, \d+ skipped", "Test cases:\n  N generated", data)
     # Cases with failures (skip count optional — non-deterministic, so not snapshot-tested)
     data = re.sub(
-        r"Test cases:\n  (\d+) generated, (\d+) found (\d+) unique failures(?:, \d+ errored)?(?:, \d+ skipped)?",
+        r"Test cases:\n  (\d+) generated, (\d+) found (\d+) unique failures?(?:, \d+ errored)?(?:, \d+ skipped)?",
         "Test cases:\n  N generated, N found N unique failures",
         data,
     )
@@ -170,6 +173,10 @@ def _mask_test_cases(data: str) -> str:
         "Test cases:\n  N generated, N passed",
         data,
     )
+
+
+def _mask_generated(data: str) -> str:
+    return re.sub(r"\d+ generated", "N generated", data)
 
 
 def _mask_local_ports(data: str) -> str:
@@ -212,9 +219,9 @@ def _mask_fuzz_counters(data: str) -> str:
     if "Stop reason:" not in data:
         return data
     # Fuzz-specific output: scenario count and counters vary with time and machine speed
-    data = re.sub(r"✅ \d+ scenarios", "✅ N scenarios", data)
+    data = re.sub(r"✅ \d+ scenarios?\b", "✅ N scenarios", data)
     data = re.sub(r"⏭  \d+ without checks", "⏭  N without checks", data)
-    data = re.sub(r"❌ \d+ unique failures", "❌ N unique failures", data)
+    data = re.sub(r"❌ \d+ unique failures?\b", "❌ N unique failures", data)
     data = re.sub(r"🚫 \d+ errors?", "🚫 N errors", data)
     return re.sub(r"Tested: \d+", "Tested: N", data)
 
@@ -335,12 +342,12 @@ def _mask_invalid_component(data: str) -> str:
 
 
 def _mask_reproduce_commands(data: str) -> str:
-    # One placeholder per run of curl lines: a stateful reproduction has a varying number of steps.
-    # The `st replay <id>` line is masked separately by `replace_test_case_id`.
+    # One placeholder per run of curl lines and the identity labels above them: a stateful reproduction
+    # has a varying number of steps. The `st replay <id>` line is masked separately by `replace_test_case_id`.
     lines = []
     seen = False
     for line in data.splitlines():
-        if "curl" in line:
+        if "curl" in line or line.lstrip().startswith("# as "):
             if not seen:
                 lines.append("    <PLACEHOLDER>")
                 seen = True
@@ -570,7 +577,10 @@ def snapshot_cli(request, snapshot):
 
 
 @pytest.fixture
-def snapshot_html(snapshot):
+def snapshot_html(snapshot, monkeypatch):
+    # The report shows the command only for a known entrypoint, and xdist workers run with `argv[0] == "-c"`
+    monkeypatch.setattr(sys, "argv", ["/venv/bin/pytest"])
+
     class HtmlSnapshotExtension(SingleFileSnapshotExtension):
         _write_mode = WriteMode.TEXT
         file_extension = "html"

@@ -37,6 +37,7 @@ Authors:
 void seq_rewriter::updt_params(params_ref const & p) {
     seq_rewriter_params sp(p);
     m_coalesce_chars = sp.coalesce_chars();
+    m_max_power_expansion = sp.max_power_expansion();
 }
 
 void seq_rewriter::get_param_descrs(param_descrs & r) {
@@ -265,6 +266,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 1);
         st = mk_seq_length(args[0], result);
         break;
+    case OP_SEQ_POWER:
+        SASSERT(num_args == 2);
+        st = mk_seq_power(args[0], args[1], result);
+        break;
     case OP_SEQ_EXTRACT:
         SASSERT(num_args == 3);
         st = mk_seq_extract(args[0], args[1], args[2], result);
@@ -445,50 +450,94 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     bool isc1 = str().is_string(a, s1) && m_coalesce_chars;
     bool isc2 = str().is_string(b, s2) && m_coalesce_chars;
 
+    // Fast path: neither argument needs restructuring. Falling through to
+    // BR_FAILED here (as before) lets the OP_SEQ_CONCAT case in mk_app_core
+    // still try lift_ites_throttled on plain, already-flat concatenations.
+    if (!(isc1 && isc2) &&
+        !str().is_concat(a) &&
+        !str().is_empty(a) &&
+        !str().is_empty(b) &&
+        !(isc1 && str().is_concat(b, c, d) && str().is_string(c, s2)))
+        return BR_FAILED;
+
     if (isc1 && isc2) {
         result = str().mk_string(s1 + s2);
         return BR_DONE;
     }
-    if (str().is_concat(a, c, d)) {
-        result = str().mk_concat(c, str().mk_concat(d, b));
-        return BR_REWRITE2;
-    }
-    if (str().is_empty(a)) {
-        result = b;
-        return BR_DONE;
-    }
-    if (str().is_empty(b)) {
-        result = a;
-        return BR_DONE;
-    }
-    if (isc1 && str().is_concat(b, c, d) && str().is_string(c, s2)) {
-        result = str().mk_concat(str().mk_string(s1 + s2), d);
-        return BR_DONE;
-    }
-    return BR_FAILED;
-}
 
-expr_ref seq_rewriter::mk_seq_reverse(expr* s) {
-    ptr_vector<expr> units;
-    ptr_vector<expr> todo;
-    todo.push_back(s);
+    // General case: a and/or b need restructuring (one of them is a
+    // concatenation, empty, or coalescable with the other). Flatten both
+    // into their constituent elements with an explicit worklist instead of
+    // recursively decomposing the str.++ tree: a long chain of
+    // concatenations (e.g. from repeated quantifier instantiation of
+    // `s ++ s`) previously drove mutual recursion between the two
+    // mk_seq_concat overloads deep enough to overflow the native stack
+    // (#11042). Elements are then coalesced in a single linear pass and the
+    // right-associated chain is rebuilt with a plain loop.
+    ptr_vector<expr> es, todo;
+    todo.push_back(b);
+    todo.push_back(a);
     while (!todo.empty()) {
         expr* e = todo.back();
         todo.pop_back();
-        if (str().is_concat(e)) {
-            app* a = to_app(e);
-            for (unsigned i = a->get_num_args(); i-- > 0; )
-                todo.push_back(a->get_arg(i));
+        expr* e1 = nullptr, *e2 = nullptr;
+        if (str().is_concat(e, e1, e2)) {
+            todo.push_back(e2);
+            todo.push_back(e1);
             continue;
         }
         if (str().is_empty(e))
             continue;
-        units.push_back(e);
+        es.push_back(e);
     }
+    if (es.empty()) {
+        result = str().mk_empty(a->get_sort());
+        return BR_DONE;
+    }
+    unsigned j = 0;
+    for (unsigned i = 0; i < es.size(); ++i) {
+        zstring t1, t2;
+        if (j > 0 && m_coalesce_chars && str().is_string(es.get(j - 1), t1) && str().is_string(es.get(i), t2))
+            es[j - 1] = str().mk_string(t1 + t2);
+        else
+            es[j++] = es.get(i);
+    }
+    es.shrink(j);
+    expr_ref cur(es.back(), m());
+    for (unsigned i = es.size() - 1; i-- > 0; )
+        cur = str().mk_concat(es.get(i), cur);
+    result = cur;
+    return BR_DONE;
+}
+
+bool seq_rewriter::mk_seq_reverse(expr* s, expr_ref& result) {
+    ptr_vector<expr> elems, todo;
+    todo.push_back(s);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        if (str().is_concat(e)) {             // str.++ is n-ary; pushing the arguments left
+            app* a = to_app(e);               // to right pops them right to left, which is
+            for (expr* arg : *a)              // the order the reversed sequence needs
+                todo.push_back(arg);
+            continue;
+        }
+        if (str().is_empty(e))
+            continue;
+        elems.push_back(e);
+    }
+    zstring zs;
     expr_ref_vector es(m());
-    for (unsigned i = units.size(); i-- > 0; )
-        es.push_back(units[i]);
-    return expr_ref(str().mk_concat(es.size(), es.data(), s->get_sort()), m());
+    for (expr* e : elems) {
+        if (str().is_unit(e))
+            es.push_back(e);                  // a one-element sequence is its own reverse
+        else if (str().is_string(e, zs))
+            es.push_back(str().mk_string(zs.reverse()));
+        else
+            return false;                     // there is no sequence-level reverse operator,
+    }                                         // so a non-concrete element has no reverse here
+    result = str().mk_concat(es, s->get_sort());
+    return true;
 }
 
 br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
@@ -533,6 +582,11 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = str().mk_length(z);
         return BR_REWRITE1;
     } 
+    // len(s^n) = n * len(s) for n >= 0
+    if (str().is_power(a, x, y) && m_autil.is_numeral(y, r) && r >= 0) {
+        result = m_autil.mk_mul(y, str().mk_length(x));
+        return BR_REWRITE2;
+    }
     // len(extract(x, 0, z)) = min(z, len(x))
     if (str().is_extract(a, x, y, z) && 
         m_autil.is_numeral(y, r) && r.is_zero() &&
@@ -542,6 +596,54 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         return BR_REWRITE_FULL;
     }
     return BR_FAILED;
+}
+
+/**
+   s^n = "" if n <= 0
+   s^n = s ++ ... ++ s (n copies) if n > 0
+
+   Exponents above rewriter.max_power_expansion are left to the theory solver.
+*/
+br_status seq_rewriter::mk_seq_power(expr* a, expr* b, expr_ref& result) {
+    expr* s = nullptr, *k = nullptr;
+    rational n, kv;
+    if (str().is_empty(a)) {
+        result = a;
+        return BR_DONE;
+    }
+    bool is_num = m_autil.is_numeral(b, n);
+    if (is_num && !n.is_pos()) {
+        result = str().mk_empty(a->get_sort());
+        return BR_DONE;
+    }
+    if (is_num && n.is_one()) {
+        result = a;
+        return BR_DONE;
+    }
+    // (s^k)^n = s^(k*n) whenever k or n is a positive numeral
+    if (str().is_power(a, s, k) &&
+        (is_num || (m_autil.is_numeral(k, kv) && kv.is_pos()))) {
+        result = str().mk_power(s, m_autil.mk_mul(k, b));
+        return BR_REWRITE_FULL;
+    }
+    if (!is_num || n > rational(m_max_power_expansion))
+        return BR_FAILED;
+    unsigned v = n.get_unsigned();
+    zstring t;
+    if (str().is_string(a, t)) {
+        if (!(n * rational(t.length())).is_unsigned())
+            return BR_FAILED;
+        zstring r = t;
+        for (unsigned i = 1; i < v; ++i)
+            r += t;
+        result = str().mk_string(r);
+        return BR_DONE;
+    }
+    expr_ref_vector es(m());
+    for (unsigned i = 0; i < v; ++i)
+        es.push_back(a);
+    result = str().mk_concat(es, a->get_sort());
+    return BR_REWRITE_FULL;
 }
 
 /*
@@ -606,8 +708,11 @@ expr_ref seq_rewriter::mk_seq_last(expr* t) {
         expr_ref lastpos = mk_sub(len_s, 1);
         result = str().mk_nth_i(s, lastpos);
     }
-    else
-        result = str().mk_nth_i(t, m_autil.mk_sub(str().mk_length(t), one()));
+    else {
+        expr_ref lhs(str().mk_length(t), m());
+        auto rhs = one();
+        result = str().mk_nth_i(t, m_autil.mk_sub(lhs, rhs));
+    }
     return result;
 }
 
@@ -862,16 +967,48 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
 
+
     rational len_a;
     if (constantPos && max_length(a, len_a) && len_a <= pos) {
         result = str().mk_empty(a_sort);
         return BR_DONE;
     }
+
+    // For integer n >= 0, c*n^k >= n when c >= 1 and k >= 1.
+    if (m_autil.is_mul(b)) {
+        bool has_length = false, out_of_bounds = true;
+        expr* base = nullptr;
+        rational factor;
+        ptr_buffer<expr> todo;
+        obj_hashtable<expr> visited;
+        todo.push_back(b);
+        while (!todo.empty()) {
+            expr* arg = todo.back();
+            todo.pop_back();
+            if (visited.contains(arg))
+                continue;
+            visited.insert(arg);
+            if (m_autil.is_mul(arg)) {
+                for (expr* e : *to_app(arg))
+                    todo.push_back(e);
+            }
+            else if (str().is_length(arg, base) && base == a)
+                has_length = true;
+            else if (!m_autil.is_numeral(arg, factor) || factor < 1) {
+                out_of_bounds = false;
+                break;
+            }
+        }
+        if (has_length && out_of_bounds) {
+            result = str().mk_empty(a_sort);
+            return BR_DONE;
+        }
+    }
     
     constantPos &= pos.is_unsigned();
     constantLen &= len.is_unsigned();
 
-    if (constantPos && constantLen && len == 1) {
+    if (constantLen && len == 1) {
         result = str().mk_at(a, b);
         return BR_REWRITE1;
     }
@@ -952,7 +1089,8 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (str().is_extract(a, a1, b1, c1) &&
         is_prefix(a, b, c) && is_suffix(a1, b1, c1)) {
         expr_ref q(m_autil.mk_sub(c, str().mk_length(a)), m());
-        result = str().mk_substr(a1, b1, m_autil.mk_add(c1, q));
+        expr_ref suffix_length(m_autil.mk_sub(str().mk_length(a1), b1), m());
+        result = str().mk_substr(a1, b1, m_autil.mk_add(suffix_length, q));
         return BR_REWRITE3;
     }
 
@@ -1125,6 +1263,12 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
 
     if (as.empty()) {
         result = str().mk_is_empty(b);
+        return BR_REWRITE2;
+    }
+
+    auto [bounded_a, max_a] = max_length(a);
+    if (bounded_a && max_a <= 1) {
+        result = m().mk_or(str().mk_is_empty(b), m().mk_eq(a, b));
         return BR_REWRITE2;
     }
 
@@ -1394,25 +1538,27 @@ br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
     str().get_concat_units(a, as);
 
     expr* cond = nullptr, *el = nullptr, *th = nullptr;
+    unsigned pos = 0;
     for (unsigned i = 0; i < as.size(); ++i) {
         expr* a = as.get(i), *u = nullptr;
         if (str().is_unit(a, u)) {
-            if (offset == i) {
+            if (offset == pos) {
                 result = u;
                 return BR_DONE;
             }
+            ++pos;
             continue;
         }
         else if (m().is_ite(a, cond, th, el)) {
             auto [bounded, len1] = min_length(a);
             if (!bounded)
                 break;
-            if (i + len1 < offset) {
-                offset -= len1;
+            if (pos + len1 <= offset) {
+                pos += len1;
                 continue;
             }
             expr_ref idx(m());
-            idx = m_autil.mk_int(offset - i);
+            idx = m_autil.mk_int(offset - pos);
             th = str().mk_nth_i(th, idx);
             el = str().mk_nth_i(el, idx);
             result = m().mk_ite(cond, th, el);
@@ -1467,9 +1613,13 @@ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
     case shorter_c:
         result = minus_one();
         return BR_DONE;
-    case same_length_c:
-        result = m().mk_ite(m().mk_eq(a, b), zero(), minus_one());
+    case same_length_c: {
+        expr_ref eq(m().mk_eq(a, b), m());
+        auto found = zero();
+        auto not_found = minus_one();
+        result = m().mk_ite(eq, found, not_found);
         return BR_REWRITE_FULL;
+    }
     case longer_c: {
         unsigned i = as.size();
         while (i >= bs.size()) {
@@ -1551,7 +1701,11 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         expr* emp = str().mk_is_empty(b);
         auto a1 = m().mk_eq(c, zero());
         auto cond = m().mk_and(a1, emp);
-        result = m().mk_ite(cond, zero(), minus_one());
+        {
+            auto then_value = zero();
+            auto else_value = minus_one();
+            result = m().mk_ite(cond, then_value, else_value);
+        }
         return BR_REWRITE2;
     }
 
@@ -1561,7 +1715,10 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
             return BR_DONE;
         }
         else {
-            result = m().mk_ite(m().mk_eq(zero(), c), zero(), minus_one());
+            auto found = zero();
+            expr_ref at_zero(m().mk_eq(found, c), m());
+            auto not_found = minus_one();
+            result = m().mk_ite(at_zero, found, not_found);
             return BR_REWRITE2;
         }
     }
@@ -1625,8 +1782,15 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     case same_length_c: {
         auto _seqa = m_autil.mk_le(c, minus_one());
         auto _seqb = m().mk_eq(c, zero());
-        auto _seqc = m().mk_ite(m().mk_eq(a, b), zero(), minus_one());
-        result = m().mk_ite(_seqa, minus_one(), m().mk_ite(_seqb, _seqc, minus_one()));
+        expr_ref condition(m().mk_eq(a, b), m());
+        auto then_value = zero();
+        auto else_value = minus_one();
+        auto _seqc = m().mk_ite(condition, then_value, else_value);
+        {
+            auto then_value = minus_one();
+            expr_ref else_value(m().mk_ite(_seqb, _seqc, minus_one()), m());
+            result = m().mk_ite(_seqa, then_value, else_value);
+        }
     }
         return BR_REWRITE_FULL;
     default:
@@ -1955,19 +2119,19 @@ expr_ref seq_rewriter::re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, ex
     }
 
     if (re().is_union(r, r1, r2)) {
-        return expr_ref(
-            re().mk_union(re_replace_char(r1, a_ch, b_ch, a_str, b_str), re_replace_char(r2, a_ch, b_ch, a_str, b_str)),
-            m());
+        auto lhs = re_replace_char(r1, a_ch, b_ch, a_str, b_str);
+        auto rhs = re_replace_char(r2, a_ch, b_ch, a_str, b_str);
+        return expr_ref(re().mk_union(lhs, rhs), m());
     }
     if (re().is_intersection(r, r1, r2)) {
-        return expr_ref(
-            re().mk_inter(re_replace_char(r1, a_ch, b_ch, a_str, b_str), re_replace_char(r2, a_ch, b_ch, a_str, b_str)),
-            m());
+        auto lhs1 = re_replace_char(r1, a_ch, b_ch, a_str, b_str);
+        auto rhs1 = re_replace_char(r2, a_ch, b_ch, a_str, b_str);
+        return expr_ref(re().mk_inter(lhs1, rhs1), m());
     }
     if (re().is_concat(r, r1, r2)) {
-        return expr_ref(re().mk_concat(re_replace_char(r1, a_ch, b_ch, a_str, b_str),
-                                       re_replace_char(r2, a_ch, b_ch, a_str, b_str)),
-                        m());
+        auto lhs = re_replace_char(r1, a_ch, b_ch, a_str, b_str);
+        auto rhs = re_replace_char(r2, a_ch, b_ch, a_str, b_str);
+        return expr_ref(re().mk_concat(lhs, rhs), m());
     }
     if (re().is_star(r, r1)) {
         return expr_ref(re().mk_star(re_replace_char(r1, a_ch, b_ch, a_str, b_str)), m());
@@ -2770,67 +2934,65 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
         // deterministic evaluation order for reverse operands
-        auto a_rev = re().mk_reverse(r2);
-        auto b_rev = re().mk_reverse(r1);
-        result = re().mk_concat(a_rev, b_rev);
-        return BR_REWRITE2;
+        auto a_rev = mk_reverse(r2);
+        auto b_rev = mk_reverse(r1);
+        result = mk_re_append(a_rev, b_rev);
+        return BR_DONE;
     }
     else if (re().is_star(r, r1)) {
-        result = re().mk_star((re().mk_reverse(r1)));
-        return BR_REWRITE2;
+        result = mk_star(mk_reverse(r1));
+        return BR_DONE;
     }
     else if (re().is_plus(r, r1)) {
-        result = re().mk_plus((re().mk_reverse(r1)));
-        return BR_REWRITE2;
+        result = mk_plus(mk_reverse(r1));
+        return BR_DONE;
     }
     else if (re().is_union(r, r1, r2)) {
         // ensure deterministic evaluation order of parameters
-        auto a = re().mk_reverse(r1);
-        auto b = re().mk_reverse(r2);
-        result = re().mk_union(a, b);
-        return BR_REWRITE2;
+        auto a = mk_reverse(r1);
+        auto b = mk_reverse(r2);
+        result = mk_union(a, b);
+        return BR_DONE;
     }
     else if (re().is_intersection(r, r1, r2)) {
-        auto a = re().mk_reverse(r1);
-        auto b = re().mk_reverse(r2);
-        result = re().mk_inter(a, b);
-        return BR_REWRITE2;
+        auto a = mk_reverse(r1);
+        auto b = mk_reverse(r2);
+        result = mk_inter(a, b);
+        return BR_DONE;
     }
     else if (re().is_diff(r, r1, r2)) {
-        auto a = re().mk_reverse(r1);
-        auto b = re().mk_reverse(r2);
-        result = re().mk_diff(a, b);
-        return BR_REWRITE2;
+        auto a = mk_reverse(r1);
+        auto b = mk_reverse(r2);
+        result = mk_diff(a, b);
+        return BR_DONE;
     }
     else if (re().is_xor(r, r1, r2)) {
-        auto a = re().mk_reverse(r1);
-        auto b = re().mk_reverse(r2);
-        result = re().mk_xor(a, b);
-        return BR_REWRITE2;
+        auto a = mk_reverse(r1);
+        auto b = mk_reverse(r2);
+        result = mk_re_xor_simplified(a, b);
+        return BR_DONE;
     }
     else if (m().is_ite(r, p, r1, r2)) {
-        {
-            auto _seq2784_0 = re().mk_reverse(r1);
-            auto _seq2784_1 = re().mk_reverse(r2);
-            result = m().mk_ite(p, _seq2784_0, _seq2784_1);
-        }
-        return BR_REWRITE2;
+        auto a = mk_reverse(r1);
+        auto b = mk_reverse(r2);
+        m_br.mk_ite(p, a, b, result);
+        return BR_DONE;
     }
     else if (re().is_opt(r, r1)) {
-        result = re().mk_opt(re().mk_reverse(r1));
-        return BR_REWRITE2;
+        result = mk_opt(mk_reverse(r1));
+        return BR_DONE;
     }
     else if (re().is_complement(r, r1)) {
-        result = re().mk_complement(re().mk_reverse(r1));
-        return BR_REWRITE2;
+        result = mk_complement(mk_reverse(r1));
+        return BR_DONE;
     }
     else if (re().is_loop(r, r1, lo)) {
-        result = re().mk_loop(re().mk_reverse(r1), lo);
-        return BR_REWRITE2;
+        result = mk_loop(mk_reverse(r1), lo);
+        return BR_DONE;
     }
     else if (re().is_loop(r, r1, lo, hi)) {
-        result = re().mk_loop_proper(re().mk_reverse(r1), lo, hi);
-        return BR_REWRITE2;
+        result = mk_loop(mk_reverse(r1), lo, hi);
+        return BR_DONE;
     }
     else if (re().is_reverse(r, r1)) {
         result = r1;
@@ -2845,7 +3007,7 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_DONE;
     }
     else if (re().is_to_re(r, s) && str().is_string(s, zs)) {
-        result = re().mk_to_re(str().mk_string(zs.reverse()));
+        result = mk_to_re(str().mk_string(zs.reverse()));
         return BR_DONE;
     }
     else if (re().is_to_re(r, s) && str().is_unit(s)) {
@@ -2853,10 +3015,10 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_DONE;
     }
     else if (re().is_to_re(r, s) && str().is_concat(s, s1, s2)) {
-        auto a_rev = re().mk_reverse(re().mk_to_re(s2));
-        auto b_rev = re().mk_reverse(re().mk_to_re(s1));
-        result = re().mk_concat(a_rev, b_rev);
-        return BR_REWRITE3;
+        auto a_rev = mk_reverse(mk_to_re(s2));
+        auto b_rev = mk_reverse(mk_to_re(s1));
+        result = mk_re_append(a_rev, b_rev);
+        return BR_DONE;
     }
     else {
         // stuck cases: variable, re().is_derivative, ...
@@ -3319,9 +3481,18 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
             };
             if (!concrete_char(rlo) || !concrete_char(rhi)) {
                 expr_ref_vector conj(m());
-                conj.push_back(m().mk_eq(str().mk_length(rlo), one()));
-                conj.push_back(m().mk_eq(str().mk_length(rhi), one()));
-                conj.push_back(m().mk_eq(str().mk_length(a), one()));
+                expr_ref lo_length(str().mk_length(rlo), m());
+                conj.push_back(m().mk_eq(lo_length, one()));
+                {
+                    expr_ref lhs(str().mk_length(rhi), m());
+                    auto rhs = one();
+                    conj.push_back(m().mk_eq(lhs, rhs));
+                }
+                {
+                    expr_ref lhs(str().mk_length(a), m());
+                    auto rhs = one();
+                    conj.push_back(m().mk_eq(lhs, rhs));
+                }
                 conj.push_back(str().mk_lex_le(rlo, a));
                 conj.push_back(str().mk_lex_le(a, rhi));
                 result = m().mk_and(conj);
@@ -3448,14 +3619,13 @@ bool seq_rewriter::lift_str_from_to_re(expr* r, expr_ref& result)
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     expr* s = nullptr, *i = nullptr;
     if (str().is_at(a, s, i)) {
-        expr_ref valid(m().mk_and(
-            m_autil.mk_ge(i, zero()),
-            m_autil.mk_lt(i, str().mk_length(s))), m());
+        expr_ref non_negative(m_autil.mk_ge(i, zero()), m());
+        expr_ref below_length(m_autil.mk_lt(i, str().mk_length(s)), m());
+        expr_ref valid(m().mk_and(non_negative, below_length), m());
         expr_ref nth(str().mk_unit(str().mk_nth_i(s, i)), m());
-        result = m().mk_ite(
-            valid,
-            re().mk_to_re(nth),
-            re().mk_to_re(str().mk_empty(a->get_sort())));
+        expr_ref non_empty(re().mk_to_re(nth), m());
+        expr_ref empty(re().mk_to_re(str().mk_empty(a->get_sort())), m());
+        result = m().mk_ite(valid, non_empty, empty);
         return BR_REWRITE_FULL;
     }
     return BR_FAILED;
@@ -3562,23 +3732,23 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     if (re().is_full_char(a) && re().is_full_seq(b)) {
-        result = re().mk_plus(a);
+        result = mk_plus(a);
         return BR_DONE;
     }
     if (re().is_full_char(b) && re().is_full_seq(a)) {
-        result = re().mk_plus(b);
+        result = mk_plus(b);
         return BR_DONE;
     }
     expr_ref a_str(m());
     expr_ref b_str(m());
     if (lift_str_from_to_re(a, a_str) && lift_str_from_to_re(b, b_str)) {
-        result = re().mk_to_re(str().mk_concat(a_str, b_str));
-        return BR_REWRITE2;
+        result = mk_to_re(mk_seq_concat(a_str, b_str));
+        return BR_DONE;
     }
     expr *a1 = nullptr, *a2 = nullptr;
     expr* b1 = nullptr;
     if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
-        result = re().mk_to_re(str().mk_concat(a1, b1));
+        result = mk_to_re(mk_seq_concat(a1, b1));
         return BR_DONE;
     }
     if (re().is_star(a, a1) && re().is_star(b, b1) && a1 == b1) {
@@ -3591,29 +3761,33 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     if (re().is_star(a, a1) && a1 == b) {
-        result = re().mk_concat(b, a);
+        result = mk_re_append(b, a);
         return BR_DONE;
     }
     unsigned lo1, hi1, lo2, hi2;
 
 
-    if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 && re().is_loop(b, b1, lo2, hi2) && lo2 <= hi2 && a1 == b1) {
-        result = re().mk_loop_proper(a1, lo1 + lo2, hi1 + hi2);
+    if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 &&
+        re().is_loop(b, b1, lo2, hi2) && lo2 <= hi2 && a1 == b1 &&
+        hi1 <= UINT_MAX - hi2) {
+        result = mk_loop(a1, lo1 + lo2, hi1 + hi2);
         return BR_DONE;
     }
-    if (re().is_loop(a, a1, lo1) && re().is_loop(b, b1, lo2) && a1 == b1) {
-        result = re().mk_loop(a1, lo1 + lo2);
+    if (re().is_loop(a, a1, lo1) && re().is_loop(b, b1, lo2) && a1 == b1 &&
+        lo1 <= UINT_MAX - lo2) {
+        result = mk_loop(a1, lo1 + lo2);
         return BR_DONE;
     }
     for (unsigned i = 0; i < 2; ++i) {
         // (loop a lo1) + (loop a lo2 hi2) = (loop a lo1 + lo2) 
-        if (re().is_loop(a, a1, lo1) && re().is_loop(b, b1, lo2, hi2) && lo2 <= hi2 && a1 == b1) {
-            result = re().mk_loop(a1, lo1 + lo2);
+        if (re().is_loop(a, a1, lo1) && re().is_loop(b, b1, lo2, hi2) &&
+            lo2 <= hi2 && a1 == b1 && lo1 <= UINT_MAX - lo2) {
+            result = mk_loop(a1, lo1 + lo2);
             return BR_DONE;
         }
         // (loop a lo1 hi1) + a* = (loop a lo1)
-        if (re().is_loop(a, a1, lo1, hi1) && re().is_star(b, b1) && a1 == b1) {
-            result = re().mk_loop(a1, lo1);
+        if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 && re().is_star(b, b1) && a1 == b1) {
+            result = mk_loop(a1, lo1);
             return BR_DONE;
         }
         // (loop a lo1) + a* = (loop a lo1)
@@ -3622,8 +3796,8 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
             return BR_DONE;
         }
         // (loop a lo1 hi1) + a = (loop a lo1+1 hi1+1)
-        if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 && a1 == b) {
-            result = re().mk_loop(a1, lo1+1, hi1+1);
+        if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 && hi1 < UINT_MAX && a1 == b) {
+            result = mk_loop(a1, lo1 + 1, hi1 + 1);
             return BR_DONE;
         }
         std::swap(a, b);
@@ -3631,71 +3805,28 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     // Hoist ite out of concat: concat(ite(c, r1, r2), b) → ite(c, concat(r1, b), concat(r2, b))
     expr* c = nullptr;
     if (m().is_ite(a, c, a1, b1)) {
-        {
-            auto _seq3648_0 = re().mk_concat(a1, b);
-            auto _seq3648_1 = re().mk_concat(b1, b);
-            result = m().mk_ite(c, _seq3648_0, _seq3648_1);
-        }
-        return BR_REWRITE3;
+        auto then_r = mk_re_append(a1, b);
+        auto else_r = mk_re_append(b1, b);
+        m_br.mk_ite(c, then_r, else_r, result);
+        return BR_DONE;
     }
     if (m().is_ite(b, c, a1, b1)) {
-        {
-            auto _seq3652_0 = re().mk_concat(a, a1);
-            auto _seq3652_1 = re().mk_concat(a, b1);
-            result = m().mk_ite(c, _seq3652_0, _seq3652_1);
-        }
-        return BR_REWRITE3;
+        auto then_r = mk_re_append(a, a1);
+        auto else_r = mk_re_append(a, b1);
+        m_br.mk_ite(c, then_r, else_r, result);
+        return BR_DONE;
     }
     if (re().is_concat(a, a1, a2)) {
-        // Maintain right-associative normal form: re().mk_concat is a raw
-        // constructor, so re-simplify the result to recursively reassociate
-        // any concat nested in a2 (and re-apply concat simplifications).
-        result = re().mk_concat(a1, re().mk_concat(a2, b));
+        // Fold a matching loop body before flattening it, and normalize both
+        // newly exposed concatenations rather than returning raw children.
+        result = mk_re_append(a1, mk_re_append(a2, b));
         return BR_DONE;
     }
     return BR_FAILED;
 }
 
 expr_ref seq_rewriter::mk_regex_concat(expr *r, expr *s) {
-    sort *seq_sort = nullptr, *ele_sort = nullptr;
-    VERIFY(m_util.is_re(r, seq_sort));
-    VERIFY(u().is_seq(seq_sort, ele_sort));
-    SASSERT(r->get_sort() == s->get_sort());
-    expr_ref result(m());
-    expr *r1, *r2;
-    if (re().is_epsilon(r) || re().is_empty(s))
-        result = s;
-    else if (re().is_epsilon(s) || re().is_empty(r))
-        result = r;
-    else if (re().is_full_seq(r) && re().is_full_seq(s))
-        result = r;
-    else if (re().is_full_char(r) && re().is_full_seq(s))
-        // ..* = .+
-        result = re().mk_plus(re().mk_full_char(r->get_sort()));
-    else if (re().is_full_seq(r) && re().is_full_char(s))
-        // .*. = .+
-        result = re().mk_plus(re().mk_full_char(r->get_sort()));
-    else if (re().is_concat(r, r1, r2))
-        // create the resulting concatenation in right-associative form except for the following case
-        // TODO: maintain the following invariant for A ++ B{m,n} + C
-        //       concat(concat(A, B{m,n}), C) (if A != () and C != ())
-        //       concat(B{m,n}, C) (if A == () and C != ())
-        // where A, B, C are regexes
-        // Using & below for Intersection and | for Union
-        // In other words, do not make A ++ B{m,n} into right-assoc form, but keep B{m,n} at the top
-        // This will help to identify this situation in the merge routine:
-        //               concat(concat(A, B{0,m}), C) | concat(concat(A, B{0,n}), C)
-        // simplifies to
-        //               concat(concat(A, B{0,max(m,n)}), C)
-        // analogously:
-        //               concat(concat(A, B{0,m}), C) & concat(concat(A, B{0,n}), C)
-        // simplifies to
-        //               concat(concat(A, B{0,min(m,n)}), C)
-        result = mk_regex_concat(r1, mk_regex_concat(r2, s));
-    else {
-        result = re().mk_concat(r, s);
-    }
-    return result;
+    return mk_re_append(r, s);
 }
 
 bool seq_rewriter::are_complements(expr* r1, expr* r2) const {
@@ -3810,17 +3941,17 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     expr *e1 = nullptr, *e2 = nullptr;
     if (re().is_intersection(a, e1, e2)) {
         // enforce deterministic evaluation order for nested complement arguments
-        auto a1 = re().mk_complement(e1);
-        auto b1 = re().mk_complement(e2);
-        result = re().mk_union(a1, b1);
-        return BR_REWRITE2;
+        auto a1 = mk_complement(e1);
+        auto b1 = mk_complement(e2);
+        result = mk_union(a1, b1);
+        return BR_DONE;
     }
     if (re().is_union(a, e1, e2)) {
         // enforce deterministic evaluation order for nested complement arguments
-        auto a1 = re().mk_complement(e1);
-        auto b1 = re().mk_complement(e2);
-        result = re().mk_inter(a1, b1);
-        return BR_REWRITE2;
+        auto a1 = mk_complement(e1);
+        auto b1 = mk_complement(e2);
+        result = mk_inter(a1, b1);
+        return BR_DONE;
     }
     if (re().is_empty(a)) {
         result = re().mk_full_seq(a->get_sort());
@@ -3835,18 +3966,16 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
         return BR_DONE;
     }
     if (re().is_to_re(a, e1) && str().is_empty(e1)) {
-        result = re().mk_plus(re().mk_full_char(a->get_sort()));
+        result = mk_plus(re().mk_full_char(a->get_sort()));
         return BR_DONE;
     }
     // Hoist ite out of complement: ~(ite(c, r1, r2)) → ite(c, ~r1, ~r2)
     expr* c = nullptr;
     if (m().is_ite(a, c, e1, e2)) {
-        {
-            auto _seq3842_0 = re().mk_complement(e1);
-            auto _seq3842_1 = re().mk_complement(e2);
-            result = m().mk_ite(c, _seq3842_0, _seq3842_1);
-        }
-        return BR_REWRITE3;
+        auto then_r = mk_complement(e1);
+        auto else_r = mk_complement(e2);
+        m_br.mk_ite(c, then_r, else_r, result);
+        return BR_DONE;
     }
     return BR_FAILED;
 }
@@ -3918,8 +4047,8 @@ br_status seq_rewriter::mk_re_diff(expr* a, expr* b, expr_ref& result) {
         result = seq::range_predicate_to_regex(u(), pa - pb, seq_sort);
         return BR_DONE;
     }
-    result = mk_regex_inter_normalize(a, re().mk_complement(b));
-    return BR_REWRITE2;
+    result = mk_inter(a, mk_complement(b));
+    return BR_DONE;
 }
 
 /*
@@ -3974,30 +4103,30 @@ br_status seq_rewriter::mk_re_xor(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     if (re().is_full_seq(a)) {
-        result = re().mk_complement(b);
-        return BR_REWRITE1;
+        result = mk_complement(b);
+        return BR_DONE;
     }
     if (re().is_full_seq(b)) {
-        result = re().mk_complement(a);
-        return BR_REWRITE1;
+        result = mk_complement(a);
+        return BR_DONE;
     }
     expr* ra = nullptr, * rb = nullptr;
     bool ca = re().is_complement(a, ra);
     bool cb = re().is_complement(b, rb);
     if (ca && cb) {
         // comp(ra) XOR comp(rb) = ra XOR rb
-        result = re().mk_xor(ra, rb);
-        return BR_REWRITE1;
+        result = mk_re_xor_simplified(ra, rb);
+        return BR_DONE;
     }
     if (ca) {
         // comp(ra) XOR b = comp(ra XOR b)
-        result = re().mk_complement(re().mk_xor(ra, b));
-        return BR_REWRITE2;
+        result = mk_complement(mk_re_xor_simplified(ra, b));
+        return BR_DONE;
     }
     if (cb) {
         // a XOR comp(rb) = comp(a XOR rb)
-        result = re().mk_complement(re().mk_xor(a, rb));
-        return BR_REWRITE2;
+        result = mk_complement(mk_re_xor_simplified(a, rb));
+        return BR_DONE;
     }
     // Normalize order using expression ids (AC normalization).
     if (a->get_id() > b->get_id()) {
@@ -4027,34 +4156,36 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
         }
         // (loop a 0 0) = ""
         if (np == 2 && lo2 == 0 && hi2 == 0) {
-            result = re().mk_to_re(str().mk_empty(re().to_seq(args[0]->get_sort())));
+            result = mk_to_re(str().mk_empty(re().to_seq(args[0]->get_sort())));
             return BR_DONE;
         }
-        // (loop (loop a lo) lo2) = (loop lo*lo2)
-        if (re().is_loop(args[0], a, lo) && np == 1) {
-            result = re().mk_loop(a, lo2 * lo);
-            return BR_REWRITE1;
+        // Handle zero repetitions before multiplying nested lower bounds:
+        // (a{2,})* is not a*, since it cannot accept exactly one a.
+        if (np == 1 && lo2 == 0) {
+            result = mk_star(args[0]);
+            return BR_DONE;
         }
-        // (loop (loop a l l) h h) = (loop a l*h l*h)
-        if (re().is_loop(args[0], a, lo, hi) && np == 2 && lo == hi && lo2 == hi2) {
-            result = re().mk_loop_proper(a, lo2 * lo, hi2 * hi);
-            return BR_REWRITE1;
-        }
-        // (loop a 1 1) = a
         if (np == 2 && lo2 == 1 && hi2 == 1) {
             result = args[0];
             return BR_DONE;
         }
-        // (loop a 0) = a*
-        if (np == 1 && lo2 == 0) {
-            result = re().mk_star(args[0]);
+        // (loop (loop a lo) lo2) = (loop lo*lo2)
+        if (re().is_loop(args[0], a, lo) && np == 1 &&
+            (lo == 0 || lo2 <= UINT_MAX / lo)) {
+            result = mk_loop(a, lo2 * lo);
+            return BR_DONE;
+        }
+        // (loop (loop a l l) h h) = (loop a l*h l*h)
+        if (re().is_loop(args[0], a, lo, hi) && np == 2 && lo == hi && lo2 == hi2 &&
+            (lo == 0 || lo2 <= UINT_MAX / lo)) {
+            result = mk_loop(a, lo2 * lo, hi2 * hi);
             return BR_DONE;
         }
         break;
     case 2:
         if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned()) {
-            result = re().mk_loop(args[0], n1.get_unsigned());
-            return BR_REWRITE1;
+            result = mk_loop(args[0], n1.get_unsigned());
+            return BR_DONE;
         }
         if (m_autil.is_numeral(args[1], n1) && n1 < 0) {
             result = re().mk_empty(args[0]->get_sort());
@@ -4064,8 +4195,8 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
     case 3:
         if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned() &&
             m_autil.is_numeral(args[2], n2) && n2.is_unsigned()) {
-            result = re().mk_loop_proper(args[0], n1.get_unsigned(), n2.get_unsigned());
-            return BR_REWRITE1;
+            result = mk_loop(args[0], n1.get_unsigned(), n2.get_unsigned());
+            return BR_DONE;
         }
         break;
     default:
@@ -4076,8 +4207,8 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
 
 br_status seq_rewriter::mk_re_power(func_decl* f, expr* a, expr_ref& result) {
     unsigned p = f->get_parameter(0).get_int();
-    result = re().mk_loop_proper(a, p, p);
-    return BR_REWRITE1;
+    result = mk_loop(a, p, p);
+    return BR_DONE;
 }
 
 
@@ -4104,7 +4235,7 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
     if (re().is_empty(a)) {
         sort* seq_sort = nullptr;
         VERIFY(m_util.is_re(a, seq_sort));
-        result = re().mk_to_re(str().mk_empty(seq_sort));
+        result = mk_to_re(str().mk_empty(seq_sort));
         return BR_DONE;
     }
     if (re().is_to_re(a, b) && str().is_empty(b)) {
@@ -4115,31 +4246,31 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
         if (re().is_full_char(b))
             result = re().mk_full_seq(a->get_sort());
         else
-            result = re().mk_star(b);
+            result = mk_star(b);
         return BR_DONE;
     }
     if (re().is_union(a, b, c)) {
         if (re().is_star(b, b1)) {
-            result = re().mk_star(re().mk_union(b1, c));
-            return BR_REWRITE2;
+            result = mk_star(mk_union(b1, c));
+            return BR_DONE;
         }
         if (re().is_star(c, c1)) {
-            result = re().mk_star(re().mk_union(b, c1));
-            return BR_REWRITE2;
+            result = mk_star(mk_union(b, c1));
+            return BR_DONE;
         }
         if (re().is_epsilon(b)) {
-            result = re().mk_star(c);
-            return BR_REWRITE2;
+            result = mk_star(c);
+            return BR_DONE;
         }
         if (re().is_epsilon(c)) {
-            result = re().mk_star(b);
-            return BR_REWRITE2;
+            result = mk_star(b);
+            return BR_DONE;
         }
     }
     if (re().is_concat(a, b, c) &&
         re().is_star(b, b1) && re().is_star(c, c1)) {
-        result = re().mk_star(re().mk_union(b1, c1));
-        return BR_REWRITE2;
+        result = mk_star(mk_union(b1, c1));
+        return BR_DONE;
     }
     // (Σ*·S)* = () | Σ*·S.
     // Σ*·S is idempotent under concatenation: Σ*·S·Σ*·S = (Σ*·S·Σ*)·S ⊆ Σ*·S,
@@ -4148,8 +4279,8 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
     if (re().is_concat(a, b, c) && re().is_full_seq(b)) {
         sort* seq_sort = nullptr;
         VERIFY(m_util.is_re(a, seq_sort));
-        result = re().mk_union(re().mk_epsilon(seq_sort), a);
-        return BR_REWRITE1;
+        result = mk_union(re().mk_epsilon(seq_sort), a);
+        return BR_DONE;
     }
     if (m().is_ite(a, c, b1, c1)) {
         if ((re().is_full_char(b1) || re().is_full_seq(b1)) &&
@@ -4157,12 +4288,10 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
             result = re().mk_full_seq(b1->get_sort());
             return BR_REWRITE2;
         }
-        {
-            auto _seq4137_0 = re().mk_star(b1);
-            auto _seq4137_1 = re().mk_star(c1);
-            result = m().mk_ite(c, _seq4137_0, _seq4137_1);
-        }
-        return BR_REWRITE3;
+        auto then_r = mk_star(b1);
+        auto else_r = mk_star(c1);
+        m_br.mk_ite(c, then_r, else_r, result);
+        return BR_DONE;
     }
     return BR_FAILED;
 }
@@ -4248,6 +4377,10 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
    a+ = aa*
 */
 br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
+    // .+ is the canonical nonempty universal language; expanding it would
+    // cycle through concat(., .*) and back to .+.
+    if (re().is_full_char(a))
+        return BR_FAILED;
     if (re().is_empty(a)) {
         result = a;
         return BR_DONE;
@@ -4269,15 +4402,15 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
         return BR_DONE;
     }
 
-    result = re().mk_concat(a, re().mk_star(a));
-    return BR_REWRITE2;
+    result = mk_re_append(a, mk_star(a));
+    return BR_DONE;
 }
 
 br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
     sort* s = nullptr;
     VERIFY(m_util.is_re(a, s));
-    result = re().mk_union(re().mk_to_re(str().mk_empty(s)), a);
-    return BR_REWRITE1;
+    result = mk_union(mk_to_re(str().mk_empty(s)), a);
+    return BR_DONE;
 }
 
 void seq_rewriter::intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges) {
@@ -4420,7 +4553,9 @@ br_status seq_rewriter::reduce_re_is_empty(expr* r, expr_ref& result) {
     unsigned lo, hi;
     auto eq_empty = [&](expr* r) { return m().mk_eq(r, re().mk_empty(r->get_sort())); };
     if (re().is_union(r, r1, r2)) {
-        result = m().mk_and(eq_empty(r1), eq_empty(r2));
+        expr_ref lhs(eq_empty(r1), m());
+        expr_ref rhs(eq_empty(r2), m());
+        result = m().mk_and(lhs, rhs);
         return BR_REWRITE2;
     }
     if (re().is_star(r) ||
@@ -4431,7 +4566,9 @@ br_status seq_rewriter::reduce_re_is_empty(expr* r, expr_ref& result) {
         return BR_DONE;
     }
     if (re().is_concat(r, r1, r2)) {
-        result = m().mk_or(eq_empty(r1), eq_empty(r2));
+        expr_ref lhs(eq_empty(r1), m());
+        expr_ref rhs(eq_empty(r2), m());
+        result = m().mk_or(lhs, rhs);
         return BR_REWRITE2;
     }
     else if (re().is_range(r, r1, r2) && 
@@ -4546,6 +4683,22 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     bool changed = false;
     if (reduce_eq_empty(l, r, result)) 
         return BR_REWRITE_FULL;
+    // s^n = s^k <=> s = "" or (n <= 0 and k <= 0) or (0 < n = k)
+    expr* s1 = nullptr, *n1 = nullptr, *s2 = nullptr, *n2 = nullptr;
+    if (str().is_power(l, s1, n1) && str().is_power(r, s2, n2) && s1 == s2) {
+        expr_ref emp(str().mk_empty(s1->get_sort()), m());
+        expr_ref_vector fmls(m());
+        fmls.push_back(m().mk_eq(s1, emp));
+        expr_ref n1_nonpos(m_autil.mk_le(n1, zero()), m());
+        expr_ref n2_nonpos(m_autil.mk_le(n2, zero()), m());
+        fmls.push_back(m().mk_and(n1_nonpos, n2_nonpos));
+        expr_ref n1_pos(m_autil.mk_lt(zero(), n1), m());
+        expr_ref n2_pos(m_autil.mk_lt(zero(), n2), m());
+        expr_ref eq(m().mk_eq(n1, n2), m());
+        fmls.push_back(m().mk_and(n1_pos, n2_pos, eq));
+        result = m().mk_or(fmls);
+        return BR_REWRITE_FULL;
+    }
 
     // a, b are unit-length ground strings => replace_all(x, a, b) in re.to_re(s)
     {
@@ -4874,7 +5027,9 @@ bool seq_rewriter::reduce_arith_eq(expr* l, expr* r, expr_ref_vector& res) {
 void seq_rewriter::add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& eqs) {
     if (!ls.empty() || !rs.empty()) {
         sort * s = (ls.empty() ? rs[0] : ls[0])->get_sort();
-        eqs.push_back(str().mk_concat(ls, s), str().mk_concat(rs, s));
+        expr_ref lhs(str().mk_concat(ls, s), m());
+        expr_ref rhs(str().mk_concat(rs, s), m());
+        eqs.push_back(lhs, rhs);
     }
 }
 
@@ -5208,6 +5363,15 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
         result = m_autil.mk_lt(s, zero());
         return true;
     }
+    // s^n = "" <=> n <= 0 or s = ""
+    expr* base = nullptr, *n = nullptr;
+    if (str().is_power(r, base, n)) {
+        expr_ref_vector fmls(m());
+        fmls.push_back(m_autil.mk_le(n, zero()));
+        fmls.push_back(m().mk_eq(base, l));
+        result = m().mk_or(fmls);
+        return true;
+    }
     // at(s, offset) = "" <=> len(s) <= offset or offset < 0
     if (str().is_at(r, s, offset)) {
         expr_ref len_s(str().mk_length(s), m());
@@ -5247,14 +5411,18 @@ bool seq_rewriter::reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs,
     if (bounded1 && len1 == len2 && len1 > 0 && has_var(rs)) {
         if (!set_empty(rs.size(), rs.data(), false, eqs))
             return false;
-        eqs.push_back(concat_non_empty(ls), concat_non_empty(rs));
+        expr_ref lhs(concat_non_empty(ls), m());
+        expr_ref rhs(concat_non_empty(rs), m());
+        eqs.push_back(lhs, rhs);
         ls.reset(); 
         rs.reset();
     }
     else if (bounded2 && len1 == len2 && len1 > 0 && has_var(ls))  {
         if (!set_empty(ls.size(), ls.data(), false, eqs))
             return false;
-        eqs.push_back(concat_non_empty(ls), concat_non_empty(rs));
+        expr_ref lhs(concat_non_empty(ls), m());
+        expr_ref rhs(concat_non_empty(rs), m());
+        eqs.push_back(lhs, rhs);
         ls.reset(); 
         rs.reset();
     }
@@ -5394,8 +5562,9 @@ bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, 
     SASSERT(ls.size() == rs.size());
     if (!ls.empty()) {
         sort* srt = ls[0]->get_sort();
-        eqs.push_back(str().mk_concat(ls, srt),
-                      str().mk_concat(rs, srt));
+        expr_ref lhs(str().mk_concat(ls, srt), m());
+        expr_ref rhs(str().mk_concat(rs, srt), m());
+        eqs.push_back(lhs, rhs);
         ls.reset();
         rs.reset();
         TRACE(seq, tout << "subsequence " << eqs << "\n";);

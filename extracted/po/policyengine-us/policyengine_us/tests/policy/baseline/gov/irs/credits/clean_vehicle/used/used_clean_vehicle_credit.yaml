@@ -1,0 +1,19 @@
+- name: Limited by tax after preceding credits; the unused credit is lost (Form 8936, lines 16-18).
+  period: 2025
+  input:
+    used_clean_vehicle_credit_eligible: true
+    used_clean_vehicle_credit_potential: 4_000
+    income_tax_before_credits: 3_000
+    elderly_disabled_credit: 500
+  output:
+    used_clean_vehicle_credit_credit_limit: 2_500
+    used_clean_vehicle_credit: 2_500
+
+- name: Potential below the limit.
+  period: 2025
+  input:
+    used_clean_vehicle_credit_eligible: true
+    used_clean_vehicle_credit_potential: 1_000
+    income_tax_before_credits: 3_000
+  output:
+    used_clean_vehicle_credit: 1_000

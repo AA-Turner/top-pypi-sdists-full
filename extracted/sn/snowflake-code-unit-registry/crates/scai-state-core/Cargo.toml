@@ -9,7 +9,7 @@ autobenches = false
 
 [dependencies]
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 serde_norway.workspace = true
 snafu.workspace = true
 err_code.workspace = true
@@ -18,11 +18,13 @@ scai-log = { path = "../scai-log" }
 uuid.workspace = true
 fs2.workspace = true
 sqlparser.workspace = true
-regress = "0.11"
+regress = "0.12"
 chrono = { version = "0.4", features = ["serde"] }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rayon = "1.10"
-jsonschema = "0.49"
+jsonschema = "0.52"
+# Bundled: wheels, native libs and the Node addon ship without a system libsqlite.
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
 # Write-through rename (MoveFileExW) — Windows has no directory-fsync, so

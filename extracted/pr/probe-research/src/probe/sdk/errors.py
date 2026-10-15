@@ -264,6 +264,21 @@ class ValidationError(RosError):
     """422 - request validation (missing question, caps, malformed cursor, ...)."""
 
 
+#: The server marks "this team has several workspaces and the create named
+#: none" with this in a 422's `detail.code` (2026-10-14, per-computer workspaces).
+WORKSPACE_REQUIRED = "workspace_required"
+
+
+class WorkspaceRequired(ValidationError):
+    """422 - a new project needs a workspace and this computer has none set.
+
+    Raised before anything is created: a team with several workspaces never has
+    one guessed for it (the old guess, its oldest, filed every member's work
+    under its first member). Fix: `probe workspace use <slug>` (this computer),
+    `PROBE_WORKSPACE`, or `workspace=` / `--workspace` for one call.
+    """
+
+
 class ServerError(RosError):
     """5xx - the API or a database is down / behind schema."""
 
@@ -310,6 +325,8 @@ def error_for(status: int, detail: Any) -> RosError:
         and detail.get("code") == WORKSPACE_WRITE_DENIED
     ):
         return WorkspaceLockedError(_detail_message(detail), status=403, detail=detail)
+    if status == 422 and isinstance(detail, dict) and detail.get("code") == WORKSPACE_REQUIRED:
+        return WorkspaceRequired(_detail_message(detail), status=422, detail=detail)
     if status in _OBJECT_DETAIL_STATUSES:
         cls = _BY_STATUS[status]
         return cls(_detail_message(detail), detail=detail)  # type: ignore[call-arg]

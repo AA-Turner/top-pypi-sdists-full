@@ -24,6 +24,7 @@ class Steps(APIResource):
     self,
     trajectory_id: str,
     *,
+    start_step_index: int | None | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     extra_headers: Headers | None = None,
@@ -34,6 +35,8 @@ class Steps(APIResource):
     """Steps
 
     Args:
+      start_step_index: Begin the page at this step index. Cannot be combined with cursor.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -46,7 +49,7 @@ class Steps(APIResource):
       raise ValueError(
         f"Expected a non-empty value for `trajectory_id` but received {trajectory_id!r}"
       )
-    return self._get(
+    page = self._get(
       path_template(
         "/api/v1/trajectories/{trajectory_id}/steps",
         trajectory_id=trajectory_id,
@@ -55,6 +58,7 @@ class Steps(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
+            "start_step_index": start_step_index,
             "cursor": cursor,
             "limit": limit,
           }
@@ -65,6 +69,15 @@ class Steps(APIResource):
         timeout=timeout,
       ),
     )
+    # The cursor carries the position, and the API rejects it combined with start_step_index.
+    page._options = page._options.model_copy(
+      update={
+        "params": {
+          key: value for key, value in page._options.params.items() if key != "start_step_index"
+        }
+      }
+    )
+    return page
 
 
 class StepsWithRawResponse:

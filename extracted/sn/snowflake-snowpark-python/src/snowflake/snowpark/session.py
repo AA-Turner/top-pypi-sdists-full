@@ -425,6 +425,7 @@ class Session:
                 "flatten_select_after_filter_and_orderby": True,
                 "collect_stacktrace_in_query_tag": False,
                 "use_simplified_query_generation": False,
+                "restage_stored_procedure_imports": True,  # SNOW-4174500
             }  # For config that's temporary/to be removed soon
             self._lock = self._session._lock
             for key, val in conf.items():
@@ -1062,6 +1063,23 @@ class Session:
     def sql_simplifier_enabled(self) -> bool:
         """Set to ``True`` to use the SQL simplifier (defaults to ``True``).
         The generated SQLs from ``DataFrame`` transformations would have fewer layers of nested queries if the SQL simplifier is enabled.
+
+        Set this property before constructing the DataFrame whose SQL you want
+        to inspect. SQL text can change between library versions; compare
+        :attr:`DataFrame.queries` rather than relying on a specific SQL string.
+
+        Example::
+
+            >>> original_setting = session.sql_simplifier_enabled
+            >>> try:
+            ...     session.sql_simplifier_enabled = True
+            ...     df = session.range(10).select("id").filter("id > 2")
+            ...     simplified_queries = df.queries["queries"]
+            ...     session.sql_simplifier_enabled = False
+            ...     df = session.range(10).select("id").filter("id > 2")
+            ...     unsimplified_queries = df.queries["queries"]
+            ... finally:
+            ...     session.sql_simplifier_enabled = original_setting
         """
         return self._sql_simplifier_enabled
 
@@ -1584,6 +1602,59 @@ class Session:
         else:
             return trimmed_path, None, None
 
+    def _redirect_inherited_stage_imports(
+        self,
+        import_paths: Dict[str, Tuple[Optional[str], Optional[str]]],
+    ) -> Dict[str, Tuple[Optional[str], Optional[str]]]:
+        """Re-stage inherited session imports from the procedure's local import directory.
+
+        Inside a stored procedure the session's import paths are seeded with the absolute
+        stage paths from the procedure's IMPORTS clause.  Nested UDxF registrations that
+        inherit these paths verbatim fail with 002003/093023 when the executing role cannot
+        access the original stage.  This method replaces each such path with its local copy
+        under ``snowflake_import_directory`` so it is re-uploaded to the session temp stage.
+        No-op outside a stored procedure or when the fix is disabled via
+        ``session.conf.set("restage_stored_procedure_imports", False)``.
+        """
+        if not is_in_stored_procedure() or not self._conf.get(
+            "restage_stored_procedure_imports", True
+        ):
+            return import_paths
+
+        # https://docs.snowflake.com/en/developer-guide/udf/python/udf-python-examples#reading-a-statically-specified-file-using-imports
+        import_directory = sys._xoptions.get("snowflake_import_directory")
+        if not import_directory:  # pragma: no cover
+            return import_paths
+
+        redirected: Dict[str, Tuple[Optional[str], Optional[str]]] = {}
+        for path, import_info in import_paths.items():
+            local_path = None
+            if path.startswith(STAGE_PREFIX):
+                file_name = path.rsplit("/", 1)[-1].strip()
+                if file_name:
+                    candidate = os.path.join(import_directory, file_name)
+                    if os.path.isfile(candidate):
+                        local_path = candidate
+            if local_path is None:
+                redirected[path] = import_info
+                continue
+            try:
+                resolved_path, checksum, leading_path = self._resolve_import_path(
+                    local_path
+                )
+            except Exception as ex:  # pragma: no cover
+                _logger.warning(
+                    "Could not re-stage inherited import %s from local copy %s: %s",
+                    path,
+                    local_path,
+                    ex,
+                )
+                redirected[path] = import_info
+                continue
+            _logger.debug("Re-staging %s via local copy %s", path, local_path)
+            redirected[resolved_path] = (checksum, leading_path)
+        return redirected
+
     def _resolve_imports(
         self,
         import_only_stage: str,
@@ -1608,7 +1679,14 @@ class Session:
         )
 
         with self._lock:
+            # explicit imports=[] must not trigger re-staging.
+            inherited_from_session = udf_level_import_paths is None
             import_paths = udf_level_import_paths or self._import_paths.copy()
+        if inherited_from_session:
+            # SNOW-4174500: inside a stored procedure the session holds absolute stage
+            # paths from the procedure's own IMPORTS clause. Re-point them at the local
+            # copies the runtime materializes so nested UDxFs can use them
+            import_paths = self._redirect_inherited_stage_imports(import_paths)
         for path, (prefix, leading_path) in import_paths.items():
             # stage file
             if path.startswith(STAGE_PREFIX):
@@ -3156,6 +3234,19 @@ class Session:
             or :func:`DataFrame.to_pandas` evaluate the DataFrame.
             For **immediate execution**, chain the call with the collect method: `session.sql(query).collect()`.
 
+            SQL compilation and execution errors usually surface when an action
+            executes the query, not when this method creates the DataFrame.
+            Operations that request schema metadata can also contact Snowflake
+            before collection. Catch :class:`~snowflake.snowpark.exceptions.SnowparkSQLException`
+            around the operation that triggers evaluation; inspect its message
+            and query ID to diagnose the server error. This is not an exhaustive
+            list of possible client, connection, or argument errors.
+
+        Raises:
+            NotImplementedError: SQL execution is not supported in local testing
+                mode. See `mocking SQL operations
+                <https://docs.snowflake.com/en/developer-guide/snowpark/python/testing-locally>`_.
+
         Args:
             query: The SQL statement to execute.
             params: binding parameters. We only support qmark bind variables. For more information, check
@@ -3268,6 +3359,24 @@ class Session:
         for uploading and storing temporary artifacts for this session.
         These artifacts include libraries and packages for UDFs that you define
         in this session via :func:`add_import`.
+
+        The return value is a Snowflake stage reference beginning with ``@``,
+        not a local directory or the contents of a file. Pass it to file
+        operations such as :meth:`FileOperation.put` to upload artifacts to
+        Snowflake. Treat this session-scoped temporary storage as disposable,
+        not as a permanent location for application data.
+
+        Example::
+
+            >>> stage = session.get_session_stage()  # doctest: +SKIP
+            >>> stage.startswith("@")  # doctest: +SKIP
+            True
+            >>> session.get_session_stage() == stage  # doctest: +SKIP
+            True
+
+        The stage name is generated by Snowpark, so don't hardcode the name
+        returned by another session. The first call can create a temporary
+        stage in Snowflake and requires a connection with appropriate privileges.
 
         Note:
             This temporary stage is created once under the current database and schema of a Snowpark session.
@@ -3502,7 +3611,11 @@ class Session:
 
         Args:
             df: The pandas DataFrame or Snowpark pandas DataFrame or Series we'd like to write back.
-            table_name: Name of the table we want to insert into.
+            table_name: Name of the table we want to insert into, without the
+                database or schema prefix. Pass those separately through
+                ``database`` and ``schema``. For example, use
+                ``table_name="MY_TABLE", database="MY_DB", schema="MY_SCHEMA"``,
+                not ``table_name="MY_DB.MY_SCHEMA.MY_TABLE"``.
             database: Database that the table is in. If not provided, the default one will be used.
             schema: Schema that the table is in. If not provided, the default one will be used.
             chunk_size: Number of rows to be inserted once. If not provided, all rows will be dumped once.
@@ -3519,6 +3632,10 @@ class Session:
             quote_identifiers: By default, identifiers, specifically database, schema, table and column names
                 (from :attr:`DataFrame.columns`) will be quoted. If set to ``False``, identifiers
                 are passed on to Snowflake without quoting, i.e. identifiers will be coerced to uppercase by Snowflake.
+                With the default ``True``, names must match the stored case:
+                an object created with an unquoted name normally has an uppercase
+                name, whereas a quoted mixed-case name must retain its case.
+                Do not uppercase names of quoted mixed-case objects.
             auto_create_table: When true, automatically creates a table to store the passed in pandas DataFrame using the
                 passed in ``database``, ``schema``, and ``table_name``. Note: there are usually multiple table configurations that
                 would allow you to upload a particular pandas DataFrame successfully. If you don't like the auto created
@@ -4302,6 +4419,19 @@ class Session:
         """
         Returns the name of the current account for the Python connector session attached
         to this session.
+
+        The value comes from the attached connection; it isn't a database or
+        schema name. The returned string depends on the connection's account
+        configuration. It can be ``None`` if that parameter isn't available.
+
+        Example::
+
+            >>> account = session.get_current_account()
+            >>> isinstance(account, (str, type(None)))
+            True
+
+        Use ``account`` when you need the account configured for an existing
+        session, rather than creating a new connection to inspect it.
         """
         return self._conn._get_current_parameter("account")
 

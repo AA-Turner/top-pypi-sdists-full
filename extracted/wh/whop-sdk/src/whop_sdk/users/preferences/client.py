@@ -34,7 +34,7 @@ class PreferencesClient:
 
     def retrieve(self, *, request_options: typing.Optional[RequestOptions] = None) -> UserPreferences:
         """
-        Retrieves the authenticated user's settings document. Addressed only as `me` — the document always belongs to the session user.
+        Retrieves the authenticated user's settings document.
 
         Parameters
         ----------
@@ -51,7 +51,7 @@ class PreferencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -99,7 +99,7 @@ class PreferencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -142,7 +142,7 @@ class AsyncPreferencesClient:
 
     async def retrieve(self, *, request_options: typing.Optional[RequestOptions] = None) -> UserPreferences:
         """
-        Retrieves the authenticated user's settings document. Addressed only as `me` — the document always belongs to the session user.
+        Retrieves the authenticated user's settings document.
 
         Parameters
         ----------
@@ -161,7 +161,7 @@ class AsyncPreferencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -217,7 +217,7 @@ class AsyncPreferencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

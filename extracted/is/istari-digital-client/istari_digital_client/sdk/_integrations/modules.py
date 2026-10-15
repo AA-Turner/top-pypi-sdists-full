@@ -6,10 +6,42 @@ from typing import Any
 
 from istari_digital_client.sdk._base import Page, _Manager
 from istari_digital_client.sdk._integrations.integration_types import Module as ModuleType, ModuleVersion
+from istari_digital_client.sdk._generated.v2.models.manifest import Manifest
+from istari_digital_client.sdk._generated.v2.models.deprecation_reason import (
+    DeprecationReason,
+)
 
 
 class Modules(_Manager):
-    """Manager for modules: get / list."""
+    """Manager for modules: create / get / list / deprecate."""
+
+    def create(self, manifest: Manifest) -> ModuleType:
+        """Publish a new module from its manifest.
+
+        Mutates: true
+
+        Aliases: publish register add
+
+        ``manifest`` is the module Manifest describing the module and its initial
+        version. Returns the created Module.
+        """
+        dto = self._call(self._engine.v2_api.create_module, manifest)
+        return ModuleType._bind(dto, mgr=self)
+
+    def deprecate(self, module_id: str, reason: str) -> ModuleType:
+        """Deprecate a module, signaling consumers to migrate off it.
+
+        Mutates: true
+
+        ``reason`` is a human-readable explanation shown to users. Returns the
+        updated (deprecated) Module.
+        """
+        dto = self._call(
+            self._engine.v2_api.deprecate_module,
+            module_id,
+            DeprecationReason(reason=reason),
+        )
+        return ModuleType._bind(dto, mgr=self)
 
     def get(self, module_id: str) -> ModuleType:
         """Fetch a module by UUID."""

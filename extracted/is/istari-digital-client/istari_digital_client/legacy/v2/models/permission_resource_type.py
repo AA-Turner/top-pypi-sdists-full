@@ -46,7 +46,6 @@ class PermissionResourceType(str, Enum):
     STOREDCREDENTIAL = 'storedcredential'
     UPSTREAMREMOTE = 'upstreamremote'
     AUTHINTEGRATION = 'authintegration'
-    DOCUMENT = 'document'
     RESOURCE = 'resource'
     WORKFLOW_OUTPUT = 'workflow_output'
     CONNECTEDSOURCE = 'connectedsource'

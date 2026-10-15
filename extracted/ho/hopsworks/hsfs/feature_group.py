@@ -33,7 +33,7 @@ import avro.schema
 import hsfs.expectation_suite
 import humps
 from hopsworks_apigen import deprecated, deprecation, public
-from hopsworks_common import client, job
+from hopsworks_common import client, job, spark_connect_utils
 from hopsworks_common.client.exceptions import FeatureStoreException, RestAPIError
 from hopsworks_common.core import alerts_api
 from hopsworks_common.core.constants import (
@@ -880,6 +880,97 @@ class FeatureGroupBase:
                 feature_store_id=self._feature_store_id,
             )
         return self.select_all()
+
+    @staticmethod
+    def _distinct_rows(frame: Any) -> Any:
+        """Drop duplicate rows, in whichever dataframe the engine returned.
+
+        Spark is checked before pandas, and by type: a Spark DataFrame carries
+        `drop_duplicates` too, so a capability check would take the pandas branch and fail on
+        its `ignore_index` keyword.
+        """
+        if spark_connect_utils._is_spark_dataframe(frame):
+            return frame.distinct()
+        if HAS_POLARS:
+            import polars as pl
+
+            if isinstance(frame, pl.DataFrame):
+                return frame.unique(maintain_order=True)
+        if hasattr(frame, "drop_duplicates"):  # pandas
+            return frame.drop_duplicates(ignore_index=True)
+        raise FeatureStoreException(
+            f"Cannot take distinct rows of a {type(frame).__name__}. Read the primary keys as"
+            " a dataframe: `dataframe_type` must be one of 'default', 'spark', 'pandas' or"
+            " 'polars'."
+        )
+
+    @public
+    def read_primary_keys(
+        self,
+        online: bool = False,
+        dataframe_type: Literal["default", "spark", "pandas", "polars"] = "default",
+        read_options: dict[str, Any] | None = None,
+    ) -> pd.DataFrame | pl.DataFrame | TypeVar("pyspark.sql.DataFrame"):
+        """Read the distinct primary key values of this feature group, one row per entity.
+
+        A feature group holds one row per entity per event time, so its key columns repeat.
+        This reads only those columns and returns each combination once, which is the set of
+        entities the feature group knows about.
+
+        The result is a frame of entities with no time in it, so it is not yet a `spine_df`:
+        `get_batch_data` needs a prediction time per row. Cross it with the time to compute
+        features as of.
+
+        Example: the latest feature values for every entity
+            ```python
+            import datetime
+            from hsfs.constructor.prediction_times import PredictionTimes
+
+            fg = feature_view.get_root_fg()
+            now = datetime.datetime.now(datetime.timezone.utc)
+
+            spine_df = PredictionTimes.of([now]).cross(
+                fg.read_primary_keys(), event_time=fg.event_time
+            )
+            latest = feature_view.get_batch_data(spine_df=spine_df)
+            ```
+
+        Parameters:
+            online:
+                Read from the online storage rather than the offline storage. Defaults to
+                `False`.
+            dataframe_type:
+                One of `"default"`, `"spark"`, `"pandas"` or `"polars"`, as on
+                [`read`][hsfs.feature_group.FeatureGroup.read]. `"default"` maps to a Spark
+                dataframe under the Spark engine and a Pandas dataframe under the Python
+                engine. `"pandas"` works on both. `"polars"` is a Python-engine type; the Spark
+                engine's converter rejects it, as it does for `read`. Types with no notion of a
+                distinct row, such as `"numpy"` and `"python"`, are refused here even though
+                `read` returns them.
+            read_options:
+                Additional options as key/value pairs to pass to the execution engine.
+
+        Returns:
+            A dataframe of the primary key columns with duplicate rows removed.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If the feature group has no
+                primary key, or `dataframe_type` is one that cannot carry distinct rows.
+        """
+        if not self.primary_key:
+            raise FeatureStoreException(
+                f"Feature group `{self.name}` has no primary key, so it has no entities to"
+                " return."
+            )
+        # Deliberately not self.read(): that path applies the scheduler's HOPS_START_TIME /
+        # HOPS_END_TIME window, which would silently narrow the entity population to whatever
+        # interval a job happens to be processing.
+        frame = self.select(self.primary_key).read(
+            online=online,
+            dataframe_type=dataframe_type,
+            read_options=read_options or {},
+        )
+        return self._distinct_rows(frame)
 
     @public
     def filter(self, f: filter_module.Filter | filter_module.Logic) -> query.Query:
@@ -2386,6 +2477,7 @@ class FeatureGroupBase:
         start_date_time: int | str | datetime | date | pd.Timestamp | None = None,
         end_date_time: int | str | datetime | date | pd.Timestamp | None = None,
         cron_expression: str | None = "0 0 12 ? * * *",
+        event_time: str | bool | None = None,
     ) -> fmc.FeatureMonitoringConfig:
         """Create a job to compute statistics on snapshot of feature data on a schedule.
 
@@ -2424,13 +2516,18 @@ class FeatureGroupBase:
                 Cron expression to use to schedule the job.
                 The cron expression must be in UTC and follow the Quartz specification.
                 The default value means "every day at 12pm UTC".
+            event_time:
+                The feature the detection window is sliced by.
+                When `None`, uses this feature group's own event-time feature if one is defined, otherwise commit time.
+                Pass a feature name to slice by a different feature instead; it must exist on this feature group and have an offline type of TIMESTAMP, DATE or BIGINT.
+                Pass `False` to force commit-time windows even when this feature group declares an event-time feature.
 
         Returns:
             Configuration with minimal information about the feature monitoring.
             Additional information are required before feature monitoring is enabled.
 
         Raises:
-            hopsworks.client.exceptions.FeatureStoreException: If feature group is not registered with Hopsworks.
+            hopsworks.client.exceptions.FeatureStoreException: If feature group is not registered with Hopsworks, or if event_time names a feature that does not exist or has an unsupported type.
         """
         if not self._id:
             raise FeatureStoreException(
@@ -2446,6 +2543,14 @@ class FeatureGroupBase:
         elif not isinstance(feature_names, list):
             feature_names = [feature_names]
 
+        resolved_event_time = (
+            self._feature_monitoring_config_engine._resolve_event_time(
+                event_time=event_time,
+                default_event_time=self.event_time,
+                valid_features=valid_features,
+            )
+        )
+
         return self._feature_monitoring_config_engine._build_default_scheduled_statistics_config(
             name=name,
             feature_names=feature_names,
@@ -2455,6 +2560,7 @@ class FeatureGroupBase:
             end_date_time=end_date_time,
             cron_expression=cron_expression,
             valid_features=valid_features,
+            event_time=resolved_event_time,
         )
 
     @public
@@ -2465,6 +2571,7 @@ class FeatureGroupBase:
         start_date_time: int | str | datetime | date | pd.Timestamp | None = None,
         end_date_time: int | str | datetime | date | pd.Timestamp | None = None,
         cron_expression: str | None = "0 0 12 ? * * *",
+        event_time: str | bool | None = None,
     ) -> fmc.FeatureMonitoringConfig:
         """Enable feature monitoring to compare statistics on snapshots of feature data over time.
 
@@ -2507,13 +2614,18 @@ class FeatureGroupBase:
                 Cron expression to use to schedule the job.
                 The cron expression must be in UTC and follow the Quartz specification.
                 The default value means "every day at 12pm UTC".
+            event_time:
+                The feature the detection and reference windows are sliced by.
+                When `None`, uses this feature group's own event-time feature if one is defined, otherwise commit time.
+                Pass a feature name to slice by a different feature instead; it must exist on this feature group and have an offline type of TIMESTAMP, DATE or BIGINT.
+                Pass `False` to force commit-time windows even when this feature group declares an event-time feature.
 
         Returns:
             Configuration with minimal information about the feature monitoring.
             Additional information are required before feature monitoring is enabled.
 
         Raises:
-            hopsworks.client.exceptions.FeatureStoreException: If feature group is not registered with Hopsworks.
+            hopsworks.client.exceptions.FeatureStoreException: If feature group is not registered with Hopsworks, or if event_time names a feature that does not exist or has an unsupported type.
         """
         if not self._id:
             raise FeatureStoreException(
@@ -2521,6 +2633,13 @@ class FeatureGroupBase:
             )
 
         valid_features = {feat.name: feat.type for feat in self._features}
+        resolved_event_time = (
+            self._feature_monitoring_config_engine._resolve_event_time(
+                event_time=event_time,
+                default_event_time=self.event_time,
+                valid_features=valid_features,
+            )
+        )
         return self._feature_monitoring_config_engine._build_default_feature_monitoring_config(
             name=name,
             description=description,
@@ -2529,6 +2648,7 @@ class FeatureGroupBase:
             end_date_time=end_date_time,
             cron_expression=cron_expression,
             valid_features=valid_features,
+            event_time=resolved_event_time,
         )
 
     def __getattr__(self, name: str) -> Any:
@@ -2816,7 +2936,7 @@ class FeatureGroupBase:
     def compute_statistics(self) -> None:
         """Recompute the statistics for the feature group and save them to the feature store.
 
-        Statistics are only computed for data in the offline storage of the feature group.
+        Statistics are computed on the offline storage of the feature group, or on the external source for external feature groups.
 
         Example:
             ```python
@@ -3754,6 +3874,8 @@ class FeatureGroup(FeatureGroupBase):
                 sc.SqlConnector.MYSQL,
                 sc.SqlConnector.POSTGRESQL,
                 sc.SqlConnector.ORACLE,
+                sc.SqlConnector.CLICKHOUSE,
+                sc.SqlConnector.TERADATA,
             ]
         )
         supported_sink_connector = (
@@ -3791,7 +3913,7 @@ class FeatureGroup(FeatureGroupBase):
                 f"Sink cannot be enabled for storage connector type '{connector_type}'. "
                 "Supported connector types: CRM, GOOGLE_SHEETS, REST, SNOWFLAKE, REDSHIFT, "
                 "BIGQUERY, MONGODB, and SQL connectors with database_type MYSQL, POSTGRESQL, "
-                "or ORACLE."
+                "ORACLE, CLICKHOUSE, or TERADATA."
             )
 
         # CRM/Google Sheets/REST connectors always have sink enabled.
@@ -4954,12 +5076,13 @@ class FeatureGroup(FeatureGroupBase):
                       Combining it with `timeout` `0` waits forever, since neither the entry count nor the timeout can end the wait.
                 - key `internal_kafka` and value `True` or `False` in case you established connectivity from your Python environment to the internal advertised listeners of the Hopsworks Kafka Cluster.
             storage: The storage to delete from, `"offline"` or `"online"`, mirroring [`insert`][hsfs.feature_group.FeatureGroup.insert].
-                Left unset it follows the feature group: both stores when it is online-enabled, offline alone when it is not or when its online data lives in the vector database behind an embedding index.
+                Left unset it follows the feature group: both stores when it is online-enabled, offline alone when it is not.
                 Set it to `"offline"` to delete from the offline table only, or `"online"` to delete from the online store only.
+                On a feature group with an embedding index, the online store is the vector database, and the rows are removed from it by primary key.
 
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
-            hopsworks.client.exceptions.FeatureStoreException: If `storage` is not one of `"offline"`, `"online"` or unset; or is `"online"` on a feature group that is not online-enabled or has an embedding index.
+            hopsworks.client.exceptions.FeatureStoreException: If `storage` is not one of `"offline"`, `"online"` or unset; or is `"online"` on a feature group that is not online-enabled.
         """
         # Validate before either leg runs, so an unsupported request fails without
         # mutating a store.
@@ -4975,32 +5098,12 @@ class FeatureGroup(FeatureGroupBase):
         delete_offline = storage != "online"
         delete_online = storage != "offline" and bool(self.online_enabled)
 
-        if storage == "online":
-            # Online-only, so a feature group this release cannot delete online from would
-            # delete nothing at all. Refuse rather than no-op, unlike the unset case below
-            # where the offline delete still happens.
-            if not self.online_enabled:
-                raise FeatureStoreException(
-                    "storage='online' was set but this feature group is not online-enabled."
-                )
-            if self.embedding_index is not None:
-                raise FeatureStoreException(
-                    "storage='online' is not supported for feature groups with an embedding index; "
-                    "their online data lives in the vector database, which this release does not "
-                    "delete from, so nothing would be deleted."
-                )
-        elif delete_online and self.embedding_index is not None:
-            # An embedding index keeps its online data in the vector database, which this
-            # release cannot delete from. Skip the online leg rather than refuse the whole
-            # call, since the offline delete is still what the caller asked for, but say so:
-            # the two stores are left diverged.
-            warnings.warn(
-                "The online store was not deleted from: this feature group's online data lives in the "
-                "vector database behind an embedding index, which this release does not delete from. "
-                "The offline delete was applied, so the two stores now differ for the removed rows.",
-                stacklevel=2,
+        # Online-only, so a feature group with no online store at all would delete
+        # nothing. Refuse rather than no-op.
+        if storage == "online" and not self.online_enabled:
+            raise FeatureStoreException(
+                "storage='online' was set but this feature group is not online-enabled."
             )
-            delete_online = False
 
         if delete_offline:
             # Both guards are properties of the offline delete: a HUDI delete needs Spark,
@@ -5028,13 +5131,22 @@ class FeatureGroup(FeatureGroupBase):
 
         if delete_online:
             # Requires an OnlineFS (clusterj-onlinefs) that understands the
-            # `operation: delete` header (the release shipping the OnlineFS delete
-            # branch onward). Not runtime-gated: OnlineFS is not reachable from the
-            # client, and the backend version is not its proxy since backend, SDK and
-            # OnlineFS can be versioned/backported independently. A controlled
-            # deployment (helm bumps SDK images and OnlineFS together) keeps them in
-            # sync; against an OnlineFS without the delete branch the tombstone is a
-            # no-op-to-corrupting write, so pair a delete-capable OnlineFS with this SDK.
+            # `operation: delete` header, and on a feature group with an embedding index
+            # also one whose vectordb committer routes a tombstone to a vector database
+            # delete instead of indexing it as a document.
+            #
+            # That requirement is a deployment contract rather than a runtime check, and
+            # it is not negotiated: OnlineFS is not reachable from the client and
+            # publishes no capability of its own, and the backend version is not a proxy
+            # for it, since backend, SDK and OnlineFS are versioned and backported
+            # independently. Helm bumps the SDK images and OnlineFS together, so a
+            # cluster is internally consistent; what that does not cover is a client
+            # pinned to an SDK newer than the cluster it talks to, which the major.minor
+            # compatibility check at connection time lets through. Against such an
+            # OnlineFS the tombstone is applied as a write, not ignored: RonDB upserts a
+            # row carrying only the primary key, and the vector database replaces the
+            # document under that id with the tombstone payload. So pair a
+            # delete-capable OnlineFS with this SDK.
             self._feature_group_engine._delete_online_records(
                 self, delete_df, write_options or {}
             )
@@ -5060,6 +5172,158 @@ class FeatureGroup(FeatureGroupBase):
         # Offline only, whatever the feature group: this exists for callers written before
         # the online delete, and remove_rows is where the choice lives now.
         return self.remove_rows(delete_df, write_options, "offline")
+
+    @public
+    def delta_optimize(
+        self,
+        after_ingest_date: str | None = None,
+        max_concurrent_tasks: int = 1,
+        target_size: int | None = None,
+    ) -> dict | None:
+        """Rewrite this feature group's small Delta files into larger ones.
+
+        A table that is only appended to gains a file per commit, and every reader then
+        opens all of them, so compaction is what keeps the file count flat.
+
+        This method can only be used on feature groups stored as DELTA; it returns None
+        for any other format.
+
+        Example:
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            # get the Feature Group instance
+            fg = fs.get_or_create_feature_group(...)
+
+            # compact everything
+            fg.delta_optimize()
+
+            # compact only the partitions from a date onwards
+            fg.delta_optimize(after_ingest_date="2026-09-10")
+            ```
+
+        Parameters:
+            after_ingest_date:
+                Restrict the rewrite to partitions at or after this date, as `YYYY-MM-DD`.
+                Requires the feature group to be partitioned by a date column, because only
+                a partition column can select files without reading them.
+                Defaults to None, which compacts the whole table.
+            max_concurrent_tasks:
+                Rewrite tasks to run at once.
+                Defaults to 1, so a compaction running beside a writer does not take the
+                whole CPU budget.
+            target_size:
+                Size in bytes to compact towards.
+                Defaults to None, which takes the engine's own target.
+
+        Returns:
+            The engine's optimize metrics, or None when the feature group is not stored as
+            DELTA.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If `after_ingest_date` is given
+                and the feature group has no date partition column.
+        """
+        return self._feature_group_engine._delta_optimize(
+            self, after_ingest_date, max_concurrent_tasks, target_size
+        )
+
+    @public
+    def delta_compact(
+        self,
+        after_ingest_date: str | None = None,
+        max_concurrent_tasks: int = 1,
+        target_size: int | None = None,
+    ) -> dict | None:
+        """[`delta_optimize`][hsfs.feature_group.FeatureGroup.delta_optimize] under the other name the engines use.
+
+        Delta's SQL calls this OPTIMIZE and delta-rs calls it `optimize.compact`, so both
+        words are the right one to reach for depending on which you last read.
+
+        Parameters:
+            after_ingest_date: Rewrite only the partitions at or after this date, as `YYYY-MM-DD`.
+            max_concurrent_tasks: Rewrite tasks to run at once.
+            target_size: Size in bytes the rewritten files aim for.
+
+        Returns:
+            The engine's compaction metrics, or `None` when nothing was rewritten.
+        """
+        return self.delta_optimize(
+            after_ingest_date=after_ingest_date,
+            max_concurrent_tasks=max_concurrent_tasks,
+            target_size=target_size,
+        )
+
+    @public
+    def delta_checkpoint(self) -> dict | None:
+        """Write a Delta checkpoint for this feature group.
+
+        A reader opening a Delta table replays every commit since the last checkpoint, so
+        without one the cost of opening the table grows with the number of commits.
+        Spark writes checkpoints on its own every `delta.checkpointInterval` commits;
+        delta-rs writes none, so on a table only ever written from Python this is the only
+        thing that bounds the replay.
+
+        Expiring the log entries a checkpoint covers is a separate call,
+        [`delta_cleanup_metadata`][hsfs.feature_group.FeatureGroup.delta_cleanup_metadata].
+
+        This method can only be used on feature groups stored as DELTA; it returns None
+        for any other format.
+
+        Example:
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            # get the Feature Group instance
+            fg = fs.get_or_create_feature_group(...)
+
+            fg.delta_checkpoint()
+            ```
+
+        Returns:
+            The version checkpointed, or None when the feature group is not stored as DELTA.
+
+        """
+        return self._feature_group_engine._delta_checkpoint(self)
+
+    @public
+    def delta_cleanup_metadata(self) -> dict | None:
+        """Expire the Delta log entries an existing checkpoint already covers.
+
+        The Delta log grows by one entry per commit. A checkpoint stops readers replaying
+        those entries, and this deletes them, which is what stops the log directory itself
+        growing without bound.
+
+        Run it after
+        [`delta_checkpoint`][hsfs.feature_group.FeatureGroup.delta_checkpoint] and never
+        instead of it: the checkpoint is the state a reader falls back to once the
+        individual commits are gone. What may be deleted is bounded by the table's own
+        `delta.logRetentionDuration`, 30 days by default, so recent history and time travel
+        inside that window keep working.
+
+        This method can only be used on feature groups stored as DELTA; it returns None
+        for any other format.
+
+        Example:
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            # get the Feature Group instance
+            fg = fs.get_or_create_feature_group(...)
+
+            fg.delta_checkpoint()
+            fg.delta_cleanup_metadata()
+            ```
+
+        Returns:
+            The version the log was pruned against, or None when the feature group is not
+            stored as DELTA.
+
+        """
+        return self._feature_group_engine._delta_cleanup_metadata(self)
 
     @public
     def delta_vacuum(
@@ -6131,6 +6395,7 @@ class ExternalFeatureGroup(FeatureGroupBase):
         ttl_enabled: bool | None = None,
         online_disk: bool | None = None,
         missing_mandatory_tags: list[dict[str, Any]] | None = None,
+        data_source_access: dict[str, Any] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -6160,6 +6425,7 @@ class ExternalFeatureGroup(FeatureGroupBase):
         self._created = created
         self._creator = user.User.from_response_json(creator)
         self._data_format = data_format.upper() if data_format else None
+        self._data_source_access = data_source_access
 
         self._features = [
             feature.Feature.from_response_json(feat) if isinstance(feat, dict) else feat
@@ -6766,11 +7032,61 @@ class ExternalFeatureGroup(FeatureGroupBase):
         """Name of the feature store in which the feature group is located."""
         return self._feature_store_name
 
+    @public
+    @property
+    def data_source_access(self) -> dict[str, Any] | None:
+        """Whether you can read the table behind this feature group with your own credentials.
+
+        Set only for feature groups mounted from a data source with provided credentials; `None` otherwise.
+        Carries `status` (`PENDING`, `OK`, `NO_CREDENTIALS`, `INVALID_CREDENTIALS`, `NO_ACCESS` or `ERROR`), `error_code`, `message` and `checked_at`.
+        The state informs you and does not gate reads: a read in `NO_ACCESS` still goes to the source and fails there.
+        """
+        return self._data_source_access
+
+    @public
+    def test_data_source_access(self) -> dict[str, Any]:
+        """Check now whether your credentials can read the table behind this feature group.
+
+        The check runs synchronously as you, with a limit of one row, and may take up to a minute.
+        For a data source with provided credentials the result is stored and shown in the catalog; for one with shared credentials the shared credentials are tested and nothing is stored.
+        Add your credentials with `set_credentials()` on the data source first when the state is `NO_CREDENTIALS`.
+
+        Example:
+            ```python
+            fg = fs.get_feature_group("sales_external", version=1)
+            access = fg.test_data_source_access()
+            if access["status"] != "OK":
+                print(access["status"], access["message"])
+            ```
+
+        Returns:
+            The access state: `status`, `error_code`, `message` and `checked_at`.
+
+        Raises:
+            hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
+        """
+        self._data_source_access = humps.decamelize(
+            self._feature_group_engine._test_data_source_access(self)
+        )
+        return self._data_source_access
+
 
 @public
 @typechecked
 class SpineGroup(FeatureGroupBase):
-    # TODO: Add docstring
+    """A dataframe of labels or entities, joined point-in-time with a feature view's features.
+
+    Warning: Deprecated
+        Superseded by the `spine_df` argument on `FeatureView.get_batch_data` and on every
+        training-data method. `spine_df` anchors an existing feature view on rows you supply,
+        so nothing has to be decided when the view is created; a spine group has to be chosen
+        up front and cannot be added to a view afterwards. Create these with
+        `FeatureStore.get_or_create_spine_group`, which carries the same deprecation.
+
+    The metadata is stored in the feature store, the rows are not: the dataframe lives on the
+    object and is supplied again on every read through `spine=`.
+    """
+
     SPINE_GROUP = "ON_DEMAND_FEATURE_GROUP"
     ENTITY_TYPE = "featuregroups"
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: endec
-Version: 0.5.7
+Version: 0.6.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
@@ -8,7 +8,6 @@ Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -22,7 +21,7 @@ License-File: LICENSE
 Summary: Web-compatible encoding and decoding library
 Keywords: encoding_rs,web,codec
 Author-email: Thitat Auareesuksakul <flux@thitat.net>
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://github.com/fluxth/endec/releases
 Project-URL: Homepage, https://github.com/fluxth/endec
@@ -41,7 +40,7 @@ Web-compatible **en**coding and **dec**oding library
 
 ## Supported Python versions
 
-- CPython 3.8 or higher
+- CPython 3.9 or higher
 - PyPy 3.11 or higher
 
 ## Installation

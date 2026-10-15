@@ -228,3 +228,30 @@ def write_hover_rects(fig, png_path: str, rects, dpi: int = 100) -> None:
             json.dump({"w": int(w_png), "h": int(h_png), "rects": out, "texts": texts}, fh)
     except Exception as exc:                          # a convenience: never fail the figure
         print(f"[pikobs] no mouse map for {os.path.basename(png_path)}: {exc}", file=sys.stderr, flush=True)
+
+
+
+def members_footer(fig, selection, fontsize: float = None) -> None:
+    """The stations of a prefix, a pattern or a list (a selector, or the text
+    itself), under everything already drawn, left, wrapped to the width of
+    the figure. save_figure's tight box takes it in; nothing else moves."""
+    text = selection if isinstance(selection, str) else \
+        getattr(selection, "members_text", "")
+    if not text:
+        return
+    import textwrap
+    if fontsize is None:
+        # as big as the dates under the panels: in a figure of a few
+        # thousand pixels a fixed small size vanishes once fitted to a screen
+        sizes = [t.get_fontsize() for ax in fig.axes for t in ax.get_xticklabels()]
+        fontsize = max(sizes) if sizes else 9.0
+    w_in, h_in = fig.get_size_inches()
+    chars = max(40, int(w_in * 72 / (fontsize * 0.60)))
+    lines = textwrap.wrap(text, chars, break_long_words=False,
+                          break_on_hyphens=False)
+    try:
+        bottom = fig.get_tightbbox(fig.canvas.get_renderer()).y0 / h_in
+    except Exception:
+        bottom = 0.0
+    fig.text(0.02, bottom - 0.12 / h_in, "\n".join(lines), ha="left",
+             va="top", fontsize=fontsize, color="#30343A")

@@ -1,0 +1,90 @@
+- name: Case 1, child aged 0 with no disabilities, rate is 2.
+  period: 2024
+  input:
+    age: 0
+    is_disabled: false
+    state_code: NC
+  output:
+    nc_scca_fpg_rate: 2
+
+- name: Case 2, child aged 5 with no disabilities, rate is 2.
+  period: 2024
+  input:
+    age: 5
+    is_disabled: false
+    state_code: NC
+  output:
+    nc_scca_fpg_rate: 2
+
+- name: Case 3, child aged 6 with no disabilities, rate is 1.33.
+  period: 2024
+  input:
+    age: 6
+    is_disabled: false
+    state_code: NC
+  output:
+    nc_scca_fpg_rate: 1.33
+
+- name: Case 4, child aged 12 with no disabilities, rate is 1.33.
+  period: 2024
+  input:
+    age: 12
+    is_disabled: false
+    state_code: NC
+  output:
+    nc_scca_fpg_rate: 1.33
+
+- name: Case 5, child aged 6 with disabilities, rate is 2.
+  period: 2024
+  input:
+    age: 6
+    is_disabled: true
+    state_code: NC
+  output:
+    nc_scca_fpg_rate: 2
+
+- name: Case 6, two children aged 5 and 7, each child gets their own rate.
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 30
+        is_disabled: false
+      child1:
+        age: 5
+        is_disabled: false
+      child2:
+        age: 7
+        is_disabled: false
+    spm_units:
+      spm_unit:
+        members: [person1, child1, child2]
+    households:
+      household:
+        members: [person1, child1, child2]
+        state_code: NC
+  output:
+    nc_scca_fpg_rate: [1.33, 2, 1.33]
+
+- name: Case 7, disabled child aged 6 with a non-disabled sibling aged 8.
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 30
+        is_disabled: true
+      child1:
+        age: 6
+        is_disabled: true
+      child2:
+        age: 8
+        is_disabled: false
+    spm_units:
+      spm_unit:
+        members: [person1, child1, child2]
+    households:
+      household:
+        members: [person1, child1, child2]
+        state_code: NC
+  output:
+    nc_scca_fpg_rate: [2, 2, 1.33]

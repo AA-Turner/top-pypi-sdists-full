@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hydra_zen
-Version: 0.17.0
+Version: 0.17.1
 Summary: Configurable, reproducible, and scalable workflows in Python, via Hydra
 Author-email: Ryan Soklaski <rsoklaski@gmail.com>, Justin Goodwin <jgoodwin@ll.mit.edu>
 Maintainer-email: Justin Goodwin <jgoodwin@ll.mit.edu>
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9

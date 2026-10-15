@@ -42,7 +42,7 @@ class AuthIntegration(BaseModel):
     archive_status_history: List[ResourceArchiveStatus]
     created_by_id: StrictStr
     auth_integration_type: AuthIntegrationType
-    auth_type: FunctionAuthType
+    auth_type: Optional[FunctionAuthType]
     name: Optional[StrictStr] = None
     oidc_provider_data: Optional[OidcProviderData] = None
     oauth1_provider_data: Optional[Oauth1ProviderData] = None
@@ -139,6 +139,11 @@ class AuthIntegration(BaseModel):
                 if _item_control_tags:
                     _items.append(_item_control_tags.to_dict())
             _dict['control_tags'] = _items
+        # set to None if auth_type (nullable) is None
+        # and model_fields_set contains the field
+        if self.auth_type is None and "auth_type" in self.model_fields_set:
+            _dict['auth_type'] = None
+
         # set to None if name (nullable) is None
         # and model_fields_set contains the field
         if self.name is None and "name" in self.model_fields_set:

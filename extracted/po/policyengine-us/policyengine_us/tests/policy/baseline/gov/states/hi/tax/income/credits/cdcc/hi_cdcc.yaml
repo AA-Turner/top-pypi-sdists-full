@@ -1,0 +1,132 @@
+- name: smaller dcb
+  period: 2022
+  input:
+    hi_agi: 1_000
+    hi_cdcc_min_head_spouse_earned: 1_000
+    hi_dependent_care_benefits: 100
+    hi_cdcc_eligible: true
+    state_code: HI
+  output:
+    hi_cdcc: 25
+
+- name: smaller min_head_spouse_earned
+  period: 2022
+  input:
+    hi_agi: 1_000
+    hi_cdcc_min_head_spouse_earned: 1_000
+    hi_dependent_care_benefits: 2_000
+    hi_cdcc_eligible: true
+    state_code: HI
+  output:
+    hi_cdcc: 250
+
+- name: different agi
+  period: 2022
+  input:
+    hi_agi: 50_000
+    hi_cdcc_min_head_spouse_earned: 1_000
+    hi_dependent_care_benefits: 100
+    hi_cdcc_eligible: true
+    state_code: HI
+  output:
+    hi_cdcc: 20
+
+- name: different agi 2
+  period: 2022
+  input:
+    hi_agi: 50_001
+    hi_cdcc_min_head_spouse_earned: 1_000
+    hi_dependent_care_benefits: 100
+    hi_cdcc_eligible: true
+    state_code: HI
+  output:
+    hi_cdcc: 15
+
+- name: Case 5, negative min_head_spouse_earned with zero expenses.
+  period: 2022
+  input:
+    hi_agi: 175_000
+    hi_cdcc_min_head_spouse_earned: -12_797
+    hi_dependent_care_benefits: 0
+    hi_cdcc_eligible: true
+    state_code: HI
+  output:
+    # min_(0, -12_797) clamped to 0 by max_(0, ...)
+    hi_cdcc: 0
+
+- name: Case 6, negative min_head_spouse_earned with positive expenses.
+  period: 2022
+  input:
+    hi_agi: 175_000
+    hi_cdcc_min_head_spouse_earned: -12_797
+    hi_dependent_care_benefits: 5_000
+    hi_cdcc_eligible: true
+    state_code: HI
+  output:
+    # min_(5_000, -12_797) clamped to 0 by max_(0, ...)
+    hi_cdcc: 0
+
+- name: Case 7, zero min_head_spouse_earned.
+  period: 2022
+  input:
+    hi_agi: 50_000
+    hi_cdcc_min_head_spouse_earned: 0
+    hi_dependent_care_benefits: 3_000
+    hi_cdcc_eligible: true
+    state_code: HI
+  output:
+    # min_(3_000, 0) = 0
+    hi_cdcc: 0
+
+- name: Case 8, separate filer treated as unmarried with employer dependent care benefits.
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 35
+        employment_income: 38_000
+        dependent_care_employer_benefits: 4_000
+        is_separated: true
+      person2:
+        age: 5
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        filing_status: SEPARATE
+        tax_unit_childcare_expenses: 12_000
+        hi_agi: 38_000
+    households:
+      household:
+        members: [person1, person2]
+        state_code: HI
+  output:
+    # Line 11 cap is $5,000, so line 22 = 10_000 - 4_000 = 6_000.
+    # Line 25 = min(6_000, 38_000) = 6_000; 22% rate for AGI of 38_000.
+    hi_cdcc: 1_320
+
+- name: Case 9, separate filer treated as unmarried with employer dependent care benefits in 2026.
+  period: 2026
+  absolute_error_margin: 0.01
+  input:
+    people:
+      person1:
+        age: 35
+        employment_income: 38_000
+        dependent_care_employer_benefits: 4_000
+        is_separated: true
+      person2:
+        age: 5
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        filing_status: SEPARATE
+        tax_unit_childcare_expenses: 12_000
+        hi_agi: 38_000
+    households:
+      household:
+        members: [person1, person2]
+        state_code: HI
+  output:
+    # Line 11 cap is $7,500, so line 22 = 10_000 - 4_000 = 6_000; 6_000 * 22%.
+    hi_cdcc: 1_320

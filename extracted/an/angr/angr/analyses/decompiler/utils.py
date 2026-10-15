@@ -21,7 +21,7 @@ from angr.analyses.decompiler.peephole_optimizations.base import (
     PeepholeOptimizationExprBase,
     PeepholeOptimizationMultiStmtBase,
 )
-from angr.utils.ail import is_phi_assignment
+from angr.utils.ail import BlockDefs, GraphVVarDefs, is_phi_assignment
 
 from .seq_to_blocks import SequenceToBlocks
 from .structurer_nodes import (
@@ -762,7 +762,7 @@ def last_nonlabel_statement(block: ailment.Block) -> ailment.Stmt.Statement | No
     return None
 
 
-def last_node(node: BaseNode) -> BaseNode | ailment.Block | None:
+def last_node(node: BaseNode | Block) -> BaseNode | ailment.Block | None:
     """
     Get the last node in a sequence or code node.
     """
@@ -975,6 +975,9 @@ class _PeepholeExprsWalker(ailment.AILBlockRewriter):
         self.fixpoint_stmts: set[int] = set()
         self._stmt_touched = False
         self._stmt_fixpoint = True
+        self._block_defs: BlockDefs | None = None
+        # unique whole-graph vvar definitions, set by the caller when the block belongs to a graph
+        self.graph_defs: GraphVVarDefs | None = None
         self.expr_opts_by_kind: dict[str, list[PeepholeOptimizationExprBase]] = {}
 
         for expr_opt in expr_opts:
@@ -990,6 +993,14 @@ class _PeepholeExprsWalker(ailment.AILBlockRewriter):
     def reset(self) -> None:
         self.any_update = False
         self.fixpoint_stmts.clear()
+
+    def walk(self, block: Block) -> Block:
+        # statements are only replaced at block end, so the pre-walk defs stay valid for the whole walk
+        self._block_defs = BlockDefs(block.statements, all_defs=self.graph_defs)
+        try:
+            return super().walk(block)
+        finally:
+            self._block_defs = None
 
     def _handle_stmt(self, stmt_idx: int, stmt: ailment.Stmt.Statement, block) -> ailment.Stmt.Statement:
         if stmt.peephole_optimized is True:
@@ -1022,7 +1033,7 @@ class _PeepholeExprsWalker(ailment.AILBlockRewriter):
             for expr_opt in expr_opts:
                 # context-insensitive optimizers never touch the flag, so default it to True here.
                 expr_opt.fixpoint_reached = True
-                r = expr_opt.optimize(expr, stmt_idx=stmt_idx, block=block)
+                r = expr_opt.optimize(expr, stmt_idx=stmt_idx, block=block, block_defs=self._block_defs)
                 self._stmt_fixpoint &= expr_opt.fixpoint_reached
                 if r is not None and r is not expr:
                     if r.bits > expr.bits:
@@ -1048,13 +1059,17 @@ class _PeepholeExprsWalker(ailment.AILBlockRewriter):
         return expr
 
 
-def peephole_optimize_exprs(block, expr_opts, walker=None):
+def peephole_optimize_exprs(block, expr_opts, walker=None, graph_defs: GraphVVarDefs | None = None):
     # run expression optimizers
     if walker is None:
         walker = _PeepholeExprsWalker(expr_opts=expr_opts)
     else:
         walker.reset()
-    walker.walk(block)
+    walker.graph_defs = graph_defs
+    try:
+        walker.walk(block)
+    finally:
+        walker.graph_defs = None
     return walker.any_update
 
 

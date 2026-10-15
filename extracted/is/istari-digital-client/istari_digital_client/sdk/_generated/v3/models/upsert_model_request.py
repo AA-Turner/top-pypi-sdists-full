@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class UpsertModelRequest(BaseModel):
     """
-    Body for ``POST .../models`` and ``PUT .../models/{model_pk}``.  A ``BaseModel`` (not a pydantic dataclass, see ``UpdateConversationRequest``) so ``model_fields_set`` distinguishes an omitted field from an explicit ``null`` for ``extra_params``: sent as ``null`` clears the stored override; omitted leaves it unchanged. All other fields (including ``max_iterations``) are always replaced with whatever the request carries — full-replace semantics, no clear-vs-omit distinction for those (a pre-existing gap for ``max_iterations``, not fixed here).
+    Body for both model creates and for ``PUT .../models/{model_pk}``.  Used by ``POST .../endpoints/{id}/models`` and ``POST /ai/connections/{id}/models`` alike, so a model row can be fully configured at create time under either backing. On the connection route ``model_id`` may be bare; the server qualifies it from the connection's provider. A ``BaseModel`` (not a pydantic dataclass, see ``UpdateConversationRequest``) so ``model_fields_set`` distinguishes an omitted field from an explicit ``null`` for ``extra_params``: sent as ``null`` clears the stored override; omitted leaves it unchanged. All other fields (including ``max_iterations``) are always replaced with whatever the request carries — full-replace semantics, no clear-vs-omit distinction for those (a pre-existing gap for ``max_iterations``, not fixed here).
     """ # noqa: E501
     name: StrictStr
     model_id: StrictStr
@@ -34,13 +34,14 @@ class UpsertModelRequest(BaseModel):
     enabled: StrictBool
     user_selectable: StrictBool
     max_iterations: Optional[StrictInt] = None
+    max_tokens: Optional[StrictInt] = None
     carry_tool_context: Optional[StrictBool] = None
     return_thinking_blocks: Optional[StrictBool] = None
     carry_tool_max_calls: Optional[StrictInt] = None
     carry_tool_max_chars: Optional[StrictInt] = None
     carry_args_max_chars: Optional[StrictInt] = None
     extra_params: Optional[Dict[str, Any]] = None
-    __properties: ClassVar[List[str]] = ["name", "model_id", "path", "disable_system_prompt", "disable_native_tools", "enabled", "user_selectable", "max_iterations", "carry_tool_context", "return_thinking_blocks", "carry_tool_max_calls", "carry_tool_max_chars", "carry_args_max_chars", "extra_params"]
+    __properties: ClassVar[List[str]] = ["name", "model_id", "path", "disable_system_prompt", "disable_native_tools", "enabled", "user_selectable", "max_iterations", "max_tokens", "carry_tool_context", "return_thinking_blocks", "carry_tool_max_calls", "carry_tool_max_chars", "carry_args_max_chars", "extra_params"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -90,6 +91,11 @@ class UpsertModelRequest(BaseModel):
         # and model_fields_set contains the field
         if self.max_iterations is None and "max_iterations" in self.model_fields_set:
             _dict['max_iterations'] = None
+
+        # set to None if max_tokens (nullable) is None
+        # and model_fields_set contains the field
+        if self.max_tokens is None and "max_tokens" in self.model_fields_set:
+            _dict['max_tokens'] = None
 
         # set to None if carry_tool_context (nullable) is None
         # and model_fields_set contains the field
@@ -141,6 +147,7 @@ class UpsertModelRequest(BaseModel):
             "enabled": obj.get("enabled"),
             "user_selectable": obj.get("user_selectable"),
             "max_iterations": obj.get("max_iterations"),
+            "max_tokens": obj.get("max_tokens"),
             "carry_tool_context": obj.get("carry_tool_context"),
             "return_thinking_blocks": obj.get("return_thinking_blocks"),
             "carry_tool_max_calls": obj.get("carry_tool_max_calls"),

@@ -530,7 +530,9 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
                         # common case:
                         #   if ((a = func(...)) == -1) break;
                         #   switch (a)
-                        if value in {0xFFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF}:
+                        # (also when the error check follows a single "== 0" test); further down a cascade, -1 is
+                        # a case like any other
+                        if len(cases) < 2 and value in {0xFFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF}:
                             break
 
                         # non-head node has at most one predecessor
@@ -823,8 +825,10 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
                 cond = stmt.condition
                 if (
                     isinstance(cond, BinaryOp)
+                    and not cond.floating_point
                     and isinstance(cond.operands[0], VirtualVariable)
                     and isinstance(cond.operands[1], Const)
+                    and cond.operands[1].is_int
                 ):
                     variable_hash = StableVarExprHasher(cond.operands[0], variable_map).hash
                     value = cond.operands[1].value
@@ -876,8 +880,10 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
                 cond = stmt.condition
                 if (
                     isinstance(cond, BinaryOp)
+                    and not cond.floating_point
                     and isinstance(cond.operands[0], VirtualVariable)
                     and isinstance(cond.operands[1], Const)
+                    and cond.operands[1].is_int
                 ):
                     variable_hash = StableVarExprHasher(cond.operands[0], variable_map).hash
                     value = cond.operands[1].value
@@ -929,8 +935,10 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
                 cond = stmt.condition
                 if (
                     isinstance(cond, BinaryOp)
+                    and not cond.floating_point
                     and isinstance(cond.operands[0], VirtualVariable)
                     and isinstance(cond.operands[1], Const)
+                    and cond.operands[1].is_int
                 ):
                     variable_hash = StableVarExprHasher(cond.operands[0], variable_map).hash
                     value = cond.operands[1].value
@@ -1002,14 +1010,17 @@ class LoweredSwitchSimplifier(StructuringOptimizationPass):
                 if (
                     isinstance(cond, BinaryOp)
                     and not cond.signed
+                    and not cond.floating_point
                     and isinstance(cond.operands[0], BinaryOp)
                     and isinstance(cond.operands[1], Const)
+                    and cond.operands[1].is_int
                 ):
                     range_expr = cond.operands[0]
                     if (
                         range_expr.op == "Sub"
                         and isinstance(range_expr.operands[0], VirtualVariable)
                         and isinstance(range_expr.operands[1], Const)
+                        and range_expr.operands[1].is_int
                     ):
                         if stmt.true_target.value == stmt.false_target.value:
                             return None

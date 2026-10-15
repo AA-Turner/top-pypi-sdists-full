@@ -4,11 +4,6 @@ add_subdirectory(lp)
 # z3-test executable
 ################################################################################
 set(z3_test_deps api fuzzing simplex)
-z3_expand_dependencies(z3_test_expanded_deps ${z3_test_deps})
-set (z3_test_extra_object_files "")
-foreach (component ${z3_test_expanded_deps})
-  list(APPEND z3_test_extra_object_files $<TARGET_OBJECTS:${component}>)
-endforeach()
 add_executable(test-z3
   EXCLUDE_FROM_ALL
   ackermannize.cpp
@@ -34,6 +29,7 @@ add_executable(test-z3
   chashtable.cpp
   check_assumptions.cpp
   cnf_backbones.cpp
+  context_params.cpp
   cube_clause.cpp
   datalog_parser.cpp
   ddnf.cpp
@@ -50,13 +46,16 @@ add_executable(test-z3
   dlist.cpp
   egraph.cpp
   escaped.cpp
+  euf_assoc_plugin.cpp
   euf_bv_plugin.cpp
+  euf_seq_plugin.cpp
   euf_arith_plugin.cpp
   ex.cpp
   expr_rand.cpp
   expr_substitution.cpp
   ext_numeral.cpp
   f2n.cpp
+  fpa.cpp
   finite_set.cpp
   finite_set_rewriter.cpp
   factor_rewriter.cpp
@@ -65,17 +64,17 @@ add_executable(test-z3
   for_each_file.cpp
   get_consequences.cpp
   get_implied_equalities.cpp
-  "${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp"
+  grobner.cpp
   hashtable.cpp
   heap.cpp
   heap_trie.cpp
   hilbert_basis.cpp
   ho_matcher.cpp
+  ho_qsolver.cpp
   horn_subsume_model_converter.cpp
   horner.cpp
   hwf.cpp
   inf_rational.cpp
-  "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
   interval.cpp
   karr.cpp
   lcube.cpp
@@ -84,7 +83,6 @@ add_executable(test-z3
   main.cpp
   map.cpp
   matcher.cpp
-  "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp"
   memory.cpp
   model2expr.cpp
   model_based_opt.cpp
@@ -92,6 +90,7 @@ add_executable(test-z3
   model_evaluator.cpp
   model_retrieval.cpp
   monomial_bounds.cpp
+  nla_transcendentals.cpp
   mpbq.cpp
   mpf.cpp
   mpff.cpp
@@ -104,12 +103,19 @@ add_executable(test-z3
   no_overflow.cpp
   object_allocator.cpp
   old_interval.cpp
+  opt_bounds.cpp
+  opt_nlsat.cpp
+  opt_pareto.cpp
+  opt_value.cpp
   optional.cpp
   parray.cpp
   pb2bv.cpp
   pdd.cpp
   pdd_solver.cpp
   permutation.cpp
+  ff_domain.cpp
+  ff_solver.cpp
+  finite_field.cpp
   polynomial.cpp
   polynomial_factorization.cpp
   polynorm.cpp
@@ -117,7 +123,9 @@ add_executable(test-z3
   psmt.cpp
   seq_regex_bisim.cpp
   proof_checker.cpp
+  proof_replay.cpp
   qe_arith.cpp
+  qe_lite.cpp
   mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp
@@ -132,9 +140,14 @@ add_executable(test-z3
   sat_user_scope.cpp
   scoped_timer.cpp
   scoped_vector.cpp
+  seq_power.cpp
   seq_rewriter.cpp
+  seq_parikh.cpp
+  seq_eq_approx.cpp
+  seq_regex_witness.cpp
   seq_monadic.cpp
   seq_monadic_bench.cpp
+  seq_profile_abs.cpp
   simple_parser.cpp
   scanner_io.cpp
   simplex.cpp
@@ -157,6 +170,7 @@ add_executable(test-z3
   theory_pb.cpp
   timeout.cpp
   tptp.cpp
+  tptp_crashes.cpp
   total_order.cpp
   totalizer.cpp
   trigo.cpp
@@ -167,19 +181,26 @@ add_executable(test-z3
   value_sweep.cpp
   var_subst.cpp
   vector.cpp
+  lp/bound_propagation.cpp
   lp/lp.cpp
   lp/nla_solver_test.cpp
   zstring.cpp
-  ${z3_test_extra_object_files}
 )
-z3_add_install_tactic_rule(${z3_test_deps})
-z3_add_memory_initializer_rule(${z3_test_deps})
-z3_add_gparams_register_modules_rule(${z3_test_deps})
-target_compile_definitions(test-z3 PRIVATE
-  ${Z3_COMPONENT_CXX_DEFINES}
-)
-target_compile_options(test-z3 PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
-target_link_libraries(test-z3 PRIVATE ${Z3_DEPENDENT_LIBS})
-target_include_directories(test-z3 PRIVATE ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS})
-z3_append_linker_flag_list_to_target(test-z3 ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
-z3_add_component_dependencies_to_target(test-z3 ${z3_test_expanded_deps})
+target_link_libraries(test-z3 PRIVATE
+  z3_common ${z3_test_deps})
+
+# External finite-field regressions live in z3test. The dedicated CI job pins
+# its checkout and supplies this path; ordinary Z3 builds need no test checkout.
+set(Z3_FF_TEST_DIR "" CACHE PATH "z3test/regressions/finite_field directory")
+if (Z3_FF_TEST_DIR)
+  if (NOT EXISTS "${Z3_FF_TEST_DIR}/api_smoke.cpp")
+    message(FATAL_ERROR "Z3_FF_TEST_DIR must contain api_smoke.cpp")
+  endif()
+  add_executable(test-ff-api EXCLUDE_FROM_ALL "${Z3_FF_TEST_DIR}/api_smoke.cpp")
+  target_link_libraries(test-ff-api PRIVATE libz3)
+  if (MSVC)
+    target_compile_options(test-ff-api PRIVATE /UNDEBUG)
+  else()
+    target_compile_options(test-ff-api PRIVATE -UNDEBUG)
+  endif()
+endif()

@@ -1,6 +1,6 @@
 [project]
 name = "PuLP"
-version = "4.0.0"
+version = "4.0.1"
 description = "PuLP is an LP modeler written in python. PuLP can generate MPS or LP files and call GLPK, COIN CLP/CBC, CPLEX, and GUROBI to solve linear problems."
 authors = [
     {name = 'J.S. Roy'},
@@ -50,6 +50,8 @@ bindings = "pyo3"
 module-name = "pulp._rustcore"
 python-packages = ["pulp"]
 manifest-path = "pulp/rust/Cargo.toml"
+# *.mps is gitignored, so the test fixtures have to be included explicitly
+include = [{ path = "pulp/tests/fixtures/**/*", format = ["sdist", "wheel"] }]
 
 [project.scripts]
 pulptest = "pulp.tests.run_tests:pulpTestAll"

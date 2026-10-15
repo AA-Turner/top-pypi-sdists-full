@@ -1,10 +1,11 @@
 import io
 import json
 import logging
+import os
 import re
 import ssl
 import urllib3
-from typing import Any
+from typing import Any, Optional
 
 from istari_digital_client.legacy.exceptions import ApiException, ApiValueError
 from istari_digital_client.legacy.proxy import (
@@ -51,12 +52,29 @@ class RESTResponse(io.IOBase):
         return self.response.headers.get(name, default)
 
 
+def _build_ssl_context(ca_bundle: Optional[str]) -> ssl.SSLContext:
+    """OS trust store plus ``ca_bundle`` if given; passing ``ca_certs`` to urllib3 would drop the OS store."""
+    context = urllib3.util.ssl_.create_urllib3_context(cert_reqs=ssl.CERT_REQUIRED)
+    context.load_default_certs()
+    if ca_bundle:
+        ca_bundle = os.path.expanduser(ca_bundle)
+        try:
+            context.load_verify_locations(cafile=ca_bundle)
+        except OSError as e:
+            raise ApiValueError(
+                f"CA bundle {ca_bundle!r} could not be loaded: {e}"
+            ) from e
+    return context
+
+
 class RESTClientObject:
     def __init__(self, configuration) -> None:
         trust_env = configuration.trust_env is not False
         pool_args: dict[str, Any] = {
             "cert_reqs": ssl.CERT_REQUIRED,
-            "ca_certs": resolve_ca_certs(configuration.ca_bundle, trust_env),
+            "ssl_context": _build_ssl_context(
+                resolve_ca_certs(configuration.ca_bundle, trust_env)
+            ),
             "cert_file": None,
             "key_file": None,
             "ca_cert_data": None,
@@ -105,7 +123,10 @@ class RESTClientObject:
                 self._proxies.get("no", "-"),
             )
             manager = urllib3.ProxyManager(
-                proxy_target, proxy_headers=proxy_headers, **self._pool_args
+                proxy_target,
+                proxy_headers=proxy_headers,
+                proxy_ssl_context=self._pool_args["ssl_context"],
+                **self._pool_args,
             )
             self._proxy_managers[proxy_url] = manager
         return manager

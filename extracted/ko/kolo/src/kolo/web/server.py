@@ -35,7 +35,6 @@ class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
     protocol_version = "HTTP/1.1"
 
     def log_message(self, format, *args):
-        # Skip logging for latest-traces endpoint
         if "/latest-traces/" in args[0]:
             return
 
@@ -45,7 +44,6 @@ class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
         if "/api/init/" in args[0] or "favicon.ico" in args[0]:
             return
 
-        # Keep default logging for all other requests
         super().log_message(format, *args)
 
     @property
@@ -76,17 +74,15 @@ class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
             cache_control += ", immutable"
         self.send_header("Cache-Control", cache_control)
         if etag:
-            self.send_header("ETag", etag)  # Django doesn't quote these either
+            self.send_header("ETag", etag)
         if last_modified is not None:
             if isinstance(last_modified, datetime):
                 timestamp = last_modified.timestamp()
             elif isinstance(last_modified, (int, float)):
                 timestamp = float(last_modified)
             else:
-                # Try parsing as datetime string
                 timestamp = datetime.fromisoformat(str(last_modified)).timestamp()
             self.send_header("Last-Modified", self.date_time_string(int(timestamp)))
-            # Add Expires header to match Django
             expires = datetime.now() + timedelta(seconds=max_age)
             self.send_header("Expires", self.date_time_string(int(expires.timestamp())))
 
@@ -124,7 +120,6 @@ class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
 
     def send_error_response(self, code: HTTPStatus, message: str):
         """Send a complete error response with message."""
-        # Use the parent class's send_response_only for the status line
         super().send_response_only(code, message)
         message_bytes = message.encode("utf-8")
         self.send_header("Content-Type", "text/plain")
@@ -206,10 +201,10 @@ class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
         self.send_response_with_content(
             content=msgpack_data,
             content_type=TRACE_CONTENT_TYPE,
-            max_age=2419200,  # 28 days
+            max_age=2419200,
             etag=trace_id,
             last_modified=created_at,
-            immutable=True,  # Mark trace responses as immutable
+            immutable=True,
         )
 
     def delete_trace(self):
@@ -250,7 +245,6 @@ class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
         self.write_json(json.dumps(source))
 
     def handle_static(self):
-        # Parse from URL path so cache-busting query params don't leak into file lookups.
         file_path = self.url.path[len("/_kolo/static/") :]
         try:
             contents, mime_type = handle_static_file(file_path)

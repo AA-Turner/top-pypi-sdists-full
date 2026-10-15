@@ -395,7 +395,9 @@ namespace qe {
                 }
             }
             else {
-                return m.mk_ite(m_arith.mk_le(mk_zero(e), e), e, m_arith.mk_uminus(e));
+                expr_ref condition(m_arith.mk_le(mk_zero(e), e), m);
+                expr_ref else_value(m_arith.mk_uminus(e), m);
+                return m.mk_ite(condition, e, else_value);
             }
         }
 
@@ -2212,21 +2214,17 @@ public:
         // assert 
         //      path1 => x < t 
         // bounds:
-        //      path1 => x < t' => t < t'  when index(t') < index(t)
-        //      path1 => x < t' => t <= t' when index(t') >= index(t)
+        //      path1 => x < t' => t <= t'
         //      path1 => x <= s => t <= s
         // resolve:
         //      path1 => x >= u => t > u
         //      path1 => x > v  => t > v
-        // symmetry reduction:
-        //      
         // 
         //      path2 => x <= s
         // bounds:
         //      path2 => x < s => x < t => s <= t
         //      path2 => x = s => x < t => s < t
-        //      path2 => x <= s => x <= s' => s <  s' when index(s') < index(s)
-        //      path2 => x <= s => x <= s' => s <= s' when index(s') >= index(s)
+        //      path2 => x <= s => x <= s' => s <= s'
         // resolve:
         //      path2 => x < s => x >= u => s > u
         //      path2 => x = s => x >= u => s >= u
@@ -2325,16 +2323,13 @@ public:
                 }
            
                 //
-                // Break symmetries by using index:
-                // bounds before me are strictly larger.
                 // Cases:
                 // ax <= t & ax != t & bx < s => bt <= as
                 // ax <= t & ax = t  & bx < s => bt < as
-                //                     bx <= s => bt < as or bt <= as depending on symmetry
-                //     
-                bool result_is_strict = 
-                    (non_strict_real && is_eq_ctx && is_strict) ||
-                    (same_strict && i < index);
+                //                     bx <= s => bt <= as
+                // Substitutions must preserve the exact value of an atom because
+                // it may occur in both polarities.
+                bool result_is_strict = non_strict_real && is_eq_ctx && is_strict;
 
 
                 mk_bound(result_is_strict, is_lower, a, t, b, s, tmp);

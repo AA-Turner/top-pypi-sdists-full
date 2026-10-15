@@ -1,43 +1,25 @@
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
 """
 OpenPGP mode.
 """
 
-__all__ = ['OpenPgpMode']
+from __future__ import annotations
 
-from Crypto.Util.py3compat import _copy_bytes
+from typing import TYPE_CHECKING, Union
+
+__all__ = ["OpenPgpMode"]
 from Crypto.Random import get_random_bytes
+from Crypto.Util._raw_api import is_buffer
 
-class OpenPgpMode(object):
+if TYPE_CHECKING:
+    from types import ModuleType
+
+Buffer = Union[bytes, bytearray, memoryview]
+
+
+class OpenPgpMode:
     """OpenPGP mode.
 
     This mode is a variant of CFB, and it is only used in PGP and
@@ -53,13 +35,12 @@ class OpenPgpMode(object):
     known to be insecure and is ignored. The encrypted IV is therefore 2 bytes
     longer than the clean IV.
 
-    .. _OpenPGP: http://tools.ietf.org/html/rfc4880
+    .. _OpenPGP: https://www.rfc-editor.org/rfc/rfc4880
 
     :undocumented: __init__
     """
 
-    def __init__(self, factory, key, iv, cipher_params):
-
+    def __init__(self, factory: ModuleType, key: Buffer, iv: Buffer, cipher_params: dict) -> None:
         #: The block size of the underlying cipher, in bytes.
         self.block_size = factory.block_size
 
@@ -67,13 +48,16 @@ class OpenPgpMode(object):
 
         # Instantiate a temporary cipher to process the IV
         IV_cipher = factory.new(
-                        key,
-                        factory.MODE_CFB,
-                        IV=b'\x00' * self.block_size,
-                        segment_size=self.block_size * 8,
-                        **cipher_params)
+            key,
+            factory.MODE_CFB,
+            IV=b"\x00" * self.block_size,
+            segment_size=self.block_size * 8,
+            **cipher_params,
+        )
 
-        iv = _copy_bytes(None, None, iv)
+        if not is_buffer(iv):
+            raise TypeError("IV must be bytes, bytearray or memoryview")
+        iv = bytes(iv)
 
         # The cipher will be used for...
         if len(iv) == self.block_size:
@@ -86,21 +70,23 @@ class OpenPgpMode(object):
             # should not be used. (https://eprint.iacr.org/2005/033)
             iv = IV_cipher.decrypt(iv)[:-2]
         else:
-            raise ValueError("Length of IV must be %d or %d bytes"
-                             " for MODE_OPENPGP"
-                             % (self.block_size, self.block_size + 2))
+            raise ValueError(
+                "Length of IV must be %d or %d bytes"
+                " for MODE_OPENPGP" % (self.block_size, self.block_size + 2)
+            )
 
         self.iv = self.IV = iv
 
         # Instantiate the cipher for the real PGP data
         self._cipher = factory.new(
-                            key,
-                            factory.MODE_CFB,
-                            IV=self._encrypted_IV[-self.block_size:],
-                            segment_size=self.block_size * 8,
-                            **cipher_params)
+            key,
+            factory.MODE_CFB,
+            IV=self._encrypted_IV[-self.block_size :],
+            segment_size=self.block_size * 8,
+            **cipher_params,
+        )
 
-    def encrypt(self, plaintext):
+    def encrypt(self, plaintext: Buffer) -> bytes:
         """Encrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have encrypted a message
@@ -137,7 +123,7 @@ class OpenPgpMode(object):
             self._done_first_block = True
         return res
 
-    def decrypt(self, ciphertext):
+    def decrypt(self, ciphertext: Buffer) -> bytes:
         """Decrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have decrypted a message
@@ -190,7 +176,7 @@ def _create_openpgp_cipher(factory, **kwargs):
     iv = kwargs.pop("IV", None)
     IV = kwargs.pop("iv", None)
 
-    if (None, None) == (iv, IV):
+    if (iv, IV) == (None, None):
         iv = get_random_bytes(factory.block_size)
     if iv is not None:
         if IV is not None:

@@ -3,6 +3,7 @@
 import shlex
 import sys
 from contextlib import nullcontext, redirect_stdout
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple
 
@@ -139,10 +140,11 @@ def configure_agents(
 
 @setup.command(
     name="vm",
-    help="Sign in, connect your agents and start a persistent CPU VM. Run again to resume.",
+    help="Sign in, connect your agents and start a persistent CPU VM with a browser desktop. "
+    "Run again to resume.",
 )
 @click.option("--name", help="Name of the first VM. Generated if omitted.")
-@click.option("--desktop", is_flag=True, help="Include a browser desktop.")
+@click.option("--desktop/--no-desktop", default=True, help="Include a browser desktop.")
 @click.option("--client", "clients", type=click.Choice(CLIENT_IDS), multiple=True)
 @click.option("--skip-agents", is_flag=True, help="Sign in and prepare the VM only.")
 @click.option("-y", "--yes", is_flag=True, help="Approve creation without prompting.")
@@ -152,24 +154,36 @@ def setup_vm(name, desktop, clients, skip_agents, yes, context):
     from ..channel import GatewayHTTPError, ServiceClient
     from ..config import get_config_context
     from ..deployment.onboarding import prepare_vm
+    from .vm import _browser_info
 
     selected = context or extraclick.selected_context()
+    steps = terminal.StepTracker()
     try:
         with redirect_stdout(sys.stderr) if terminal.json_output() else nullcontext():
             selected_context, agents = connect_onboarding(selected, clients, skip_agents, yes)
+        with redirect_stdout(sys.stderr) if terminal.json_output() else nullcontext():
+            with (
+                steps.step("Checking VM hourly price")
+                if selected_context.api_url
+                else nullcontext()
+            ):
+                price = vm_hourly_price(selected_context)
+        cost = f", ${price:.4f}/hour" if price is not None else ""
         if not confirm_workload(
-            "Start your VM (4 vCPU, 8 GiB RAM, 50 GiB disk, runs until stopped)?", yes
+            f"Start a VM (4 vCPU, 8 GiB RAM, 50 GiB disk{cost}, runs until stopped)?", yes
         ):
             return
         with redirect_stdout(sys.stderr) if terminal.json_output() else nullcontext():
             with ServiceClient(get_config_context(selected)) as service:
-                with terminal.StepTracker().step("Starting VM", "VM ready"):
+                with steps.step("Starting VM", "VM ready"):
                     result = prepare_vm(
                         service,
                         get_settings().config_path.parent / "onboarding",
                         name,
                         desktop=desktop,
                     )
+                if not terminal.json_output():
+                    result = _browser_info(service, result)
         dashboard = dashboard_link(selected_context, "vm", result["id"])
         if terminal.json_output():
             terminal.print_json(
@@ -182,11 +196,13 @@ def setup_vm(name, desktop, clients, skip_agents, yes, context):
                 }
             )
         else:
+            terminal.print("")
             terminal.resource(
                 result["name"],
                 {
                     "ID": result["id"],
                     "Status": result.get("status"),
+                    "IPv6": result.get("public_ipv6"),
                     "Terminal": result.get("terminal_url"),
                     "Desktop": result.get("desktop_url"),
                     "Dashboard": dashboard,
@@ -195,6 +211,10 @@ def setup_vm(name, desktop, clients, skip_agents, yes, context):
             terminal.detail(
                 "Restart your agent to use the VM tools. Re-run this setup to resume the same VM."
             )
+            if result.get("spec", {}).get("protected_ports"):
+                terminal.detail(
+                    "Browser links expire after 10 minutes. The commands below open fresh links."
+                )
             command = extraclick.command_hint(selected)
             name = shlex.quote(result["name"])
             terminal.print("")
@@ -208,11 +228,37 @@ def setup_vm(name, desktop, clients, skip_agents, yes, context):
         raise click.ClickException(str(exc)) from exc
 
 
+def vm_hourly_price(context: ConfigContext) -> Optional[Decimal]:
+    """Read the same public VM rate card used by the dashboard and billing."""
+    import requests
+
+    if not context.api_url:
+        return None  # Self-hosted contexts have no account-provider billing API.
+    try:
+        response = requests.get(
+            context.api_url.rstrip("/") + "/payment/get-resource-rates/",
+            timeout=10,
+            allow_redirects=False,
+        )
+        if response.status_code == 404:
+            return None  # A self-hosted API may not expose billing.
+        response.raise_for_status()
+        rates = response.json(parse_float=Decimal)["vm"]
+        cpu, memory = (Decimal(str(rates[key])) for key in ("cpu", "memory"))
+        if not all(rate.is_finite() and rate >= 0 for rate in (cpu, memory)):
+            raise ValueError("invalid VM rates")
+        return (4 * cpu + 8 * memory) * 3_600_000
+    except (requests.RequestException, KeyError, TypeError, ValueError, InvalidOperation) as exc:
+        raise RuntimeError("Could not load the VM hourly price. Try setup again shortly.") from exc
+
+
 def confirm_workload(prompt: str, yes: bool) -> bool:
     if yes:
         return True
     with redirect_stdout(sys.stderr) if terminal.json_output() else nullcontext():
-        if click.confirm(prompt):
+        terminal.print("")
+        if click.confirm("  " + prompt):
+            terminal.print("")
             return True
     if terminal.json_output():
         terminal.print_json({"ready": False, "cancelled": True})
@@ -311,12 +357,15 @@ def connect_onboarding(
         context = provider_links(context)
         save_login(context, selected)
     ensure_credit(context, unattended)
-    agents = None if skip_agents else configure_agents(clients, False, False, selected)
-    if agents and agents["failed"]:
-        report_failures(agents["failed"])
-        raise click.ClickException("Agent configuration failed. Fix it and resume setup.")
-    if agents:
-        terminal.success("Agent skills and MCP configured")
+    agents = None
+    if not skip_agents:
+        with terminal.StepTracker().step(
+            "Configuring agent skills and MCP", "Agent skills and MCP configured"
+        ):
+            agents = configure_agents(clients, False, False, selected)
+            if agents["failed"]:
+                report_failures(agents["failed"])
+                raise click.ClickException("Agent configuration failed. Fix it and resume setup.")
     return context, agents
 
 

@@ -651,7 +651,7 @@ def test_files_past_the_routes_read_ceiling_are_reported_not_hidden(client, app,
 @pytest.mark.parametrize(
     ("args", "refused", "reader"),
     [
-        ({"query": "grpo"}, "query", "notes"),
+        ({"query": "grpo"}, "query", "datasets or notes or sources"),
         ({"active": True}, "active", "runs"),
         ({"prefix": "ckpt"}, "prefix", "files"),
         ({"mode": "runs", "depth": 2}, "depth", "tree"),

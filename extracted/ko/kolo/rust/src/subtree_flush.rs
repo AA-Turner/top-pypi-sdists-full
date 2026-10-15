@@ -4,11 +4,8 @@ use hashbrown::{HashMap, HashSet};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict};
 
-// NOTE: The Python (`python/src/kolo/subtree_flush.py`) and Rust
-// (`python/rust/src/subtree_flush.rs`) subtree-flush trackers still implement
-// the same state machine independently. Keep the shared contract in
-// `python/tests/data/subtree_flush_tracker_contract.json` in sync with any
-// heuristic changes so both runtimes stay aligned.
+// Must stay in sync with python/src/kolo/subtree_flush.py; shared contract in
+// python/tests/data/subtree_flush_tracker_contract.json.
 
 const ROOT_SUBTREE_NAME: &str = "<root>";
 
@@ -53,8 +50,6 @@ pub(super) fn resolve_flush_subtree_bytes(
             "flush_subtree_mb must be a non-negative number or false",
         ));
     }
-    // Guard against overflow when casting f64 → usize. On 32-bit targets
-    // (i686, win32) usize caps at 4 GB, so ~4095 MB is the upper bound.
     let bytes_f = mb * 1024.0 * 1024.0;
     if bytes_f > usize::MAX as f64 {
         return Err(pyo3::exceptions::PyValueError::new_err(
@@ -770,11 +765,9 @@ mod tests {
         let threshold = Some(500 * 1024 * 1024);
         let start = tracking_start_bytes(threshold);
 
-        // 500MB - max(500MB/8, 64MB) = 500MB - 64MB = 436MB
         assert_eq!(start, 500 * 1024 * 1024 - 64 * 1024 * 1024);
         assert!(!should_track(threshold, start - 1, &mut armed, "thread"));
         assert!(should_track(threshold, start, &mut armed, "thread"));
-        // Once armed, even small values return true
         assert!(should_track(threshold, 1, &mut armed, "thread"));
     }
 }

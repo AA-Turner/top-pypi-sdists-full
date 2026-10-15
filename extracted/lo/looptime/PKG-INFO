@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: looptime
-Version: 0.8
+Version: 0.9
 Summary: Fast-forward asyncio event loop time (in tests)
 Author-email: Sergey Vasilyev <nolar@nolar.info>
 Maintainer-email: Sergey Vasilyev <nolar@nolar.info>

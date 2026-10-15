@@ -1,3 +1,4 @@
+import copy
 import os
 from collections.abc import AsyncGenerator
 from importlib.metadata import version as pkg_version
@@ -18,7 +19,6 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.tools import google_search
 from google.genai import types
 from pydantic import BaseModel, Field
 
@@ -85,6 +85,24 @@ def _assert_llm_output_shape(output):
     assert "usage_metadata" in output
     if ADK_VERSION >= (1, 15, 0) and "avg_logprobs" in output:
         assert output["avg_logprobs"] is not None
+
+
+def _adk_model_call_spans(spans):
+    return [row for row in spans if row["span_attributes"]["name"].startswith("llm_call")]
+
+
+def _assert_provider_owns_llm_spans(spans):
+    """Each ADK model call has one Google GenAI ``llm`` child, which alone carries usage."""
+    model_call_ids = [row["span_id"] for row in _adk_model_call_spans(spans)]
+    llm_spans = [row for row in spans if row["span_attributes"]["type"] == "llm"]
+    assert model_call_ids
+    assert sorted(row["span_parents"][0] for row in llm_spans) == sorted(model_call_ids)
+    for row in llm_spans:
+        assert row["span_attributes"]["name"] == "generate_content"
+        assert row["context"]["span_origin"]["instrumentation"]["name"] == "google-genai-auto"
+        assert row["metrics"]["prompt_tokens"] > 0
+    assert [row for row in spans if "prompt_tokens" in row.get("metrics", {})] == llm_spans
+    return llm_spans
 
 
 def get_weather(location: str):
@@ -168,11 +186,13 @@ async def test_adk_multi_turn_history_is_logged(memory_logger):
         "What name did I tell you?",
     }
 
-    llm_spans = [row for row in spans if row["span_attributes"]["type"] == "llm"]
-    assert len(llm_spans) == 2
+    assert len(_assert_provider_owns_llm_spans(spans)) == 2
+    model_call_spans = _adk_model_call_spans(spans)
 
     follow_up_span = next(
-        span for span in llm_spans if "What name did I tell you?" in _extract_text_parts(span["input"]["contents"])
+        span
+        for span in model_call_spans
+        if "What name did I tell you?" in _extract_text_parts(span["input"]["contents"])
     )
     follow_up_texts = _extract_text_parts(follow_up_span["input"]["contents"])
 
@@ -297,6 +317,7 @@ async def test_adk_custom_base_agent_root_preserves_agent_spans(memory_logger):
         "agent_run [child]",
         "call_llm",
         "llm_call [direct_response]",
+        "generate_content",
     }
     spans_by_name = {span["span_attributes"]["name"]: span for span in spans}
     assert len(spans) == len(expected_names)
@@ -307,6 +328,7 @@ async def test_adk_custom_base_agent_root_preserves_agent_spans(memory_logger):
     assert parent_name_by_id[spans_by_name["agent_run [child]"]["span_parents"][0]] == "agent_run [custom_root]"
     assert parent_name_by_id[spans_by_name["call_llm"]["span_parents"][0]] == "agent_run [child]"
     assert parent_name_by_id[spans_by_name["llm_call [direct_response]"]["span_parents"][0]] == "call_llm"
+    assert parent_name_by_id[spans_by_name["generate_content"]["span_parents"][0]] == "llm_call [direct_response]"
 
 
 @pytest.mark.vcr
@@ -364,11 +386,12 @@ async def test_adk_braintrust_integration(memory_logger):
     assert invocation_span["metadata"]["session_id"] == "test-session"
 
     # Verify LLM call spans
-    llm_spans = [row for row in spans if row["span_attributes"]["type"] == "llm"]
-    assert len(llm_spans) >= 2, "Should have at least 2 LLM calls (tool selection and response generation)"
+    _assert_provider_owns_llm_spans(spans)
+    model_call_spans = _adk_model_call_spans(spans)
+    assert len(model_call_spans) >= 2, "Should have at least 2 LLM calls (tool selection and response generation)"
 
     # Check tool selection LLM call
-    tool_selection_spans = [span for span in llm_spans if "tool_selection" in span["span_attributes"]["name"]]
+    tool_selection_spans = [span for span in model_call_spans if "tool_selection" in span["span_attributes"]["name"]]
     assert len(tool_selection_spans) > 0, "Missing tool selection LLM call"
 
     tool_selection_span = tool_selection_spans[0]
@@ -381,16 +404,16 @@ async def test_adk_braintrust_integration(memory_logger):
 
     adk_spans = [row for row in spans if row["context"]["span_origin"]["instrumentation"]["name"] == "adk-auto"]
     span_types_by_origin = {row["span_attributes"]["type"] for row in adk_spans}
-    assert {"task", "llm", "tool"} <= span_types_by_origin, (
-        f"adk-auto origin missing on task/llm/tool spans: {span_types_by_origin}"
+    assert span_types_by_origin == {"task", "tool"}, (
+        f"adk-auto origin should be on task/tool spans only: {span_types_by_origin}"
     )
 
-    for span in llm_spans:
+    for span in model_call_spans:
         meta = span["metadata"]
         assert meta.get("provider") == "google", (
             f"Missing metadata.provider=google on {span['span_attributes']['name']}"
         )
-        assert meta.get("model"), "Missing metadata.model on llm span"
+        assert meta.get("model"), "Missing metadata.model on llm_call span"
         assert meta.get("tools"), "metadata.tools should be non-empty for a tool-using agent"
         tool_names = [
             fn.get("name") for tool_entry in meta["tools"] for fn in (tool_entry.get("function_declarations") or [])
@@ -399,7 +422,9 @@ async def test_adk_braintrust_integration(memory_logger):
         assert "tools" not in span["input"].get("config", {}), "tools should not be in input.config"
 
     # Check response generation LLM call
-    response_gen_spans = [span for span in llm_spans if "response_generation" in span["span_attributes"]["name"]]
+    response_gen_spans = [
+        span for span in model_call_spans if "response_generation" in span["span_attributes"]["name"]
+    ]
     assert len(response_gen_spans) > 0, "Missing response generation LLM call"
 
     response_span = response_gen_spans[0]
@@ -525,6 +550,90 @@ async def test_adk_nested_subagent_tool_calls_are_traced(memory_logger):
     assert tool_span["output"]["temperature"] == "72°F"
 
 
+@pytest.mark.asyncio
+@pytest.mark.skipif(ADK_VERSION < (2, 10, 0), reason="Workflow nodes require ADK 2.10+")
+async def test_adk_workflow_tool_node_is_traced(memory_logger):
+    """A graph ToolNode should emit tool and workflow node spans."""
+    from google.adk.tools.load_artifacts_tool import LoadArtifactsTool
+    from google.adk.workflow import START, Workflow
+
+    assert not memory_logger.pop()
+
+    tool = LoadArtifactsTool()
+    workflow = Workflow(
+        name="weather_workflow",
+        edges=[(START, tool)],
+    )
+    app_name = "workflow_weather_app"
+    user_id = "test-user"
+    session_id = "test-session-workflow"
+    runner = await _create_runner(workflow, app_name=app_name, user_id=user_id, session_id=session_id)
+
+    events = [
+        event
+        async for event in runner.run_async(
+            user_id=user_id,
+            session_id=session_id,
+            new_message=types.Content(role="user", parts=[types.Part(text='{"artifact_names": ["report.txt"]}')]),
+        )
+    ]
+
+    assert events
+    spans = memory_logger.pop()
+    invocation = next(row for row in spans if row["span_attributes"]["name"] == f"invocation [{app_name}]")
+    workflow_span = next(row for row in spans if row["span_attributes"]["name"] == "workflow [weather_workflow]")
+    tool_span = next(row for row in spans if row["span_attributes"]["type"] == "tool")
+
+    assert workflow_span["span_attributes"]["type"] == "task"
+    assert workflow_span["span_parents"] == [invocation["span_id"]]
+    assert tool_span["span_attributes"]["name"] == "tool [load_artifacts]"
+    assert tool_span["input"]["arguments"] == {"artifact_names": ["report.txt"]}
+    assert tool_span["output"]["artifact_names"] == ["report.txt"]
+    assert "temporarily inserted and removed" in tool_span["output"]["status"]
+    tool_node_span = next(row for row in spans if row["span_id"] == tool_span["span_parents"][0])
+    assert tool_node_span["span_attributes"]["name"] == "workflow_node [load_artifacts]"
+    assert tool_node_span["output"]["artifact_names"] == ["report.txt"]
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+@pytest.mark.skipif(ADK_VERSION < (2, 10, 0), reason="Workflow nodes require ADK 2.10+")
+async def test_adk_workflow_root_traces_recorded_agent_tool_calls(memory_logger):
+    """A real ADK LLM/tool turn stays nested under the Workflow task span."""
+    from google.adk.workflow import START, Workflow
+
+    assert not memory_logger.pop()
+
+    weather_agent = Agent(
+        name="weather_agent",
+        model=ADK_MODEL,
+        instruction="You are a helpful weather assistant. Use the get_weather tool to answer questions about weather.",
+        tools=[get_weather],
+    )
+    workflow = Workflow(name="weather_workflow", edges=[(START, weather_agent)])
+    app_name = "workflow_weather_app"
+    user_id = "test-user"
+    session_id = "test-session-workflow-recorded"
+    runner = await _create_runner(workflow, app_name=app_name, user_id=user_id, session_id=session_id)
+    response = await _run_final_responses(
+        runner,
+        user_id=user_id,
+        session_id=session_id,
+        new_message=types.Content(role="user", parts=[types.Part(text="What's the weather in San Francisco?")]),
+    )
+
+    assert response
+    spans = memory_logger.pop()
+    invocation = next(row for row in spans if row["span_attributes"]["name"] == f"invocation [{app_name}]")
+    workflow_span = next(row for row in spans if row["span_attributes"]["name"] == "workflow [weather_workflow]")
+    agent_span = next(row for row in spans if row["span_attributes"]["name"] == "agent_run [weather_agent]")
+    tool_span = next(row for row in spans if row["span_attributes"]["name"] == "tool [get_weather]")
+    assert workflow_span["span_parents"] == [invocation["span_id"]]
+    assert agent_span["span_parents"] == [workflow_span["span_id"]]
+    assert tool_span["span_attributes"]["type"] == "tool"
+    assert tool_span["input"]["arguments"] == {"location": "San Francisco"}
+
+
 @pytest.mark.vcr
 @pytest.mark.asyncio
 async def test_adk_max_tokens_captures_content(memory_logger):
@@ -555,34 +664,34 @@ async def test_adk_max_tokens_captures_content(memory_logger):
     spans = memory_logger.pop()
 
     # Find the LLM call span
-    llm_spans = [row for row in spans if row["span_attributes"]["type"] == "llm"]
-    assert len(llm_spans) > 0, "Missing LLM call span"
+    model_call_spans = _adk_model_call_spans(spans)
+    assert len(model_call_spans) > 0, "Missing LLM call span"
 
-    llm_span = llm_spans[0]
-    assert "output" in llm_span, "Missing output in LLM span"
+    model_call_span = model_call_spans[0]
+    assert "output" in model_call_span, "Missing output in LLM span"
 
     # Sampling config from generate_content_config is captured in input.config
-    config = llm_span["input"]["config"]
+    config = model_call_span["input"]["config"]
     assert config["max_output_tokens"] == 50
     assert config["temperature"] == 0.7
 
-    output = llm_span["output"]
+    output = model_call_span["output"]
 
     # When MAX_TOKENS is hit, we should still have content captured
     # The integration should merge content from earlier events if the final event lacks it
-    if "finish_reason" in output and output["finish_reason"] == "MAX_TOKENS":
-        # This is the MAX_TOKENS case - verify we still captured content
-        assert "content" in output, "Content should be captured even with MAX_TOKENS"
-        assert output["content"] is not None, "Content should not be None"
-        assert "parts" in output["content"], "Content should have parts"
-        assert len(output["content"]["parts"]) > 0, "Content parts should not be empty"
+    # Every recorded cassette ends with MAX_TOKENS.
+    assert output["finish_reason"] == "MAX_TOKENS"
+    assert "content" in output, "Content should be captured even with MAX_TOKENS"
+    assert output["content"] is not None, "Content should not be None"
+    assert "parts" in output["content"], "Content should have parts"
+    assert len(output["content"]["parts"]) > 0, "Content parts should not be empty"
 
-        # Verify the text was actually captured
-        text_content = output["content"]["parts"][0].get("text", "")
-        assert len(text_content) > 0, "Should have captured some text content before MAX_TOKENS"
+    # Verify the text was actually captured
+    text_content = output["content"]["parts"][0].get("text", "")
+    assert len(text_content) > 0, "Should have captured some text content before MAX_TOKENS"
 
-        # Verify usage metadata is present
-        assert "usage_metadata" in output, "Should have usage metadata"
+    # Verify usage metadata is present
+    assert "usage_metadata" in output, "Should have usage metadata"
 
 
 @pytest.mark.vcr
@@ -663,69 +772,21 @@ async def test_adk_binary_data_attachment_conversion(memory_logger):
     assert b"\x89PNG".hex() not in span_str, "Raw binary data should not be in logged span"
     assert "89504e47" not in span_str.lower(), "Raw binary data (hex) should not be in logged span"
 
-    # Find LLM spans and verify they also don't contain raw binary
-    llm_spans = [row for row in spans if row["span_attributes"]["type"] == "llm"]
-    assert len(llm_spans) > 0, "Should have LLM spans"
+    # Find model-call spans and verify they also don't contain raw binary
+    model_call_spans = _adk_model_call_spans(spans)
+    assert len(model_call_spans) > 0, "Should have model-call spans"
 
-    for llm_span in llm_spans:
-        if "input" in llm_span and "contents" in llm_span["input"]:
-            llm_str = str(llm_span["input"])
+    for model_call_span in model_call_spans:
+        if "input" in model_call_span and "contents" in model_call_span["input"]:
+            llm_str = str(model_call_span["input"])
             assert b"\x89PNG".hex() not in llm_str, "Raw binary data should not be in LLM span input"
             assert "89504e47" not in llm_str.lower(), "Raw binary data (hex) should not be in LLM span input"
 
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_adk_usage_metadata_metrics(memory_logger):
-    """Google Search usage includes tool prompts and reasoning in normalized totals."""
-    assert not memory_logger.pop()
-
-    agent = Agent(
-        name="usage_metadata_agent",
-        model="gemini-2.5-flash",
-        instruction="Use Google Search to answer the user's question accurately and concisely.",
-        tools=[google_search],
-    )
-    app_name = "usage_metadata_app"
-    user_id = "test-user"
-    session_id = "test-session-usage-metadata"
-    runner = await _create_runner(agent, app_name=app_name, user_id=user_id, session_id=session_id)
-    user_msg = types.Content(
-        role="user",
-        parts=[types.Part(text="What is the current population of Tokyo, Japan? Answer in one sentence.")],
-    )
-
-    events = [event async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=user_msg)]
-    usage_metadata = next(
-        (event.usage_metadata for event in reversed(events) if getattr(event, "usage_metadata", None) is not None),
-        None,
-    )
-    assert usage_metadata is not None
-    assert usage_metadata.tool_use_prompt_token_count > 0
-    assert usage_metadata.thoughts_token_count > 0
-
-    spans = memory_logger.pop()
-    llm_spans = [row for row in spans if row["span_attributes"].get("type") == "llm"]
-    assert len(llm_spans) == 1
-    llm_span = llm_spans[0]
-    metrics = llm_span["metrics"]
-
-    assert metrics["prompt_tokens"] == (usage_metadata.prompt_token_count + usage_metadata.tool_use_prompt_token_count)
-    assert metrics["completion_tokens"] == (
-        usage_metadata.candidates_token_count + usage_metadata.thoughts_token_count
-    )
-    assert metrics["completion_reasoning_tokens"] == usage_metadata.thoughts_token_count
-    assert metrics["tokens"] == usage_metadata.total_token_count
-    assert metrics["tokens"] == metrics["prompt_tokens"] + metrics["completion_tokens"]
-    assert llm_span["metadata"]["usage_by_modality"]["tool_use_prompt_tokens_details"] == [
-        detail.model_dump(exclude_none=True) for detail in usage_metadata.tool_use_prompt_tokens_details
-    ]
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
 async def test_adk_captures_metrics(memory_logger):
-    """Test that token usage metrics are captured from LLM responses."""
+    """setup_adk() alone yields one usage-bearing Google GenAI ``llm`` span under a task ``llm_call``."""
     assert not memory_logger.pop()
 
     agent = Agent(
@@ -748,49 +809,17 @@ async def test_adk_captures_metrics(memory_logger):
 
     spans = memory_logger.pop()
 
-    # Find LLM spans
-    llm_spans = [row for row in spans if row["span_attributes"].get("type") == "llm"]
-    assert len(llm_spans) > 0, "Should have LLM spans"
+    # setup_adk() enables Google GenAI, which owns the one usage-bearing ``llm``
+    # span per Gemini request, so trace totals count its usage once.
+    _assert_provider_owns_llm_spans(spans)
 
-    # Verify metrics are present in at least one LLM span
-    llm_span_with_metrics = None
-    for llm_span in llm_spans:
-        if "metrics" in llm_span and llm_span["metrics"]:
-            llm_span_with_metrics = llm_span
-            break
-
-    assert llm_span_with_metrics is not None, "At least one LLM span should have metrics"
-
-    metrics = llm_span_with_metrics["metrics"]
-
-    # Verify core token metrics are present
-    assert "prompt_tokens" in metrics, "Metrics should include prompt_tokens"
-    assert "completion_tokens" in metrics, "Metrics should include completion_tokens"
-    assert "tokens" in metrics, "Metrics should include total tokens"
-
-    # Verify token counts are reasonable
-    assert metrics["prompt_tokens"] > 0, "prompt_tokens should be greater than 0"
-    assert metrics["completion_tokens"] > 0, "completion_tokens should be greater than 0"
-    assert metrics["tokens"] > 0, "total tokens should be greater than 0"
-    assert metrics["tokens"] == metrics["prompt_tokens"] + metrics["completion_tokens"], (
-        "total tokens should equal prompt + completion tokens"
-    )
-
-    # Verify time to first token is captured for streaming responses
-    assert "time_to_first_token" in metrics, "Metrics should include time_to_first_token"
-    assert metrics["time_to_first_token"] > 0, "time_to_first_token should be greater than 0"
-    assert metrics["time_to_first_token"] < 10, "time_to_first_token should be reasonable (< 10 seconds)"
-
-    # Verify model name is captured in metadata
-    metadata = llm_span_with_metrics.get("metadata", {})
-    assert "model" in metadata, "Metadata should include model name"
-    assert metadata["model"] == ADK_MODEL, "Model name should match the agent's model"
-    assert metadata.get("provider") == "google", "Metadata should include provider=google"
-
-    # No tools configured — _determine_llm_call_type should mark this as direct_response
-    assert "direct_response" in llm_span_with_metrics["span_attributes"]["name"], (
-        f"Expected direct_response call type, got {llm_span_with_metrics['span_attributes']['name']}"
-    )
+    # ADK's model-call span keeps its request/response, call type, and time to
+    # first token, as a task parent of the provider span.
+    (adk_model_span,) = _adk_model_call_spans(spans)
+    assert adk_model_span["span_attributes"]["type"] == "task"
+    assert adk_model_span["span_attributes"]["name"] == "llm_call [direct_response]"
+    assert "usage_metadata" in adk_model_span["output"]
+    assert 0 < adk_model_span["metrics"]["time_to_first_token"] < 10
 
 
 # _determine_llm_call_type paths are exercised through the VCR-backed
@@ -799,133 +828,61 @@ async def test_adk_captures_metrics(memory_logger):
 # path is asserted in `test_adk_captures_metrics`.
 
 
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_adk_input_schema_serialization(memory_logger):
-    """Test that input_schema with Pydantic models is properly serialized."""
-    from unittest.mock import ANY
+class Address(BaseModel):
+    street: str = Field(description="Street address")
+    city: str = Field(description="City name")
+    country: str = Field(description="Country name")
 
-    class UserInput(BaseModel):
-        name: str = Field(description="User's name")
-        age: int = Field(description="User's age", ge=0)
 
-    assert not memory_logger.pop()
+class Person(BaseModel):
+    name: str = Field(description="Person's name")
+    age: int = Field(description="Person's age", ge=0, le=150)
+    address: Address = Field(description="Person's address")
 
-    agent = LlmAgent(
-        name="input_schema_agent",
-        model=ADK_MODEL,
-        instruction="You are a test agent with input schema.",
-        input_schema=UserInput,
-    )
 
-    APP_NAME = "input_schema_app"
-    USER_ID = "test-user"
-    SESSION_ID = "test-session-input-schema"
-
-    runner = await _create_runner(agent, app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
-
-    user_msg = types.Content(role="user", parts=[types.Part(text='{"name":"Alice","age":30}')])
-
-    responses = await _run_final_responses(runner, user_id=USER_ID, session_id=SESSION_ID, new_message=user_msg)
-
-    assert len(responses) > 0
-
-    spans = memory_logger.pop()
-
-    # Find LLM span - input_schema is on the agent, but we verify serialization doesn't break
-    llm_spans = [span for span in spans if span["span_attributes"]["type"] == "llm"]
-
-    assert len(llm_spans) > 0, "Should have at least one LLM call"
-
-    llm_span = llm_spans[0]
-
-    # Assert complete input structure
-    assert llm_span["input"] == {
-        "model": ADK_MODEL,
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": '{"name":"Alice","age":30}'}],
-            }
-        ],
-        "config": {
-            "system_instruction": ANY,  # Contains agent name
+CITY_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "city": {
+            "type": "string",
+            "description": "Name of the city",
         },
-        "live_connect_config": ANY,
-    }
+        "population": {
+            "type": "integer",
+            "description": "Population of the city",
+            "minimum": 0,
+        },
+        "country": {
+            "type": "string",
+            "description": "Country where the city is located",
+        },
+    },
+    "required": ["city", "country"],
+}
 
-    _assert_llm_output_shape(llm_span["output"])
+
+# _capture_config's allowlisted fields are exercised through the VCR-backed
+# integration tests: response_schema and response_json_schema
+# (`test_adk_structured_output_schema`), and the sampling params
+# (`test_adk_max_tokens_captures_content`).
 
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_adk_complex_nested_schema(memory_logger):
-    """Test that complex nested Pydantic schemas are properly serialized."""
-    from unittest.mock import ANY
-
-    class Address(BaseModel):
-        street: str = Field(description="Street address")
-        city: str = Field(description="City name")
-        country: str = Field(description="Country name")
-
-    class Person(BaseModel):
-        name: str = Field(description="Person's name")
-        age: int = Field(description="Person's age", ge=0, le=150)
-        address: Address = Field(description="Person's address")
-
-    assert not memory_logger.pop()
-
-    nested_agent = LlmAgent(
-        name="nested_agent",
-        model=ADK_MODEL,
-        instruction="Return a person with their address.",
-        output_schema=Person,
-        output_key="person_data",
-    )
-
-    APP_NAME = "nested_app"
-    USER_ID = "test-user"
-    SESSION_ID = "test-session-nested"
-
-    runner = await _create_runner(nested_agent, app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
-
-    user_msg = types.Content(
-        role="user", parts=[types.Part(text="Give me info about Alice who lives in Paris, France.")]
-    )
-
-    responses = await _run_final_responses(runner, user_id=USER_ID, session_id=SESSION_ID, new_message=user_msg)
-
-    assert len(responses) > 0
-
-    spans = memory_logger.pop()
-
-    # Find LLM span with response_schema
-    llm_spans_with_schema = [
-        span
-        for span in spans
-        if span["span_attributes"]["type"] == "llm"
-        and "input" in span
-        and "config" in span["input"]
-        and span["input"]["config"].get("response_schema") is not None
-    ]
-
-    assert len(llm_spans_with_schema) > 0, "Should have at least one LLM call with response_schema"
-
-    llm_span = llm_spans_with_schema[0]
-
-    # Assert complete input structure with nested schema
-    assert llm_span["input"] == {
-        "model": ADK_MODEL,
-        "contents": [
+@pytest.mark.parametrize(
+    ("agent_kwargs", "prompt", "schema_field", "expected_schema"),
+    [
+        pytest.param(
+            # Nested Pydantic output_schema is sent as response_schema
             {
-                "role": "user",
-                "parts": [{"text": "Give me info about Alice who lives in Paris, France."}],
-            }
-        ],
-        "config": {
-            "system_instruction": ANY,  # Contains agent name
-            "response_mime_type": "application/json",
-            "response_schema": {
+                "name": "nested_agent",
+                "instruction": "Return a person with their address.",
+                "output_schema": Person,
+                "output_key": "person_data",
+            },
+            "Give me info about Alice who lives in Paris, France.",
+            "response_schema",
+            {
                 "properties": {
                     "name": {
                         "description": "Person's name",
@@ -972,69 +929,40 @@ async def test_adk_complex_nested_schema(memory_logger):
                 "title": "Person",
                 "type": "object",
             },
-        },
-        "live_connect_config": ANY,
-    }
-
-    _assert_llm_output_shape(llm_span["output"])
-
-
-# _capture_config's allowlisted fields are exercised through the VCR-backed
-# integration tests: response_schema (`test_adk_complex_nested_schema`),
-# input_schema (`test_adk_input_schema_serialization`), response_json_schema
-# (`test_adk_response_json_schema_dict`), and the sampling params
-# (`test_adk_max_tokens_captures_content`).
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_adk_response_json_schema_dict(memory_logger):
-    """Test that Google ADK with response_json_schema (plain dict) is properly captured."""
+            id="pydantic_output_schema",
+        ),
+        pytest.param(
+            # Plain JSON schema dict passed via generate_content_config should be preserved
+            {
+                "name": "city_agent",
+                "instruction": "You are a City Information Agent. Provide city information.",
+                "generate_content_config": types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_json_schema=CITY_JSON_SCHEMA,
+                ),
+            },
+            "Tell me about Tokyo",
+            "response_json_schema",
+            copy.deepcopy(CITY_JSON_SCHEMA),
+            id="response_json_schema_dict",
+        ),
+    ],
+)
+async def test_adk_structured_output_schema(memory_logger, agent_kwargs, prompt, schema_field, expected_schema):
+    """Test that structured output schemas are properly serialized into the LLM span input."""
     from unittest.mock import ANY
-
-    # Use a plain JSON schema dict (not Pydantic)
-    json_schema_dict = {
-        "type": "object",
-        "properties": {
-            "city": {
-                "type": "string",
-                "description": "Name of the city",
-            },
-            "population": {
-                "type": "integer",
-                "description": "Population of the city",
-                "minimum": 0,
-            },
-            "country": {
-                "type": "string",
-                "description": "Country where the city is located",
-            },
-        },
-        "required": ["city", "country"],
-    }
 
     assert not memory_logger.pop()
 
-    # Pass JSON schema via generate_content_config
-    config = types.GenerateContentConfig(
-        response_mime_type="application/json",
-        response_json_schema=json_schema_dict,
-    )
+    agent = LlmAgent(model=ADK_MODEL, **agent_kwargs)
 
-    json_schema_agent = LlmAgent(
-        name="city_agent",
-        model=ADK_MODEL,
-        instruction="You are a City Information Agent. Provide city information.",
-        generate_content_config=config,
-    )
-
-    APP_NAME = "city_app"
+    APP_NAME = "schema_app"
     USER_ID = "test-user"
-    SESSION_ID = "test-session-json-dict"
+    SESSION_ID = "test-session-schema"
 
-    runner = await _create_runner(json_schema_agent, app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
+    runner = await _create_runner(agent, app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
 
-    user_msg = types.Content(role="user", parts=[types.Part(text="Tell me about Tokyo")])
+    user_msg = types.Content(role="user", parts=[types.Part(text=prompt)])
 
     responses = await _run_final_responses(runner, user_id=USER_ID, session_id=SESSION_ID, new_message=user_msg)
 
@@ -1042,56 +970,35 @@ async def test_adk_response_json_schema_dict(memory_logger):
 
     spans = memory_logger.pop()
 
-    # Find LLM span with response_json_schema
-    llm_spans_with_schema = [
+    # Find LLM span with the schema
+    model_call_spans_with_schema = [
         span
-        for span in spans
-        if span["span_attributes"]["type"] == "llm"
-        and "input" in span
-        and "config" in span["input"]
-        and span["input"]["config"].get("response_json_schema") is not None
+        for span in _adk_model_call_spans(spans)
+        if "input" in span and "config" in span["input"] and span["input"]["config"].get(schema_field) is not None
     ]
 
-    assert len(llm_spans_with_schema) > 0, "Should have at least one LLM call with response_json_schema"
+    assert len(model_call_spans_with_schema) > 0, f"Should have at least one LLM call with {schema_field}"
 
-    llm_span = llm_spans_with_schema[0]
+    model_call_span = model_call_spans_with_schema[0]
 
-    # Assert complete input structure - plain JSON schema dict should be preserved
-    assert llm_span["input"] == {
+    # Assert complete input structure
+    assert model_call_span["input"] == {
         "model": ADK_MODEL,
         "contents": [
             {
                 "role": "user",
-                "parts": [{"text": "Tell me about Tokyo"}],
+                "parts": [{"text": prompt}],
             }
         ],
         "config": {
             "system_instruction": ANY,  # Contains agent name
             "response_mime_type": "application/json",
-            "response_json_schema": {
-                "type": "object",
-                "properties": {
-                    "city": {
-                        "type": "string",
-                        "description": "Name of the city",
-                    },
-                    "population": {
-                        "type": "integer",
-                        "description": "Population of the city",
-                        "minimum": 0,
-                    },
-                    "country": {
-                        "type": "string",
-                        "description": "Country where the city is located",
-                    },
-                },
-                "required": ["city", "country"],
-            },
+            schema_field: expected_schema,
         },
         "live_connect_config": ANY,
     }
 
-    _assert_llm_output_shape(llm_span["output"])
+    _assert_llm_output_shape(model_call_span["output"])
 
 
 class TestAutoInstrumentADK:
@@ -1102,3 +1009,13 @@ class TestAutoInstrumentADK:
         from braintrust.integrations.test_utils import verify_autoinstrument_script
 
         verify_autoinstrument_script("test_auto_adk.py")
+
+
+class TestManualWrapADK:
+    """Tests the public manual wrapping helpers in an isolated process."""
+
+    @pytest.mark.skipif(ADK_VERSION < (2, 10, 0), reason="Workflow nodes require ADK 2.10+")
+    def test_manual_wrap_adk_workflow(self):
+        from braintrust.integrations.test_utils import verify_autoinstrument_script
+
+        verify_autoinstrument_script("test_manual_wrap_adk_workflow.py")

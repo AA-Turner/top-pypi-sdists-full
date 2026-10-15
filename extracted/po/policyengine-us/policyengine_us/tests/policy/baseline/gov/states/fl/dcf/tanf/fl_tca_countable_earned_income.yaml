@@ -1,0 +1,260 @@
+# Tests Florida TCA countable earned income.
+# Per DCF ESS Program Policy Manual 2620.0111.01:
+#   Step 2 - subtract the $90 standard disregard (always).
+#   Step 3 - subtract the remainder of the "$200 and 1/2" disregard "if eligible".
+# The $200 and 1/2 disregard is granted (2420.0314-.0315) when income after the
+# $90 disregard is below the payment standard for the size of the SFU; otherwise
+# only the $90 is deducted.
+#
+# The disregard-formula cases below use a large filing unit with high shelter so
+# the payment standard ($610 for size 8) is high enough that the $200 and 1/2
+# disregard applies, exercising the full formula. A dedicated block at the end
+# tests the predicate = False path (income after $90 at or above the payment
+# standard), where only the $90 is deducted.
+
+# ============================================================
+# $200 and 1/2 disregard applies (income after $90 < payment standard).
+# Size-8 filing unit, high shelter -> payment standard $610.
+# ============================================================
+
+- name: Case 1, zero earned income.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 0
+        pre_subsidy_rent: 24_000
+        age: 35
+      person2: {age: 10}
+      person3: {age: 9}
+      person4: {age: 8}
+      person5: {age: 7}
+      person6: {age: 6}
+      person7: {age: 5}
+      person8: {age: 4}
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 0
+    # $0 earned -> $0 countable.
+
+- name: Case 2, earned income $290 (exactly at $90 + $200 threshold).
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 3_480  # $290/month
+        pre_subsidy_rent: 24_000
+        age: 35
+      person2: {age: 10}
+      person3: {age: 9}
+      person4: {age: 8}
+      person5: {age: 7}
+      person6: {age: 6}
+      person7: {age: 5}
+      person8: {age: 4}
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 0
+    # After $90 = $200 (< $610, disregard applies); after $200 = $0; * 0.5 = $0.
+
+- name: Case 3, earned income $291 (one dollar above $90 + $200 threshold).
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 3_492  # $291/month
+        pre_subsidy_rent: 24_000
+        age: 35
+      person2: {age: 10}
+      person3: {age: 9}
+      person4: {age: 8}
+      person5: {age: 7}
+      person6: {age: 6}
+      person7: {age: 5}
+      person8: {age: 4}
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 0.5
+    # After $90 = $201 (< $610); after $200 = $1; * 0.5 = $0.50.
+
+- name: Case 4, earned income $300.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 3_600  # $300/month
+        pre_subsidy_rent: 24_000
+        age: 35
+      person2: {age: 10}
+      person3: {age: 9}
+      person4: {age: 8}
+      person5: {age: 7}
+      person6: {age: 6}
+      person7: {age: 5}
+      person8: {age: 4}
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 5
+    # After $90 = $210 (< $610); after $200 = $10; * 0.5 = $5.
+
+- name: Case 5, earned income $400.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 4_800  # $400/month
+        pre_subsidy_rent: 24_000
+        age: 35
+      person2: {age: 10}
+      person3: {age: 9}
+      person4: {age: 8}
+      person5: {age: 7}
+      person6: {age: 6}
+      person7: {age: 5}
+      person8: {age: 4}
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 55
+    # After $90 = $310 (< $610); after $200 = $110; * 0.5 = $55.
+
+- name: Case 6, earned income $500.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 6_000  # $500/month
+        pre_subsidy_rent: 24_000
+        age: 35
+      person2: {age: 10}
+      person3: {age: 9}
+      person4: {age: 8}
+      person5: {age: 7}
+      person6: {age: 6}
+      person7: {age: 5}
+      person8: {age: 4}
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 105
+    # After $90 = $410 (< $610); after $200 = $210; * 0.5 = $105.
+
+- name: Case 7, earned income $91 (one dollar above $90 disregard, below $290).
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 1_092  # $91/month
+        pre_subsidy_rent: 24_000
+        age: 35
+      person2: {age: 10}
+      person3: {age: 9}
+      person4: {age: 8}
+      person5: {age: 7}
+      person6: {age: 6}
+      person7: {age: 5}
+      person8: {age: 4}
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5, person6, person7, person8]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 0
+    # After $90 = $1 (< $610); after $200 = $0; * 0.5 = $0.
+
+# ============================================================
+# $200 and 1/2 disregard does NOT apply: income after the $90 standard
+# disregard is at or above the payment standard (2420.0315). Only the $90 is
+# deducted. Single person, high shelter -> payment standard $180.
+# ============================================================
+
+- name: Case 8, single earner $400/month, income after $90 above payment standard.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 4_800  # $400/month
+        pre_subsidy_rent: 12_000
+        age: 35
+    households:
+      household:
+        members: [person1]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 310
+    # Payment standard (size 1, high shelter) = $180.
+    # After $90 = $310, which is >= $180, so the $200 and 1/2 disregard does not
+    # apply. Only the $90 is deducted: countable = $310.
+
+- name: Case 9, single earner $290/month at the disregard-eligibility boundary.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 3_480  # $290/month
+        pre_subsidy_rent: 12_000
+        age: 35
+    households:
+      household:
+        members: [person1]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 200
+    # Payment standard (size 1, high shelter) = $180.
+    # After $90 = $200, which is >= $180, so only the $90 is deducted:
+    # countable = $200 (not $0 as it would be under an unconditional disregard).
+
+- name: Case 10, earned income at $90 (fully absorbed by the standard disregard).
+  period: 2024-01
+  input:
+    people:
+      person1:
+        employment_income_before_lsr: 1_080  # $90/month
+        pre_subsidy_rent: 12_000
+        age: 35
+    households:
+      household:
+        members: [person1]
+        state_code: FL
+  output:
+    fl_tca_countable_earned_income: 0
+    # After $90 = $0; income after the $90 disregard ($0) is below the payment
+    # standard, so the person is disregard-eligible, but there is nothing left to
+    # disregard: countable = $0.

@@ -30,7 +30,11 @@ from test import IntegrationTest, client_context, connected, unittest
 from test.utils import (
     wait_until,
 )
-from test.utils_shared import ServerAndTopologyEventListener, gevent_monkey_patched
+from test.utils_shared import (
+    ServerAndTopologyEventListener,
+    gevent_monkey_patched,
+    suppress_fork_deprecation,
+)
 
 _IS_SYNC = True
 
@@ -57,7 +61,6 @@ class TestMonitor(IntegrationTest):
         connected(client)
         return client
 
-    @unittest.skipIf("PyPy" in sys.version, "PYTHON-5283 fails often on PyPy")
     @unittest.skipIf(
         gevent_monkey_patched(), "PYTHON-5516 Resources are not cleared when using gevent"
     )
@@ -109,9 +112,10 @@ class TestMonitor(IntegrationTest):
             "-c",
             "from pymongo import MongoClient; c = MongoClient()",
         ]
-        completed_process: subprocess.CompletedProcess = subprocess.run(
-            command, capture_output=True
-        )
+        with suppress_fork_deprecation():
+            completed_process: subprocess.CompletedProcess = subprocess.run(
+                command, capture_output=True
+            )
 
         self.assertFalse(completed_process.stderr)
         self.assertFalse(completed_process.stdout)

@@ -43,6 +43,7 @@ __all__ = (
     "ExecutionErrorTypeType",
     "ExecutionStatusType",
     "HomeDirectoryTypeType",
+    "HostKeyStorageTypeType",
     "IdentityProviderTypeType",
     "IpAddressTypeType",
     "ListAccessesPaginatorName",
@@ -119,6 +120,7 @@ ExecutionErrorTypeType = Literal[
 ]
 ExecutionStatusType = Literal["COMPLETED", "EXCEPTION", "HANDLING_EXCEPTION", "IN_PROGRESS"]
 HomeDirectoryTypeType = Literal["LOGICAL", "PATH"]
+HostKeyStorageTypeType = Literal["SECRETS_MANAGER", "SERVICE_MANAGED"]
 IdentityProviderTypeType = Literal[
     "API_GATEWAY", "AWS_DIRECTORY_SERVICE", "AWS_LAMBDA", "SERVICE_MANAGED"
 ]
@@ -525,6 +527,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

@@ -1,0 +1,35 @@
+- name: 2026 dependent under 18 is eligible
+  period: 2026
+  input:
+    is_tax_unit_dependent: true
+    age: 17
+    state_code: DC
+  output:
+    dc_ctc_eligible_child: true
+
+- name: 2026 dependent age 18 is not eligible
+  period: 2026
+  input:
+    is_tax_unit_dependent: true
+    age: 18
+    state_code: DC
+  output:
+    dc_ctc_eligible_child: false
+
+- name: 2026 dependent age 10 is eligible
+  period: 2026
+  input:
+    is_tax_unit_dependent: true
+    age: 10
+    state_code: DC
+  output:
+    dc_ctc_eligible_child: true
+
+- name: 2026 non-dependent is not eligible
+  period: 2026
+  input:
+    is_tax_unit_dependent: false
+    age: 10
+    state_code: DC
+  output:
+    dc_ctc_eligible_child: false

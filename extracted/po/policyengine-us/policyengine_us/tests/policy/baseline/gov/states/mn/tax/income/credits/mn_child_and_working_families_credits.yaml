@@ -1,0 +1,839 @@
+- name: Joint filers with one younger ctc eligible child, eligible for the WFC, no phase-out, fully phased-in
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 48 
+        is_child_dependent: false
+      person2:
+        age: 40
+        is_child_dependent: false
+      person3: 
+        age: 5
+        is_child_dependent: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:  
+        members: [person1, person2, person3]
+        state_code: MN
+  output:  
+    mn_child_and_working_families_credits: 2_100
+
+- name: Joint filers with one younger ctc eligible child and one older child, eligible for the WFC, no phase-out, partially phased-in
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 48 
+        is_child_dependent: false
+        is_full_time_student: false
+      person2:
+        age: 40
+        is_child_dependent: false
+        is_full_time_student: false
+      person3: 
+        age: 5
+        is_child_dependent: true
+        is_full_time_student: false
+      person4:
+        age: 19
+        is_child_dependent: true
+        is_full_time_student: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3, person4]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 6_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:  
+        members: [person1, person2, person3, person4]
+        state_code: MN
+  output:  
+    mn_child_and_working_families_credits: 2_915
+
+- name: Fully phase out credits
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 48 
+        is_child_dependent: false
+        is_full_time_student: false
+      person2:
+        age: 40
+        is_child_dependent: false
+        is_full_time_student: false
+      person3: 
+        age: 5
+        is_child_dependent: true
+        is_full_time_student: false
+      person4:
+        age: 19
+        is_child_dependent: true
+        is_full_time_student: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3, person4]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 100_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:  
+        members: [person1, person2, person3, person4]
+        state_code: MN
+  output:  
+    mn_child_and_working_families_credits: 0
+
+- name: Joint filers with one younger ctc eligible child and one older child, eligible for the WFC, partially phase-out
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 48 
+        is_child_dependent: false
+        is_full_time_student: false
+      person2:
+        age: 40
+        is_child_dependent: false
+        is_full_time_student: false
+      person3: 
+        age: 5
+        is_child_dependent: true
+        is_full_time_student: false
+      person4:
+        age: 19
+        is_child_dependent: true
+        is_full_time_student: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3, person4]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 45_000
+        filing_status: JOINT
+    households:
+      household:  
+        members: [person1, person2, person3, person4]
+        state_code: MN
+  output:  
+    mn_child_and_working_families_credits: 1_825
+
+- name: Separate filers with one younger ctc eligible child and one older child, eligible for the WFC, partially phase-out
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 48 
+        is_child_dependent: false
+        is_full_time_student: false
+      person2:
+        age: 40
+        is_child_dependent: false
+        is_full_time_student: false
+      person3: 
+        age: 5
+        is_child_dependent: true
+        is_full_time_student: false
+      person4:
+        age: 19
+        is_child_dependent: true
+        is_full_time_student: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3, person4]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 45_000
+        filing_status: SEPARATE
+    households:
+      household:  
+        members: [person1, person2, person3, person4]
+        state_code: MN
+  output:  
+    mn_child_and_working_families_credits: 1_165
+
+- name: Joint filers with no qualifying children, eligible for the WFC, no phase-out
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 48 
+        is_child_dependent: false
+        is_full_time_student: false
+      person2:
+        age: 40
+        is_child_dependent: false
+        is_full_time_student: false
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        ctc_qualifying_children: 0
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 12_000
+        filing_status: JOINT
+    households:
+      household:  
+        members: [person1, person2]
+        state_code: MN
+  output:  
+    mn_child_and_working_families_credits: 350
+
+- name: Joint filers with no qualifying children, not eligible for the WFC, no phase-out
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 48 
+        is_child_dependent: false
+        is_full_time_student: false
+      person2:
+        age: 40
+        is_child_dependent: false
+        is_full_time_student: false
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        ctc_qualifying_children: 0
+        mn_wfc_eligible: false
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 12_000
+        filing_status: JOINT
+    households:
+      household:  
+        members: [person1, person2]
+        state_code: MN
+  output:  
+    mn_child_and_working_families_credits: 0
+
+- name: Integration test, partially phased-out
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 48 
+        employment_income: 60_000
+      person2:
+        age: 10
+        is_child_dependent: true
+        is_full_time_student: false
+      person3: 
+        age: 5
+        is_child_dependent: true
+        is_full_time_student: false
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        mn_wfc_eligible: true
+        filing_status: HEAD_OF_HOUSEHOLD
+    households:
+      household:  
+        members: [person1, person2, person3]
+        state_code: MN
+  output:  
+    mn_child_and_working_families_credits: 190
+
+- name: Integration test, not phased-out
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 48 
+        employment_income: 20_000
+      person2:
+        age: 10
+        is_child_dependent: true
+        is_full_time_student: false
+      person3: 
+        age: 5
+        is_child_dependent: true
+        is_full_time_student: false
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        mn_wfc_eligible: true
+        filing_status: HEAD_OF_HOUSEHOLD
+    households:
+      household:
+        members: [person1, person2, person3]
+        state_code: MN
+  output:
+    mn_child_and_working_families_credits: 3_850
+
+# 2025 test case to verify updated parameter values
+# Per 2025 Schedule M1CWFC:
+# - Earned income max for WFC: $9,480 (Line 3)
+# - WFC phase-in rate: 4% (Line 4)
+# - CTC amount per child: $1,750 (Line 8)
+# - Joint phaseout threshold: $37,910 (Line 11)
+# - Non-joint phaseout threshold: $31,950 (Line 11)
+# - Phase-out rate: 12% for CTC eligible (Line 13)
+# - Qualifying older child amounts:
+#   - 1 child: $1,000
+#   - 2 children: $2,270
+#   - 3+ children: $2,710
+- name: 2025 Joint filers with one CTC-eligible child, eligible for WFC, no phase-out
+  # Calculation:
+  # WFC: min($10,000, $9,480) * 0.04 = $9,480 * 0.04 = $379.20
+  # CTC: 1 child * $1,750 = $1,750
+  # Total before phaseout: $379.20 + $1,750 = $2,129.20
+  # No phaseout since AGI ($10,000) < joint threshold ($37,910)
+  period: 2025
+  absolute_error_margin: 0.1
+  input:
+    people:
+      person1:
+        age: 48
+        is_child_dependent: false
+      person2:
+        age: 40
+        is_child_dependent: false
+      person3:
+        age: 5
+        is_child_dependent: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, person2, person3]
+        state_code: MN
+  output:
+    mn_child_and_working_families_credits: 2_129.2
+
+- name: 2025 Joint filers with one CTC-eligible child and one qualifying older child, no phase-out
+  # Calculation:
+  # WFC base: min($10,000, $9,480) * 0.04 = $379.20
+  # WFC older child (1 child): $1,000
+  # WFC total: $379.20 + $1,000 = $1,379.20
+  # CTC: 1 child * $1,750 = $1,750
+  # Total before phaseout: $1,379.20 + $1,750 = $3,129.20
+  # No phaseout since AGI ($10,000) < joint threshold ($37,910)
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 48
+        is_child_dependent: false
+        is_full_time_student: false
+      person2:
+        age: 40
+        is_child_dependent: false
+        is_full_time_student: false
+      person3:
+        age: 5
+        is_child_dependent: true
+        is_full_time_student: false
+      person4:
+        age: 19
+        is_child_dependent: true
+        is_full_time_student: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3, person4]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, person2, person3, person4]
+        state_code: MN
+  output:
+    mn_child_and_working_families_credits: 3_129.2
+
+- name: 2025 Joint filers with high investment income should get zero credit
+  # Per M1CWFC form: "Do not complete Schedule M1CWFC if you are
+  # otherwise restricted from claiming the federal Earned Income Credit."
+  # Investment income ($53K) exceeds EIC limit ($11,950 in 2025),
+  # so the entire credit (CTC + WFC) should be zero.
+  # Matches TaxAct and TAXSIM (policyengine-taxsim#766).
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 40
+        employment_income: 10_000
+        tax_exempt_interest_income: 53_000
+      person2:
+        age: 38
+      person3:
+        age: 4
+      person4:
+        age: 10
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3, person4]
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, person2, person3, person4]
+        state_code: MN
+  output:
+    mn_child_and_working_families_credits: 0
+
+- name: 2025 Single filer with one CTC-eligible child, partial phase-out
+  # Calculation:
+  # WFC base: min($40,000, $9,480) * 0.04 = $379.20
+  # CTC: 1 child * $1,750 = $1,750
+  # Total before phaseout: $379.20 + $1,750 = $2,129.20
+  # Phaseout: max(AGI, earned_income) - threshold = $40,000 - $31,950 = $8,050
+  # Phaseout amount: $8,050 * 0.12 = $966
+  # Final credit: $2,129.20 - $966 = $1,163.20
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 48
+        is_child_dependent: false
+      person2:
+        age: 5
+        is_child_dependent: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 40_000
+        adjusted_gross_income: 40_000
+        filing_status: SINGLE
+    households:
+      household:
+        members: [person1, person2]
+        state_code: MN
+  output:
+    mn_child_and_working_families_credits: 1_163.2
+
+- name: MN qualifying older child bonus counts a disabled adult dependent (M1DQC step 4 / IRC 152(c)(3)(B))
+  # Schedule M1DQC steps 3-4: a dependent who is permanently and totally
+  # disabled and aged 18 or older is checked as a qualifying older child
+  # (row 11) without the full-time-student test that non-disabled 18+ children
+  # must meet. This adds the 1-qualifying-older-child WFC bonus ($1,000 in 2025).
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 45
+        is_full_time_student: false
+      disabled_adult:
+        age: 29
+        is_tax_unit_dependent: true
+        is_full_time_student: false
+        is_permanently_and_totally_disabled: true
+    tax_units:
+      tax_unit:
+        members: [person1, disabled_adult]
+        ctc_qualifying_children: 0
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, disabled_adult]
+        state_code: MN
+  output:
+    # WFC base: min($10,000, $9,480) * 0.04 = $379.20
+    # Qualifying older child bonus (1 child): $1,000
+    # No CTC (the disabled adult is over the CTC age limit), no phase-out
+    # below the $37,910 joint threshold: $379.20 + $1,000 = $1,379.20.
+    mn_child_and_working_families_credits: 1_379.2
+
+- name: MN qualifying older child bonus excludes a non-disabled 18+ dependent who is not a full-time student
+  # The same 29-year-old dependent without the disability flag and not a
+  # full-time student is not a qualifying older child (M1DQC step 6-8), so
+  # only the WFC base applies with no bonus.
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 45
+        is_full_time_student: false
+      adult:
+        age: 29
+        is_tax_unit_dependent: true
+        is_full_time_student: false
+        is_permanently_and_totally_disabled: false
+    tax_units:
+      tax_unit:
+        members: [person1, adult]
+        ctc_qualifying_children: 0
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, adult]
+        state_code: MN
+  output:
+    # WFC base only: min($10,000, $9,480) * 0.04 = $379.20, no older-child bonus.
+    mn_child_and_working_families_credits: 379.2
+
+# Minn. Stat. 290.0671, subd. 1a: a qualifying older child is an IRC 32(c)
+# qualifying child that "attained at least the age of 18". Schedule M1DQC
+# (2023-2025, page 3) step 4 sends a child who is not under 18 at the end of
+# the year to steps 5-8; step 7 checks row 11 for a full-time student and
+# step 8 checks row 11 for a child under 19, so every 18-year-old qualifying
+# child is a qualifying older child. The next four cases share one 2025
+# household: a head of household with $10,000 of wages and one dependent.
+- name: 2025 an 18-year-old full-time student is a qualifying older child
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      parent:
+        age: 40
+        employment_income: 10_000
+      child:
+        age: 18
+        is_tax_unit_dependent: true
+        is_full_time_student: true
+    tax_units:
+      tax_unit:
+        members: [parent, child]
+    households:
+      household:
+        members: [parent, child]
+        state_code: MN
+  output:
+    # WFC base: 4% of the first $9,480 of earned income = $379.20.
+    # One qualifying older child (M1DQC step 7): + $1,000.
+    # No CTC (not under 18); AGI $10,000 is below the $31,950 threshold.
+    mn_child_and_working_families_credits: 379.2 + 1_000
+
+- name: 2025 an 18-year-old who is not a student is a qualifying older child
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      parent:
+        age: 40
+        employment_income: 10_000
+      child:
+        age: 18
+        is_tax_unit_dependent: true
+        is_full_time_student: false
+    tax_units:
+      tax_unit:
+        members: [parent, child]
+    households:
+      household:
+        members: [parent, child]
+        state_code: MN
+  output:
+    # Under 19 at the end of the year (M1DQC step 8, IRC 152(c)(3)(A)), so
+    # the same $379.20 + $1,000 as the full-time student above.
+    mn_child_and_working_families_credits: 379.2 + 1_000
+
+- name: 2025 a 17-year-old gets the child tax credit and no older-child amount
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      parent:
+        age: 40
+        employment_income: 10_000
+      child:
+        age: 17
+        is_tax_unit_dependent: true
+        is_full_time_student: false
+    tax_units:
+      tax_unit:
+        members: [parent, child]
+    households:
+      household:
+        members: [parent, child]
+        state_code: MN
+  output:
+    # Under 18 at the end of the year (M1DQC step 4, row 10): CTC $1,750
+    # plus the $379.20 WFC base, no qualifying older child amount.
+    mn_child_and_working_families_credits: 379.2 + 1_750
+
+- name: 2025 a 19-year-old who is not a student is not a qualifying older child
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      parent:
+        age: 40
+        employment_income: 10_000
+      child:
+        age: 19
+        is_tax_unit_dependent: true
+        is_full_time_student: false
+    tax_units:
+      tax_unit:
+        members: [parent, child]
+    households:
+      household:
+        members: [parent, child]
+        state_code: MN
+  output:
+    # Not a student and not under 19 (M1DQC step 8): WFC base $379.20 only.
+    mn_child_and_working_families_credits: 379.2
+
+- name: 2025 a disabled 18-year-old is a qualifying older child
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      parent:
+        age: 40
+        employment_income: 10_000
+      child:
+        age: 18
+        is_tax_unit_dependent: true
+        is_full_time_student: false
+        is_permanently_and_totally_disabled: true
+    tax_units:
+      tax_unit:
+        members: [parent, child]
+    households:
+      household:
+        members: [parent, child]
+        state_code: MN
+  output:
+    # Disabled and not under 18 (M1DQC step 4 sends the child to row 11).
+    mn_child_and_working_families_credits: 379.2 + 1_000
+
+- name: 2025 an 18-year-old older child above the phase-out start
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      parent:
+        age: 40
+        employment_income: 40_000
+      child:
+        age: 18
+        is_tax_unit_dependent: true
+        is_full_time_student: false
+    tax_units:
+      tax_unit:
+        members: [parent, child]
+    households:
+      household:
+        members: [parent, child]
+        state_code: MN
+  output:
+    # $379.20 + $1,000, less 9% of the income above the $31,950 phase-out
+    # start (2025 Schedule M1CWFC): 1,379.20 - 0.09 x 8,050 = 654.70.
+    mn_child_and_working_families_credits: 654.7
+
+# Minnesota decouples from IRC 32(m) (Minn. Stat. 290.0661/290.0671), so an
+# ITIN child (ssn_card_type OTHER_NON_CITIZEN, no SSN valid for employment)
+# receives the same MN CTC as a citizen child. This mirrors the "2025 Joint
+# filers with one CTC-eligible child" case above (which yields $2,129.20) but
+# makes the child an ITIN child; the amount must be identical. This case FAILS
+# if the 32(m) SSN gate is restored to the eligible-child formula.
+- name: 2025 Joint filers with one ITIN CTC-eligible child receive the same MN CTC as a citizen child
+  # WFC: min($10,000, $9,480) * 0.04 = $379.20; CTC: 1 child * $1,750 = $1,750
+  # Total = $2,129.20, no phaseout (AGI $10,000 < $37,910 joint threshold).
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 48
+        is_child_dependent: false
+      person2:
+        age: 40
+        is_child_dependent: false
+      person3:
+        age: 5
+        is_child_dependent: true
+        ssn_card_type: OTHER_NON_CITIZEN
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, person2, person3]
+        state_code: MN
+  output:
+    mn_child_and_working_families_credits: 2_129.2
+
+# Minnesota decouples from IRC 32(m) (Minn. Stat. 290.0661/290.0671), so an
+# ITIN filer (head with ssn_card_type OTHER_NON_CITIZEN, no SSN valid for
+# employment) with an SSN qualifying child is still allowed the MN CTC/WFC. The
+# per-child credit must equal that of a citizen filer ($2,129.20, matching the
+# "2025 Joint filers with one CTC-eligible child" case above). This case FAILS
+# if the 32(m) filer-SSN gate is restored.
+- name: 2025 Joint ITIN filer with an SSN CTC-eligible child receives the same MN CTC as a citizen filer
+  # WFC: min($10,000, $9,480) * 0.04 = $379.20; CTC: 1 child * $1,750 = $1,750
+  # Total = $2,129.20, no phaseout (AGI $10,000 < $37,910 joint threshold).
+  period: 2025
+  absolute_error_margin: 0.1
+  input:
+    people:
+      person1:
+        age: 48
+        is_child_dependent: false
+        ssn_card_type: OTHER_NON_CITIZEN
+      person2:
+        age: 40
+        is_child_dependent: false
+        ssn_card_type: OTHER_NON_CITIZEN
+      person3:
+        age: 5
+        is_child_dependent: true
+        ssn_card_type: CITIZEN
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        ctc_qualifying_children: 1
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, person2, person3]
+        state_code: MN
+  output:
+    mn_child_and_working_families_credits: 2_129.2
+
+- name: MN qualifying older child bonus excludes a disabled parent dependent (IRC 152(c)(2))
+  # A parent fails the IRC 152(c)(2) relationship test, so the disabled parent
+  # is not an IRC 32(c) qualifying child and not a qualifying older child.
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 45
+        is_full_time_student: false
+      disabled_parent:
+        age: 75
+        is_tax_unit_dependent: true
+        is_full_time_student: false
+        is_permanently_and_totally_disabled: true
+        is_parent_of_filer_or_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person1, disabled_parent]
+        ctc_qualifying_children: 0
+        mn_wfc_eligible: true
+        eitc_earned_income: 10_000
+        adjusted_gross_income: 10_000
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, disabled_parent]
+        state_code: MN
+  output:
+    # WFC base only: min($10,000, $9,480) * 0.04 = $379.20.
+    mn_child_and_working_families_credits: 379.2
+
+# Schedule M1CWFC, line 2 takes earned income from federal EIC Worksheet B:
+# both spouses combined, a net self-employment loss subtracted, not less than
+# zero. Line 10 is the greater of AGI (line 1) and line 2.
+- name: 2024 joint, one spouse's self-employment loss exceeds the other's wages
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 37
+        self_employment_income: -200_000
+      spouse:
+        age: 37
+        employment_income: 117_548
+      child1:
+        age: 8
+      child2:
+        age: 4
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child1, child2]
+    households:
+      household:
+        members: [head, spouse, child1, child2]
+        state_code: MN
+  output:
+    # Line 2 is 0 and line 1 is negative, so there is no phaseout:
+    # 2 x $1,750 CTC + 4% x 0 WFC. NBER TAXSIM-35 also gives $3,500.
+    eitc_earned_income: 0
+    mn_child_and_working_families_credits: 3_500
+
+- name: 2024 joint, a self-employment loss reduces the earned income used for the phaseout
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 37
+        self_employment_income: -20_000
+      spouse:
+        age: 37
+        employment_income: 60_000
+      child1:
+        age: 8
+      child2:
+        age: 4
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child1, child2]
+    households:
+      household:
+        members: [head, spouse, child1, child2]
+        state_code: MN
+  output:
+    eitc_earned_income: 40_000
+    # 4% x $9,220 + 2 x $1,750 = $3,868.80; less 12% x ($40,000 - $36,880) = $374.40
+    mn_child_and_working_families_credits: 3_494.40
+
+- name: A dependent's interest does not remove Minnesota's child and working family credits
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 35
+        employment_income: 22_000
+      child:
+        age: 10
+        is_tax_unit_dependent: true
+        taxable_interest_income: 50_000
+    tax_units:
+      tax_unit:
+        members: [head, child]
+    spm_units:
+      spm_unit:
+        members: [head, child]
+    households:
+      household:
+        members: [head, child]
+        state_code: MN
+  output:
+    # The child's interest is on the child's own return; the head's
+    # Worksheet 1 amount is 0, under the 2025 limit of 11,950.
+    eitc_investment_income_eligible: true
+    mn_wfc_eligible: true
+    # CTC 1 x 1,750 + WFC 4% x 9,480 = 379.20; income 22,000 is under
+    # the 31,950 phase-out threshold. Main gives 0.
+    mn_child_and_working_families_credits: 2_129.20

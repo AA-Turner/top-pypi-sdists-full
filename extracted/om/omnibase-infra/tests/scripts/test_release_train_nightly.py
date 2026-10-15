@@ -1882,3 +1882,335 @@ class TestTheNightlyTestsAreEnforcedInCIAndPrecommit:
         missed = [path for path in self.TRIGGERS if not pattern.search(path)]
         assert not missed, f"the hook does not fire when {missed} change"
         assert not pattern.search("src/omnibase_infra/unrelated.py")
+
+
+# --------------------------------------------------------------------------- #
+# Paths a downstream repo reads from a tag clone are release-relevant (OMN-20298). #
+# --------------------------------------------------------------------------- #
+_CONSUMER_CITATION = (
+    r"^[A-Za-z0-9_.-]+:\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml:[0-9]+$"
+)
+
+
+class TestPathsDownstreamReposCloneByTagAreReleaseRelevant:
+    """omnibase_core#1963 fixed the canonical handler-shape ratchet and sat on
+    dev behind v0.47.42, because it touched only ``scripts/ci`` and the train
+    counted only ``src`` and ``pyproject.toml``. Registry repositories clone
+    core's tag and run that script from the clone, so a wheel never carries it
+    and only a new tag delivers it.
+
+    The consumed paths are declared per repo in the train's own policy, each
+    with the downstream workflow line that consumes it, and these tests run the
+    REAL policy against REAL git history.
+    """
+
+    @staticmethod
+    def _history(tmp_path: Path, *, touched: str) -> Path:
+        """A repo tagged v1.0.0 with one later commit touching only ``touched``."""
+        from omnibase_core.validators.no_unguarded_git_subprocess import (
+            scrub_git_location_env,
+        )
+
+        root = tmp_path / "repo"
+        root.mkdir()
+
+        def git(*args: str) -> None:
+            subprocess.run(
+                ["git", *args],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                env=scrub_git_location_env(os.environ),
+            )
+
+        git("init", "--initial-branch", "dev")
+        git("config", "user.email", "t@example.invalid")
+        git("config", "user.name", "t")
+        (root / "pyproject.toml").write_text(
+            '[project]\nversion = "1.0.0"\n', encoding="utf-8"
+        )
+        git("add", "pyproject.toml")
+        git("commit", "-m", "init")
+        git("tag", "v1.0.0")
+        target = root / touched
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("changed\n", encoding="utf-8")
+        git("add", touched)
+        git("commit", "-m", f"change {touched}")
+        git("update-ref", "refs/remotes/origin/dev", "HEAD")
+        return root
+
+    @staticmethod
+    def _unreleased(root: Path, repo: str) -> int:
+        policy = rt.policy_for(rt.load_policy(_POLICY), repo)
+        return int(rt.collect_repo_facts(policy, root).unreleased_count)
+
+    def test_a_scripts_ci_only_commit_is_release_relevant_for_core(
+        self, tmp_path: Path
+    ) -> None:
+        """The reproduction: omnibase_core db47fe8a4 touched scripts/ci and tests."""
+        root = self._history(tmp_path, touched="scripts/ci/canonical_handler_shape.py")
+        assert self._unreleased(root, "omnibase_core") == 1
+
+    def test_a_tests_only_commit_is_still_not_release_relevant(
+        self, tmp_path: Path
+    ) -> None:
+        root = self._history(tmp_path, touched="tests/unit/test_something.py")
+        assert self._unreleased(root, "omnibase_core") == 0
+
+    def test_a_scripts_path_nobody_clones_by_tag_is_still_not_release_relevant(
+        self, tmp_path: Path
+    ) -> None:
+        """Discrimination: the declaration names consumed paths, not all of scripts/."""
+        root = self._history(tmp_path, touched="scripts/not_consumed_by_anyone.py")
+        assert self._unreleased(root, "omnibase_core") == 0
+
+    def test_a_consumed_single_file_path_is_release_relevant(
+        self, tmp_path: Path
+    ) -> None:
+        root = self._history(
+            tmp_path, touched="scripts/validation/check_stub_implementations.py"
+        )
+        assert self._unreleased(root, "omnibase_core") == 1
+
+    def test_the_skip_detail_names_the_consumed_paths_it_looked_at(self) -> None:
+        policy = rt.policy_for(rt.load_policy(_POLICY), "omnibase_core")
+        decision = rt.decide(
+            policy=policy,
+            facts=_facts(repo="omnibase_core", unreleased_count=0),
+        )
+        assert decision.reason is rt.EnumTrainReason.NO_UNRELEASED_RELEASE_RELEVANT_WORK
+        assert "scripts/ci" in decision.detail
+
+    def test_every_declared_consumed_path_cites_a_downstream_workflow_line(
+        self,
+    ) -> None:
+        import re
+
+        policies = rt.load_policy(_POLICY)
+        declared = [
+            (repo, entry)
+            for repo, policy in policies.items()
+            for entry in policy.consumed_paths
+        ]
+        assert declared, "no repo declares a consumed path; the reproduction is gone"
+        for repo, entry in declared:
+            assert entry.consumers, f"{repo}:{entry.path} cites no consumer"
+            for citation in entry.consumers:
+                assert re.match(_CONSUMER_CITATION, citation), (repo, citation)
+                assert not citation.startswith(f"{repo}:"), (
+                    f"{repo}:{entry.path} cites its own workflow; a consumed path "
+                    "is read by a DOWNSTREAM repo"
+                )
+
+    @staticmethod
+    def _write(tmp_path: Path, consumed: str) -> Path:
+        policy_file = tmp_path / "policy.yaml"
+        policy_file.write_text(
+            "repos:\n"
+            "  omnibase_core:\n"
+            "    package: omnibase-core\n"
+            "    default_branch: dev\n"
+            "    release_relevant_paths: [src, pyproject.toml]\n"
+            "    lab_evidence: none\n"
+            "    lab_evidence_note: no lab lane\n"
+            "    mode: cut\n" + consumed,
+            encoding="utf-8",
+        )
+        return policy_file
+
+    def test_a_consumed_path_with_no_consumer_refuses_at_load(
+        self, tmp_path: Path
+    ) -> None:
+        policy_file = self._write(
+            tmp_path,
+            "    tag_clone_consumed_paths:\n      - path: scripts/ci\n        consumers: []\n",
+        )
+        with pytest.raises(rt.ReleaseTrainConfigError, match="scripts/ci"):
+            rt.load_policy(policy_file)
+
+    def test_a_consumer_that_is_not_a_workflow_line_citation_refuses_at_load(
+        self, tmp_path: Path
+    ) -> None:
+        policy_file = self._write(
+            tmp_path,
+            "    tag_clone_consumed_paths:\n"
+            "      - path: scripts/ci\n"
+            "        consumers: [omnimarket ci.yml]\n",
+        )
+        with pytest.raises(rt.ReleaseTrainConfigError, match=r"omnimarket ci\.yml"):
+            rt.load_policy(policy_file)
+
+    def test_a_consumed_path_already_under_a_release_path_refuses_at_load(
+        self, tmp_path: Path
+    ) -> None:
+        """Dead configuration: src is already release-relevant, so declaring it
+        again records a consumer that changes nothing and hides the real ones."""
+        policy_file = self._write(
+            tmp_path,
+            "    tag_clone_consumed_paths:\n"
+            "      - path: src/omnibase_core\n"
+            "        consumers: ['omnimarket:.github/workflows/ci.yml:102']\n",
+        )
+        with pytest.raises(rt.ReleaseTrainConfigError, match="src/omnibase_core"):
+            rt.load_policy(policy_file)
+
+    @pytest.mark.parametrize("bad", ["../escape", "/abs/path", "scripts/ci/"])
+    def test_a_consumed_path_that_is_not_a_clean_relative_path_refuses_at_load(
+        self, tmp_path: Path, bad: str
+    ) -> None:
+        policy_file = self._write(
+            tmp_path,
+            "    tag_clone_consumed_paths:\n"
+            f"      - path: {bad}\n"
+            "        consumers: ['omnimarket:.github/workflows/ci.yml:719']\n",
+        )
+        with pytest.raises(rt.ReleaseTrainConfigError):
+            rt.load_policy(policy_file)
+
+    def test_a_policy_with_no_consumed_paths_loads_as_before(
+        self, tmp_path: Path
+    ) -> None:
+        policy = rt.load_policy(self._write(tmp_path, ""))["omnibase_core"]
+        assert policy.consumed_paths == ()
+
+
+# --------------------------------------------------------------------------- #
+# The version bump moves the lockfile with the manifest.                        #
+# --------------------------------------------------------------------------- #
+_LOCK_BEFORE = """\
+version = 1
+revision = 3
+requires-python = ">=3.12"
+
+[[package]]
+name = "aiokafka"
+version = "0.4.313"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "omnimarket"
+version = "0.4.313"
+source = { editable = "." }
+dependencies = [
+    { name = "aiokafka" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "aiokafka", specifier = ">=0.4.313" }]
+"""
+
+_PYPROJECT_BEFORE = """\
+[project]
+name = "omnimarket"
+version = "0.4.313"
+
+[tool.example]
+version = "0.4.313"
+"""
+
+
+class TestTheVersionBumpMovesTheLockfileWithTheManifest:
+    """omnimarket#3888, 0.4.314: the release PR was red on every ``--locked`` check.
+
+    The recovery case (dev not ahead of the latest tag) moved only
+    ``[project].version`` in ``pyproject.toml``. The repo's own ``uv.lock`` records
+    its root package's version, so ``uv sync --locked`` refused the checkout
+    ("The lockfile at `uv.lock` needs to be updated, but `--locked` was provided")
+    and Aislop Sweep, Compliance Sweep, Contract Compliance Check, Contract Sweep
+    Gate and the CI Summary that waits on them all failed at that step, before any
+    check of the release's content ran. ``release-cut.yml`` has always run
+    ``uv lock`` after its dev bump; the train's bump did not.
+    """
+
+    WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "release-train-nightly.yml"
+
+    @staticmethod
+    def _clone(tmp_path: Path, *, lock: str | None = _LOCK_BEFORE) -> Path:
+        root = tmp_path / "clone"
+        root.mkdir()
+        (root / "pyproject.toml").write_text(_PYPROJECT_BEFORE, encoding="utf-8")
+        if lock is not None:
+            (root / "uv.lock").write_text(lock, encoding="utf-8")
+        return root
+
+    def test_the_bump_writes_the_manifest_and_the_lockfile_together(
+        self, tmp_path: Path
+    ) -> None:
+        root = self._clone(tmp_path)
+        written = rt.bump_declared_version(root, "0.4.314")
+        assert written == ["pyproject.toml", "uv.lock"]
+        assert 'name = "omnimarket"\nversion = "0.4.314"' in (
+            root / "pyproject.toml"
+        ).read_text(encoding="utf-8")
+        assert 'name = "omnimarket"\nversion = "0.4.314"\nsource' in (
+            root / "uv.lock"
+        ).read_text(encoding="utf-8")
+
+    def test_the_bump_touches_only_the_roots_own_entry(self, tmp_path: Path) -> None:
+        """Discrimination: a dependency at the same version string stays put."""
+        root = self._clone(tmp_path)
+        rt.bump_declared_version(root, "0.4.314")
+        lock = (root / "uv.lock").read_text(encoding="utf-8")
+        assert 'name = "aiokafka"\nversion = "0.4.313"' in lock
+        assert 'specifier = ">=0.4.313"' in lock
+        assert lock.count("0.4.314") == 1
+        assert '[tool.example]\nversion = "0.4.313"' in (
+            root / "pyproject.toml"
+        ).read_text(encoding="utf-8")
+
+    def test_a_repo_without_a_lockfile_bumps_the_manifest_alone(
+        self, tmp_path: Path
+    ) -> None:
+        root = self._clone(tmp_path, lock=None)
+        assert rt.bump_declared_version(root, "0.4.314") == ["pyproject.toml"]
+        assert not (root / "uv.lock").exists()
+
+    def test_a_lockfile_with_no_entry_for_the_root_refuses_rather_than_going_stale(
+        self, tmp_path: Path
+    ) -> None:
+        stale = _LOCK_BEFORE.replace('name = "omnimarket"', 'name = "someone-else"')
+        root = self._clone(tmp_path, lock=stale)
+        with pytest.raises(rt.ReleaseTrainConfigError, match=r"uv\.lock"):
+            rt.bump_declared_version(root, "0.4.314")
+        assert 'version = "0.4.313"' in (root / "pyproject.toml").read_text(
+            encoding="utf-8"
+        ), "a refused bump must not leave the manifest half-moved"
+
+    def test_the_project_name_is_matched_the_way_uv_normalises_it(
+        self, tmp_path: Path
+    ) -> None:
+        root = self._clone(tmp_path)
+        (root / "pyproject.toml").write_text(
+            _PYPROJECT_BEFORE.replace("omnimarket", "Omni_Market"), encoding="utf-8"
+        )
+        (root / "uv.lock").write_text(
+            _LOCK_BEFORE.replace("omnimarket", "omni-market"), encoding="utf-8"
+        )
+        assert rt.bump_declared_version(root, "0.4.314") == [
+            "pyproject.toml",
+            "uv.lock",
+        ]
+
+    def test_the_subcommand_prints_what_it_wrote_one_path_per_line(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        root = self._clone(tmp_path)
+        code = rt.main(["bump-version", "--clone", str(root), "--version", "0.4.314"])
+        assert code == 0
+        assert capsys.readouterr().out.split() == ["pyproject.toml", "uv.lock"]
+
+    def test_the_workflow_bumps_through_the_subcommand_and_commits_what_it_wrote(
+        self,
+    ) -> None:
+        """The inline regex moved only the manifest; the workflow must not carry one."""
+        body = self.WORKFLOW.read_text(encoding="utf-8")
+        assert "release_train.py" in body
+        assert "bump-version" in body
+        assert "re.subn" not in body, (
+            "an inline manifest rewrite in the workflow is the second loader "
+            "again, and it is the one that skipped uv.lock"
+        )
+        assert "git add CHANGELOG.md pyproject.toml\n" not in body, (
+            "the release commit stages the manifest without its lockfile"
+        )

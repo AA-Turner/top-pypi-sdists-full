@@ -165,6 +165,12 @@ class GenericOpenAITranslator(BaseTranslator):
         # clear_thinking is a Cerebras-only concept — not forwarded to generic OpenAI providers.
         # disable_reasoning has no generic equivalent — dropped.
 
+        # TAIL CHANNEL (config/live_plan.py): one message after the newest tool
+        # results, the same follow-up shape image-bearing results use above.
+        tail_text = self.get_tail_context_text(config)
+        if tail_text:
+            messages.append({"role": "user", "content": tail_text})
+
         # ``request_defaults`` are trusted API-catalog values, not caller
         # controls. They cover structural provider requirements such as asking
         # a compatible streaming API to include terminal usage. Deep-copy so a

@@ -3,7 +3,7 @@ from __future__ import annotations
 from . import data
 from . import tournament
 from .tournament import Tournament
-from .battlescreen import BattlePanel
+from .battlescreen import BattlePanel, first_show
 from .render import render_scene
 from . import grid
 
@@ -22,9 +22,10 @@ FIGHT_ROWS = 12   # the ONE locked arena (was a squat 8-row band that
 # adventure parade's idiom on the cup stage), and the crown gets its
 # AWARD CEREMONY: the champion cheering under a pulsing arena light (the
 # zoneChange idiom) before the tree and the numbers.  Real art only; the
-# shows lock input and play out (own-game law: no skips).
-NPC_T = 20        # ticks per advancing winner's crossing
+# Joel approved skips 2026-10-14; a skip never also acts on the bracket.
+NPC_T = 20        # ticks per advancing winner's crossing (ORIGINAL SPEED (Joel 2026-10-14: "i never told you to speed up animations"); skips stay)
 CEREMONY_T = 40   # the podium beat
+CEREMONY_REPEAT_T = 40
 
 # MATCH INTRODUCTIONS (fun arc, Joel: "do the match introductions"): SPACE
 # on the faceoff page stages the walk-ins before the bell -- the challenger
@@ -34,6 +35,7 @@ CEREMONY_T = 40   # the podium beat
 INTRO_OPP_T = 14  # the challenger's walk-in
 INTRO_PET_T = 14  # your mon's answer
 INTRO_HOLD_T = 10 # the held stare-down, then the bell
+INTRO_REPEAT_T = None  # no short repeat
 
 
 class TournamentPanel(menu.SubHost):
@@ -62,7 +64,7 @@ class TournamentPanel(menu.SubHost):
         self.frame_i += 1
         if self._ceremony is not None:
             self._ceremony["t"] += 1
-            if self._ceremony["t"] >= CEREMONY_T:
+            if self._ceremony["t"] >= self._ceremony.get("ticks", CEREMONY_T):
                 self._ceremony = None
                 self.tree_view = True          # the crowned tree, then the numbers
             return
@@ -74,14 +76,36 @@ class TournamentPanel(menu.SubHost):
             return
         if self._intro is not None:
             self._intro["t"] += 1
-            if self._intro["t"] >= INTRO_OPP_T + INTRO_PET_T + INTRO_HOLD_T:
-                self._intro = None             # the bell: the fight opens itself
-                # skip_intro: the walk-in WAS the entrance -- the fight opens
-                # straight on the timing bar, no redundant banner/reveal
-                # (cup double-intro fix 2026-07-24).
-                self.sub = BattlePanel(self.pet, self.tourney.current_opponent(),
-                                       skip_intro=True)
+            if self._intro["t"] >= sum(self._intro_beats()):
+                self._finish_intro()
             return
+
+    def _intro_beats(self):
+        return self._intro.get("beats", (INTRO_OPP_T, INTRO_PET_T, INTRO_HOLD_T))
+
+    def _start_intro(self):
+        # EVERY round checks the body, not just the entry (battle call #22 =
+        # A, Joel 2026-10-15): a pet drained or hurt mid-cup can't fight on --
+        # it withdraws, the same elimination as walking out
+        why = self.pet.battle_condition()
+        if why and not self.tourney.over:
+            self.tourney.record(False)
+            self.tourney.last = f"{why} Withdrawn from the cup."
+            self.tree_view = True
+            self.sfx = "error"
+            return
+        beats = ((INTRO_OPP_T, INTRO_PET_T, INTRO_HOLD_T)
+                 if first_show("cup_intro") or not INTRO_REPEAT_T
+                 else (INTRO_REPEAT_T,) * 3)
+        self._intro = {"t": 0, "beats": beats}
+        self.sfx = "menu"
+
+    def _finish_intro(self):
+        if self._intro is None:
+            return
+        self._intro = None
+        # The walk-in was the entrance. Never forward its skip into the bar.
+        self.sub = BattlePanel(self.pet, self.tourney.current_opponent(), skip_intro=True)
 
     def strip(self):
         """The message-box hint line (hint overhaul 2026-07-10).
@@ -95,16 +119,20 @@ class TournamentPanel(menu.SubHost):
         if self.sub is not None:
             return ""                          # the bout's own panel owns the box
         if self._ceremony is not None:
-            return "[b]%s[/]" % (self._say or "★ CHAMPION!")
+            return "[b]★ CHAMPION — trophy![/] [dim]any key skip[/]"
         if self._advance is not None:
-            return "[dim]%s[/]" % (self._say or "the field advances…")
+            return "[dim]%s · any key skip[/]" % menu._clip(self._say or "field advances", 29)
         if self._intro is not None:
-            return "[b]%s[/]" % (self._say or "introductions…")
+            return "[b]%s[/] [dim]· any key skip[/]" % menu._clip(self._say or "introductions…", 29)
         if self.phase == "select":
-            return menu.hints(("↑↓", "pick"), ("ENTER", "go"),
+            return menu.hints(("↑↓", "pick"), ("ENTER", "join"),
                               ("F", "feat."), ("A", "alarm"))
+        # menus audit 2026-10-14: exiting a live bracket records a loss.
+        if self.tourney is not None and self.tourney.over:
+            keys = ([("SPACE", "result")] if self.tree_view else [])
+            return menu.hints(*(keys + [("B", "bracket"), ("ESC", "leave")]))
         return menu.hints(("SPACE", "fight on"), ("B", "bracket"),
-                          ("ESC", "leave"))
+                          ("ESC", "forfeit"))
 
     def key(self, k):
         if self.sub is not None:
@@ -134,7 +162,8 @@ class TournamentPanel(menu.SubHost):
                 if self.tourney.over:                   # cup finished this match
                     self.sfx = "champion" if self.tourney.champion else "lose"
                     if self.tourney.champion:
-                        self._ceremony = {"t": 0}       # the podium beat first
+                        self._ceremony = {"t": 0, "ticks": CEREMONY_T
+                                          if first_show("cup_podium") else CEREMONY_REPEAT_T}
                     else:
                         self.tree_view = True           # eliminated: the tree...
                         if isinstance(opp, dict):       # ...and the beater becomes
@@ -149,6 +178,10 @@ class TournamentPanel(menu.SubHost):
                     self.tree_view = True               # backed out: the tree waits
             return None
         if self.phase == "select":
+            if k in ("up", "k", "down", "j", "pageup", "pagedown", "enter", "space", "f"):
+                # battle audit 2026-10-14: input can arrive before the
+                # rollover renders -- the keys that read the schedule refresh it
+                self.sched = tournament.schedule(self.pet)
             n = len(self.sched)
             if k in ("up", "k"):
                 self.cursor = (self.cursor - 1) % n
@@ -206,9 +239,17 @@ class TournamentPanel(menu.SubHost):
                 return ("done", None)
             return None
         # bracket
-        if (self._ceremony is not None or self._advance is not None
-                or self._intro is not None):
-            return None                        # the show plays out (no skips)
+        if self._ceremony is not None:
+            self._ceremony = None
+            self.tree_view = True
+            return None
+        if self._advance is not None:
+            self._advance = None
+            self.tree_view = True
+            return None
+        if self._intro is not None:
+            self._finish_intro()
+            return None
         t = self.tourney
         if k == "b":
             # while the cup runs, B always shows the TREE -- flipping the
@@ -222,15 +263,13 @@ class TournamentPanel(menu.SubHost):
             # old flow parked on the empty faceoff arena until a SECOND
             # space -- the same frozen-blank complaint as B above.
             self.tree_view = False
-            self._intro = {"t": 0}
-            self.sfx = "menu"
+            self._start_intro()
             return None
         if k in ("space", "enter") and t.over and self.tree_view:
             self.tree_view = False             # from the final tree to the result
             return None
         if k in ("space", "enter") and not (t.over or self.sub):
-            self._intro = {"t": 0}             # the introductions, then the bell
-            self.sfx = "menu"
+            self._start_intro()
         elif k in ("escape", "u"):          # u (the opening key) also closes
             if not t.over:
                 t.record(False)             # walking out forfeits: the elimination is real
@@ -270,13 +309,7 @@ class TournamentPanel(menu.SubHost):
             out.append(" %-11s%-11s%s\n" % (c1, c2, c3),
                        style=style if you else (INK if c1 else DIM))
         out.append_text(menu.note(t.last, tick=self.frame_i))
-        if t.over:
-            out.append_text(menu.footer("SPACE result   ESC leave"))
-        else:
-            # two-space gap: "quarterfinal" runs the line to exactly 38 --
-            # three spaces clipped "ESC forfeit" to "ESC forfei" (menu audit
-            # 2026-07-21; menu.footer hard-cuts at W)
-            out.append_text(menu.footer("SPACE to the %s  ESC forfeit" % t.round_name.lower()))
+        out.append_text(menu.footer(""))     # keys ride the strip (menus call #12 = A)
         return out
 
     def _frames(self, num, role="idle"):
@@ -339,21 +372,22 @@ class TournamentPanel(menu.SubHost):
         grid.faceoff's own, so the entrance lands exactly where the fight
         stands."""
         t = self._intro["t"]
+        opp_t, pet_t, _hold_t = self._intro_beats()
         opp = self.tourney.current_opponent()
-        pet_rows = self._frames(self.pet.num, "walk" if t >= INTRO_OPP_T else "idle")
-        opp_rows = self._frames(opp["num"], "walk" if t < INTRO_OPP_T else "idle")
+        pet_rows = self._frames(self.pet.num, "walk" if t >= opp_t else "idle")
+        opp_rows = self._frames(opp["num"], "walk" if t < opp_t else "idle")
         left, right = grid.faceoff(pet_rows, opp_rows, left_mirror=True,
                                    right_mirror=False, ph=FIGHT_ROWS * 2)
         lrows, lx, lm = left
         rrows, rx, rm = right
         placements = []
-        if t < INTRO_OPP_T:                    # the challenger walks in
-            p = t / max(1, INTRO_OPP_T - 1)
+        if t < opp_t:                         # the challenger walks in
+            p = t / max(1, opp_t - 1)
             placements = [(rrows, round(grid.X1 + (rx - grid.X1) * p), rm)]
             note = ("%s — your RIVAL!" % opp["name"] if opp.get("rival") else
                     "%s [%s] enters!" % (opp["name"], opp["attribute"][:2]))
-        elif t < INTRO_OPP_T + INTRO_PET_T:    # your mon answers
-            p = (t - INTRO_OPP_T) / max(1, INTRO_PET_T - 1)
+        elif t < opp_t + pet_t:               # your mon answers
+            p = (t - opp_t) / max(1, pet_t - 1)
             lw = grid.width(lrows)
             placements = [(lrows, round((grid.X0 - lw) + (lx - (grid.X0 - lw)) * p), lm),
                           (rrows, rx, rm)]
@@ -426,7 +460,7 @@ class TournamentPanel(menu.SubHost):
             if tr_line:
                 from .pet import weekend_bonus
                 fee = tournament.entry_fee(self.pet, tr_line)
-                purse = int(fee * tournament.ENTRY_FEE_DIV * weekend_bonus())
+                purse = int(tournament.preview_purse(self.pet, tr_line) * weekend_bonus())
                 wk = " \u00b7 wknd x1.5" if weekend_bonus() > 1 else ""
                 out.append("  stake %db \u00b7 purse ~%db%s\n" % (fee, purse, wk),
                            style=DIM)

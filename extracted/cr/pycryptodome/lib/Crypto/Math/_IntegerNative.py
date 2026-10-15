@@ -1,44 +1,19 @@
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
+
+from Crypto.Util.number import GCD, bytes_to_long, inverse, long_to_bytes
 
 from ._IntegerBase import IntegerBase
-
-from Crypto.Util.number import long_to_bytes, bytes_to_long, inverse, GCD
 
 
 class IntegerNative(IntegerBase):
     """A class to model a natural integer (including zero)"""
 
-    def __init__(self, value):
+    def __init__(self, value, *, public=False):
         if isinstance(value, float):
             raise ValueError("A floating point type is not a natural number")
+        # A copy keeps the value public
+        self._public = public or (isinstance(value, IntegerBase) and value._public)
         try:
             self._value = value._value
         except AttributeError:
@@ -54,23 +29,18 @@ class IntegerNative(IntegerBase):
     def __repr__(self):
         return "Integer(%s)" % str(self)
 
-    # Only Python 2.x
-    def __hex__(self):
-        return hex(self._value)
-
-    # Only Python 3.x
     def __index__(self):
         return int(self._value)
 
-    def to_bytes(self, block_size=0, byteorder='big'):
+    def to_bytes(self, block_size=0, byteorder="big"):
         if self._value < 0:
             raise ValueError("Conversion only valid for non-negative numbers")
         result = long_to_bytes(self._value, block_size)
         if len(result) > block_size > 0:
             raise ValueError("Value too large to encode")
-        if byteorder == 'big':
+        if byteorder == "big":
             pass
-        elif byteorder == 'little':
+        elif byteorder == "little":
             result = bytearray(result)
             result.reverse()
             result = bytes(result)
@@ -79,15 +49,15 @@ class IntegerNative(IntegerBase):
         return result
 
     @classmethod
-    def from_bytes(cls, byte_string, byteorder='big'):
-        if byteorder == 'big':
+    def from_bytes(cls, byte_string, byteorder="big", *, public=False):
+        if byteorder == "big":
             pass
-        elif byteorder == 'little':
+        elif byteorder == "little":
             byte_string = bytearray(byte_string)
             byte_string.reverse()
         else:
             raise ValueError("Incorrect byteorder")
-        return cls(bytes_to_long(byte_string))
+        return cls(bytes_to_long(byte_string), public=public)
 
     # Relations
     def __eq__(self, term):
@@ -110,9 +80,8 @@ class IntegerNative(IntegerBase):
     def __ge__(self, term):
         return not self.__lt__(term)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self._value != 0
-    __bool__ = __nonzero__
 
     def is_negative(self):
         return self._value < 0
@@ -120,30 +89,30 @@ class IntegerNative(IntegerBase):
     # Arithmetic operations
     def __add__(self, term):
         try:
-            return self.__class__(self._value + int(term))
+            return self.__class__(self._value + int(term), public=self._is_public_with(term))
         except (ValueError, AttributeError, TypeError):
             return NotImplemented
 
     def __sub__(self, term):
         try:
-            return self.__class__(self._value - int(term))
+            return self.__class__(self._value - int(term), public=self._is_public_with(term))
         except (ValueError, AttributeError, TypeError):
             return NotImplemented
 
     def __mul__(self, factor):
         try:
-            return self.__class__(self._value * int(factor))
+            return self.__class__(self._value * int(factor), public=self._is_public_with(factor))
         except (ValueError, AttributeError, TypeError):
             return NotImplemented
 
     def __floordiv__(self, divisor):
-        return self.__class__(self._value // int(divisor))
+        return self.__class__(self._value // int(divisor), public=self._is_public_with(divisor))
 
     def __mod__(self, divisor):
         divisor_value = int(divisor)
         if divisor_value < 0:
             raise ValueError("Modulus must be positive")
-        return self.__class__(self._value % divisor_value)
+        return self.__class__(self._value % divisor_value, public=self._is_public_with(divisor))
 
     def inplace_pow(self, exponent, modulus=None):
         exp_value = int(exponent)
@@ -158,6 +127,7 @@ class IntegerNative(IntegerBase):
                 raise ZeroDivisionError("Modulus cannot be zero")
         else:
             mod_value = None
+        self._public = False
         self._value = pow(self._value, exp_value, mod_value)
         return self
 
@@ -169,7 +139,6 @@ class IntegerNative(IntegerBase):
         return abs(self._value)
 
     def sqrt(self, modulus=None):
-
         value = self._value
         if modulus is None:
             if value < 0:
@@ -190,14 +159,17 @@ class IntegerNative(IntegerBase):
         return self.__class__(result)
 
     def __iadd__(self, term):
+        self._public = self._is_public_with(term)
         self._value += int(term)
         return self
 
     def __isub__(self, term):
+        self._public = self._is_public_with(term)
         self._value -= int(term)
         return self
 
     def __imul__(self, term):
+        self._public = self._is_public_with(term)
         self._value *= int(term)
         return self
 
@@ -207,6 +179,7 @@ class IntegerNative(IntegerBase):
             raise ZeroDivisionError("Division by zero")
         if modulus < 0:
             raise ValueError("Modulus must be positive")
+        self._public = self._is_public_with(term)
         self._value %= modulus
         return self
 
@@ -227,6 +200,7 @@ class IntegerNative(IntegerBase):
                 return -1
 
     def __irshift__(self, pos):
+        self._public = False
         try:
             self._value >>= int(pos)
         except OverflowError:
@@ -243,6 +217,7 @@ class IntegerNative(IntegerBase):
             raise ValueError("Incorrect shift count")
 
     def __ilshift__(self, pos):
+        self._public = False
         try:
             self._value <<= int(pos)
         except OverflowError:
@@ -273,7 +248,6 @@ class IntegerNative(IntegerBase):
         return (self._value & 1) == 0
 
     def size_in_bits(self):
-
         if self._value < 0:
             raise ValueError("Conversion only valid for non-negative numbers")
 
@@ -292,26 +266,29 @@ class IntegerNative(IntegerBase):
             return True
 
         x = self._value // 2
-        square_x = x ** 2
+        square_x = x**2
 
         while square_x > self._value:
             x = (square_x + self._value) // (2 * x)
-            square_x = x ** 2
+            square_x = x**2
 
-        return self._value == x ** 2
+        return self._value == x**2
 
     def fail_if_divisible_by(self, small_prime):
         if (self._value % int(small_prime)) == 0:
             raise ValueError("Value is composite")
 
     def multiply_accumulate(self, a, b):
+        self._public = False
         self._value += int(a) * int(b)
         return self
 
     def set(self, source):
+        self._public = isinstance(source, IntegerBase) and source._public
         self._value = int(source)
 
     def inplace_inverse(self, modulus):
+        self._public = self._is_public_with(modulus)
         self._value = inverse(self._value, int(modulus))
         return self
 
@@ -355,9 +332,7 @@ class IntegerNative(IntegerBase):
             a1 >>= 1
             e += 1
         # Step 5
-        if (e & 1) == 0:
-            s = 1
-        elif n % 8 in (1, 7):
+        if (e & 1) == 0 or n % 8 in (1, 7):
             s = 1
         else:
             s = -1

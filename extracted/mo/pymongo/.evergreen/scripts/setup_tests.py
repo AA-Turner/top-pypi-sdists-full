@@ -13,10 +13,12 @@ from utils import (
     ENV_FILE,
     HERE,
     LOGGER,
+    PERF_PYTHON_VERSION,
     PLATFORM,
     ROOT,
     TEST_SUITE_MAP,
     Distro,
+    check_drivers_tools,
     get_test_options,
     read_env,
     run_command,
@@ -30,6 +32,8 @@ PASS_THROUGH_ENV = [
     "MONGODB_API_VERSION",
     "DEBUG_LOG",
     "UV_PYTHON",
+    "UV_PYTHON_SEARCH_PATH",
+    "UV_PYTHON_PREFERENCE",
     "REQUIRE_FIPS",
     "IS_WIN32",
 ]
@@ -48,9 +52,6 @@ EXTRAS_MAP = {
 
 # Map the test name to test group.
 GROUP_MAP = dict(mockupdb="mockupdb", perf="perf")
-
-# The python version used for perf tests.
-PERF_PYTHON_VERSION = "3.10.11"
 
 # The libmongocrypt release used when LIBMONGOCRYPT_URL is not set. Must be at
 # least 1.20.0 for the GA "substring" query type.
@@ -290,7 +291,13 @@ def handle_test_env() -> None:
             krb_conf.touch()
             write_env("KRB5_CONFIG", krb_conf)
             LOGGER.info("Writing keytab")
-            keytab = base64.b64decode(config["KEYTAB_BASE64"])
+            # Python 3.15 rejects unpadded base64 by default; padded=False
+            # accepts it, and older Pythons need the padding added explicitly.
+            keytab_b64 = "".join(config["KEYTAB_BASE64"].split())
+            try:
+                keytab = base64.b64decode(keytab_b64, padded=False)
+            except TypeError:
+                keytab = base64.b64decode(keytab_b64 + "=" * (-len(keytab_b64) % 4))
             keytab_file = ROOT / ".evergreen/drivers.keytab"
             with keytab_file.open("wb") as fid:
                 fid.write(keytab)
@@ -321,15 +328,9 @@ def handle_test_env() -> None:
             MULTI_MONGOS_LB_URI += "&tls=true"
         write_env("SINGLE_MONGOS_LB_URI", SINGLE_MONGOS_LB_URI)
         write_env("MULTI_MONGOS_LB_URI", MULTI_MONGOS_LB_URI)
-        if not DRIVERS_TOOLS:
-            raise RuntimeError("Missing DRIVERS_TOOLS")
+        check_drivers_tools()
         cmd = f'bash "{DRIVERS_TOOLS}/.evergreen/run-load-balancer.sh" start'
         run_command(cmd)
-
-    if test_name == "mod_wsgi":
-        from mod_wsgi_tester import setup_mod_wsgi
-
-        setup_mod_wsgi(sub_test_name)
 
     if test_name == "ocsp":
         if sub_test_name:
@@ -375,8 +376,7 @@ def handle_test_env() -> None:
         run_command(cmd, cwd=DRIVERS_TOOLS)
 
     if SSL != "nossl":
-        if not DRIVERS_TOOLS:
-            raise RuntimeError("Missing DRIVERS_TOOLS")
+        check_drivers_tools()
         write_env("CLIENT_PEM", f"{DRIVERS_TOOLS}/.evergreen/x509gen/client.pem")
         write_env("CA_PEM", f"{DRIVERS_TOOLS}/.evergreen/x509gen/ca.pem")
 
@@ -428,8 +428,7 @@ def handle_test_env() -> None:
         # PATH is updated by configure-env.sh for access to mongocryptd.
 
     if test_name == "encryption":
-        if not DRIVERS_TOOLS:
-            raise RuntimeError("Missing DRIVERS_TOOLS")
+        check_drivers_tools()
         csfle_dir = Path(f"{DRIVERS_TOOLS}/.evergreen/csfle")
         # Opt in to corporate Azure credentials (DRIVERS-3392)
         os.environ["FLE_AZURE_USE_CORPORATE"] = "YES"
@@ -512,8 +511,12 @@ def handle_test_env() -> None:
             run_command("tar xf single_and_multi_document.tgz", cwd=data_dir)
         write_env("TEST_PATH", str(data_dir))
         write_env("OUTPUT_FILE", str(ROOT / "results.json"))
-        # Overwrite the UV_PYTHON from the env.sh file.
-        write_env("UV_PYTHON", "")
+        # The toolchain build may be this same patch version but is not
+        # optimized, which regressed CPU-bound benchmarks (PYTHON-6135).
+        write_env("UV_PYTHON", PERF_PYTHON_VERSION)
+        write_env("UV_PYTHON_PREFERENCE", "only-managed")
+        with ENV_FILE.open("a", newline="\n") as fid:
+            fid.write("unset UV_PYTHON_SEARCH_PATH\n")
 
         UV_ARGS.append(f"--python={PERF_PYTHON_VERSION}")
 
@@ -525,8 +528,7 @@ def handle_test_env() -> None:
             TEST_ARGS = f"test/performance/async_perf_test.py {TEST_ARGS}"
 
     # Add coverage if requested.
-    # Only cover CPython. PyPy reports suspiciously low coverage.
-    if opts.cov and platform.python_implementation() == "CPython":
+    if opts.cov:
         # Keep in sync with combine-coverage.sh.
         # coverage >=5 is needed for relative_files=true.
         UV_ARGS.append("--group coverage")

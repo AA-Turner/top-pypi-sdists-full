@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import pickle
-import random
 from typing import Any
 
 from fakeredis import _msgs as msgs
@@ -204,10 +203,7 @@ class GenericCommandsMixin(CommandsMixinBase):
 
     @command(name="RANDOMKEY", fixed=())
     def randomkey(self) -> bytes | None:
-        keys: list[bytes] = list(self._db.keys())
-        if not keys:
-            return None
-        return random.choice(keys)
+        return self._db.random_key()
 
     @command(name="RENAME", fixed=(Key(), Key()))
     def rename(self, key: CommandItem, newkey: CommandItem) -> SimpleString:
@@ -248,7 +244,7 @@ class GenericCommandsMixin(CommandsMixinBase):
 
     @command(name="SCAN", fixed=(Int,), repeat=(bytes, bytes))
     def scan(self, cursor: int, *args: bytes) -> list[bytes | list[bytes]]:
-        return self._scan(list(self._db), cursor, *args)
+        return self._scan(self._db, cursor, *args)
 
     @command(name="SORT", fixed=(Key(),), repeat=(bytes,))
     def sort(self, key: CommandItem, *args: bytes) -> int | list[Any]:

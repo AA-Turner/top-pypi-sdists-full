@@ -7,16 +7,25 @@ against the v2 API, returning rich Agent objects.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Sequence
 
-from istari_digital_client.sdk._base import Page, _Manager
+from istari_digital_client.sdk._base import Page, _Manager, coerce_enum
+from istari_digital_client.sdk._common.job_types import Job
+from istari_digital_client.sdk._common.jobs import Jobs
 from istari_digital_client.sdk._integrations.integration_types import Agent as AgentType
 from istari_digital_client.sdk._generated.v2.models.agent_status_name import AgentStatusName
+from istari_digital_client.sdk._generated.v2.models.new_agent_module_version import (
+    NewAgentModuleVersion,
+)
+from istari_digital_client.sdk._generated.v2.models.new_agent_public_key import (
+    NewAgentPublicKey,
+)
 from istari_digital_client.sdk._generated.v2.models.archive_status import ArchiveStatus
 from istari_digital_client.sdk._generated.v2.models.new_agent import NewAgent
 from istari_digital_client.sdk._generated.v2.models.new_agent_display_name import NewAgentDisplayName
 from istari_digital_client.sdk._generated.v2.models.new_agent_information import NewAgentInformation
 from istari_digital_client.sdk._generated.v2.models.new_agent_status import NewAgentStatus
+from istari_digital_client.sdk._generated.v2.models.worker_mode import WorkerMode
 from istari_digital_client.sdk._generated.v2.models.archive import Archive
 from istari_digital_client.sdk._generated.v2.models.restore import Restore
 
@@ -54,6 +63,8 @@ class Agents(_Manager):
         agent_version: str,
         host_os: str,
         api_hashes: str | None = None,
+        capabilities: Sequence[str] | None = None,
+        worker_mode: str | None = None,
     ) -> AgentType:
         """Register (create/enroll) a new agent — a worker that runs jobs.
 
@@ -65,6 +76,8 @@ class Agents(_Manager):
             agent_version: The agent software version (e.g., "1.0.0").
             host_os: The host operating system (e.g., "Ubuntu 22.04").
             api_hashes: Optional API compatibility hashes.
+            capabilities: Optional list of capability names the agent advertises.
+            worker_mode: Optional execution mode — "polling" or "temporal".
 
         Returns:
             An Agent with fields: id, created, display_name_history, information_history,
@@ -77,6 +90,12 @@ class Agents(_Manager):
                 agent_version=agent_version,
                 host_os=host_os,
                 api_hashes=api_hashes,
+                capabilities=list(capabilities) if capabilities is not None else None,
+                worker_mode=coerce_enum(
+                    WorkerMode, worker_mode, param="worker_mode"
+                )
+                if worker_mode is not None
+                else None,
             ),
         )
         return AgentType._bind(dto, mgr=self)
@@ -213,8 +232,10 @@ class Agents(_Manager):
         agent_version: str,
         host_os: str,
         api_hashes: str | None = None,
+        capabilities: Sequence[str] | None = None,
+        worker_mode: str | None = None,
     ) -> AgentType:
-        """Update an agent's information (version, OS, API hashes).
+        """Update an agent's information (version, OS, API hashes, capabilities).
 
         Mutates: true
 
@@ -223,6 +244,8 @@ class Agents(_Manager):
             agent_version: The agent software version.
             host_os: The host operating system.
             api_hashes: Optional API compatibility hashes.
+            capabilities: Optional list of capability names the agent advertises.
+            worker_mode: Optional execution mode — "polling" or "temporal".
 
         Returns:
             The updated Agent.
@@ -237,9 +260,74 @@ class Agents(_Manager):
                 agent_version=agent_version,
                 host_os=host_os,
                 api_hashes=api_hashes,
+                capabilities=list(capabilities) if capabilities is not None else None,
+                worker_mode=coerce_enum(
+                    WorkerMode, worker_mode, param="worker_mode"
+                )
+                if worker_mode is not None
+                else None,
             ),
         )
         return AgentType._bind(dto, mgr=self)
+
+    def available_jobs(
+        self, agent_id: str, *, page: int | None = None, size: int | None = None
+    ) -> Page[Job]:
+        """List the unclaimed jobs available to an agent, as an auto-paging sequence.
+
+        Mutates: false
+
+        Aliases: unclaimed queue poll worklist
+
+        Returns a Page of rich Job objects the agent may claim. Drive a claimed job
+        by transitioning it with ``job.update_status("Running")`` and, when done, a
+        terminal status ("Completed" / "Failed" / "Canceled"). Iterate the Page
+        directly — subsequent pages are fetched automatically.
+        """
+        jobs_mgr = Jobs(self._engine)
+
+        def fetch(page_num: int) -> Any:
+            return self._call(
+                self._engine.v2_api.get_agent_available_jobs,
+                agent_id,
+                page=page_num,
+                size=size,
+            )
+
+        return self._paginate_offset(
+            fetch, lambda d: Job._bind(d, mgr=jobs_mgr), start_page=page or 1
+        )
+
+    def update_modules(
+        self, agent_id: str, modules: Sequence[tuple[str, str]]
+    ) -> AgentType:
+        """Report the set of modules (and versions) currently loaded on an agent.
+
+        Mutates: true
+
+        ``modules`` is a list of ``(module_name, module_version)`` pairs; it
+        replaces the agent's reported module set. Returns the updated Agent.
+        """
+        payload = [
+            NewAgentModuleVersion(module_name=name, module_version=version)
+            for name, version in modules
+        ]
+        dto = self._call(self._engine.v2_api.update_agent_modules, agent_id, payload)
+        return AgentType._bind(dto, mgr=self)
+
+    def register_public_key(self, agent_id: str, public_key: str) -> Any:
+        """Register the agent's job-signing public key.
+
+        Mutates: true
+
+        ``public_key`` is the PEM-encoded public key the agent uses to sign its
+        work. Returns the registered AgentPublicKey.
+        """
+        return self._call(
+            self._engine.v2_api.register_agent_public_key,
+            agent_id,
+            NewAgentPublicKey(public_key=public_key),
+        )
 
     def archive(self, agent_id: str, *, reason: str | None = None) -> AgentType:
         """Archive (soft-delete) an agent, preventing it from accepting new jobs.

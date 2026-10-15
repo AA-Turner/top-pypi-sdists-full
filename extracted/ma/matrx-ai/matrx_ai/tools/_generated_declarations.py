@@ -35,6 +35,7 @@ from matrx_ai.tools.arg_models import (
     DesktopInputArgs,
     DesktopLocationArgs,
     DesktopMailArgs,
+    DesktopOutlookArgs,
     DesktopMessagesArgs,
     DesktopNetArgs,
     DesktopNotesArgs,
@@ -509,6 +510,12 @@ class InstanceDeleteArgs(ToolArgs):
 class KindcompGetContextArgs(ToolArgs):
     kind: str | None = Field(default=None)
     component_id: str | None = Field(default=None)
+    # shape layers: shared (default, unchanged) | mine | organization (needs organization_id).
+    # DEPLOY-GATED WIDENING like `loading` above: accepted by code first; widen
+    # tool.definition.parameters AFTER this code is deployed.
+    target: Literal["shared", "mine", "organization"] = Field(default="shared")
+    organization_id: str | None = Field(default=None)
+    sample: dict | None = Field(default=None)
 
 
 class KindcompCreateComponentArgs(ToolArgs):
@@ -530,11 +537,21 @@ class KindcompCreateComponentArgs(ToolArgs):
     pinned_kind_version: int | None = Field(default=None)
     is_default: bool = Field(default=True)
     notes: str | None = Field(default=None)
+    # shape layers: shared (default, unchanged) | mine | organization (needs organization_id).
+    # DEPLOY-GATED WIDENING like `loading` above: accepted by code first; widen
+    # tool.definition.parameters AFTER this code is deployed.
+    target: Literal["shared", "mine", "organization"] = Field(default="shared")
+    organization_id: str | None = Field(default=None)
 
 
 class KindcompGetCodeArgs(ToolArgs):
     component_id: str
     sections: list = Field(default=["component_source", "props_transform"])
+    # shape layers: shared (default, unchanged) | mine | organization (needs organization_id).
+    # DEPLOY-GATED WIDENING like `loading` above: accepted by code first; widen
+    # tool.definition.parameters AFTER this code is deployed.
+    target: Literal["shared", "mine", "organization"] = Field(default="shared")
+    organization_id: str | None = Field(default=None)
 
 
 class KindcompUpdateCodeArgs(ToolArgs):
@@ -542,6 +559,11 @@ class KindcompUpdateCodeArgs(ToolArgs):
     updates: dict
     bump_version: bool = Field(default=False)
     notes: str | None = Field(default=None)
+    # shape layers: shared (default, unchanged) | mine | organization (needs organization_id).
+    # DEPLOY-GATED WIDENING like `loading` above: accepted by code first; widen
+    # tool.definition.parameters AFTER this code is deployed.
+    target: Literal["shared", "mine", "organization"] = Field(default="shared")
+    organization_id: str | None = Field(default=None)
 
 
 class KindcompPatchCodeArgs(ToolArgs):
@@ -550,16 +572,31 @@ class KindcompPatchCodeArgs(ToolArgs):
     patches: list
     bump_version: bool = Field(default=False)
     notes: str | None = Field(default=None)
+    # shape layers: shared (default, unchanged) | mine | organization (needs organization_id).
+    # DEPLOY-GATED WIDENING like `loading` above: accepted by code first; widen
+    # tool.definition.parameters AFTER this code is deployed.
+    target: Literal["shared", "mine", "organization"] = Field(default="shared")
+    organization_id: str | None = Field(default=None)
 
 
 class KindcompUpdateSettingsArgs(ToolArgs):
     component_id: str
     settings: dict
+    # shape layers: shared (default, unchanged) | mine | organization (needs organization_id).
+    # DEPLOY-GATED WIDENING like `loading` above: accepted by code first; widen
+    # tool.definition.parameters AFTER this code is deployed.
+    target: Literal["shared", "mine", "organization"] = Field(default="shared")
+    organization_id: str | None = Field(default=None)
 
 
 class KindcompResolveIncidentArgs(ToolArgs):
     incident_id: str
     resolution_notes: str | None = Field(default=None)
+    # shape layers: shared (default, unchanged) | mine | organization (needs organization_id).
+    # DEPLOY-GATED WIDENING like `loading` above: accepted by code first; widen
+    # tool.definition.parameters AFTER this code is deployed.
+    target: Literal["shared", "mine", "organization"] = Field(default="shared")
+    organization_id: str | None = Field(default=None)
 
 
 class ToolcompCreateComponentArgs(ToolArgs):
@@ -1326,6 +1363,15 @@ _reg(
     DesktopMailArgs,
     "matrx_ai.tools.implementations.desktop",
     "desktop_mail",
+    validate=False,
+)
+_reg(
+    "desktop_outlook",
+    "native",
+    "matrx-ai-core",
+    DesktopOutlookArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_outlook",
     validate=False,
 )
 _reg(

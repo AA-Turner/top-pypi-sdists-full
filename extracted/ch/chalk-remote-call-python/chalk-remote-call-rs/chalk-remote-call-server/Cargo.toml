@@ -7,10 +7,14 @@ edition = "2021"
 name = "_native"
 crate-type = ["cdylib"]
 
+[features]
+default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]
+
 [dependencies]
 chalk-remote-call-proto = { path = "../chalk-remote-call-proto" }
 redis = { version = "1.0.2", features = ["aio", "tokio-comp", "streams", "connection-manager"] }
-pyo3 = { version = "0.27", features = ["extension-module"] }
+pyo3 = { version = "0.29" }
 tonic = { version = "0.12", features = ["tls", "tls-native-roots"] }
 tonic-health = "0.12"
 tonic-reflection = "0.12"
@@ -41,3 +45,7 @@ futures-util = "0.3"
 chalk-queue = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "1460144ea659debbaee9dccadcd4d7dbf383ccf8" }
 chalk_metrics = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "a0f8932ec10d3b8340af3e98cf63b800d60b4926" }
 chalk_statsd = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "a0f8932ec10d3b8340af3e98cf63b800d60b4926" }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+async-trait = "0.1"
+tokio = { version = "1", features = ["test-util"] }

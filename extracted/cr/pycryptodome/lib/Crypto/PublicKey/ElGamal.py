@@ -23,15 +23,22 @@
 # SOFTWARE.
 # ===================================================================
 
-__all__ = ['generate', 'construct', 'ElGamalKey']
+from __future__ import annotations
+
+from typing import Callable, Optional, Union
+
+__all__ = ["generate", "construct", "ElGamalKey"]
 
 from Crypto import Random
-from Crypto.Math.Primality import ( generate_probable_safe_prime,
-                                    test_probable_prime, COMPOSITE )
 from Crypto.Math.Numbers import Integer
+from Crypto.Math.Primality import COMPOSITE, generate_probable_safe_prime, test_probable_prime
+
+RNG = Callable[[int], bytes]
+Int = Union[int, Integer]
+
 
 # Generate an ElGamal key with N bits
-def generate(bits, randfunc):
+def generate(bits: int, randfunc: RNG) -> ElGamalKey:
     """Randomly generate a fresh, new ElGamal key.
 
     The key will be safe for use for both encryption and signature
@@ -50,50 +57,46 @@ def generate(bits, randfunc):
         an :class:`ElGamalKey` object
     """
 
-    obj=ElGamalKey()
-
     # Generate a safe prime p
     # See Algorithm 4.86 in Handbook of Applied Cryptography
-    obj.p = generate_probable_safe_prime(exact_bits=bits, randfunc=randfunc)
-    q = (obj.p - 1) >> 1
+    p = generate_probable_safe_prime(exact_bits=bits, randfunc=randfunc)
 
     # Generate generator g
     while 1:
         # Choose a square residue; it will generate a cyclic group of order q.
-        obj.g = pow(Integer.random_range(min_inclusive=2,
-                                     max_exclusive=obj.p,
-                                     randfunc=randfunc), 2, obj.p)
+        g = pow(Integer.random_range(min_inclusive=2, max_exclusive=p, randfunc=randfunc), 2, p)
 
         # We must avoid g=2 because of Bleichenbacher's attack described
         # in "Generating ElGamal signatures without knowning the secret key",
         # 1996
-        if obj.g in (1, 2):
+        if g in (1, 2):
             continue
 
         # Discard g if it divides p-1 because of the attack described
         # in Note 11.67 (iii) in HAC
-        if (obj.p - 1) % obj.g == 0:
+        if (p - 1) % g == 0:
             continue
 
         # g^{-1} must not divide p-1 because of Khadir's attack
         # described in "Conditions of the generator for forging ElGamal
         # signature", 2011
-        ginv = obj.g.inverse(obj.p)
-        if (obj.p - 1) % ginv == 0:
+        ginv = g.inverse(p)
+        if (p - 1) % ginv == 0:
             continue
 
         # Found
         break
 
     # Generate private key x
-    obj.x = Integer.random_range(min_inclusive=2,
-                                 max_exclusive=obj.p-1,
-                                 randfunc=randfunc)
+    x = Integer.random_range(min_inclusive=2, max_exclusive=p - 1, randfunc=randfunc)
     # Generate public key y
-    obj.y = pow(obj.g, obj.x, obj.p)
+    y = pow(g, x, p)
+    obj = ElGamalKey()
+    obj._p, obj._g, obj._y, obj._x = p, g, y, x
     return obj
 
-def construct(tup):
+
+def construct(tup: Union[tuple[Int, Int, Int], tuple[Int, Int, Int, Int]]) -> ElGamalKey:
     r"""Construct an ElGamal key from a tuple of valid ElGamal components.
 
     The modulus *p* must be a prime.
@@ -125,27 +128,28 @@ def construct(tup):
         an :class:`ElGamalKey` object
     """
 
-    obj=ElGamalKey()
-    if len(tup) not in [3,4]:
-        raise ValueError('argument for construct() wrong length')
+    obj = ElGamalKey()
+    if len(tup) not in [3, 4]:
+        raise ValueError("argument for construct() wrong length")
     for i in range(len(tup)):
         field = obj._keydata[i]
-        setattr(obj, field, Integer(tup[i]))
+        setattr(obj, "_" + field, Integer(tup[i]))
 
-    fmt_error = test_probable_prime(obj.p) == COMPOSITE
-    fmt_error |= obj.g<=1 or obj.g>=obj.p
-    fmt_error |= pow(obj.g, obj.p-1, obj.p)!=1
-    fmt_error |= obj.y<1 or obj.y>=obj.p
-    if len(tup)==4:
-        fmt_error |= obj.x<=1 or obj.x>=obj.p
-        fmt_error |= pow(obj.g, obj.x, obj.p)!=obj.y
+    fmt_error = test_probable_prime(obj._p) == COMPOSITE
+    fmt_error |= obj._g <= 1 or obj._g >= obj._p
+    fmt_error |= pow(obj._g, obj._p - 1, obj._p) != 1
+    fmt_error |= obj._y < 1 or obj._y >= obj._p
+    if len(tup) == 4:
+        fmt_error |= obj._x <= 1 or obj._x >= obj._p
+        fmt_error |= pow(obj._g, obj._x, obj._p) != obj._y
 
     if fmt_error:
         raise ValueError("Invalid ElGamal key components")
 
     return obj
 
-class ElGamalKey(object):
+
+class ElGamalKey:
     r"""Class defining an ElGamal key.
     Do not instantiate directly.
     Use :func:`generate` or :func:`construct` instead.
@@ -174,92 +178,110 @@ class ElGamalKey(object):
     #: A private key will also have:
     #:
     #:  - **x**, the private key.
-    _keydata=['p', 'g', 'y', 'x']
+    _keydata = ["p", "g", "y", "x"]
 
-    def __init__(self, randfunc=None):
+    # The key components are set dynamically by construct() and generate()
+    _p: Integer
+    _g: Integer
+    _y: Integer
+    _x: Integer
+
+    def __init__(self, randfunc: Optional[RNG] = None) -> None:
         if randfunc is None:
-            randfunc = Random.new().read
+            randfunc = Random.get_random_bytes
         self._randfunc = randfunc
 
+    @property
+    def p(self) -> int:
+        return int(self._p)
+
+    @property
+    def g(self) -> int:
+        return int(self._g)
+
+    @property
+    def y(self) -> int:
+        return int(self._y)
+
+    @property
+    def x(self) -> int:
+        if not self.has_private():
+            raise AttributeError("No private key component 'x' available for public keys")
+        return int(self._x)
+
     def _encrypt(self, M, K):
-        a=pow(self.g, K, self.p)
-        b=( pow(self.y, K, self.p)*M ) % self.p
+        a = pow(self._g, K, self._p)
+        b = (pow(self._y, K, self._p) * M) % self._p
         return [int(a), int(b)]
 
     def _decrypt(self, M):
-        if (not hasattr(self, 'x')):
-            raise TypeError('Private key not available in this object')
-        r = Integer.random_range(min_inclusive=2,
-                                 max_exclusive=self.p-1,
-                                 randfunc=self._randfunc)
-        a_blind = (pow(self.g, r, self.p) * M[0]) % self.p
-        ax=pow(a_blind, self.x, self.p)
-        plaintext_blind = (ax.inverse(self.p) * M[1] ) % self.p
-        plaintext = (plaintext_blind * pow(self.y, r, self.p)) % self.p
+        if not self.has_private():
+            raise TypeError("Private key not available in this object")
+        r = Integer.random_range(min_inclusive=2, max_exclusive=self._p - 1, randfunc=self._randfunc)
+        a_blind = (pow(self._g, r, self._p) * M[0]) % self._p
+        ax = pow(a_blind, self._x, self._p)
+        plaintext_blind = (ax.inverse(self._p) * M[1]) % self._p
+        plaintext = (plaintext_blind * pow(self._y, r, self._p)) % self._p
         return int(plaintext)
 
     def _sign(self, M, K):
-        if (not hasattr(self, 'x')):
-            raise TypeError('Private key not available in this object')
-        p1=self.p-1
+        if not self.has_private():
+            raise TypeError("Private key not available in this object")
+        p1 = self._p - 1
         K = Integer(K)
-        if (K.gcd(p1)!=1):
-            raise ValueError('Bad K value: GCD(K,p-1)!=1')
-        a=pow(self.g, K, self.p)
-        t=(Integer(M)-self.x*a) % p1
-        while t<0: t=t+p1
-        b=(t*K.inverse(p1)) % p1
+        if K.gcd(p1) != 1:
+            raise ValueError("Bad K value: GCD(K,p-1)!=1")
+        a = pow(self._g, K, self._p)
+        # t = (M - x*a) mod (p-1), without negative intermediate values
+        t = (Integer(M) % p1 + p1 - (self._x * a) % p1) % p1
+        b = (t * K.inverse(p1)) % p1
         return [int(a), int(b)]
 
     def _verify(self, M, sig):
         sig = [Integer(x) for x in sig]
-        if sig[0]<1 or sig[0]>self.p-1:
+        if sig[0] < 1 or sig[0] > self._p - 1:
             return 0
-        v1=pow(self.y, sig[0], self.p)
-        v1=(v1*pow(sig[0], sig[1], self.p)) % self.p
-        v2=pow(self.g, M, self.p)
-        if v1==v2:
+        v1 = pow(self._y, sig[0], self._p)
+        v1 = (v1 * pow(sig[0], sig[1], self._p)) % self._p
+        v2 = pow(self._g, M, self._p)
+        if v1 == v2:
             return 1
         return 0
 
-    def has_private(self):
+    def has_private(self) -> bool:
         """Whether this is an ElGamal private key"""
 
-        if hasattr(self, 'x'):
-            return 1
-        else:
-            return 0
+        return hasattr(self, "_x")
 
-    def can_encrypt(self):
+    def can_encrypt(self) -> bool:
         return True
 
-    def can_sign(self):
+    def can_sign(self) -> bool:
         return True
 
-    def publickey(self):
+    def publickey(self) -> ElGamalKey:
         """A matching ElGamal public key.
 
         Returns:
             a new :class:`ElGamalKey` object
         """
-        return construct((self.p, self.g, self.y))
+        return construct((self._p, self._g, self._y))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ElGamalKey):
+            return False
         if bool(self.has_private()) != bool(other.has_private()):
             return False
 
         result = True
         for comp in self._keydata:
-            result = result and (getattr(self.key, comp, None) ==
-                                 getattr(other.key, comp, None))
+            result = result and (getattr(self, "_" + comp, None) == getattr(other, "_" + comp, None))
         return result
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __getstate__(self):
+    def __getstate__(self) -> None:
         # ElGamal key is not pickable
         from pickle import PicklingError
+
         raise PicklingError
 
     # Methods defined in PyCrypto that we don't support anymore

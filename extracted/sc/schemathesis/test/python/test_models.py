@@ -365,58 +365,17 @@ def test_call_without_base_url_ignores_malformed_swagger_schemes():
         schema["/users"]["GET"].Case().call()
 
 
-def test_validate_response(testdir):
-    testdir.make_test(
-        r"""
-import pytest
-from requests import Response, Request
-from schemathesis.openapi.checks import UndefinedStatusCode
-from schemathesis.core.failures import FailureGroup
-from schemathesis.generation.meta import CONTENT_TYPE_PROBES, coverage_scenario
-
-@schema.parametrize()
-def test_(case):
-    # Content-Type probes are only checked for server errors.
-    if coverage_scenario(case) in CONTENT_TYPE_PROBES:
-        return
-    response = Response()
-    response.headers["Content-Type"] = "application/json"
-    response.status_code = 418
-    request = Request(method="GET", url="http://localhost/v1/users")
-    response.request = request.prepare()
+def test_validate_response(ctx, response_factory):
+    schema = ctx.openapi.load_schema({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    case = schema["/users"]["GET"].Case()
     with pytest.raises(FailureGroup):
-        case.validate_response(response)
-"""
-    )
-    result = testdir.runpytest()
-    result.assert_outcomes(passed=1)
+        case.validate_response(response_factory.requests(status_code=418))
 
 
-def test_validate_response_no_errors(testdir):
-    testdir.make_test(
-        r"""
-import requests
-from io import BytesIO
-from urllib3 import HTTPResponse
-from schemathesis.core.transport import Response
-
-@schema.parametrize()
-def test_(case):
-    response = requests.Response()
-    response._content = b"{}"
-    response.headers["Content-Type"] = "application/json"
-
-    response.raw = HTTPResponse(body=BytesIO(response._content), status=200, headers=response.headers)
-    response.status_code = 200
-    request = requests.PreparedRequest()
-    request.prepare("GET", "http://127.0.0.1")
-    response.request = request
-    assert case.validate_response(response) is None
-""",
-        generation_modes=[GenerationMode.POSITIVE],
-    )
-    result = testdir.runpytest("--tb=long", "-sv")
-    result.assert_outcomes(passed=1)
+def test_validate_response_no_errors(ctx, response_factory):
+    schema = ctx.openapi.load_schema({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    case = schema["/users"]["GET"].Case()
+    assert case.validate_response(response_factory.requests(status_code=200)) is None
 
 
 def test_validate_response_custom_check_raising_while_handling_error(ctx, response_factory):
@@ -760,6 +719,60 @@ def test_call_overrides(app_runner, echo_app, arg):
     case = schema["/users"]["GET"].Case(headers=original, cookies=original, query=original)
     received = case.call(**{arg: {"B": "Y"}}).json()[arg]
     assert {key: received[key] for key in original} == {"A": "X", "B": "Y"}
+
+
+@pytest.mark.parametrize("transport", ["requests", "wsgi"])
+def test_call_percent_encodes_non_latin1_cookies(app_runner, echo_app, transport):
+    if transport == "requests":
+        schema = schemathesis.openapi.from_url(app_runner.openapi_url(echo_app))
+    else:
+        schema = schemathesis.openapi.from_wsgi("/openapi.json", echo_app)
+    case = schema["/users"]["GET"].Case(cookies={"ascii": "a%b", "wide": "k,╯°□°%"})
+    assert case.call().json()["cookies"] == {"ascii": "a%b", "wide": "k%2C%E2%95%AF%C2%B0%E2%96%A1%C2%B0%25"}
+
+
+@pytest.mark.parametrize(
+    ("schema", "explode", "value", "expected"),
+    [
+        ({"type": "object"}, True, {"k": "v", "n": 1}, "k=v,n=1"),
+        ({"type": "object"}, False, {"k": "v", "n": 1}, "k,v,n,1"),
+        ({"type": "array"}, False, ["x", True], "x,true"),
+    ],
+    ids=["object-explode", "object", "array"],
+)
+@pytest.mark.parametrize("transport", ["requests", "wsgi"])
+def test_call_serializes_container_cookie_values(ctx, app_runner, transport, schema, explode, value, expected):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/cookies": {
+                "get": {
+                    "parameters": [{"name": "p", "in": "cookie", "schema": schema, "explode": explode}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/cookies")
+    def cookies():
+        return flask.jsonify(flask.request.cookies)
+
+    if transport == "requests":
+        loaded = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    else:
+        loaded = schemathesis.openapi.from_wsgi("/openapi.json", app)
+    case = loaded["/cookies"]["GET"].Case(cookies={"p": value, "plain": "kept"})
+    assert case.call().json() == {"p": expected, "plain": "kept"}
+
+
+@pytest.mark.parametrize("transport", ["requests", "wsgi"])
+def test_call_sends_undeclared_container_cookies_as_json(app_runner, echo_app, transport):
+    if transport == "requests":
+        schema = schemathesis.openapi.from_url(app_runner.openapi_url(echo_app))
+    else:
+        schema = schemathesis.openapi.from_wsgi("/openapi.json", echo_app)
+    case = schema["/users"]["GET"].Case(cookies={"obj": {"k": "v"}, "arr": ["x", 1]})
+    assert case.call().json()["cookies"] == {"obj": "{%22k%22:%20%22v%22}", "arr": "[%22x%22%2C%201]"}
 
 
 @pytest.mark.parametrize("with_config", [True, False])

@@ -215,8 +215,6 @@ impl FrameIds {
     }
 
     fn set(&mut self, pyframe_id: usize) -> FrameId {
-        // A new frame at this address: any abandoned exit left unreported
-        // there belonged to an earlier frame.
         if !self.abandoned.is_empty() {
             self.abandoned.remove(&pyframe_id);
         }
@@ -263,7 +261,6 @@ impl LineCode {
     pub(crate) fn new(code: &Bound<'_, PyAny>, relative_path: String) -> Result<Self, PyErr> {
         let py = code.py();
         let co_name = code.getattr(intern!(py, "co_name"))?.extract::<String>()?;
-        // Formatted once, as `get_qualname` formats it for every frame.
         let co_qualname = code
             .getattr(intern!(py, "co_qualname"))
             .ok()
@@ -286,8 +283,6 @@ impl LineCode {
                 .expect("qualname always exists on Python 3.12+")
                 .into());
         };
-        // Read once and kept alive while the name is formatted, as
-        // `get_qualname` does.
         let globals = frame.getattr(intern!(py, "f_globals"))?;
         let module = module_name_from_globals(&globals, py);
         let text = module
@@ -342,7 +337,6 @@ impl LineFrame {
         let frame_code = unsafe {
             Bound::from_owned_ptr(py, pyo3::ffi::PyFrame_GetCode(frame.as_ptr().cast()).cast())
         };
-        // Line events need sys.monitoring; older versions only compile this.
         #[cfg(not(Py_3_12))]
         let frame_code = frame.getattr(intern!(py, "f_code"))?;
         let (foreign_path, lineno, qualname) = if frame_code.is(instruction_code) {
@@ -395,8 +389,6 @@ impl LineFrame {
         } else if u32::try_from(self.code.relative_path.len() + 21).is_ok() {
             write_frame_path_pair(buf, &self.code.relative_path, self.lineno);
         } else {
-            // Past the lengths `write_frame_path_pair` checks, written as
-            // before.
             let path = format_path_with_line(&self.code.relative_path, self.lineno);
             write_str_pair(buf, "path", Some(&path));
         }
@@ -477,14 +469,12 @@ pub fn get_qualname(frame: &Bound<'_, PyFrame>, py: Python) -> Result<Option<Str
 
     let co_name = f_code.getattr(intern!(py, "co_name"))?;
     let name = co_name.extract::<String>()?;
-    // Special case for module objects
     if name.as_str() == "<module>" {
         let globals = frame.getattr(intern!(py, "f_globals"))?;
         let module = module_name_from_globals(&globals, py);
         return Ok(Some(format!("{}.<module>", module)));
     }
 
-    // Fallback handling for legacy Python versions without `co_qualname`.
     match _get_qualname_inner(frame, py, &co_name) {
         Ok(qualname) => Ok(qualname),
         Err(_) => Ok(None),

@@ -145,9 +145,13 @@ def test_title_presence():
     assert missing.status == "fail" and missing.score == 5
 
 
-def test_title_length_missing_metrics_is_na_not_pass():
-    outcome = _check_title_length(make_facts(title_metrics={}), SiteAggregates())
+def test_title_length_no_title_is_na_and_stored_metrics_are_not_needed():
+    # The length is read from the title text itself (contract bands), never from a
+    # stored metrics blob - so an empty blob no longer hides a measurable title.
+    outcome = _check_title_length(make_facts(title=None, title_metrics={}), SiteAggregates())
     assert outcome.status == "n_a" and outcome.score is None
+    measured = _check_title_length(make_facts(title="T" * 45, title_metrics={}), SiteAggregates())
+    assert measured.status == "pass" and measured.score == 100
 
 
 def test_title_duplication_counts_partners():
@@ -190,12 +194,28 @@ def test_image_alt_presence():
         ).status
         == "n_a"
     )
+    def inventory(total, missing):
+        return [
+            {"src": f"https://example.com/{i}.jpg", "alt": None if i < missing else "ok"}
+            for i in range(total)
+        ]
+
+    # A legacy snapshot (counts only, no per-image inventory) cannot tell a
+    # decorative alt="" from a missing alt, so it is not judged.
+    assert (
+        _check_image_alt_presence(
+            make_facts(image_count=10, images_missing_alt=2, image_items=[]), SiteAggregates()
+        ).status
+        == "n_a"
+    )
     warn = _check_image_alt_presence(
-        make_facts(image_count=10, images_missing_alt=2), SiteAggregates()
+        make_facts(image_count=10, images_missing_alt=2, image_items=inventory(10, 2)),
+        SiteAggregates(),
     )
     assert warn.status == "warn" and warn.issue_count == 2
     fail = _check_image_alt_presence(
-        make_facts(image_count=10, images_missing_alt=8), SiteAggregates()
+        make_facts(image_count=10, images_missing_alt=8, image_items=inventory(10, 8)),
+        SiteAggregates(),
     )
     assert fail.status == "fail"
     assert_db_valid(fail)
@@ -294,6 +314,52 @@ def test_broken_external_links_score_floor_holds():
         external_checked=100, external_broken=[f"https://gone.example.org/{i}" for i in range(60)]
     )
     assert_db_valid(_check_broken_external_links(make_facts(), site))
+
+
+def test_external_walls_are_blocked_never_broken():
+    """2026-10-14: Yelp and a booking widget answer 403 to bots and work for people;
+    27 pages carried a "broken external links" warning for them."""
+    from matrx_scraper.web_crawl.analysis import _accumulate_edge, SiteLinkGraph
+
+    stats = PageLinkStats()
+    for status in (403, 429, 401, 404, 200):
+        _accumulate_edge(
+            {
+                "target_url": f"https://ext.example.org/{status}",
+                "http_status": status,
+                "is_internal": False,
+                "rel": None,
+                "anchor_text": "x",
+                "source_page_id": "p1",
+            },
+            stats,
+            SiteLinkGraph.__new__(SiteLinkGraph),
+            SiteAggregates(),
+            {},
+        )
+    assert stats.external_broken == ["https://ext.example.org/404"]
+    assert len(stats.external_blocked) == 3
+    assert stats.external_checked == 2
+
+    site = SiteAggregates()
+    site.link_stats["p1"] = stats
+    outcome = _check_broken_external_links(make_facts(), site)
+    assert outcome.status == "warn" and outcome.issue_count == 1
+    assert "3 more refused our checker" in outcome.reasoning
+    assert_db_valid(outcome)
+
+    only_walls = PageLinkStats(external_blocked=["https://www.yelp.com/biz/x"])
+    site.link_stats["p1"] = only_walls
+    assert _check_broken_external_links(make_facts(), site).status == "n_a"
+
+
+def test_a_broken_target_linked_twice_counts_once():
+    site = SiteAggregates()
+    site.link_stats["p1"] = PageLinkStats(
+        external_checked=3,
+        external_broken=["https://gone.example.org/a", "https://gone.example.org/a"],
+    )
+    assert _check_broken_external_links(make_facts(), site).issue_count == 1
 
 
 def test_duplicate_content_exact_same_version_only():
@@ -616,7 +682,7 @@ def test_orphan_pages_flags_a_crawled_page_nothing_links_to():
         crawled_orphan_ids={facts.page_id},
     )
     outcome = _check_orphan_pages(facts, site)
-    assert outcome.status == "fail" and outcome.score == 90  # round(100 * (1 - 1/10))
+    assert outcome.status == "fail" and outcome.score == 40  # rule: constant crawled-orphan score, not the site score
     assert outcome.evidence["captured"] is not False
     assert "crawled successfully" in outcome.reasoning
     assert_db_valid(outcome)
@@ -637,7 +703,8 @@ def test_a_known_but_never_captured_url_is_reported_as_a_different_problem():
         uncrawled_orphan_urls=[facts.url],
     )
     outcome = _check_orphan_pages(facts, site)
-    assert outcome.status == "fail" and outcome.score == 90
+    # rule: constant never-captured-orphan score (50), not the site score
+    assert outcome.status == "fail" and outcome.score == 50
     assert outcome.evidence["captured"] is False
     assert "never successfully" in outcome.reasoning
     assert "crawled successfully" not in outcome.reasoning

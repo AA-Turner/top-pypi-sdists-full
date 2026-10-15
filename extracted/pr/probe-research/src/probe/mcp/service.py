@@ -36,6 +36,7 @@ from .contract import (
     MatchMode,
     MissingMarker,
     NoteCatalogKind,
+    ProvenanceDirection,
     ReadmeState,
     ReadmeUnavailableReason,
     ToolCorpus,
@@ -47,7 +48,7 @@ from .continuation import ContinuationError
 from .continuation import encode as _encode_delivery_cursor
 from .continuation import omit_defaults
 from .delivery_context import current_delivery, pin_document, source_changed
-from .source import _TRANSCRIPT_AGENTS, ResearchOSSource
+from .source import _TRANSCRIPT_AGENTS, CATALOG_NO_MATCH, ResearchOSSource
 
 # `search_in` vocabulary -> backend /v1/search `corpus` values. NOT a passthrough:
 # three entries are identity and one is not, which is the whole reason the tool
@@ -139,6 +140,7 @@ def _text(record: dict) -> str:
         record.get("name"),
         record.get("description"),
         record.get("question"),
+        record.get("conclusion"),
         " ".join(record.get("tags") or []),
     ]
     return " ".join(str(value) for value in fields if value).lower()
@@ -482,6 +484,47 @@ def _scrub_session_work(value: Any, hidden: frozenset[str]) -> Any:
             for key, item in value.items()
         }
     return value
+
+
+def _typed_id_names(value: Any, hidden: frozenset[str]) -> bool:
+    """Whether a typed node id (`run:<uuid>`, `artifact_version:<uuid>`,
+    `file:<sha256>`) names an entity in `hidden`, which holds bare ids."""
+    return isinstance(value, str) and value.partition(":")[2].lower() in hidden
+
+
+def _scrub_provenance_graph(payload: Any, hidden: frozenset[str]) -> Any:
+    """A `GET /v1/provenance` graph without the nodes that name `hidden` work
+    and every edge that names one of them.
+
+    Its own pass because its ids are TYPED (`node_id = f"{type}:{id}"`) and
+    its edges name nodes by `from` / `to`, neither of which the structural
+    scrub reads: without this, the session's runs stayed in a lineage graph
+    under `X-Probe-Hide-Session-Work`. A methods-view step whose run is hidden
+    goes with the structural scrub (`step.run.id` is a bare id)."""
+    if not isinstance(payload, dict):
+        return payload
+    nodes, edges = payload.get("nodes"), payload.get("edges")
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        return payload
+    return {
+        **payload,
+        "nodes": [
+            node
+            for node in nodes
+            if not (isinstance(node, dict) and _typed_id_names(node.get("id"), hidden))
+        ],
+        "edges": [
+            edge
+            for edge in edges
+            if not (
+                isinstance(edge, dict)
+                and (
+                    _typed_id_names(edge.get("from"), hidden)
+                    or _typed_id_names(edge.get("to"), hidden)
+                )
+            )
+        ],
+    }
 
 
 def _collapse_experiments(results: list[dict]) -> list[dict]:
@@ -949,6 +992,9 @@ class _Req:
     #: The last row the previous page sent, for a view that resumes on its
     #: route's own cursor (`_ViewData.resume_key`); None on a first page.
     after: str | None = None
+    #: The ref as the caller wrote it -- a catalog view reads its version
+    #: selector (`dataset:c4@3`) to show the version that was asked for.
+    ref: str | None = None
 
 
 @dataclass
@@ -1062,6 +1108,38 @@ _CARD_FIELDS: dict[str, tuple[str, ...]] = {
     # Fullness rides the card because a sub-note is capped at its carrier's
     # limit, and an agent about to append needs the room left, not a guess.
     EntityType.SUB_NOTE: ("chars", "limit_chars", "remaining_chars", "notes_version"),
+    # The data catalog (C4). `ref` is the server's canonical address, the one
+    # a run's use names; a dataset's version, a checkpoint's facts and a
+    # source's counts are what a reader decides with.
+    EntityType.DATASET: ("ref", "registered"),
+    EntityType.SOURCE: (
+        "ref",
+        "canonical_key",
+        "provider",
+        "revision",
+        "uri",
+        "license",
+        "homepage",
+        "citation",
+        "retrieved_at",
+        "counts",
+    ),
+    EntityType.CHECKPOINT: (
+        "ref",
+        "step",
+        "best",
+        "score",
+        "monitor_key",
+        "rewound",
+        "stored",
+        "location",
+        "size_bytes",
+        "run",
+        "project",
+        "telemetry",
+        "started_from",
+        "locked",
+    ),
 }
 #: The kinds a coding-agent session creates, and so the kinds with an intent.
 _INTENT_KINDS = frozenset({EntityType.RUN, EntityType.EXPERIMENT, EntityType.PROJECT})
@@ -1070,6 +1148,9 @@ _INTENT_CARD_FIELDS = (
     "asked_by_name", "asked_at", "session", "step_id", "provisional",
 )
 _CARD_DESCRIPTION_CHARS = 480
+#: GET /v1/provenance's depth bound (C4): default 4, at most 8 hops.
+_PROVENANCE_DEFAULT_DEPTH = 4
+_PROVENANCE_MAX_DEPTH = 8
 _CARD_TEXT_CHARS = 240
 _CARD_LIST_ITEMS = 8
 
@@ -1168,6 +1249,10 @@ def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = 
         _card_fork(out, entity)
     _card_text(out, entity, "description", _CARD_DESCRIPTION_CHARS)
     _card_text(out, entity, "question", _CARD_DESCRIPTION_CHARS)
+    _card_text(out, entity, "conclusion", _CARD_DESCRIPTION_CHARS)
+    if out.get("conclusion") and entity.get("conclusion_source"):
+        # Whose answer it is: `human`, `agent`, or `lane` (the page's AI summary).
+        out["conclusion_source"] = entity["conclusion_source"]
     if kind == EntityType.ARTIFACT:
         _card_text(out, entity, "resolution_note", _CARD_DESCRIPTION_CHARS)
         if entity.get("shared") is False:
@@ -1488,6 +1573,19 @@ _VIEWS: dict[tuple[str, str], str] = {
     # across every session, and an exact id can legitimately miss its window).
     (EntityType.SESSION, View.CARD): "_view_card",
     (EntityType.SESSION, View.TRANSCRIPT): "_view_session_transcript",
+    # The data catalog (C4), on the `/v1/catalog` and `/v1/provenance` reads.
+    # A dataset's `versions` is its version list, a checkpoint's is the run's
+    # other saves; a source has no versions (a revision is part of its key).
+    # `lineage` is the provenance walk, which reaches SOURCES -- the one end
+    # the run and artifact lineage views cannot name.
+    (EntityType.DATASET, View.CARD): "_view_dataset_card",
+    (EntityType.DATASET, View.VERSIONS): "_view_dataset_versions",
+    (EntityType.DATASET, View.LINEAGE): "_view_catalog_lineage",
+    (EntityType.CHECKPOINT, View.CARD): "_view_checkpoint_card",
+    (EntityType.CHECKPOINT, View.VERSIONS): "_view_checkpoint_saves",
+    (EntityType.CHECKPOINT, View.LINEAGE): "_view_catalog_lineage",
+    (EntityType.SOURCE, View.CARD): "_view_card",
+    (EntityType.SOURCE, View.LINEAGE): "_view_catalog_lineage",
 }
 # Every kind with a card gets the raw record -- except a sub-note, whose card
 # already IS the whole record (title, body, fullness), and which the shared
@@ -1568,6 +1666,12 @@ _VIEW_OPTIONS: dict[tuple[str, str], set[str]] = {
     # `runs` picks the route's `kind=runs` (the source runs) over its default
     # `kind=files` (those runs' files) -- the route's own parameter.
     (EntityType.EXPERIMENT, View.INHERITED): {"runs"},
+    # GET /v1/provenance's own parameters: `direction` and `depth` shape the
+    # graph, `steps` asks for the methods view (`format=steps`) instead.
+    **{
+        (kind, View.LINEAGE): {"direction", "depth", "steps"}
+        for kind in (EntityType.DATASET, EntityType.SOURCE, EntityType.CHECKPOINT)
+    },
 }
 _VIEW_OPTIONS.update(
     {(kind, View.RECORD): {"field"} for kind, view in _VIEWS if view == View.RECORD}
@@ -2085,7 +2189,7 @@ class ResearchReadService:
         hidden = ids
         return dataclass_replace(
             result,
-            payload=_scrub_session_work(result.payload, hidden),
+            payload=_scrub_session_work(_scrub_provenance_graph(result.payload, hidden), hidden),
             rows=None if result.rows is None else _scrub_session_work(result.rows, hidden),
             missing=(
                 [*result.missing, MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED]
@@ -2345,6 +2449,80 @@ class ResearchReadService:
         ids = [row.get("id"), *[a.get("id") for a in ancestors if isinstance(a, dict)]]
         return any(isinstance(i, str) and i.lower() in hidden for i in ids)
 
+    #: Per catalog mode: the caller's argument name -> the route's query name.
+    #: The ONLY filters each mode sends; `server._BROWSE_MODE_ARGS` refuses
+    #: the rest before they reach here.
+    _CATALOG_FILTERS: dict[BrowseMode, dict[str, str]] = {
+        BrowseMode.DATASETS: {"query": "q", "project": "project", "registered": "registered"},
+        BrowseMode.CHECKPOINTS: {
+            "project": "project",
+            "experiment": "experiment",
+            "run": "run",
+            "best": "best",
+            "stored": "stored",
+        },
+        BrowseMode.SOURCES: {"query": "q", "provider": "provider", "kind": "kind"},
+    }
+    #: The catalog routes' own `limit` ceiling (`le=100`): what a continuation
+    #: re-reads to find the row it stopped after.
+    _CATALOG_REREAD_LIMIT = 100
+
+    #: The entity kind each catalog mode lists (a dataset listing also holds
+    #: unregistered `artifact:` rows; their ref says so).
+    _CATALOG_ROW_NAMES: dict[BrowseMode, str] = {
+        BrowseMode.DATASETS: EntityType.DATASET.value,
+        BrowseMode.CHECKPOINTS: EntityType.CHECKPOINT.value,
+        BrowseMode.SOURCES: EntityType.SOURCE.value,
+    }
+
+    @staticmethod
+    def _catalog_row_identity(row: dict) -> str:
+        return str(row.get("ref") or row.get("id"))
+
+    @staticmethod
+    def _catalog_row_hidden(mode: BrowseMode, row: dict, hidden: frozenset[str]) -> bool:
+        """Whether a catalog row is the caller's own session's work: what made
+        it is something that session created. A checkpoint's run (saved with no
+        run: the project or experiment it is filed at); a dataset's newest
+        version's producer -- for an unregistered file, the run that logged it,
+        and a registered dataset the session wrote the newest version of is one
+        it already knows. A source names no run, so none is a session's work."""
+        if mode is BrowseMode.CHECKPOINTS:
+            maker = row.get("run") or row.get("project")
+        elif mode is BrowseMode.DATASETS:
+            latest = row.get("latest")
+            producer = latest.get("producer") if isinstance(latest, dict) else None
+            maker = producer.get("run") if isinstance(producer, dict) else None
+        else:
+            return False
+        ident = maker.get("id") if isinstance(maker, dict) else None
+        return isinstance(ident, str) and ident.lower() in hidden
+
+    @classmethod
+    def _catalog_row(cls, mode: BrowseMode, row: dict) -> dict:
+        """A catalog row with the two addresses every browse row carries.
+
+        `uuid` is `<kind>:<id>`; `slug` the readable form `entity` also takes:
+        `dataset:<name>`, `source:<canonical_key>[@<revision>]`. A run-logged
+        dataset file nobody registered is an `artifact:<id>` row (`entity`
+        opens it as any file). Null keys are dropped, as on every browse row."""
+        kind, _, ident = str(row.get("ref") or "").partition(":")
+        if not ident:
+            kind = cls._CATALOG_ROW_NAMES[mode]
+        row_id = row.get("id") or ident
+        out: dict[str, Any] = {"entity_type": kind, "uuid": f"{kind}:{row_id}"}
+        if kind == EntityType.DATASET and row.get("name"):
+            out["slug"] = f"{EntityType.DATASET.value}:{row['name']}"
+        elif kind == EntityType.SOURCE and row.get("canonical_key"):
+            revision = row.get("revision")
+            out["slug"] = f"{EntityType.SOURCE.value}:{row['canonical_key']}" + (
+                f"@{revision}" if revision else ""
+            )
+        out.update(
+            {key: value for key, value in row.items() if value is not None and key not in ("ref", "id")}
+        )
+        return out
+
     @staticmethod
     def _gone(what: str) -> errors.ValidationError:
         """The refusal for a continuation whose resume row has disappeared.
@@ -2365,9 +2543,18 @@ class ResearchReadService:
         workspace_id: str | None = None,
         limit: int = 10,
         cursor: str | None = None,
+        project: str | None = None,
+        experiment: str | None = None,
+        run: str | None = None,
+        registered: str | None = None,
+        best: bool | None = None,
+        stored: str | None = None,
+        provider: str | None = None,
+        kind: str | None = None,
     ) -> dict:
         """One page of a flat listing: runs (newest first), workspaces, the
-        notes catalog, or the files in Shared / one workspace.
+        notes catalog, the files in Shared / one workspace, or the data
+        catalog's datasets, checkpoints or sources.
 
         Returns the compact envelope plus two private keys browse delivery
         consumes and strips: `_list_after` (per row, the cursor resuming after
@@ -2377,8 +2564,9 @@ class ResearchReadService:
         Every resume position names the LAST ROW SENT, in the form the route can
         act on: runs carry the list's own `(created_at, id)` keyset, notes the
         catalog page plus the row's identity (refused, never guessed, if it is
-        gone), workspaces the row's id, files the row's name. None of them is a
-        count of rows to skip.
+        gone), workspaces the row's id, files the row's name, the data catalog
+        its page plus the row's ref (the notes fallback, for the same reason).
+        None of them is a count of rows to skip.
         """
         mode = BrowseMode(mode)
         if mode is BrowseMode.TREE:
@@ -2394,7 +2582,10 @@ class ResearchReadService:
         end: str | None = None
         hidden: frozenset[str] | None = None
 
-        if mode in (BrowseMode.RUNS, BrowseMode.NOTES) and hide_session is not None:
+        if (
+            mode in (BrowseMode.RUNS, BrowseMode.NOTES, BrowseMode.DATASETS, BrowseMode.CHECKPOINTS)
+            and hide_session is not None
+        ):
             created = self._session_created_ids(hide_session)
             if created is None:
                 missing.append(MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED)
@@ -2456,6 +2647,98 @@ class ResearchReadService:
                     after = self._list_cursor(mode, keyset)
                 sent.append((self._run_row(row), after))
             views_by_kind = {EntityType.RUN.value}
+        elif mode in self._CATALOG_FILTERS:
+            given = {
+                "query": query,
+                "project": project,
+                "experiment": experiment,
+                "run": run,
+                "registered": registered,
+                # A filter, not a toggle: `best=false` asks for nothing.
+                "best": True if best else None,
+                "stored": stored,
+                "provider": provider,
+                "kind": kind,
+            }
+            filters = {
+                route_name: given[name]
+                for name, route_name in self._CATALOG_FILTERS[mode].items()
+                if given[name] is not None
+            }
+            data.update(
+                {name: given[name] for name in self._CATALOG_FILTERS[mode] if given[name] is not None}
+            )
+            # The catalog lists' cursor is the server's own and opaque here, so
+            # a cut INSIDE a page resumes by finding the last row sent again,
+            # from the same position: refused, never guessed, if it is gone.
+            # The re-read takes the route's ceiling, so rows registered since
+            # cannot push that row off the page. A page's last row resumes on
+            # the route's own cursor. Under `X-Probe-Hide-Session-Work` the
+            # caller's own rows are left out and a page of nothing else reads
+            # the next one, as for runs.
+            position, resume_after = backend_cursor, last_sent
+            for _ in range(self._HIDDEN_FILL_PAGES):
+                page = self.source.catalog_list(
+                    str(mode),
+                    cursor=position,
+                    limit=page_size if resume_after is None else self._CATALOG_REREAD_LIMIT,
+                    **filters,
+                )
+                rows = [row for row in page.get("items") or [] if isinstance(row, dict)]
+                for row in rows:
+                    if not (row.get("ref") or row.get("id")):
+                        raise errors.ValidationError(
+                            f"a {mode} row came back without `ref` or `id`, so this listing "
+                            "cannot resume after it; raise `limit` to read the page whole",
+                            status=422,
+                        )
+                start = 0
+                if resume_after is not None:
+                    found = next(
+                        (
+                            i
+                            for i, row in enumerate(rows)
+                            if self._catalog_row_identity(row) == resume_after
+                        ),
+                        None,
+                    )
+                    if found is None:
+                        raise self._gone(self._CATALOG_ROW_NAMES[mode])
+                    start = found + 1
+                backend_next = page.get("next_cursor")
+                fetched_end = self._list_cursor(mode, backend_next) if backend_next else None
+                visible = [
+                    index
+                    for index in range(start, len(rows))
+                    if not (hidden and self._catalog_row_hidden(mode, rows[index], hidden))
+                ]
+                for n, index in enumerate(visible[:page_size]):
+                    # Nothing this page still holds is sent after it: resume
+                    # on the route's own cursor, past the page's hidden tail.
+                    after = (
+                        fetched_end
+                        if n + 1 == len(visible)
+                        else self._list_cursor(
+                            mode, position, self._catalog_row_identity(rows[index])
+                        )
+                    )
+                    sent.append((self._catalog_row(mode, rows[index]), after))
+                end = sent[-1][1] if sent else fetched_end
+                if sent or not backend_next:
+                    break
+                position, resume_after = backend_next, None
+            else:
+                missing.append(MissingMarker.PAGE_HIDDEN_AS_OWN_SESSION_WORK)
+            if (
+                mode is BrowseMode.CHECKPOINTS
+                and isinstance(page.get("totals"), dict)
+                # Counted over the caller's own saves too, and named by project:
+                # this view cannot take them out, so it does not send them.
+                and not hidden
+            ):
+                # Bytes and counts for the WHOLE filtered listing, not this page.
+                data["totals"] = page["totals"]
+            views_by_kind = {row["entity_type"] for row, _ in sent}
         elif mode is BrowseMode.NOTES:
             if query is not None:
                 data["query"] = query
@@ -3328,8 +3611,14 @@ class ResearchReadService:
             filters=self._checked_view_options(kind, view, filters),
             offset=offset,
             after=after,
+            ref=ref,
         )
-        result: _ViewData = getattr(self, _VIEWS[(kind, view)])(entity, request)
+        if isinstance(entity, dict) and CATALOG_NO_MATCH in entity:
+            # Whichever view was asked, the version it names does not exist:
+            # the answer is the same no_match, carrying the versions that do.
+            result = self._catalog_no_match(entity)
+        else:
+            result = getattr(self, _VIEWS[(kind, view)])(entity, request)
         # `X-Probe-Hide-Session-Work` (the daemon's reader): the entity asked for
         # is shown, but the rows, edges and origins in its view that name work the
         # caller's own session created are not -- after browse, a prior project's
@@ -4695,6 +4984,176 @@ class ResearchReadService:
             str(entity["id"]), version=int(version) if version is not None else None
         )
         return _ViewData(payload=record)
+
+    # -- the data catalog (C4) ----------------------------------------------
+
+    #: A version's heavy parts, left to `view="versions"`: the frozen step
+    #: facts carry up to 64 KiB of config, and the users lists are the reverse
+    #: walk. The card counts them instead.
+    _CARD_VERSION_OMIT = frozenset({"meta", "step", "users", "checks"})
+
+    @staticmethod
+    def _catalog_no_match(entity: dict) -> _ViewData:
+        """The dataset exists and the version asked for does not -- the reuse
+        check's no_match, never absence: pin a version that exists, or register
+        the next one of the SAME name. `highest_version` rides the payload so a
+        tight budget cannot cut the ceiling the answer is about."""
+        found = entity[CATALOG_NO_MATCH]
+        versions = sorted(found.get("versions") or [])
+        payload: dict[str, Any] = {
+            "requested": entity.get("ref"),
+            "satisfied_by": None,
+            "highest_version": versions[-1] if versions else None,
+            "version_count": len(versions),
+            "versions": versions,
+        }
+        if found.get("message"):
+            payload["message"] = found["message"]
+        return _ViewData(payload=payload, no_match=True)
+
+    @staticmethod
+    def _dataset_version(entity: dict, ref: str | None) -> dict | None:
+        """The version the ref selected (`@<N>` / `@v<N>`), else the latest:
+        the server's `selected`, which it resolved and sends even when that
+        version falls outside the versions list's cap.
+
+        An older server sends no `selected`; then the version is found in the
+        list (display only: a selector this does not read, or a version past
+        the cap, shows the latest)."""
+        selected = entity.get("selected")
+        if isinstance(selected, dict):
+            return selected
+        versions = [v for v in entity.get("versions") or [] if isinstance(v, dict)]
+        if not versions:
+            return None
+        selector = (ref or "").partition("@")[2].strip().lower().removeprefix("v")
+        if selector.isdigit():
+            for version in versions:
+                if version.get("n") == int(selector):
+                    return version
+        return versions[0]
+
+    def _view_dataset_card(self, entity: dict, request: _Req) -> _ViewData:
+        """The entry and ONE version -- the one the ref named, else the latest --
+        with its heavy lists counted, not listed."""
+        versions = entity.get("versions") or []
+        chosen = self._dataset_version(entity, request.ref)
+        payload: dict[str, Any] = {"version_count": len(versions)}
+        if "versions_truncated" in entity:
+            # The list stopped at the server's cap: `version_count` is a floor.
+            payload["versions_truncated"] = bool(entity["versions_truncated"])
+        if chosen is not None:
+            shown = {
+                key: value
+                for key, value in chosen.items()
+                if key not in self._CARD_VERSION_OMIT and value is not None
+            }
+            users = chosen.get("users")
+            if isinstance(users, dict):
+                # The server's exact count when it sends one (the list is capped).
+                stored = users.get("stored_count")
+                shown["users"] = {
+                    "stored": stored if isinstance(stored, int) else len(users.get("stored") or []),
+                    "derived": len(users.get("derived") or []),
+                    **({"truncated": True} if users.get("truncated") else {}),
+                }
+            if isinstance(chosen.get("checks_count"), int):
+                shown["checks"] = chosen["checks_count"]
+            elif isinstance(chosen.get("checks"), list):
+                shown["checks"] = len(chosen["checks"])
+            payload["version"] = shown
+        return _ViewData(payload=payload)
+
+    def _view_dataset_versions(self, entity: dict, request: _Req) -> _ViewData:
+        """Every version, newest first, whole: producer, frozen step facts,
+        change note, sources, users, composition -- up to the server's cap,
+        which `versions_truncated` says was reached."""
+        payload = (
+            {"versions_truncated": bool(entity["versions_truncated"])}
+            if "versions_truncated" in entity
+            else {}
+        )
+        return _ViewData(
+            payload=payload, rows=list(entity.get("versions") or []), rows_key="versions"
+        )
+
+    def _view_checkpoint_card(self, entity: dict, request: _Req) -> _ViewData:
+        """The checkpoint's Overview read: its facts ride `entity`; the metrics
+        at its step, what it was trained on and who used it ride here. The
+        run's other saves are `view="versions"`."""
+        return _ViewData(
+            payload={
+                key: entity[key]
+                for key in ("at_step", "inputs_at_save", "inputs_source", "used_by")
+                if key in entity
+            }
+        )
+
+    def _view_checkpoint_saves(self, entity: dict, request: _Req) -> _ViewData:
+        """The run's saves as the checkpoint read pages them. Past that page
+        the rest is a browse listing, which pages; said, never implied."""
+        saves = list(entity.get("saves") or [])
+        if not entity.get("saves_next_cursor"):
+            return _ViewData(rows=saves, rows_key="saves")
+        run = entity.get("run") if isinstance(entity.get("run"), dict) else {}
+        run_ref = run.get("ref") or (f"run:{run['id']}" if run.get("id") else None)
+        payload = (
+            {"more_saves": f'browse(mode="checkpoints", run="{run_ref}")'} if run_ref else {}
+        )
+        return _ViewData(
+            payload=payload,
+            rows=saves,
+            rows_key="saves",
+            missing=[MissingMarker.SAVES_BEYOND_SERVER_PAGE],
+        )
+
+    def _view_catalog_lineage(self, entity: dict, request: _Req) -> _ViewData:
+        """The provenance walk from a dataset version, source or checkpoint:
+        typed nodes (sources included) and edges with roles, provenance and
+        the basis of a derived one; `truncated` and `hidden` say what the
+        bounds left out. `steps=true` is the methods view instead: the upstream
+        chain as ordered steps, source first.
+
+        Rooted at the RESOLVED ref (the version the card shows, `checkpoint:
+        <uuid>` for a `@best`), so a version registered between the two reads
+        cannot move the walk off the thing the caller is looking at."""
+        options = request.filters
+        chosen = self._dataset_version(entity, request.ref)
+        root = str((chosen or {}).get("ref") or entity.get("ref") or request.ref)
+        steps = options.get("steps")
+        if steps is not None and not isinstance(steps, bool):
+            raise errors.ValidationError("view_options.steps must be true or false", status=422)
+        if steps:
+            shaping = sorted(key for key in ("direction", "depth") if key in options)
+            if shaping:
+                raise errors.ValidationError(
+                    f"view_options.steps is the upstream methods view and takes no "
+                    f"{' or '.join(shaping)}; drop steps for the graph",
+                    status=422,
+                )
+            return _ViewData(payload=self.source.provenance_steps(root))
+        direction = options.get("direction", ProvenanceDirection.UPSTREAM)
+        try:
+            direction = ProvenanceDirection(direction)
+        except ValueError:
+            raise errors.ValidationError(
+                f"view_options.direction must be one of {[d.value for d in ProvenanceDirection]}, "
+                f"not {direction!r}",
+                status=422,
+            ) from None
+        depth = options.get("depth", _PROVENANCE_DEFAULT_DEPTH)
+        try:
+            depth = None if isinstance(depth, bool) else int(depth)
+        except (TypeError, ValueError):
+            depth = None
+        if depth is None or not 1 <= depth <= _PROVENANCE_MAX_DEPTH:
+            raise errors.ValidationError(
+                f"view_options.depth must be an integer from 1 to {_PROVENANCE_MAX_DEPTH}",
+                status=422,
+            )
+        return _ViewData(
+            payload=self.source.provenance(root, direction=direction.value, depth=depth)
+        )
 
     def _view_team_note_card(self, entity: dict, request: _Req) -> _ViewData:
         """The team note, WHOLE -- see its `_VIEWS` entry for why a card is the

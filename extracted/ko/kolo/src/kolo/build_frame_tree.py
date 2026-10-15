@@ -35,14 +35,14 @@ class ExecutionTreeNode:
     SQL query, HTTP request, or other recorded event.
     """
 
-    index: int  # Position in the flattened tree traversal
-    type: str  # "frame_span", "sql_query",  etc.
-    name: str  # Human-readable name for the node
-    frame_id: str  # Unique identifier for matching call/return pairs
+    index: int
+    type: str
+    name: str
+    frame_id: str
     children: List[ExecutionTreeNode] = field(default_factory=list)
-    all_children_count: int = 0  # Total count of all descendants (recursive)
-    data: Dict[str, Any] = field(default_factory=dict)  # Type-specific data
-    subtype: Optional[str] = None  # e.g., "requests", "urllib3"
+    all_children_count: int = 0
+    data: Dict[str, Any] = field(default_factory=dict)
+    subtype: Optional[str] = None
 
     def dfs(self):
         """Depth-first traversal generator yielding this node and all descendants."""
@@ -63,12 +63,10 @@ class ExecutionTreeInfo:
     outbound_http_requests: List[ExecutionTreeNode]
     background_jobs: List[ExecutionTreeNode]
     log_messages: List[ExecutionTreeNode]
-    # Assignment frames (see ``is_assignment_frame``) whose function has no
-    # open call in this tree: the function running ``with kolo.enable():``,
-    # or the caller of a flushed segment.
     unattached_assignments: List[Dict[str, Any]] = field(default_factory=list)
-    # Whether the tree recorded any assignment at all (``line_events``).
     has_assignments: bool = False
+    unclosed_node_count: int = 0
+    unmatched_exit_count: int = 0
 
 
 def is_assignment_frame(frame: Dict[str, Any]) -> bool:
@@ -179,7 +177,6 @@ def filter_metadata_lists(
     }
 
 
-# Frame type classifications
 CALL_LIKE_FRAMES = [
     "django_request",
     "start_sql_query",
@@ -206,7 +203,6 @@ RETURN_LIKE_FRAMES = [
 
 LEAF_FRAMES = ["log_message", "subtree_flushed"]
 
-# With sys.monitoring, we have these new frame types in addition to call and return
 RETURN_FRAME_EVENTS = ["return", "unwind", "yield"]
 CALL_FRAME_EVENTS = ["call", "resume", "throw"]
 
@@ -233,12 +229,9 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
 
     root_execution_tree_nodes: List[ExecutionTreeNode] = []
     current_ancestors: List[ExecutionTreeNode] = []
-    # The function calls among ``current_ancestors``, so an assignment finds
-    # its call without walking past open non-function spans.
     open_frame_spans: List[ExecutionTreeNode] = []
     execution_tree_node_index = 0
 
-    # Collections for quick access to specific node types
     sql_queries: List[ExecutionTreeNode] = []
     outbound_http_requests: List[ExecutionTreeNode] = []
     background_jobs: List[ExecutionTreeNode] = []
@@ -251,15 +244,51 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
     frame_id_mismatch_count = 0
     unattached_assignments: List[Dict[str, Any]] = []
     has_assignments = False
+    unclosed_node_count = 0
+    unmatched_exit_count = 0
 
-    # Preprocess frames to remove legacy/problematic frames
+    def close_innermost_without_exit(
+        closed_at: Optional[float], at_trace_boundary: bool = False
+    ) -> None:
+        """Close the innermost open call, which has no exit event, and keep it
+        (and everything recorded inside it) in the tree."""
+        nonlocal unclosed_node_count, sql_query_index, outbound_http_request_index
+        nonlocal five_hundred_exception
+        node = current_ancestors.pop()
+        if node.type == "frame_span":
+            open_frame_spans.pop()
+        parent = current_ancestors[-1] if current_ancestors else None
+        close_without_exit(node, closed_at, at_trace_boundary)
+        if node.data.get("exit_not_recorded"):
+            unclosed_node_count += 1
+        if node.type == "sql_query":
+            node.data["index"] = sql_query_index
+            sql_query_index += 1
+            sql_queries.append(node)
+        elif node.type == "outbound_http_request":
+            if parent is None or parent.type != "outbound_http_request":
+                node.data["index"] = outbound_http_request_index
+                outbound_http_request_index += 1
+                outbound_http_requests.append(node)
+        elif node.type == "nested_background_job":
+            background_jobs.append(node)
+        elif node.type == "nested_served_http_request" and five_hundred_exception:
+            node.data["five_hundred_exception"] = five_hundred_exception
+            node.children, span_index = annotate_frame_spans_with_500_exception(
+                node.children, five_hundred_exception
+            )
+            node.data["five_hundred_exception_frame_span_index"] = span_index
+            five_hundred_exception = None
+        if parent is None:
+            root_execution_tree_nodes.append(node)
+
     frames_of_interest = preprocess_frames_of_interest(frames_of_interest)
 
     for frame_index, frame in enumerate(frames_of_interest):
         is_return_frame = "event" in frame and frame["event"] in RETURN_FRAME_EVENTS
         is_call_frame = "event" in frame and frame["event"] in CALL_FRAME_EVENTS
 
-        frame_type = frame.get("type")  # Optional - not all frames have "type"
+        frame_type = frame.get("type")
         is_call = is_call_frame or (frame_type and frame_type in CALL_LIKE_FRAMES)
         is_return = is_return_frame or (frame_type and frame_type in RETURN_LIKE_FRAMES)
 
@@ -267,10 +296,8 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
             current_tree_node = make_tree_node(frame, execution_tree_node_index)
 
             if not current_ancestors:
-                # New root-level subtree
                 current_ancestors.append(current_tree_node)
             else:
-                # Child of current parent
                 current_parent = current_ancestors[-1]
                 current_parent.children.append(current_tree_node)
                 current_ancestors.append(current_tree_node)
@@ -281,28 +308,57 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
 
         elif is_return:
             if not current_ancestors:
+                unmatched_exit_count += 1
                 logger.warning(
                     f"Return frame with no corresponding call frame at index {frame_index}"
                 )
+                if frame_type == "django_response":
+                    # Its 500 exception must not land on a later request.
+                    five_hundred_exception = None
                 continue
+
+            # Missing events (plugin failure, process death, cut trace) are tolerated: keep what was
+            # recorded rather than refusing to build the tree.
+            expected_parent_type = get_expected_parent_type(frame)
+            current_parent = current_ancestors[-1]
+            if (
+                current_parent.type == expected_parent_type
+                and current_parent.frame_id == frame["frame_id"]
+            ):
+                match_index: Optional[int] = len(current_ancestors) - 1
+            else:
+                match_index = find_open_call(
+                    current_ancestors, frame, expected_parent_type
+                )
+            if match_index is None:
+                unmatched_exit_count += 1
+                if frame_type == "django_response":
+                    # Its 500 exception must not land on a later request.
+                    five_hundred_exception = None
+                logger.debug(
+                    "Kolo: skipped an exit with no matching call at index %s\n%s",
+                    frame_index,
+                    stripped_frame_of_interest(frame),
+                )
+                continue
+            if match_index != len(current_ancestors) - 1:
+                closed_at = event_timestamp(frame)
+                while len(current_ancestors) - 1 > match_index:
+                    logger.debug(
+                        "Kolo: call with no recorded exit: %s (%s)",
+                        current_ancestors[-1].frame_id,
+                        current_ancestors[-1].name,
+                    )
+                    close_innermost_without_exit(closed_at)
 
             current_parent = current_ancestors[-1]
 
-            # Validate frame matching
-            expected_parent_type = get_expected_parent_type(frame)
-            if current_parent.type != expected_parent_type:
-                throw_missing_return_frame(
-                    current_parent, frame, frame_index, frames_of_interest
-                )
-
-            # Check frame_id match
             expected_frame_id = current_parent.frame_id
             actual_frame_id = frame["frame_id"]
             if expected_frame_id != actual_frame_id:
                 frame_id_mismatch_count += 1
-                # frame_mismatch_debug_info walks every frame, so only pay for it
-                # once: traces with dropped exits (e.g. RecursionError at stack
-                # exhaustion) can have tens of thousands of mismatches.
+                # frame_mismatch_debug_info walks every frame: only pay once, as traces with dropped exits
+                # can have tens of thousands of mismatches.
                 if frame_id_mismatch_count == 1:
                     debug_info = frame_mismatch_debug_info(
                         current_parent, frame, frames_of_interest
@@ -314,13 +370,11 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
                         f"{debug_surrounding_frames_of_interest(frame_index, frames_of_interest)}"
                     )
 
-            # Populate return data based on frame type
             if is_return_frame:
                 current_parent.data["return_frame"] = frame
             elif frame_type == "django_response":
                 current_parent.data["response"] = frame
 
-                # Handle 500 exceptions
                 if five_hundred_exception:
                     current_parent.data["five_hundred_exception"] = (
                         five_hundred_exception
@@ -342,22 +396,23 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
                 current_parent.name = frame_of_interest_name(frame)
                 current_parent.data["query"] = frame["query"]
                 current_parent.data["query_template"] = frame.get("query_template")
-                current_parent.data["query_data"] = frame.get("query_data")  # Optional
+                current_parent.data["query_data"] = frame.get("query_data")
                 current_parent.data["query_params"] = frame.get("query_params")
-                current_parent.data["database"] = frame.get("database")  # Optional
+                current_parent.data["database"] = frame.get("database")
                 current_parent.data["return_timestamp"] = frame["return_timestamp"]
+                if frame.get("exception"):
+                    current_parent.data["exception"] = frame["exception"]
                 sql_queries.append(current_parent)
 
             elif frame_type == "outbound_http_response":
                 current_parent.data["index"] = outbound_http_request_index
                 outbound_http_request_index += 1
                 current_parent.data["response"] = {
-                    "body": frame.get("body"),  # Optional
-                    "headers": frame.get("headers"),  # Optional
+                    "body": frame.get("body"),
+                    "headers": frame.get("headers"),
                     "timestamp": frame["timestamp"],
                     "status_code": frame["status_code"],
                 }
-                # Hide urllib3 requests nested in requests
                 grandparent_index = len(current_ancestors) - 2
                 if grandparent_index >= 0:
                     grandparent = current_ancestors[grandparent_index]
@@ -389,16 +444,13 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
             else:
                 raise ValueError(f"Unexpected return-like frame type: {frame_type}")
 
-            # Pop completed subtree
             completed_node = current_ancestors.pop()
             if completed_node.type == "frame_span":
                 open_frame_spans.pop()
             if not current_ancestors:
-                # Completed root-level subtree
                 root_execution_tree_nodes.append(completed_node)
 
         elif frame_type and frame_type in LEAF_FRAMES:
-            # Leaf nodes (e.g., log messages)
             current_tree_node = make_tree_node(frame, execution_tree_node_index)
 
             if frame_type == "log_message":
@@ -410,13 +462,11 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
                 current_parent = current_ancestors[-1]
                 current_parent.children.append(current_tree_node)
             else:
-                # Leaf node at root level
                 root_execution_tree_nodes.append(current_tree_node)
 
             execution_tree_node_index += 1
 
         elif frame_type == "exception":
-            # 500 exception - stored for later attachment to django_response
             five_hundred_exception = frame
 
         elif is_assignment_frame(frame):
@@ -427,51 +477,33 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
             else:
                 owner.data.setdefault("assignments", []).append(frame)
 
-    first_open_request_index = next(
-        (
-            index
-            for index, node in enumerate(current_ancestors)
-            if node.type == "outbound_http_request"
-            and all(
-                descendant.type == "outbound_http_request"
-                for descendant in current_ancestors[index:]
-            )
-        ),
-        None,
-    )
-    if first_open_request_index is not None:
-        open_requests = current_ancestors[first_open_request_index:]
-        root_request = open_requests[0]
-        root_request.data["index"] = outbound_http_request_index
-        root_request.data["incomplete_at_trace_boundary"] = True
-        root_request.data["response"] = None
-        outbound_http_requests.append(root_request)
-
-        for nested_request in open_requests[1:]:
-            nested_request.data["incomplete_at_trace_boundary"] = True
-            nested_request.data["response"] = None
-
-        root_execution_tree_nodes.append(root_request)
-        current_ancestors.clear()
+    if current_ancestors:
+        logger.debug(
+            "Kolo: %s calls still open at the end of the trace",
+            len(current_ancestors),
+        )
+        closed_at = last_event_timestamp(frames_of_interest)
+        while current_ancestors:
+            close_innermost_without_exit(closed_at, at_trace_boundary=True)
 
     if frame_id_mismatch_count > 1:
         logger.warning(
             f"Kolo warning: {frame_id_mismatch_count} frame_id mismatches in total"
         )
 
-    if current_ancestors:
-        logger.warning(
-            f"Incomplete subtrees exist: {len(current_ancestors)} unclosed frames"
-        )
-
-    # Postprocess and calculate counts
     execution_tree_nodes = postprocess_tree(root_execution_tree_nodes)
     renumber_indices(execution_tree_nodes)
+    if unclosed_node_count:
+        # Count what the tree shows: postprocessing removes some subtrees
+        # (Django setup, nested module frames) whole.
+        unclosed_node_count = sum(
+            1
+            for root in execution_tree_nodes
+            for node in root.dfs()
+            if node.data.get("exit_not_recorded")
+        )
     set_children_counts(execution_tree_nodes)
 
-    # Filter metadata lists to only include nodes still present after postprocessing
-    # This ensures that metadata lists don't reference nodes that were removed
-    # during postprocessing (e.g., Django setup subtrees, urllib3 frames)
     filtered_metadata = filter_metadata_lists(
         execution_tree_nodes,
         sql_queries,
@@ -491,7 +523,119 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
         log_messages=filtered_metadata["log_messages"],
         unattached_assignments=unattached_assignments,
         has_assignments=has_assignments,
+        unclosed_node_count=unclosed_node_count,
+        unmatched_exit_count=unmatched_exit_count,
     )
+
+
+def find_open_call(
+    current_ancestors: List[ExecutionTreeNode],
+    frame: Dict[str, Any],
+    expected_parent_type: str,
+) -> Optional[int]:
+    """The index in ``current_ancestors`` of the open call that the exit
+    ``frame`` closes, or None if it closes none of them.
+
+    An exit closes the innermost open call. When that call's ``frame_id`` or
+    type says otherwise, the open call with the exit's ``frame_id`` is the
+    match: the calls inside it are missing their exits. An exit whose
+    ``frame_id`` is not open at all is paired by position if the innermost
+    open call has the right type (old traces did not always give a call and
+    its exit the same id), and otherwise matches nothing.
+    """
+    innermost_index = len(current_ancestors) - 1
+    innermost = current_ancestors[innermost_index]
+    frame_id = frame.get("frame_id")
+    innermost_has_type = innermost.type == expected_parent_type
+    if innermost_has_type and innermost.frame_id == frame_id:
+        return innermost_index
+    for index in range(innermost_index - 1, -1, -1):
+        candidate = current_ancestors[index]
+        if candidate.frame_id == frame_id and candidate.type == expected_parent_type:
+            return index
+    if innermost_has_type:
+        return innermost_index
+    return None
+
+
+def event_timestamp(frame: Dict[str, Any]) -> Optional[float]:
+    """When ``frame`` was recorded: the latest of its timestamps (a plugin
+    event has the tracer's and the plugin's own)."""
+    values = [
+        frame[key]
+        for key in ("timestamp", "return_timestamp", "call_timestamp")
+        if isinstance(frame.get(key), (int, float))
+    ]
+    return max(values) if values else None
+
+
+def last_event_timestamp(frames: List[Dict[str, Any]]) -> Optional[float]:
+    for frame in reversed(frames):
+        timestamp = event_timestamp(frame)
+        if timestamp is not None:
+            return timestamp
+    return None
+
+
+def close_without_exit(
+    node: ExecutionTreeNode,
+    closed_at: Optional[float],
+    at_trace_boundary: bool = False,
+) -> None:
+    """Give ``node``, a call the trace has no exit event for, the data its
+    exit would have set, and mark it ``exit_not_recorded``.
+
+    ``closed_at`` is the timestamp of the event that shows the call was over
+    (its caller's exit), or of the last event when the trace ends first: the
+    latest the call can have ended.
+    """
+    data = node.data
+    if node.type == "outbound_http_request":
+        data["response"] = None
+        if at_trace_boundary:
+            data["incomplete_at_trace_boundary"] = True
+            return
+        data["return_timestamp"] = closed_at
+    elif node.type == "frame_span":
+        call_frame = data["call_frame"]
+        return_frame = {
+            key: call_frame[key]
+            for key in ("frame_id", "type", "path", "co_name", "qualname")
+            if key in call_frame
+        }
+        if closed_at is None:
+            closed_at = call_frame.get("timestamp")
+        return_frame["timestamp"] = closed_at
+        return_frame["exit_not_recorded"] = True
+        data["return_frame"] = return_frame
+    elif node.type == "nested_served_http_request":
+        started_at = event_timestamp(data["request"])
+        if closed_at is not None and started_at is not None:
+            ms_duration = (closed_at - started_at) * 1000
+        else:
+            ms_duration = 0
+        data["response"] = {
+            "type": "django_response",
+            "frame_id": node.frame_id,
+            "timestamp": closed_at,
+            "status_code": None,
+            "content": None,
+            "headers": {},
+            "ms_duration": ms_duration,
+            "exit_not_recorded": True,
+        }
+    else:
+        if node.type == "sql_query":
+            node.name = f"SQL query ({node.frame_id})"
+            data["query"] = ""
+            data["query_template"] = None
+            data["query_data"] = None
+            data["query_params"] = None
+            data["database"] = None
+        elif node.type == "django_template":
+            data["return_context"] = None
+        data["return_timestamp"] = closed_at
+    data["exit_not_recorded"] = True
 
 
 def frame_of_interest_name(frame: Dict[str, Any]) -> str:
@@ -519,7 +663,7 @@ def frame_of_interest_name(frame: Dict[str, Any]) -> str:
 
     elif frame_type == "log_message":
         msg = frame["msg"]
-        return str(msg)[:50]  # Truncate long messages
+        return str(msg)[:50]
 
     elif frame_type == "end_sql_query":
         query = frame["query"]
@@ -553,7 +697,6 @@ def make_tree_node(frame: Dict[str, Any], index: int) -> ExecutionTreeNode:
         "frame_id": frame["frame_id"],
     }
 
-    # Handle sys.monitoring frames (call/return events)
     if event and event in CALL_FRAME_EVENTS:
         return ExecutionTreeNode(
             type="frame_span",
@@ -561,7 +704,6 @@ def make_tree_node(frame: Dict[str, Any], index: int) -> ExecutionTreeNode:
             **base_data,
         )
 
-    # Handle special frame types
     elif frame_type == "django_request":
         return ExecutionTreeNode(
             type="nested_served_http_request",
@@ -573,7 +715,7 @@ def make_tree_node(frame: Dict[str, Any], index: int) -> ExecutionTreeNode:
         return ExecutionTreeNode(
             type="sql_query",
             data={
-                "user_code_call_site": frame.get("user_code_call_site"),  # Optional
+                "user_code_call_site": frame.get("user_code_call_site"),
                 "call_timestamp": frame["call_timestamp"],
             },
             **base_data,
@@ -582,13 +724,13 @@ def make_tree_node(frame: Dict[str, Any], index: int) -> ExecutionTreeNode:
     elif frame_type == "outbound_http_request":
         return ExecutionTreeNode(
             type="outbound_http_request",
-            subtype=frame.get("subtype"),  # Optional
+            subtype=frame.get("subtype"),
             data={
                 "request": {
                     "url": frame["url"],
-                    "body": frame.get("body"),  # Optional
+                    "body": frame.get("body"),
                     "method": frame["method"],
-                    "headers": frame.get("headers"),  # Optional
+                    "headers": frame.get("headers"),
                     "timestamp": frame["timestamp"],
                     "method_and_full_url": frame["method_and_full_url"],
                 }
@@ -637,11 +779,11 @@ def make_tree_node(frame: Dict[str, Any], index: int) -> ExecutionTreeNode:
             data={
                 "level": frame["level"],
                 "args": frame["args"],
-                "extra": frame.get("extra"),  # Optional
+                "extra": frame.get("extra"),
                 "msg": frame["msg"],
-                "stack": frame.get("stack"),  # Optional
-                "traceback": frame.get("traceback"),  # Optional
-                "name": frame.get("name"),  # Optional
+                "stack": frame.get("stack"),
+                "traceback": frame.get("traceback"),
+                "name": frame.get("name"),
             },
             **base_data,
         )
@@ -722,7 +864,6 @@ def annotate_frame_spans_with_500_exception(
     exception_summary = exception.get("exception_summary", [])
     exception_message = exception_summary[-1] if exception_summary else ""
 
-    # Find matching frames in the tree
     for ex_index, exception_frame in enumerate(exception_frames):
         is_bottom = ex_index == len(exception_frames) - 1
 
@@ -740,7 +881,6 @@ def annotate_frame_spans_with_500_exception(
                 else:
                     return_frame["annotatedExceptionMessage"] = exception_message
 
-                # Continue searching in children
                 nodes = node.children
                 break
 
@@ -765,11 +905,9 @@ def remove_legacy_background_job_frames(
         1 for f in frames if f.get("type") == "background_job_end"
     )
 
-    # Old format: background_job frames without background_job_end
     if background_job_count > 0 and background_job_end_count == 0:
         return [frame for frame in frames if frame.get("type") != "background_job"]
 
-    # New format: filter out celery.app.task.Task.apply_async
     return [
         frame
         for frame in frames
@@ -779,37 +917,34 @@ def remove_legacy_background_job_frames(
 
 def remove_empty_sql_queries(frames: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Remove SQL query pairs where the query is None."""
-    result = []
-    i = 0
-
-    while i < len(frames):
-        frame = frames[i]
+    # Other events can be recorded between start and end (library frames compiling the query),
+    # so pair each end with its own start rather than the previous event.
+    open_starts: List[int] = []
+    removed = set()
+    for index, frame in enumerate(frames):
         frame_type = frame.get("type")
-
         if frame_type == "start_sql_query":
-            # Look ahead for end_sql_query
-            next_frame = frames[i + 1] if i + 1 < len(frames) else None
-
-            # Sometimes log messages can be between start and end
-            if next_frame and next_frame.get("type") != "end_sql_query":
-                next_frame = frames[i + 2] if i + 2 < len(frames) else None
-
-            if next_frame and next_frame.get("type") == "end_sql_query":
-                if next_frame.get("query") is None:
-                    # Skip both start and end
-                    i += 2
-                    continue
-
+            open_starts.append(index)
         elif frame_type == "end_sql_query":
+            start_index = None
+            for position in range(len(open_starts) - 1, -1, -1):
+                if frames[open_starts[position]].get("frame_id") == frame.get(
+                    "frame_id"
+                ):
+                    start_index = open_starts.pop(position)
+                    break
+            else:
+                if open_starts:
+                    start_index = open_starts.pop()
             if frame.get("query") is None:
-                # Skip this end frame (start should have been skipped already)
-                i += 1
-                continue
-
-        result.append(frame)
-        i += 1
-
-    return result
+                removed.add(index)
+                if start_index is not None:
+                    removed.add(start_index)
+                    if index == start_index + 2:
+                        removed.add(start_index + 1)
+    if not removed:
+        return frames
+    return [frame for index, frame in enumerate(frames) if index not in removed]
 
 
 def preprocess_frames_of_interest(frames: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -835,10 +970,8 @@ def merge_duplicate_roots(nodes: List[ExecutionTreeNode]) -> List[ExecutionTreeN
     merged: List[ExecutionTreeNode] = []
 
     for node in nodes:
-        # Only merge *consecutive* duplicate roots. Non-consecutive roots
-        # sharing a frame_id are distinct entries and must be preserved —
-        # only a placeholder-then-restore pair, which lands adjacent, is
-        # actually the same frame split in two by a flush.
+        # Merge only consecutive duplicate roots: a flush's placeholder/restore pair lands adjacent;
+        # non-consecutive roots sharing a frame_id are distinct.
         if merged and merged[-1].frame_id == node.frame_id:
             existing = merged[-1]
             existing.children.extend(node.children)
@@ -871,9 +1004,8 @@ def remove_django_setup_subtrees(
     result = []
     for node in nodes:
         if node.type in remove_types:
-            continue  # Skip this node entirely
+            continue
 
-        # Recursively process children
         node.children = remove_django_setup_subtrees(node.children)
         result.append(node)
 
@@ -889,7 +1021,6 @@ def remove_module_frames(nodes: List[ExecutionTreeNode]) -> List[ExecutionTreeNo
     """
     result = []
     for node in nodes:
-        # Recursively process children, removing nested module frames
         node.children = _remove_nested_module_frames(node.children)
         result.append(node)
 
@@ -902,13 +1033,11 @@ def _remove_nested_module_frames(
     """Helper function to remove module frames at non-root levels."""
     result = []
     for node in nodes:
-        # Check if this is a module frame
         if node.type == "frame_span":
             call_frame = node.data.get("call_frame", {})
             if call_frame.get("co_name") == "<module>":
-                continue  # Skip this node and all its children
+                continue
 
-        # Recursively process children
         node.children = _remove_nested_module_frames(node.children)
         result.append(node)
 
@@ -923,21 +1052,15 @@ def remove_superfluous_urllib3_frames(nodes: List[ExecutionTreeNode]) -> None:
     """
     for node in nodes:
         if node.type == "outbound_http_request" and node.subtype == "requests":
-            # Flatten urllib3 children
             new_children = []
             for child in node.children:
                 if child.type == "outbound_http_request" and child.subtype == "urllib3":
-                    # Move urllib3's children up to requests level
                     new_children.extend(child.children)
                 else:
                     new_children.append(child)
             node.children = new_children
 
-        # Recursively process children
         remove_superfluous_urllib3_frames(node.children)
-
-
-# Debug helpers
 
 
 def draw_tree(node: ExecutionTreeNode, prefix: str = "") -> str:
@@ -1005,7 +1128,6 @@ def frame_mismatch_debug_info(
     indentation_stack: list[str] = []
 
     for frame in all_frames:
-        # Determine if this is a call, return, or leaf frame
         call_or_return = "unknown"
         frame_type = frame.get("type")
         event = frame.get("event")
@@ -1025,7 +1147,6 @@ def frame_mismatch_debug_info(
 
         indent = "  " * len(indentation_stack)
 
-        # Highlight frames we're interested in
         if (
             frame.get("frame_id") == current_parent_frame_id
             or frame.get("frame_id") == current_return_frame_id
@@ -1042,7 +1163,7 @@ def frame_mismatch_debug_info(
             elif call_or_return == "return":
                 if indentation_stack:
                     indentation_stack.pop()
-                indent = "  " * len(indentation_stack)  # Recalculate
+                indent = "  " * len(indentation_stack)
                 output_lines.append(
                     f"{indent}{call_or_return} ({frame_type}) {{{frame.get('frame_id')}}}"
                 )

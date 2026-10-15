@@ -1,0 +1,27 @@
+- name: LA County has a $98,200 AMI in HUD FY2024 income limits.
+  period: 2024
+  input:
+    county_fips: "06037"
+  output:
+    ami: 98_200
+
+- name: Unknown counties have no AMI.
+  period: 2024
+  input:
+    county_fips: "99999"
+  output:
+    ami: 0
+
+- name: Denver County has a $140,100 AMI in HUD FY2025 income limits.
+  period: 2025
+  input:
+    county_fips: "08031"
+  output:
+    ami: 140_100
+
+- name: Counties absent from FY2025 use their latest prior HUD income-limit row.
+  period: 2025
+  input:
+    county_fips: "09001"
+  output:
+    ami: 147_700

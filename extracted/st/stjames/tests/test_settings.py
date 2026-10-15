@@ -2,7 +2,7 @@
 
 import logging
 
-from pytest import LogCaptureFixture, raises
+from pytest import LogCaptureFixture, mark, raises
 
 from stjames import (
     BasisSet,
@@ -19,7 +19,7 @@ from stjames import (
     SolventSettings,
     TDDFTSettings,
 )
-from stjames.engine_compatibility import ENGINE_DISABLED_TASKS, ENGINE_SOLVENT_MODELS
+from stjames.engine_compatibility import ENGINE_DISABLED_TASKS, ENGINE_METHODS, ENGINE_SOLVENT_MODELS
 from stjames.task import Task
 
 
@@ -216,3 +216,31 @@ def test_periodic_material_property_task_support() -> None:
     for engine, disabled in ENGINE_DISABLED_TASKS.items():
         assert (Task.BAND_STRUCTURE in disabled) == (engine != Engine.QUANTUM_ESPRESSO)
         assert (Task.ELASTIC_TENSOR not in disabled) == (engine in elastic_enabled)
+
+
+@mark.parametrize(
+    ("engine", "method"),
+    [(engine, method) for engine, methods in ENGINE_METHODS.items() for method in sorted(methods)],
+)
+def test_anysolv_preserves_method_and_engine(engine: Engine, method: Method) -> None:
+    """Accept AnySolv with every supported engine/method pair and retain provenance."""
+    settings = Settings(method=method, engine=engine, solvent_settings=SolventSettings(model=SolventModel.ANYSOLV, solvent=Solvent.WATER))
+    restored = Settings.model_validate_json(settings.model_dump_json())
+    assert restored.engine == engine
+    assert restored.method == method
+    assert restored.solvent_settings == SolventSettings(model=SolventModel.ANYSOLV, solvent=Solvent.WATER)
+    assert restored.level_of_theory.endswith("/anysolv(water)")
+
+
+@mark.parametrize("engine", list(Engine))
+def test_anysolv_allowed_by_every_engine(engine: Engine) -> None:
+    """Expose AnySolv consistently in engine solvent allowlists."""
+    assert SolventModel.ANYSOLV in ENGINE_SOLVENT_MODELS[engine]
+
+
+@mark.parametrize("model", [SolventModel.ALPB, SolventModel.GBSA, SolventModel.CPCM])
+def test_tblite_preserves_native_solvent_models(model: SolventModel) -> None:
+    """Keep TBLite's native solvent models available alongside AnySolv."""
+    settings = Settings(method=Method.GFN2_XTB, engine=Engine.TBLITE, solvent_settings=SolventSettings(model=model, solvent=Solvent.WATER))
+    assert settings.engine == Engine.TBLITE
+    assert settings.solvent_settings == SolventSettings(model=model, solvent=Solvent.WATER)

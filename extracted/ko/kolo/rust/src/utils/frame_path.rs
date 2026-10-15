@@ -85,8 +85,6 @@ impl CodeLines {
             f_trace: *mut ffi::PyObject,
             f_lineno: std::ffi::c_int,
         }
-        // The one-time layout check runs Python code; finish it before
-        // reading any frame state.
         #[cfg(Py_3_13)]
         if !co_monitoring::verified(frame.py()) {
             return Ok(None);
@@ -107,8 +105,6 @@ impl CodeLines {
             }
             ffi::PyFrame_GetLasti(frame_ptr.cast())
         };
-        // `PyCode_Addr2Line` answers a negative offset (no instruction run
-        // yet) with `co_firstlineno`, before looking at instrumentation.
         let Ok(offset) = usize::try_from(lasti) else {
             return Ok(Some(self.first_line).filter(|line| *line >= 0));
         };
@@ -339,12 +335,9 @@ ambient_line = sys.gettrace() is not None or any(
             .expect("set above")
             .extract::<Option<u8>>()?
         else {
-            // Every tool id is taken: nothing to probe with.
             return Ok(Layout::Rejected);
         };
-        // Another tool's global LINE events (or `sys.settrace`) would give
-        // the probe LINE data from the start: undecided, without taking a
-        // tool id or bumping the monitoring version.
+        // Ambient LINE events leave the probe undecided without claiming a tool ID.
         if globals
             .get_item("ambient_line")?
             .expect("set above")
@@ -378,9 +371,6 @@ ambient_line = sys.gettrace() is not None or any(
         if !weakref_ok || unsafe { fields(code, CO_WEAKREFLIST, 5) } != [0; 5] {
             return Ok(Layout::Rejected);
         }
-        // CPython's own answers, which the gate must predict: the
-        // `co_lines()` table until LINE data exists, then -1 at the
-        // instructions that do not start a line.
         let table = super::CodeLines::new(probe.cast::<PyCode>()?)?;
         let table = table.lines(py)?.to_vec();
         let cpython_uses_table = || {
@@ -393,11 +383,7 @@ ambient_line = sys.gettrace() is not None or any(
         if !cpython_uses_table() {
             return Ok(Layout::Rejected);
         }
-        // `_co_monitoring` must look like a heap pointer, and the field
-        // before it like `_co_instrumentation_version` (a counter, here
-        // below 1 MiB), before it is followed: a layout with the two swapped
-        // fails one of these. A process that has changed global events
-        // ~4096 times fails closed here.
+        // Verify plausible monitoring pointer and version-counter fields before following the private CPython layout.
         let plausible = || {
             const POINTER_FLOOR: usize = 1 << 20;
             let [executors, cached, version, candidate] =
@@ -412,9 +398,7 @@ ambient_line = sys.gettrace() is not None or any(
         monitoring.call_method1("use_tool_id", (tool, "kolo line table check"))?;
         let checked = (|| -> PyResult<Layout> {
             monitoring.call_method1("set_local_events", (tool, &probe, py_start))?;
-            // Independent of the offsets: CPython answering from LINE data
-            // already means another tool's LINE events instrumented the
-            // probe, which leaves nothing to tell `lines` apart by.
+            // If another tool’s LINE instrumentation already changes CPython’s answer, leave the layout undecided.
             if !cpython_uses_table() {
                 return Ok(Layout::Undecided);
             }
@@ -441,7 +425,6 @@ ambient_line = sys.gettrace() is not None or any(
                 Layout::Rejected
             })
         })();
-        // Release the tool id even if clearing its events fails.
         let cleared = monitoring.call_method1("set_local_events", (tool, &probe, 0));
         let freed = monitoring.call_method1("free_tool_id", (tool,));
         let checked = checked?;
@@ -508,8 +491,6 @@ pub(super) fn frame_line_number(frame: &Bound<'_, PyFrame>) -> Result<Option<usi
         return Ok(Some(lineno as usize));
     }
 
-    // CPython returns -1 when a frame has no current source line. Defer to
-    // `f_lineno`, which reports that as `None`.
     frame
         .getattr(intern!(frame.py(), "f_lineno"))?
         .extract::<Option<usize>>()

@@ -102,6 +102,7 @@ from matrx_scraper.web_crawl.persistence import (
     build_user_claims,
     is_start_claim_conflict,
     read_run_lease,
+    next_stalled_count,
     run_deployment,
     run_lease_is_live,
 )
@@ -142,6 +143,13 @@ async def _track_growth_stage(
 # holds across restarts. The lookback bounds boot-time auto-resume to recent
 # crashes — ancient failures stay failed.
 RESUME_MAX_ATTEMPTS = 3
+# The cap above counts consecutive resumes that captured NOTHING new (a run
+# that keeps dying without progress). A crawl that progresses is resumed after
+# every deploy — releases land about every 30 minutes and a full crawl can run
+# for hours (Sightglass, 2026-10-14: 3 deploy stops used up the old
+# every-resume cap at 236 of 500 pages and the crawl died for good). This hard
+# ceiling bounds total lives regardless.
+RESUME_HARD_CAP = 100
 CRASH_RESUME_LOOKBACK = timedelta(hours=24)
 
 # Only runs with a durable frontier are resumable (short single-page runs
@@ -149,7 +157,7 @@ CRASH_RESUME_LOOKBACK = timedelta(hours=24)
 _RESUMABLE_MODES = frozenset({"full", "list", "page_fetch"})
 
 
-def _assert_session_resumable(session: object) -> dict:
+def _assert_session_resumable(session: object, *, check_attempts: bool = True) -> dict:
     """Gate a session for resume; returns the persisted request dump.
 
     Raises ValueError naming the exact reason — callers surface it verbatim
@@ -183,7 +191,7 @@ def _assert_session_resumable(session: object) -> dict:
     if (metadata.get("cancel_request") or {}).get("requested"):
         raise ValueError("session was cancelled by a user — start a new crawl instead of resuming")
     attempts = int((metadata.get("resume") or {}).get("attempts") or 0)
-    if attempts >= RESUME_MAX_ATTEMPTS:
+    if check_attempts and attempts >= RESUME_MAX_ATTEMPTS:
         raise ValueError(
             f"session was already resumed {attempts} time(s) (cap {RESUME_MAX_ATTEMPTS}) — "
             "a run that keeps dying needs investigation, not another retry"
@@ -192,6 +200,24 @@ def _assert_session_resumable(session: object) -> dict:
     if not isinstance(request_dump, dict) or not request_dump:
         raise ValueError("session has no persisted request in scope['request']; cannot resume")
     return request_dump
+
+
+def _assert_resume_budget(session: object, pages_done: int) -> None:
+    """The resume cap, judged on durable progress: refuse only after
+    RESUME_MAX_ATTEMPTS consecutive lives captured no new page (or the hard
+    ceiling on total lives). A deploy that stops a working crawl costs nothing."""
+    metadata = dict(getattr(session, "metadata", None) or {})
+    resume = dict(metadata.get("resume") or {})
+    attempts = int(resume.get("attempts") or 0)
+    if attempts >= RESUME_HARD_CAP:
+        raise ValueError(f"session was already resumed {attempts} time(s) (hard cap {RESUME_HARD_CAP})")
+    stalled = next_stalled_count({**resume, "attempts": attempts + 1}, pages_done)
+    if stalled > RESUME_MAX_ATTEMPTS:
+        raise ValueError(
+            f"session was resumed {stalled - 1} time(s) in a row without capturing a new page "
+            f"(cap {RESUME_MAX_ATTEMPTS}) — a run that keeps dying needs investigation, "
+            "not another retry"
+        )
 
 
 def _rebuild_resume_request(request_dump: dict, stats: dict | None) -> CrawlStartRequest:
@@ -271,6 +297,14 @@ def _lane_conflict(holder: object, lane: str) -> CrawlStartConflict:
         "cancel it or wait for it to finish before starting another",
         active_session_id=str(getattr(holder, "id", "") or "") or None,
     )
+
+
+def _identity_screenshot_kinds() -> list[str]:
+    """The initialization screenshot kinds that share the identity render's desktop device profile."""
+    from matrx_scraper.browser_pool import PROFILE_BY_KIND
+
+    desktop = PROFILE_BY_KIND["viewport_desktop"].name
+    return [k for k in INITIALIZATION_SCREENSHOT_KINDS if PROFILE_BY_KIND[k].name == desktop]
 
 
 @dataclass
@@ -523,6 +557,7 @@ class WebCrawlService:
             homepage_bootstrap=homepage_bootstrap,
             site_initialization=site_initialization,
             run_lease_token=lease_token,
+            page_budget=request.max_pages,
         )
         return PreparedCrawl(
             site_id=site_id,
@@ -607,8 +642,14 @@ class WebCrawlService:
         site_id = str(session.site_id)
         await repository.assert_site_editor(site_id, ctx.user_id)
 
-        request_dump = _assert_session_resumable(session)
-        request = _rebuild_resume_request(request_dump, session.stats)
+        # Durable progress across every life — the gate counts lives that made
+        # none, and the page budget shrinks by everything captured so far.
+        request_dump = _assert_session_resumable(session, check_attempts=False)
+        pages_done = await repository.captured_page_count(session_id)
+        _assert_resume_budget(session, pages_done)
+        request = _rebuild_resume_request(
+            request_dump, {**dict(session.stats or {}), "pages_fetched": pages_done}
+        )
 
         # Same canonical-pipeline bar as prepare_start.
         if not has_ext("file_manager"):
@@ -636,7 +677,9 @@ class WebCrawlService:
         # win. Both raise RuntimeError("already active…") → 409.
         broker = await self.brokers.create(session_id)
         try:
-            lease_token, attempt = await repository.claim_run_lease(session_id, is_resume=True)
+            lease_token, attempt = await repository.claim_run_lease(
+                session_id, is_resume=True, pages_done=pages_done
+            )
             state = CrawlPersistenceState(
                 site_id=site_id,
                 session_id=session_id,
@@ -645,6 +688,8 @@ class WebCrawlService:
                 file_owner_id=file_owner_id,
                 coverage_qualified=bool((session.scope or {}).get("coverage_qualified")),
                 run_lease_token=lease_token,
+                prior_pages_done=pages_done,
+                page_budget=int(request_dump.get("max_pages") or 0) or None,
             )
             state.url_sequence = await repository.max_url_sequence(session_id)
             # BOTH monotonic counters must resume past the crashed run's rows.
@@ -814,8 +859,11 @@ class WebCrawlService:
             seed_from_sitemap=False,
             list_mode=True,
             render_mode=RENDER_BROWSER_ALWAYS,
-            capture_screenshots=False,
-            screenshot_kinds=[],
+            # The identity render already has the homepage open on the desktop profile: capture the desktop
+            # kinds in that same navigation (held on the state, persisted by the screenshots step) so the
+            # homepage is opened twice, not three times.
+            capture_screenshots=True,
+            screenshot_kinds=_identity_screenshot_kinds(),
             respect_robots=False,
         )
         prepared = await self.prepare_start(
@@ -1871,7 +1919,10 @@ class WebCrawlService:
         if wants_screenshots and browser_pool is None:
             raise RuntimeError("screenshot capture requires the browser pool")
         effective_concurrency = request.concurrency
-        if wants_screenshots and browser_pool is not None:
+        # Every page in a browser → the pool is the real ceiling. Under a
+        # "homepage" scope only a handful of pages render, so the crawl keeps
+        # its own concurrency (the pool still bounds the renders themselves).
+        if wants_screenshots and browser_pool is not None and request.screenshot_scope == "all":
             effective_concurrency = min(request.concurrency, browser_pool.size)
         short_homepage_run = prepared.state.homepage_bootstrap or prepared.state.site_initialization
         crawler = SiteCrawler(
@@ -1889,6 +1940,8 @@ class WebCrawlService:
                 politeness_delay_ms=request.politeness_delay_ms,
                 render_mode=request.render_mode,
                 capture_screenshots=request.capture_screenshots,
+                screenshot_scope=request.screenshot_scope,
+                screenshot_urls=list(request.screenshot_urls),
                 browser_navigation_timeout_ms=8_000 if short_homepage_run else 45_000,
                 browser_settle_timeout_ms=2_500 if short_homepage_run else 5_000,
                 seed_urls=request.seed_urls,
@@ -2176,6 +2229,10 @@ class WebCrawlService:
                         prepared.session_id,
                         crawler,
                         prepared.repository,
+                        # Without the token the watcher never beats the lease
+                        # the initialization claimed — its heartbeat stayed at
+                        # acquired_at (live: 34df4541, 2026-10-14).
+                        lease_token=prepared.state.run_lease_token,
                     )
                 )
                 await crawler.run()
@@ -2275,21 +2332,29 @@ class WebCrawlService:
                     if not has_ext("browser_pool"):
                         raise RuntimeError("screenshot capture requires the browser pool")
                     browser_pool = get_ext("browser_pool")
-                    captured = await browser_pool.fetch_with_capture(
-                        capture.final_url,
-                        timeout_ms=45_000,
-                        settle_timeout_ms=5_000,
-                        screenshot_kinds=list(INITIALIZATION_SCREENSHOT_KINDS),
-                    )
-                    shots = [
-                        CapturedShot(
-                            kind=shot.kind,
-                            width=shot.width,
-                            height=shot.height,
-                            bytes=shot.bytes,
+                    # Desktop kinds usually arrived with the identity render: only what is missing is captured.
+                    held = list(prepared.state.initialization_shots)
+                    held_kinds = {shot.kind for shot in held}
+                    missing_kinds = [k for k in INITIALIZATION_SCREENSHOT_KINDS if k not in held_kinds]
+                    shots = list(held)
+                    if missing_kinds:
+                        captured = await browser_pool.fetch_with_capture(
+                            capture.final_url,
+                            timeout_ms=45_000,
+                            settle_timeout_ms=5_000,
+                            screenshot_kinds=missing_kinds,
                         )
-                        for shot in captured.screenshots
-                    ]
+                        shots += [
+                            CapturedShot(
+                                kind=shot.kind,
+                                width=shot.width,
+                                height=shot.height,
+                                bytes=shot.bytes,
+                            )
+                            for shot in captured.screenshots
+                        ]
+                    order = {k: i for i, k in enumerate(INITIALIZATION_SCREENSHOT_KINDS)}
+                    shots.sort(key=lambda shot: order.get(shot.kind, 99))
                     actual_kinds = [shot.kind for shot in shots]
                     expected_kinds = list(INITIALIZATION_SCREENSHOT_KINDS)
                     if actual_kinds != expected_kinds:

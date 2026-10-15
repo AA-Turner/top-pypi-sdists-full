@@ -16,6 +16,7 @@ mod flight;
 pub use admission::{relieve, Disk, Relief};
 pub(crate) use flight::held_objects;
 
+use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
@@ -48,6 +49,11 @@ pub struct Request<'a> {
     pub step: &'a str,
     /// Manifests the GC policy must not evict: the caller's serving set.
     pub keep: &'a [String],
+    /// Make only these components resident (with the manifest, header and assets): the ones a
+    /// caller runs first. Empty: the whole checkpoint, recorded once it is all here.
+    pub components: &'a [String],
+    /// A part ensure's objects beside its components: the ones a reader is about to read.
+    pub objects: &'a [ObjectRef],
     pub cancellation: Option<PullCancellation>,
     pub streams: usize,
     /// The transport ledger's resolution; configuration, never a verdict.
@@ -72,6 +78,8 @@ impl<'a> Request<'a> {
             policy,
             step: "",
             keep: &[],
+            components: &[],
+            objects: &[],
             cancellation: None,
             streams: transport::PULL_STREAMS,
             sample_seconds: transport::SAMPLE_SECONDS,
@@ -209,9 +217,142 @@ struct Counters {
 }
 
 pub fn ensure(request: &Request<'_>) -> Result<Ensured> {
+    run(request, false).map(|(ensured, _)| ensured)
+}
+
+/// What an ensure of some components landed, held from GC until dropped. Nothing records part
+/// of a checkpoint, so its objects are unreferenced until the whole one is; the caller keeps
+/// this while it still means to complete it.
+pub struct PartHold {
+    hold: Option<crate::meta::Hold>,
+    meta: crate::meta::Meta,
+}
+
+impl Drop for PartHold {
+    fn drop(&mut self) {
+        if let Some(hold) = self.hold.take() {
+            let _ = hold.release(&self.meta);
+        }
+    }
+}
+
+/// [`ensure`] of the manifest, header and assets with `request.components` and
+/// `request.objects` alone (neither: the checkpoint's structure), its objects held until the
+/// hold drops. The hold is taken while this ensure still leads its flight, so no collection
+/// runs between the two. The hub is attested as the origin of the rest ([`crate::origin`]).
+pub fn ensure_part(request: &Request<'_>) -> Result<(Ensured, PartHold)> {
+    let (ensured, hold) = run(request, true)?;
+    Ok((ensured, hold.expect("a part ensure holds what it landed")))
+}
+
+/// A checkpoint held here in part ([`ensure_part`]) and its readers' fetches of the rest from
+/// the hub it came from: its closure resolved once, each object pulled once however many
+/// readers ask for it at once, and what each pull landed held until this drops.
+#[derive(Default)]
+pub struct Parts {
+    closure: Mutex<Option<Arc<transport::Closure>>>,
+    landing: Mutex<BTreeSet<String>>,
+    landed: Condvar,
+    holds: Mutex<Vec<PartHold>>,
+}
+
+impl Parts {
+    /// Make `request.objects` resident: those another fetch is pulling are waited for, the
+    /// rest pulled in one walk. The request names the same checkpoint every time.
+    pub fn fetch(&self, request: &Request<'_>) -> Result<()> {
+        loop {
+            let mine = {
+                let mut landing = self.landing.lock().unwrap();
+                loop {
+                    let absent: Vec<&ObjectRef> =
+                        request.objects.iter().filter(|o| !request.store.contains(&o.sha256)).collect();
+                    if absent.is_empty() {
+                        return Ok(());
+                    }
+                    let mut mine: Vec<ObjectRef> =
+                        absent.into_iter().filter(|o| !landing.contains(&o.sha256)).cloned().collect();
+                    if !mine.is_empty() {
+                        mine.sort_by(|a, b| a.sha256.cmp(&b.sha256));
+                        mine.dedup();
+                        landing.extend(mine.iter().map(|o| o.sha256.clone()));
+                        break mine;
+                    }
+                    landing = self.landed.wait(landing).unwrap();
+                }
+            };
+            let pulled = self.pull(request, &mine);
+            let mut landing = self.landing.lock().unwrap();
+            for object in &mine {
+                landing.remove(&object.sha256);
+            }
+            self.landed.notify_all();
+            drop(landing);
+            pulled?;
+        }
+    }
+
+    fn pull(&self, request: &Request<'_>, wanted: &[ObjectRef]) -> Result<()> {
+        let started = Instant::now();
+        let closure = self.closure(request)?;
+        let contained = |o: &ObjectRef| {
+            closure.objects.binary_search_by(|c| c.sha256.cmp(&o.sha256)).is_ok_and(|at| closure.objects[at] == *o)
+        };
+        if let Some(foreign) = wanted.iter().find(|o| !contained(o)) {
+            return Err(Refusal {
+                code: Code::NOT_CONTAINED,
+                detail: format!("{} is not a part of this checkpoint", foreign.id()),
+            });
+        }
+        let part = transport::Closure {
+            model: closure.model.clone(),
+            release: closure.release.clone(),
+            lane: closure.lane.clone(),
+            scope: closure.scope.clone(),
+            manifest: closure.manifest.clone(),
+            objects: wanted.to_vec(),
+            complete: true,
+            presign_max_digests: closure.presign_max_digests,
+            part: true,
+        };
+        let (_, hold) = land(request, &part, false, true, started)?;
+        self.holds.lock().unwrap().extend(hold);
+        Ok(())
+    }
+
+    fn closure(&self, request: &Request<'_>) -> Result<Arc<transport::Closure>> {
+        let mut closure = self.closure.lock().unwrap();
+        if let Some(closure) = &*closure {
+            return Ok(closure.clone());
+        }
+        let resolved = Arc::new(transport::resolve_closure(&request.pull(request.store))?);
+        Ok(closure.insert(resolved).clone())
+    }
+}
+
+fn run(request: &Request<'_>, hold: bool) -> Result<(Ensured, Option<PartHold>)> {
     let started = Instant::now();
+    let say = events(request);
+    let tick = Duration::from_secs_f64(EVENT_SECONDS);
+    // Resolving says so once per tick: a hub that takes its time is time passing on the
+    // caller's display, never silence, and the caller's cancellation still ends it.
+    let resolving = || say(Phase::Resolving, 0, 0, 0.0, 0);
+    resolving();
+    let mut closure = ticking(tick, &resolving, || {
+        transport::resolve_closure(&request.pull(request.store))
+    })?;
+    let narrowed = hold || !request.components.is_empty() || !request.objects.is_empty();
+    if narrowed {
+        closure = ticking(tick, &resolving, || {
+            transport::narrow(&request.pull(request.store), &closure, request.components, request.objects)
+        })?;
+    }
+    land(request, &closure, narrowed, hold, started)
+}
+
+/// What a request's events say, as they happen.
+fn events<'r>(request: &'r Request<'_>) -> impl Fn(Phase, u64, u64, f64, u32) + Sync + 'r {
     let model = request.refspec.split('@').next().unwrap_or_default();
-    let say = |phase: Phase, bytes_done: u64, bytes_total: u64, rate: f64, attempt: u32| {
+    move |phase, bytes_done, bytes_total, rate, attempt| {
         if let Some(on_event) = request.on_event {
             on_event(&Event {
                 model: model.to_string(),
@@ -223,15 +364,21 @@ pub fn ensure(request: &Request<'_>) -> Result<Ensured> {
                 attempt,
             });
         }
-    };
+    }
+}
+
+/// Make `closure` resident: lead its manifest's flight, admit, pull. `attest` records the hub
+/// as the origin of what a part leaves absent; `hold` keeps what landed.
+fn land(
+    request: &Request<'_>,
+    closure: &transport::Closure,
+    attest: bool,
+    hold: bool,
+    started: Instant,
+) -> Result<(Ensured, Option<PartHold>)> {
+    let say = events(request);
+    let model = request.refspec.split('@').next().unwrap_or_default();
     let tick = Duration::from_secs_f64(EVENT_SECONDS);
-    // Resolving says so once per tick: a hub that takes its time is time passing on the
-    // caller's display, never silence, and the caller's cancellation still ends it.
-    let resolving = || say(Phase::Resolving, 0, 0, 0.0, 0);
-    resolving();
-    let closure = ticking(tick, &resolving, || {
-        transport::resolve_closure(&request.pull(request.store))
-    })?;
     let declared = closure.manifest.length + closure.objects.iter().map(|o| o.length).sum::<u64>();
     let flight = Flight::lead(
         request.store,
@@ -333,7 +480,22 @@ pub fn ensure(request: &Request<'_>) -> Result<Ensured> {
         counters.origin_bytes.load(Ordering::Relaxed) as f64 / started.elapsed().as_secs_f64(),
         counters.attempt.load(Ordering::Relaxed),
     );
-    Ok(Ensured {
+    if attest {
+        crate::origin::attest(request.store, &closure.manifest, &format!("{} {}", request.hub, request.refspec))?;
+    }
+    let part = if hold {
+        let meta = crate::meta::Meta::open(request.store)?;
+        let owner = crate::meta::owner(request.store.root());
+        let _admitting = owner.as_ref().map(|owner| owner.gate.read().unwrap());
+        let held = meta.read_hold(owner.as_ref(), &closure_objects)?;
+        Some(PartHold {
+            hold: Some(held),
+            meta,
+        })
+    } else {
+        None
+    };
+    let ensured = Ensured {
         model: report.model,
         release: report.release,
         lane: report.lane,
@@ -348,7 +510,8 @@ pub fn ensure(request: &Request<'_>) -> Result<Ensured> {
         attempts: counters.attempt.load(Ordering::Relaxed),
         joined: flight.joined,
         seconds: started.elapsed().as_secs_f64(),
-    })
+    };
+    Ok((ensured, part))
 }
 
 /// Run `work`, calling `tick` once per `every` until it returns.

@@ -25,7 +25,7 @@ from trajectory.lib.benchmark_progress import (
 from trajectory.lib.benchmark_submission import SubmissionUpload
 from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
 from trajectory.types.batch_item_failure import BatchItemFailure
-from trajectory.types.benchmark_images_response import BenchmarkImagesResponse
+from trajectory.types.benchmark_images_page import BenchmarkImage
 from trajectory.types.benchmarks.benchmark_spec import BenchmarkSpec
 from trajectory.types.benchmarks.image_spec import ImageSpec
 from trajectory.types.benchmarks.runtime_spec import RuntimeSpec
@@ -301,47 +301,43 @@ def wait_for_benchmark_images(
   *,
   timeout_seconds: float = 1800,
   poll_seconds: float = 20,
-) -> BenchmarkImagesResponse:
-  """Start benchmark image builds and poll until every build is terminal."""
+) -> list[BenchmarkImage]:
+  """Request benchmark image builds and poll until every build is terminal.
+
+  The build request is only an acknowledgement. Each poll reads every page of
+  `client.benchmarks.images.list(bench_id)`, so an image on any page that is still building
+  keeps the helper waiting, and a failed image on any page raises `BenchmarkImageBuildError`
+  once no image is building. Returns every image when all builds succeed.
+  """
   if timeout_seconds < 0:
     raise ValueError("timeout_seconds must be non-negative")
   if poll_seconds < 0:
     raise ValueError("poll_seconds must be non-negative")
   deadline = time.monotonic() + timeout_seconds
-  response = client.benchmarks.images.build(bench_id)
+  client.benchmarks.images.build(bench_id)
   while True:
-    in_flight = any(image.build_status in {"pending", "building"} for image in response.images)
+    images = list(client.benchmarks.images.list(bench_id))
+    in_flight = any(image.build_status in {"pending", "building"} for image in images)
     if not in_flight:
-      failed = [image for image in response.images if image.build_status == "failed"]
+      failed = [image.task_id for image in images if image.build_status == "failed"]
       if failed:
-        causes: dict[tuple[str, str], str] = {}
-        failures = []
-        for image in failed:
-          cause = image.failure_message
-          if cause:
-            causes.setdefault((image.provider, image.provider_ref or image.task_id), cause)
-          failures.append(
+        raise BenchmarkImageBuildError(
+          f"Image builds failed for tasks: {failed!r}",
+          failures=[
             BatchItemFailure(
               code="benchmark_image_build_failed",
-              message=f"Image build failed for task {image.task_id!r}."
-              + (f" {cause}" if cause else ""),
-              context={"task_id": image.task_id},
+              message=f"Image build failed for task {task_id!r}.",
+              context={"task_id": task_id},
             )
-          )
-        message = f"Image builds failed for tasks: {[image.task_id for image in failed]!r}"
-        if causes:
-          message += "\n" + "\n".join(causes.values())
-        raise BenchmarkImageBuildError(
-          message,
-          failures=failures,
-          partial_result=response,
+            for task_id in failed
+          ],
+          partial_result=images,
         )
-      return response
+      return images
     if time.monotonic() >= deadline:
       raise BenchmarkImageBuildTimeoutError(
         f"Image builds for {bench_id!r} did not finish in {timeout_seconds} seconds",
         failures=[],
-        partial_result=response,
+        partial_result=images,
       )
     time.sleep(poll_seconds)
-    response = client.benchmarks.images.list(bench_id)

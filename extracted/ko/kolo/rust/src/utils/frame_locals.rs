@@ -374,9 +374,6 @@ snap("module")
                     bool,
                 ) = entry.extract().unwrap();
                 let Some(fast) = fast else {
-                    // Only non-optimized code, locals added via f_locals, and
-                    // interpreters without a mirrored layout take the
-                    // proxy-copy fallback.
                     assert!(
                         !optimized || kind == "extra-locals" || !supported,
                         "{kind}: unexpected fallback"
@@ -390,7 +387,6 @@ snap("module")
                     fast_items.eq(&expected_items).unwrap(),
                     "{kind}: {fast_items} != {expected_items}"
                 );
-                // Same objects, not just equal ones.
                 for (key, value) in expected.iter() {
                     assert!(
                         fast.get_item(&key).unwrap().unwrap().is(&value),

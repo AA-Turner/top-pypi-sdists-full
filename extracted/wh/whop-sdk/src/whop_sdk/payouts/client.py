@@ -22,6 +22,7 @@ from .types.retrieve_payouts_response import RetrievePayoutsResponse
 
 if typing.TYPE_CHECKING:
     from .methods.client import AsyncMethodsClient, MethodsClient
+    from .paypal_link_sessions.client import AsyncPaypalLinkSessionsClient, PaypalLinkSessionsClient
     from .supported_methods.client import AsyncSupportedMethodsClient, SupportedMethodsClient
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -32,6 +33,7 @@ class PayoutsClient:
         self._raw_client = RawPayoutsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._methods: typing.Optional[MethodsClient] = None
+        self._paypal_link_sessions: typing.Optional[PaypalLinkSessionsClient] = None
         self._supported_methods: typing.Optional[SupportedMethodsClient] = None
 
     @property
@@ -116,7 +118,7 @@ class PayoutsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -214,7 +216,7 @@ class PayoutsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -254,7 +256,7 @@ class PayoutsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateQuotePayoutsResponse:
         """
-        Creates a short-lived, provider-backed quote for a payout. No funds move until the returned quote_token is submitted to POST /payouts. An Idempotency-Key header is required.
+        Creates a short-lived, provider-backed quote of a payout's fee, exchange rate, and destination amount. No funds move until you submit the returned `quote_token` to `POST /payouts`.
 
         Parameters
         ----------
@@ -295,7 +297,7 @@ class PayoutsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -326,7 +328,7 @@ class PayoutsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RetrievePayoutsResponse:
         """
-        Fetches one payout by its `wdrl_` ID, or by the `cofr_` conversion request ID a stablecoin payout carries as `payout_request_id` — both ids answer with the same payout object. Authentication is optional. Anyone with the ID can view payout tracking details, including notes, trace code, exchange rate, and payout request ID. Accounting fields require payout:withdrawal:read on the owning ledger. A supplied invalid credential returns 401.
+        Retrieves a payout by its `wdrl_` ID, or by the `cofr_` conversion request ID a stablecoin payout carries as `payout_request_id`. Authentication is optional: anyone with the ID can view tracking details, including notes, trace code, exchange rate, and payout request ID, while accounting fields require `payout:withdrawal:read` on the account or user that owns the payout. A supplied invalid credential returns 401.
 
         Parameters
         ----------
@@ -352,7 +354,7 @@ class PayoutsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -374,7 +376,7 @@ class PayoutsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CancelPayoutsResponse:
         """
-        Cancels a payout that is still in review and returns the funds, fees included, to the balance. A payout can be canceled while its status is `in_review`. A `requested` payout is still being prepared (its funds may be converting) and answers 409 until it reaches review; from `processing` on, the money is on its way and the answer is 409 with error type `not_cancelable`. Canceling a payout that is already canceled succeeds and returns it unchanged.
+        Cancels a payout whose `status` is `in_review` and returns the funds, fees included, to the balance. A `requested` payout is still being prepared (its funds may be converting) and returns 409 until it reaches review; from `processing` on, the money is on its way and the response is 409 with error type `not_cancelable`. Canceling an already-canceled payout succeeds and returns it unchanged.
 
         Parameters
         ----------
@@ -400,7 +402,7 @@ class PayoutsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -420,6 +422,14 @@ class PayoutsClient:
         return self._methods
 
     @property
+    def paypal_link_sessions(self):
+        if self._paypal_link_sessions is None:
+            from .paypal_link_sessions.client import PaypalLinkSessionsClient  # noqa: E402
+
+            self._paypal_link_sessions = PaypalLinkSessionsClient(client_wrapper=self._client_wrapper)
+        return self._paypal_link_sessions
+
+    @property
     def supported_methods(self):
         if self._supported_methods is None:
             from .supported_methods.client import SupportedMethodsClient  # noqa: E402
@@ -433,6 +443,7 @@ class AsyncPayoutsClient:
         self._raw_client = AsyncRawPayoutsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._methods: typing.Optional[AsyncMethodsClient] = None
+        self._paypal_link_sessions: typing.Optional[AsyncPaypalLinkSessionsClient] = None
         self._supported_methods: typing.Optional[AsyncSupportedMethodsClient] = None
 
     @property
@@ -519,7 +530,7 @@ class AsyncPayoutsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -626,7 +637,7 @@ class AsyncPayoutsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -672,7 +683,7 @@ class AsyncPayoutsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateQuotePayoutsResponse:
         """
-        Creates a short-lived, provider-backed quote for a payout. No funds move until the returned quote_token is submitted to POST /payouts. An Idempotency-Key header is required.
+        Creates a short-lived, provider-backed quote of a payout's fee, exchange rate, and destination amount. No funds move until you submit the returned `quote_token` to `POST /payouts`.
 
         Parameters
         ----------
@@ -715,7 +726,7 @@ class AsyncPayoutsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -752,7 +763,7 @@ class AsyncPayoutsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RetrievePayoutsResponse:
         """
-        Fetches one payout by its `wdrl_` ID, or by the `cofr_` conversion request ID a stablecoin payout carries as `payout_request_id` — both ids answer with the same payout object. Authentication is optional. Anyone with the ID can view payout tracking details, including notes, trace code, exchange rate, and payout request ID. Accounting fields require payout:withdrawal:read on the owning ledger. A supplied invalid credential returns 401.
+        Retrieves a payout by its `wdrl_` ID, or by the `cofr_` conversion request ID a stablecoin payout carries as `payout_request_id`. Authentication is optional: anyone with the ID can view tracking details, including notes, trace code, exchange rate, and payout request ID, while accounting fields require `payout:withdrawal:read` on the account or user that owns the payout. A supplied invalid credential returns 401.
 
         Parameters
         ----------
@@ -780,7 +791,7 @@ class AsyncPayoutsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -808,7 +819,7 @@ class AsyncPayoutsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CancelPayoutsResponse:
         """
-        Cancels a payout that is still in review and returns the funds, fees included, to the balance. A payout can be canceled while its status is `in_review`. A `requested` payout is still being prepared (its funds may be converting) and answers 409 until it reaches review; from `processing` on, the money is on its way and the answer is 409 with error type `not_cancelable`. Canceling a payout that is already canceled succeeds and returns it unchanged.
+        Cancels a payout whose `status` is `in_review` and returns the funds, fees included, to the balance. A `requested` payout is still being prepared (its funds may be converting) and returns 409 until it reaches review; from `processing` on, the money is on its way and the response is 409 with error type `not_cancelable`. Canceling an already-canceled payout succeeds and returns it unchanged.
 
         Parameters
         ----------
@@ -836,7 +847,7 @@ class AsyncPayoutsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -862,6 +873,14 @@ class AsyncPayoutsClient:
 
             self._methods = AsyncMethodsClient(client_wrapper=self._client_wrapper)
         return self._methods
+
+    @property
+    def paypal_link_sessions(self):
+        if self._paypal_link_sessions is None:
+            from .paypal_link_sessions.client import AsyncPaypalLinkSessionsClient  # noqa: E402
+
+            self._paypal_link_sessions = AsyncPaypalLinkSessionsClient(client_wrapper=self._client_wrapper)
+        return self._paypal_link_sessions
 
     @property
     def supported_methods(self):

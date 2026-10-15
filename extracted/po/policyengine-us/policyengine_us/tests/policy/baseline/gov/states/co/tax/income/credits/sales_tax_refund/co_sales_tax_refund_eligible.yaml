@@ -1,0 +1,107 @@
+- name: Ineligible
+  period: 2022
+  input:
+    people:
+      head:
+        age: 17
+        is_tax_unit_head: true
+        irs_employment_income: 0
+    tax_units:
+      tax_unit:
+        members: [head]
+        co_income_tax_before_non_refundable_credits: 0
+        filing_status: SINGLE
+    households:
+      household:
+        members: [head]
+        state_code: CO
+  output:
+    co_sales_tax_refund_eligible: false
+
+- name: Age eligible
+  period: 2022
+  input:
+    people:
+      head:
+        age: 18
+        is_tax_unit_head: true
+        irs_employment_income: 0
+    tax_units:
+      tax_unit:
+        members: [head]
+        co_income_tax_before_non_refundable_credits: 0
+        filing_status: SINGLE
+    households:
+      household:
+        members: [head]
+        state_code: CO
+  output:
+    co_sales_tax_refund_eligible: true
+
+- name: Income eligible
+  period: 2022
+  input:
+    people:
+      head:
+        age: 17
+        is_tax_unit_head: true
+        irs_employment_income: 0
+    tax_units:
+      tax_unit:
+        members: [head]
+        co_income_tax_before_non_refundable_credits: 1
+        filing_status: SINGLE
+    households:
+      household:
+        members: [head]
+        state_code: CO
+  output:
+    co_sales_tax_refund_eligible: true
+
+- name: Income eligible
+  period: 2022
+  input:
+    people:
+      head:
+        age: 17
+        is_tax_unit_head: true
+        irs_employment_income: 0
+      spouse:
+        age: 17
+        is_tax_unit_spouse: true
+        irs_employment_income: 0
+    tax_units:
+      tax_unit:
+        members: [head, spouse]
+        co_income_tax_before_non_refundable_credits: 1
+        filing_status: JOINT
+    households:
+      household:
+        members: [head, spouse]
+        state_code: CO
+  output:
+    co_sales_tax_refund_eligible: true
+
+- name: Two age eligible
+  period: 2022
+  input:
+    people:
+      head:
+        age: 18
+        is_tax_unit_head: true
+        irs_employment_income: 0
+      spouse:
+        age: 18
+        is_tax_unit_spouse: true
+        irs_employment_income: 0
+    tax_units:
+      tax_unit:
+        members: [head, spouse]
+        co_income_tax_before_non_refundable_credits: 0
+        filing_status: JOINT
+    households:
+      household:
+        members: [head, spouse]
+        state_code: CO
+  output:
+    co_sales_tax_refund_eligible: true

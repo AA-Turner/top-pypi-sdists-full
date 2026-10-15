@@ -109,6 +109,29 @@ AGENT_MCP_PREVIEW_PATH_PREFIX = "/agent-mcp-preview"
 AGENT_MCP_PUBLIC_URL = f"https://{MCP_DOMAIN}{AGENT_MCP_PATH_PREFIX}"
 AGENT_MCP_PREVIEW_PUBLIC_URL = f"https://{MCP_DOMAIN}{AGENT_MCP_PREVIEW_PATH_PREFIX}"
 
+# mtx MCP serves the metric-transforms (`mtx`) BSL semantic queries plus read-only
+# Git-ref project tools. Its source and publish workflow live in
+# `airbytehq/mtx` (`metric-transforms/mcp/`), whose `publish-mtx-mcp.yml` deploys
+# directly through WIF (no SA impersonation). It runs as its own `mtx-mcp-sa` so
+# it cannot read the ops-mcp backend secrets. Bootstrap creates `mtx-mcp-sa` and
+# the `mtx-mcp` Artifact Registry repo so every grant on them runs before the apply.
+MTX_MCP_SERVICE_NAME = "mtx-mcp"
+MTX_MCP_PREVIEW_SERVICE_NAME = "mtx-mcp-preview"
+MTX_MCP_PATH_PREFIX = "/mtx-mcp"
+MTX_MCP_PREVIEW_PATH_PREFIX = "/mtx-mcp-preview"
+MTX_MCP_PUBLIC_URL = f"https://{MCP_DOMAIN}{MTX_MCP_PATH_PREFIX}"
+MTX_MCP_PREVIEW_PUBLIC_URL = f"https://{MCP_DOMAIN}{MTX_MCP_PREVIEW_PATH_PREFIX}"
+MTX_MCP_SERVICE_ACCOUNT_ID = "mtx-mcp-sa"
+MTX_MCP_SERVICE_ACCOUNT_EMAIL = (
+    f"{MTX_MCP_SERVICE_ACCOUNT_ID}@{PROJECT}.iam.gserviceaccount.com"
+)
+MTX_MCP_PUBLISH_PRINCIPAL = (
+    "principalSet://iam.googleapis.com/projects/351139268520/locations/global"
+    "/workloadIdentityPools/github-actions/attribute.workflow_ref"
+    "/airbytehq/mtx/.github/workflows/publish-mtx-mcp.yml@refs/heads/main"
+)
+"""WIF principal for `airbytehq/mtx` `publish-mtx-mcp.yml`, as defined on `main`."""
+MTX_MCP_PROJECT = "airbyte-internal-analytics"
 OPS_MCP_OAUTH_CLIENT_SECRET_ID = "ops-mcp-oauth-client-secret"
 
 OTEL_TRACES_HEADERS_SECRET_ID = "internal-mcp-otel-otlp-traces-headers"
@@ -275,6 +298,11 @@ AGENT_MCP_CONTAINER_IMAGE = (
 )
 """Placeholder (dummy) image tag for Agent MCP. See `OPS_MCP_CONTAINER_IMAGE`."""
 
+MTX_MCP_CONTAINER_IMAGE = "us-docker.pkg.dev/cloudrun/container/hello"
+"""Google's public sample image, used as the mtx MCP placeholder so bootstrap
+needs no image push. The first `publish-mtx-mcp.yml` deploy replaces it. See
+`OPS_MCP_CONTAINER_IMAGE`."""
+
 LB_PREFIX = "internal-mcp"
 
 # --- Firestore Native for durable interactive OAuth state ---
@@ -378,6 +406,30 @@ def define_service_account(
         display_name="Internal MCP servers runtime service account",
         project=PROJECT,
         opts=pulumi.ResourceOptions(depends_on=api_services),
+    )
+
+
+def lookup_mtx_mcp_service_account() -> gcp.serviceaccount.Account:
+    """Look up the bootstrap-created mtx MCP runtime identity."""
+    return gcp.serviceaccount.Account.get(
+        MTX_MCP_SERVICE_ACCOUNT_ID,
+        id=f"projects/{PROJECT}/serviceAccounts/{MTX_MCP_SERVICE_ACCOUNT_EMAIL}",
+    )
+
+
+def _grant_mtx_mcp_publisher(
+    service_name: str,
+    service: gcp.cloudrunv2.Service,
+) -> None:
+    """Let `publish-mtx-mcp.yml` roll out new revisions of one Cloud Run service."""
+    gcp.cloudrunv2.ServiceIamMember(
+        f"{service_name}-publisher",
+        project=PROJECT,
+        location=REGION,
+        name=service.name,
+        role="roles/run.developer",
+        member=MTX_MCP_PUBLISH_PRINCIPAL,
+        opts=pulumi.ResourceOptions(depends_on=[service]),
     )
 
 
@@ -992,6 +1044,29 @@ def define_load_balancer(
         backend=mcp_backends[AGENT_MCP_PREVIEW_SERVICE_NAME],
     )
 
+    mtx_mcp_route_rules = (
+        [
+            _mcp_path_route_rule(
+                path_prefix=MTX_MCP_PREVIEW_PATH_PREFIX,
+                backend=mcp_backends[MTX_MCP_PREVIEW_SERVICE_NAME],
+            ),
+            _mcp_path_route_rule(
+                path_prefix=MTX_MCP_PATH_PREFIX,
+                backend=mcp_backends[MTX_MCP_SERVICE_NAME],
+            ),
+            *_oauth_discovery_route_rules(
+                path_prefix=MTX_MCP_PATH_PREFIX,
+                backend=mcp_backends[MTX_MCP_SERVICE_NAME],
+            ),
+            *_oauth_discovery_route_rules(
+                path_prefix=MTX_MCP_PREVIEW_PATH_PREFIX,
+                backend=mcp_backends[MTX_MCP_PREVIEW_SERVICE_NAME],
+            ),
+        ]
+        if MTX_MCP_SERVICE_NAME in mcp_backends
+        else []
+    )
+
     # MCP path-based route rules. Priority is derived from list position (see
     # `_stamp_route_rule_priorities`), so the ordering here IS the precedence --
     # GCP requires strictly increasing, unique priorities within a pathMatcher.
@@ -1030,6 +1105,7 @@ def define_load_balancer(
         cloud_mcp_preview_as_rule,
         agent_mcp_preview_prm_rule,
         agent_mcp_preview_as_rule,
+        *mtx_mcp_route_rules,
     ]
     _stamp_route_rule_priorities(mcp_route_rules)
 
@@ -1312,6 +1388,47 @@ def main() -> None:
         **mcp_common,
     )
 
+    mtx_mcp_sa = lookup_mtx_mcp_service_account()
+    mtx_mcp_oauth_secret_accessor = gcp.secretmanager.SecretIamMember(
+        f"{MTX_MCP_SERVICE_NAME}-oauth-client-secret-accessor",
+        secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        role="roles/secretmanager.secretAccessor",
+        member=mtx_mcp_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+        project=PROJECT,
+    )
+    # Interactive OIDC state is in-memory for now (no Firestore), so a cold start
+    # or new revision asks users to log in again.
+    mtx_mcp_common = {
+        "container_image": MTX_MCP_CONTAINER_IMAGE,
+        "oauth_client_id": OPS_MCP_OAUTH_CLIENT_ID,
+        "oauth_client_secret_id": OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        "service_account": mtx_mcp_sa,
+        "api_services": api_services,
+        "extra_depends": [mtx_mcp_oauth_secret_accessor],
+    }
+    mtx_mcp = define_mcp_cloud_run_service(
+        service_name=MTX_MCP_SERVICE_NAME,
+        description="mtx (metric-transforms) MCP hosted server",
+        public_url=MTX_MCP_PUBLIC_URL,
+        extra_envs=[
+            _env("MTX_PROJECT", MTX_MCP_PROJECT),
+            _env("MTX_ENV", "bigquery_prod"),
+        ],
+        **mtx_mcp_common,
+    )
+    mtx_mcp_preview = define_mcp_cloud_run_service(
+        service_name=MTX_MCP_PREVIEW_SERVICE_NAME,
+        description="mtx (metric-transforms) MCP preview server",
+        public_url=MTX_MCP_PREVIEW_PUBLIC_URL,
+        extra_envs=[
+            _env("MTX_PROJECT", MTX_MCP_PROJECT),
+            _env("MTX_ENV", "bigquery_preview"),
+        ],
+        **mtx_mcp_common,
+    )
+    _grant_mtx_mcp_publisher(MTX_MCP_SERVICE_NAME, mtx_mcp)
+    _grant_mtx_mcp_publisher(MTX_MCP_PREVIEW_SERVICE_NAME, mtx_mcp_preview)
+
     mcp_services = {
         OPS_MCP_SERVICE_NAME: ops_mcp,
         OPS_MCP_PREVIEW_SERVICE_NAME: ops_mcp_preview,
@@ -1319,6 +1436,8 @@ def main() -> None:
         CLOUD_MCP_PREVIEW_SERVICE_NAME: cloud_mcp_preview,
         AGENT_MCP_SERVICE_NAME: agent_mcp,
         AGENT_MCP_PREVIEW_SERVICE_NAME: agent_mcp_preview,
+        MTX_MCP_SERVICE_NAME: mtx_mcp,
+        MTX_MCP_PREVIEW_SERVICE_NAME: mtx_mcp_preview,
     }
 
     armor_policy = define_cloud_armor_policy(api_services)
@@ -1351,6 +1470,13 @@ def main() -> None:
         "agent_mcp_preview_service_name": agent_mcp_preview.name,
         "agent_mcp_preview_service_url": agent_mcp_preview.uri,
         "agent_mcp_preview_url": AGENT_MCP_PREVIEW_PUBLIC_URL,
+        "mtx_mcp_service_name": mtx_mcp.name,
+        "mtx_mcp_service_url": mtx_mcp.uri,
+        "mtx_mcp_url": MTX_MCP_PUBLIC_URL,
+        "mtx_mcp_preview_service_name": mtx_mcp_preview.name,
+        "mtx_mcp_preview_service_url": mtx_mcp_preview.uri,
+        "mtx_mcp_preview_url": MTX_MCP_PREVIEW_PUBLIC_URL,
+        "mtx_mcp_service_account": mtx_mcp_sa.email,
         "mcp_domain": MCP_DOMAIN,
         "ops_mcp_artifact_registry": (
             f"{REGION}-docker.pkg.dev/{PROJECT}/{OPS_MCP_SERVICE_NAME}"
@@ -1360,6 +1486,9 @@ def main() -> None:
         ),
         "agent_mcp_artifact_registry": (
             f"{REGION}-docker.pkg.dev/{PROJECT}/{AGENT_MCP_SERVICE_NAME}"
+        ),
+        "mtx_mcp_artifact_registry": (
+            f"{REGION}-docker.pkg.dev/{PROJECT}/{MTX_MCP_SERVICE_NAME}"
         ),
         "cloud_armor_policy": armor_policy.name,
         "ops_mcp_firestore_database": ops_mcp_firestore.name,

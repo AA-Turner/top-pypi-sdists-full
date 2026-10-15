@@ -62,14 +62,14 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/django-money/django-money"
+Homepage = "https://codeberg.org/django-money/django-money"
 
 [tool.setuptools.dynamic]
 version = { attr = "djmoney.__version__" }
 
 [tool.black]
 line-length = 120
-target-version = ["py38"]
+target-version = ["py310"]
 
 [tool.isort]
 profile = "black"

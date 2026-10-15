@@ -113,12 +113,27 @@ class StorageConfig:
 class AzureBlobConfig:
     """Azure Blob Storage設定
 
+    認証は 2 通り (3.1.0。3.0.16 は未公開):
+    - ``connection_string`` (Shared Key / SAS 入り) があればそれを使う (従来どおり)
+    - 無ければ ``storage_account_name`` から account URL
+      (``https://<name>.blob.<endpoint_suffix>``) を組み、``DefaultAzureCredential``
+      (Workload Identity / Managed Identity / Azure CLI ...) で認証する。
+      Storage Account の Shared Key 認証を無効にした環境ではこちらを使う
+    どちらも無ければ ``AzureBlobStorageClient`` が ``StorageConfigError`` を上げる。
+    空文字・空白だけの値は「無し」として扱う (設定ファイルで空にしたときの形)。
+
     Example:
-        >>> # 辞書から作成
+        >>> # 接続文字列 (従来)
         >>> config = AzureBlobConfig.from_dict({
         ...     "bucket_name": "my-container",
         ...     "connection_string": "DefaultEndpointsProtocol=https;...",
         ...     "prefix": "uploads/"
+        ... })
+        >>>
+        >>> # 資格情報なし (DefaultAzureCredential)
+        >>> config = AzureBlobConfig.from_dict({
+        ...     "bucket_name": "my-container",
+        ...     "storage_account_name": "mystorageaccount",
         ... })
         >>>
         >>> # クライアント初期化
@@ -128,7 +143,7 @@ class AzureBlobConfig:
         connection_stringはrepr=Falseでログ出力から除外されます。
     """
     bucket_name: str  # container_name
-    connection_string: str = field(repr=False)  # シークレット: reprから除外
+    connection_string: Optional[str] = field(default=None, repr=False)  # シークレット: reprから除外
     # 共通オプション
     enabled: bool = True
     max_file_size: int = 5 * 1024 * 1024 * 1024  # 5GB
@@ -140,20 +155,46 @@ class AzureBlobConfig:
     # Azure固有オプション
     max_block_size: int = 8 * 1024 * 1024  # 8MB (5GBファイルで625ブロック)
     max_single_put_size: int = 256 * 1024 * 1024  # 256MB
+    # 資格情報なし認証 (DefaultAzureCredential)。connection_string が無いときに使う
+    storage_account_name: Optional[str] = None
+    endpoint_suffix: str = "core.windows.net"
+
+    def __post_init__(self) -> None:
+        # 設定ファイルで `connection_string = ""` と書いた形を「無し」に正規化する
+        self.connection_string = _blank_to_none(self.connection_string)
+        self.storage_account_name = _blank_to_none(self.storage_account_name)
+        suffix = _blank_to_none(self.endpoint_suffix)
+        self.endpoint_suffix = suffix if suffix is not None else "core.windows.net"
 
     @property
     def provider(self) -> StorageProvider:
         return StorageProvider.AZURE_BLOB
 
+    @property
+    def uses_connection_string(self) -> bool:
+        """接続文字列で認証するか (False なら DefaultAzureCredential)"""
+        return self.connection_string is not None
+
+    @property
+    def account_url(self) -> Optional[str]:
+        """storage_account_name から組んだ Blob エンドポイント (無ければ None)"""
+        if self.storage_account_name is None:
+            return None
+        return f"https://{self.storage_account_name}.blob.{self.endpoint_suffix}"
+
     def __str__(self) -> str:
-        return f"AzureBlobConfig(bucket_name={self.bucket_name!r}, connection_string=***)"
+        auth = "connection_string=***" if self.uses_connection_string else (
+            f"storage_account_name={self.storage_account_name!r}"
+        )
+        return f"AzureBlobConfig(bucket_name={self.bucket_name!r}, {auth})"
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AzureBlobConfig":
         """辞書からAzureBlobConfigを作成
 
         Args:
-            data: 設定辞書
+            data: 設定辞書。``connection_string`` と ``storage_account_name`` は
+                どちらか一方でよい (両方あれば connection_string を使う)
 
         Returns:
             AzureBlobConfig instance
@@ -163,10 +204,14 @@ class AzureBlobConfig:
             ...     "bucket_name": "my-container",
             ...     "connection_string": "DefaultEndpointsProtocol=https;..."
             ... })
+            >>> config = AzureBlobConfig.from_dict({
+            ...     "bucket_name": "my-container",
+            ...     "storage_account_name": "mystorageaccount",
+            ... })
         """
         return cls(
             bucket_name=data["bucket_name"],
-            connection_string=data["connection_string"],
+            connection_string=data.get("connection_string"),
             enabled=data.get("enabled", True),
             max_file_size=data.get("max_file_size", 5 * 1024 * 1024 * 1024),
             auto_create_bucket=data.get("auto_create_bucket", False),
@@ -176,7 +221,23 @@ class AzureBlobConfig:
             read_timeout=data.get("read_timeout", 300),
             max_block_size=data.get("max_block_size", 8 * 1024 * 1024),
             max_single_put_size=data.get("max_single_put_size", 256 * 1024 * 1024),
+            storage_account_name=data.get("storage_account_name"),
+            endpoint_suffix=data.get("endpoint_suffix") or "core.windows.net",
         )
+
+
+def _blank_to_none(value: Any) -> Optional[str]:
+    """None / 空文字 / 空白だけを None に、それ以外は strip した str にする。
+
+    pydantic の SecretStr のような ``get_secret_value`` を持つ値はそのまま返す
+    (中身を見ない。``StorageClientBase._get_api_key`` が使うときに取り出す)。
+    """
+    if value is None:
+        return None
+    if hasattr(value, "get_secret_value"):
+        return value
+    text = str(value).strip()
+    return text if text else None
 
 
 @dataclass

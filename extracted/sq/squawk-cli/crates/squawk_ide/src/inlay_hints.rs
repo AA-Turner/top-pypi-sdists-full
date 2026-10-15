@@ -30,9 +30,9 @@ pub fn inlay_hints(db: &dyn Db, file: File) -> Vec<InlayHint> {
     let mut hints = vec![];
     for node in parse(db, file).tree().syntax().descendants() {
         if let Some(call_expr) = ast::CallExpr::cast(node.clone()) {
-            inlay_hint_call_expr(db, &mut hints, file.into(), call_expr);
+            inlay_hint_call_expr(db, &mut hints, file.into(), &call_expr);
         } else if let Some(insert) = ast::Insert::cast(node) {
-            inlay_hint_insert(db, &mut hints, file.into(), insert);
+            inlay_hint_insert(db, &mut hints, file.into(), &insert);
         }
     }
     hints
@@ -42,16 +42,14 @@ fn inlay_hint_call_expr(
     db: &dyn Db,
     hints: &mut Vec<InlayHint>,
     file_id: FileId,
-    call_expr: ast::CallExpr,
+    call_expr: &ast::CallExpr,
 ) -> Option<()> {
     let arg_list = call_expr.arg_list()?;
     let expr = call_expr.expr()?;
 
-    let name_ref = if let Some(name_ref) = ast::NameRef::cast(expr.syntax().clone()) {
-        name_ref
-    } else {
-        ast::FieldExpr::cast(expr.syntax().clone())?.field()?
-    };
+    let name_ref = expr
+        .as_name_ref()
+        .or_else(|| expr.as_field_expr()?.field())?;
 
     let location = goto_definition::goto_definition(
         db,
@@ -81,7 +79,7 @@ fn inlay_hint_call_expr(
                 });
             }
         }
-    };
+    }
 
     Some(())
 }
@@ -90,7 +88,7 @@ fn inlay_hint_insert(
     db: &dyn Db,
     hints: &mut Vec<InlayHint>,
     file_id: FileId,
-    insert: ast::Insert,
+    insert: &ast::Insert,
 ) -> Option<()> {
     let name_start = insert
         .relation_name_ref()?
@@ -151,13 +149,13 @@ fn inlay_hint_insert(
     let ast::InsertSource::SelectVariant(select) = insert.insert_source()? else {
         return None;
     };
-    inlay_hint_insert_select(hints, columns, select)
+    inlay_hint_insert_select(hints, &columns, &select)
 }
 
 fn inlay_hint_insert_select(
     hints: &mut Vec<InlayHint>,
-    columns: Vec<(Name, Option<InFile<TextRange>>)>,
-    select_variant: ast::SelectVariant,
+    columns: &[(Name, Option<InFile<TextRange>>)],
+    select_variant: &ast::SelectVariant,
 ) -> Option<()> {
     if let ast::SelectVariant::Values(values) = &select_variant {
         // `insert into t values (1, 2);`
@@ -264,7 +262,7 @@ mod test {
         let target_contents = target_entries
             .into_iter()
             .map(|(f, targets)| {
-                let path = *file_paths.get(&f).unwrap();
+                let path = file_paths[&f];
                 (f.content(&db).clone(), path, targets)
             })
             .collect::<Vec<_>>();
@@ -284,7 +282,6 @@ mod test {
         let renderer = Renderer::plain().decor_style(DecorStyle::Unicode);
         renderer
             .render(&groups)
-            .to_string()
             .replace("info: labels", "labels:")
             .replace("info: targets", "targets:")
     }
@@ -432,9 +429,9 @@ select json_strip_nulls('[1, null]', true);
              │                         ──────── 1. label    ───────────────── 2. label
              ╰╴
         targets:
-             ╭▸ builtins.sql:9239:45
+             ╭▸ builtins.sql:9022:45
              │
-        9239 │ create function pg_catalog.json_strip_nulls(target json, strip_in_arrays boolean DEFAULT false) returns json
+        9022 │ create function pg_catalog.json_strip_nulls(target json, strip_in_arrays boolean DEFAULT false) returns json
              │                                             ┬─────       ─────────────── 2. target
              │                                             │
              ╰╴                                            1. target
@@ -599,21 +596,21 @@ insert into t values (1, 2, 3, 4, 5, 6, 7);
             │       1. label
             ╰╴
         targets:
-            ╭▸ builtins.sql:436:3
+            ╭▸ builtins.sql:483:3
             │
-        436 │   feature_id information_schema.character_data,
+        483 │   feature_id information_schema.character_data,
             │   ────────── 1. target
-        437 │   feature_name information_schema.character_data,
+        484 │   feature_name information_schema.character_data,
             │   ──────────── 2. target
-        438 │   sub_feature_id information_schema.character_data,
+        485 │   sub_feature_id information_schema.character_data,
             │   ────────────── 3. target
-        439 │   sub_feature_name information_schema.character_data,
+        486 │   sub_feature_name information_schema.character_data,
             │   ──────────────── 4. target
-        440 │   is_supported information_schema.yes_or_no,
+        487 │   is_supported information_schema.yes_or_no,
             │   ──────────── 5. target
-        441 │   is_verified_by information_schema.character_data,
+        488 │   is_verified_by information_schema.character_data,
             │   ────────────── 6. target
-        442 │   comments information_schema.character_data
+        489 │   comments information_schema.character_data
             ╰╴  ──────── 7. target
         ");
     }
@@ -734,21 +731,21 @@ insert into t values (1, 2, 3, 4, 5, 6, 7);
             │       1. label
             ╰╴
         targets:
-            ╭▸ builtins.sql:436:3
+            ╭▸ builtins.sql:483:3
             │
-        436 │   feature_id information_schema.character_data,
+        483 │   feature_id information_schema.character_data,
             │   ────────── 1. target
-        437 │   feature_name information_schema.character_data,
+        484 │   feature_name information_schema.character_data,
             │   ──────────── 2. target
-        438 │   sub_feature_id information_schema.character_data,
+        485 │   sub_feature_id information_schema.character_data,
             │   ────────────── 3. target
-        439 │   sub_feature_name information_schema.character_data,
+        486 │   sub_feature_name information_schema.character_data,
             │   ──────────────── 4. target
-        440 │   is_supported information_schema.yes_or_no,
+        487 │   is_supported information_schema.yes_or_no,
             │   ──────────── 5. target
-        441 │   is_verified_by information_schema.character_data,
+        488 │   is_verified_by information_schema.character_data,
             │   ────────────── 6. target
-        442 │   comments information_schema.character_data
+        489 │   comments information_schema.character_data
             ╰╴  ──────── 7. target
         ");
     }

@@ -141,9 +141,6 @@ mod _kolo {
             }
             let mut pending = vec![value.clone()];
             let mut count: usize = 0;
-            // Every pending container counts once popped: stop as soon as
-            // they reach the limit, so a wide or cyclic high-fanout value
-            // never grows the queue past it.
             while let Some(container) = pending.pop() {
                 if let Ok(list) = container.cast_exact::<PyList>() {
                     count += 1;
@@ -190,8 +187,6 @@ mod _kolo {
         if !is_plain(root) {
             return 0;
         }
-        // Frames rarely hold more than a few nested containers at once, so
-        // the pending stack only allocates past this.
         const INLINE: usize = 32;
         struct Pending {
             inline: [*mut ffi::PyObject; INLINE],
@@ -233,9 +228,6 @@ mod _kolo {
             if count >= limit {
                 break;
             }
-            // Every pending container counts once popped: stop as soon as
-            // they reach the limit, so a cyclic high-fanout value cannot
-            // grow the queue.
             if ffi::Py_TYPE(container) == list_type {
                 for index in 0..ffi::PyList_GET_SIZE(container) {
                     let item = ffi::PyList_GET_ITEM(container, index);
@@ -392,10 +384,8 @@ mod _kolo {
         })
     }
 
-    // PyO3 0.28 flipped the default to gil_used = false. Keep the GIL-requiring
-    // declaration we had before: value serialization iterates user containers
-    // without a critical section, so concurrent mutation on a free-threaded
-    // build can panic mid-capture.
+    // Value serialization iterates user containers without a critical section; without the GIL,
+    // concurrent mutation on a free-threaded build can panic mid-capture.
     #[pymodule(gil_used = true)]
     mod _kolo {
         #[pymodule_export]

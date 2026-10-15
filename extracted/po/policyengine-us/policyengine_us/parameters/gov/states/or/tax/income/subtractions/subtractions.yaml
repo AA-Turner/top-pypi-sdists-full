@@ -1,0 +1,29 @@
+description: Oregon caps its federal tax liability subtraction for surviving spouse filers at this amount, depending on federal AGI.
+metadata:
+  label: Oregon subtractions
+  period: year
+  unit: list
+  reference:
+    - title: ORS 316.680(1)(e)
+      href: https://www.oregonlegislature.gov/bills_laws/ors/ors316.html
+    - title: 2022 Publication OR-17 page 74 (Federal pension income subtraction)
+      href: https://www.oregon.gov/dor/forms/FormsPubs/publication-or-17_101-431_2022.pdf#page=74
+    - title: Chapter 316 - Personal Income Tax
+      href: https://www.oregonlegislature.gov/bills_laws/ors/ors316.html #316.800
+    - title: 2021 Oregon Income Tax Form OR-40 Instructions
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2021.pdf#page=13
+    - title: 2021 Oregon Income Tax Form OR-40
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40_101-040_2021.pdf#page=3
+    - title: 2022 Oregon Income Tax Form OR-40 Instructions
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2022.pdf#page=13
+    - title: 2023 Oregon Income Tax Form OR-40 Instructions
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2023.pdf#page=13
+    - title: 2025 Oregon Income Tax Form OR-40 Instructions
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2025.pdf#page=14
+values:
+  2020-01-01:
+    - or_federal_tax_liability_subtraction
+    - taxable_social_security
+    - us_govt_interest
+    - salt_refund_income
+    - or_federal_pension_subtraction

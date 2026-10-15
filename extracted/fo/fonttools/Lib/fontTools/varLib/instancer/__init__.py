@@ -98,6 +98,7 @@ Both TrueType-flavored (glyf+gvar) variable and CFF2 variable fonts are supporte
 """
 
 from fontTools.misc.fixedTools import (
+    floatToFixed,
     floatToFixedToFloat,
     strToFixedToFloat,
     otRound,
@@ -125,6 +126,7 @@ from fontTools.varLib.merger import MutatorMerger
 from fontTools.varLib.instancer import names
 from fontTools.varLib.varStore import NO_VARIATION_INDEX
 from .featureVars import instantiateFeatureVariations
+from .colr import instantiateCOLR
 from fontTools.misc.cliTools import makeOutputFileName
 from fontTools.varLib.instancer import solver
 from fontTools.ttLib.tables.otTables import VarComponentFlags
@@ -1131,7 +1133,7 @@ def _remapVarIdxMap(table, attrName, varIndexMapping, glyphOrder):
 
 
 # TODO(anthrotype) Add support for HVAR/VVAR in CFF2
-def _instantiateVHVAR(varfont, axisLimits, tableFields, *, round=round):
+def _instantiateVHVAR(varfont, axisLimits, tableFields, *, round=otRound):
     location = axisLimits.pinnedLocation()
     tableTag = tableFields.tableTag
     fvarAxes = varfont["fvar"].axes
@@ -1172,11 +1174,27 @@ def _instantiateVHVAR(varfont, axisLimits, tableFields, *, round=round):
 
             if (
                 tableTag == "VVAR"
+                and "VORG" in varfont
                 and getattr(vhvar, tableFields.vOrigMapping) is not None
             ):
-                log.warning(
-                    "VORG table not yet updated to reflect changes in VVAR table"
-                )
+                vorg = varfont["VORG"]
+                originMapping = getattr(vhvar, tableFields.vOrigMapping).mapping
+                origins = {
+                    glyphName: vorg[glyphName]
+                    + round(defaultDeltas[originMapping[glyphName]])
+                    for glyphName in varfont.getGlyphOrder()
+                }
+                counts = collections.Counter(origins.values())
+                if counts:
+                    defaultOrigin, count = counts.most_common(1)[0]
+                    # Keep the old default when it is equally common.
+                    if counts[vorg.defaultVertOriginY] != count:
+                        vorg.defaultVertOriginY = defaultOrigin
+                vorg.VOriginRecords = {
+                    glyphName: origin
+                    for glyphName, origin in origins.items()
+                    if origin != vorg.defaultVertOriginY
+                }
 
             # For full instances (i.e. all axes pinned), we can simply drop HVAR/VVAR and return
             if set(location).issuperset(axis.axisTag for axis in fvarAxes):
@@ -1376,7 +1394,6 @@ def _instantiateBASE(varfont, axisLimits):
 
 
 def instantiateOTL(varfont, axisLimits):
-    # TODO(anthrotype) Support partial instancing of JSTF table
     _instantiateBASE(varfont, axisLimits)
 
     if (
@@ -1386,11 +1403,8 @@ def instantiateOTL(varfont, axisLimits):
     ):
         return
 
-    if "GPOS" in varfont:
-        msg = "Instantiating GDEF and GPOS tables"
-    else:
-        msg = "Instantiating GDEF table"
-    log.info(msg)
+    tags = [tag for tag in ("GDEF", "GPOS", "MATH", "JSTF") if tag in varfont]
+    log.info("Instantiating %s tables", " and ".join(tags))
 
     gdef = varfont["GDEF"].table
     varStore = gdef.VarStore
@@ -1405,18 +1419,22 @@ def instantiateOTL(varfont, axisLimits):
     # This 'merger' also works as a 'visitor' that traverses the OTL tables and
     # calls specific methods when instances of a given type are found.
     # Specifically, it adds default deltas to GPOS Anchors/ValueRecords and GDEF
-    # LigatureCarets, and optionally deletes all VariationIndex tables if the
-    # VarStore is fully instanced.
+    # LigatureCarets and MATH values, and optionally deletes VariationIndex tables
+    # if the VarStore is fully instanced.
     merger = MutatorMerger(
         varfont, defaultDeltas, deleteVariations=(not varStore.VarRegionList.Region)
     )
-    merger.mergeTables(varfont, [varfont], ["GDEF", "GPOS"])
+    merger.mergeTables(varfont, [varfont], ["GDEF", "GPOS", "MATH", "JSTF"])
 
     if varStore.VarRegionList.Region:
         varIndexMapping = varStore.optimize()
         gdef.remap_device_varidxes(varIndexMapping)
         if "GPOS" in varfont:
             varfont["GPOS"].table.remap_device_varidxes(varIndexMapping)
+        if "MATH" in varfont:
+            varfont["MATH"].table.remap_device_varidxes(varIndexMapping)
+        if "JSTF" in varfont:
+            varfont["JSTF"].table.remap_device_varidxes(varIndexMapping)
     else:
         # Downgrade GDEF.
         del gdef.VarStore
@@ -2536,6 +2554,8 @@ def _instantiateVariationTables(varfont, limits, optimize, downgradeCFF2):
     if "VVAR" in varfont:
         instantiateVVAR(varfont, limits)
 
+    instantiateCOLR(varfont, limits)
+
     instantiateOTL(varfont, limits)
 
     instantiateFeatureVariations(varfont, limits)
@@ -2622,6 +2642,27 @@ def instantiateVariableFont(
             log.info("Pinning unspecified axes to default: %s", unspecified)
 
     axisLimits = AxisLimits(axisLimits).limitAxesAndPopulateDefaults(varfont)
+
+    # Explicitly retaining an axis's original range requires no instancing.
+    # In particular it must not trigger VARC's referenced-axis restriction.
+    # Compare at fvar's 16.16 precision so decimal inputs match stored values.
+    axisLimits = AxisLimits(
+        {
+            axis.axisTag: axisLimits[axis.axisTag]
+            for axis in varfont["fvar"].axes
+            if axis.axisTag in axisLimits
+            and (
+                axisLimits[axis.axisTag].minimum == axisLimits[axis.axisTag].maximum
+                or any(
+                    floatToFixed(value, 16) != floatToFixed(original, 16)
+                    for value, original in zip(
+                        axisLimits[axis.axisTag],
+                        (axis.minValue, axis.defaultValue, axis.maxValue),
+                    )
+                )
+            )
+        }
+    )
 
     # Keep the limited VARC support consistent even when avar2 partial
     # instancing bypasses _instantiateVariationTables.
@@ -2993,6 +3034,7 @@ def main(args=None):
         recalcTimestamp=options.recalc_timestamp,
         recalcBBoxes=options.recalc_bounds,
     )
+    sanityCheckVariableTables(varfont)
 
     isFullInstance = options.static or {
         axisTag

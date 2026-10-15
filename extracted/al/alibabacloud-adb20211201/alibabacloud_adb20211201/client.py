@@ -15353,14 +15353,20 @@ class Client(OpenApiClient):
             query['Path'] = request.path
         if not DaraCore.is_null(request.question):
             query['Question'] = request.question
+        if not DaraCore.is_null(request.semantic_rules):
+            query['SemanticRules'] = request.semantic_rules
         if not DaraCore.is_null(request.tags):
             query['Tags'] = request.tags
         if not DaraCore.is_null(request.topk):
             query['Topk'] = request.topk
         if not DaraCore.is_null(request.user):
             query['User'] = request.user
+        body = {}
+        if not DaraCore.is_null(request.images):
+            body['Images'] = request.images
         req = open_api_util_models.OpenApiRequest(
-            query = Utils.query(query)
+            query = Utils.query(query),
+            body = Utils.parse_to_map(body)
         )
         params = open_api_util_models.Params(
             action = 'GetKnowledgeRecall',
@@ -15391,14 +15397,20 @@ class Client(OpenApiClient):
             query['Path'] = request.path
         if not DaraCore.is_null(request.question):
             query['Question'] = request.question
+        if not DaraCore.is_null(request.semantic_rules):
+            query['SemanticRules'] = request.semantic_rules
         if not DaraCore.is_null(request.tags):
             query['Tags'] = request.tags
         if not DaraCore.is_null(request.topk):
             query['Topk'] = request.topk
         if not DaraCore.is_null(request.user):
             query['User'] = request.user
+        body = {}
+        if not DaraCore.is_null(request.images):
+            body['Images'] = request.images
         req = open_api_util_models.OpenApiRequest(
-            query = Utils.query(query)
+            query = Utils.query(query),
+            body = Utils.parse_to_map(body)
         )
         params = open_api_util_models.Params(
             action = 'GetKnowledgeRecall',

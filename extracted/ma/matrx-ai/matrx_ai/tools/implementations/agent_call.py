@@ -509,7 +509,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             fork_type = (
                 "mandate_candidate"
                 if candidate_marker(app_ctx.metadata) is not None
-                else "subagent"
+                else ("subagent" if app_ctx.conversation_id_for_lineage else "auto")
             )
             try:
                 fork_info = await forker(

@@ -1,0 +1,12 @@
+description: California disregards this percentage of monthly earned income when computing CalWORKS payments for recipients.
+
+values:
+  1998-01-01: 0.5
+
+metadata:
+  unit: /1
+  period: month
+  label: California CalWORKs monthly percentage earnings exclusion
+  reference:
+    - title: Los Angeles Department of Public Social Services E-Policy | CalWORKs Earned Income Disregards
+      href: https://my.dpss.lacounty.gov/public/en/home/epolicy/program/calworks/income/earned-income-disregards.html

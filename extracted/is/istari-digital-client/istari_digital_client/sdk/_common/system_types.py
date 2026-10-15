@@ -678,26 +678,29 @@ class ChangeRequest(_GenOpenCR, ClientHaving):
         return self.change_request_id
 
     def close(self) -> "ChangeRequest":
-        """Close this change request (status → "CLOSED") and return the refreshed object.
+        """Close this change request (status → "CLOSED") and return the updated object.
 
         Mutates: true
 
-        The returned ChangeRequest reflects the new status; ``self`` is left as-is
-        (its ``status`` still reads the pre-close value). A closed change request can
-        be reopened with reopen().
+        The returned ChangeRequest comes from the PUT response and reflects the new
+        status; ``self`` is left as-is (its ``status`` still reads the pre-close
+        value). A closed change request can be reopened with reopen().
         """
-        self._mgr.update_status(self._system_id, self.change_request_id, "CLOSED")
-        return self._mgr.get(self._system_id, self.change_request_id)
+        return self._mgr.update_status(
+            self._system_id, self.change_request_id, "CLOSED"
+        )
 
     def reopen(self) -> "ChangeRequest":
-        """Reopen a closed change request (status → "OPEN") and return the refreshed object.
+        """Reopen a closed change request (status → "OPEN") and return the updated object.
 
         Mutates: true
 
-        The returned ChangeRequest reflects the new status; ``self`` is left as-is.
+        The returned ChangeRequest comes from the PUT response and reflects the new
+        status; ``self`` is left as-is.
         """
-        self._mgr.update_status(self._system_id, self.change_request_id, "OPEN")
-        return self._mgr.get(self._system_id, self.change_request_id)
+        return self._mgr.update_status(
+            self._system_id, self.change_request_id, "OPEN"
+        )
 
     def merge(
         self,

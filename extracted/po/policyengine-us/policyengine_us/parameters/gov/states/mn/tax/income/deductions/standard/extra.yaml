@@ -1,0 +1,71 @@
+description: Minnesota provides this extra standard deduction amount for each aged/blind head/spouse.
+metadata:
+  label: Minnesota extra standard deduction amount for each aged/blind head/spouse
+  period: year
+  unit: currency-USD
+  uprating:
+    parameter: gov.irs.uprating
+    rounding:
+      type: downwards
+      interval: 50
+  propagate_metadata_to_children: true
+  breakdown:
+  - filing_status
+  reference:
+  - title: Minnesota Statutes 290.0123 STANDARD DEDUCTION. Subd. 2.Additional amount for seniors or blind taxpayers.
+    href: https://www.revisor.mn.gov/statutes/cite/290.0123#stat.290.0123.2
+  - title: Minnesota Statutes, 290.0123 Subd. 6.Inflation adjustment.
+    href: https://www.revisor.mn.gov/statutes/cite/290.0123#stat.290.0123.6
+  - title: 2021 Minnesota M1 form instructions
+    href: https://www.revenue.state.mn.us/sites/default/files/2023-12/m1_inst_21.pdf#page=12
+  - title: 2022 Minnesota M1 form instructions
+    href: https://www.revenue.state.mn.us/sites/default/files/2024-02/m1-inst-22.pdf#page=12
+  - title: 2023 Minnesota M1 form instructions
+    href: https://www.revenue.state.mn.us/sites/default/files/2025-06/m1-inst-23.pdf#page=13
+  - title: 2024 Minnesota M1 form instructions
+    href: https://www.revenue.state.mn.us/sites/default/files/2026-01/m1-inst-24.pdf#page=12
+  - title: 2025 Minnesota M1 form instructions
+    href: https://www.revenue.state.mn.us/sites/default/files/2026-07/m1-inst-25.pdf#page=13
+  - title: Minnesota Department of Revenue, Tax Year 2026 Inflation-Adjusted Amounts, Additional Standard Deduction for Aged or Blind
+    href: https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf#page=1
+
+JOINT:
+  values:
+    2021-01-01: 1_300
+    2022-01-01: 1_350
+    2023-01-01: 1_450
+    2024-01-01: 1_550
+    2025-01-01: 1_550
+    2026-01-01: 1_600
+HEAD_OF_HOUSEHOLD:
+  values:
+    2021-01-01: 1_650
+    2022-01-01: 1_700
+    2023-01-01: 1_850
+    2024-01-01: 1_950
+    2025-01-01: 2_000
+    2026-01-01: 2_000
+SURVIVING_SPOUSE:
+  values:
+    2021-01-01: 1_300
+    2022-01-01: 1_350
+    2023-01-01: 1_450
+    2024-01-01: 1_550
+    2025-01-01: 1_550
+    2026-01-01: 1_600
+SINGLE:
+  values:
+    2021-01-01: 1_650
+    2022-01-01: 1_700
+    2023-01-01: 1_850
+    2024-01-01: 1_950
+    2025-01-01: 2_000
+    2026-01-01: 2_000
+SEPARATE:
+  values:
+    2021-01-01: 1_300
+    2022-01-01: 1_350
+    2023-01-01: 1_450
+    2024-01-01: 1_550
+    2025-01-01: 1_550
+    2026-01-01: 1_600

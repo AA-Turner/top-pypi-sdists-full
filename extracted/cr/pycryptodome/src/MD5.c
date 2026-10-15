@@ -1,32 +1,6 @@
-/* ===================================================================
- *
- * Copyright (c) 2018, Helder Eijs <helderijs@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- * ===================================================================
+/*
+ * SPDX-FileCopyrightText: 2018 Helder Eijs <helderijs@gmail.com>
+ * SPDX-License-Identifier: BSD-2-Clause
  */
 
 #include <stdio.h>
@@ -232,31 +206,43 @@ EXPORT_SYM int MD5_destroy (hash_state *mdState)
 
 EXPORT_SYM int MD5_update(hash_state *hs, const uint8_t *buf, size_t len)
 {
+    unsigned curlen;
+
     if (NULL == hs || NULL == buf) {
         return ERR_NULL;
     }
 
-    assert(hs->curlen < BLOCK_SIZE);
+    /*
+     * Read the position in buf[] only once, and check it: if several
+     * threads used the object at once (not supported), the state could
+     * be inconsistent, but buf[] must never overflow.
+     */
+    curlen = hs->curlen;
+    if (curlen >= BLOCK_SIZE) {
+        return ERR_STATE;
+    }
 
     while (len>0) {
         unsigned left, btc;
 
-        left = BLOCK_SIZE - hs->curlen;
+        left = BLOCK_SIZE - curlen;
         btc = (unsigned)MIN(left, len);
-        memcpy(&hs->buf[hs->curlen], buf, btc);
+        memcpy(&hs->buf[curlen], buf, btc);
         buf += btc;
-        hs->curlen += btc;
+        curlen += btc;
         len -= btc;
 
-        if (hs->curlen == BLOCK_SIZE) {
+        if (curlen == BLOCK_SIZE) {
             md5_compress(hs);
-            hs->curlen = 0;
+            curlen = 0;
             if (add_bits(hs, BLOCK_SIZE*8)) {
+                hs->curlen = 0;
                 return ERR_MAX_DATA;
             }
         }
     }
 
+    hs->curlen = curlen;
     return 0;
 }
 
@@ -264,7 +250,10 @@ static int md5_finalize(hash_state *hs, uint8_t *hash /** [DIGEST_SIZE] **/)
 {
     unsigned left, i;
 
-    assert(hs->curlen < BLOCK_SIZE);
+    /* hs is a private copy, but it may come from an inconsistent state */
+    if (hs->curlen >= BLOCK_SIZE) {
+        return ERR_STATE;
+    }
 
     /* remaining length of the message */
     if (add_bits(hs, hs->curlen*8)) {
@@ -311,8 +300,7 @@ EXPORT_SYM int MD5_digest(const hash_state *mdState, uint8_t digest[DIGEST_SIZE]
     }
 
     temp = *mdState;
-    md5_finalize(&temp, digest);
-    return 0;
+    return md5_finalize(&temp, digest);
 }
 
 EXPORT_SYM int MD5_copy(const hash_state *src, hash_state *dst)
@@ -375,6 +363,54 @@ EXPORT_SYM int MD5_pbkdf2_hmac_assist(const hash_state *inner, const hash_state 
         }
     }
 
+    return 0;
+}
+
+/**
+ * Compute the expensive inner loop of PBKDF1 (PKCS#5 v1.5),
+ * where T_1 = MD5(password || salt) and T_i = MD5(T_{i-1}).
+ *
+ * - first_digest, T_1
+ * - result, T_iterations
+ * - iterations, the total number of PBKDF1 iterations (>0)
+ */
+EXPORT_SYM int MD5_pbkdf1_assist(const uint8_t first_digest[DIGEST_SIZE],
+                                 uint8_t result[DIGEST_SIZE],
+                                 size_t iterations)
+{
+    hash_state hs;
+    size_t i;
+    unsigned j;
+
+    if (NULL == first_digest || NULL == result) {
+        return ERR_NULL;
+    }
+
+    if (iterations == 0) {
+        return ERR_NR_ROUNDS;
+    }
+
+    /**
+     * Each hash in the loop processes a single, already padded block
+     * (the previous digest), so we call the compression function directly.
+     **/
+    memset(&hs, 0, sizeof hs);
+    memcpy(hs.buf, first_digest, DIGEST_SIZE);
+    hs.buf[DIGEST_SIZE] = 0x80;
+    hs.buf[BLOCK_SIZE-8] = DIGEST_SIZE*8;   /** Length in bits, little-endian **/
+
+    for (i=1; i<iterations; i++) {
+        hs.h[0] = 0x67452301;
+        hs.h[1] = 0xefcdab89;
+        hs.h[2] = 0x98badcfe;
+        hs.h[3] = 0x10325476;
+        md5_compress(&hs);
+        for (j=0; j<4; j++) {
+            STORE_U32_LITTLE(&hs.buf[j*4], hs.h[j]);
+        }
+    }
+
+    memcpy(result, hs.buf, DIGEST_SIZE);
     return 0;
 }
 

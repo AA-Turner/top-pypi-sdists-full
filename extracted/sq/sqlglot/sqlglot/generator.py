@@ -706,6 +706,7 @@ class Generator:
     EXPRESSION_PRECEDES_PROPERTIES_CREATABLES: t.ClassVar[set[str]] = set()
 
     PROPERTIES_LOCATION: t.ClassVar = {
+        exp.AggregateKeyProperty: exp.Properties.Location.POST_SCHEMA,
         exp.AllowedValuesProperty: exp.Properties.Location.POST_SCHEMA,
         exp.AlgorithmProperty: exp.Properties.Location.POST_CREATE,
         exp.ApiProperty: exp.Properties.Location.POST_CREATE,
@@ -773,6 +774,7 @@ class Generator:
         exp.OutputModelProperty: exp.Properties.Location.POST_SCHEMA,
         exp.PartitionedByProperty: exp.Properties.Location.POST_WITH,
         exp.PartitionedOfProperty: exp.Properties.Location.POST_SCHEMA,
+        exp.PhysicalProperty: exp.Properties.Location.UNSUPPORTED,
         exp.PrimaryKey: exp.Properties.Location.POST_SCHEMA,
         exp.Property: exp.Properties.Location.POST_WITH,
         exp.RefreshTriggerProperty: exp.Properties.Location.POST_SCHEMA,
@@ -800,9 +802,11 @@ class Generator:
         exp.SqlSecurityProperty: exp.Properties.Location.POST_SCHEMA,
         exp.StabilityProperty: exp.Properties.Location.POST_SCHEMA,
         exp.StorageHandlerProperty: exp.Properties.Location.POST_SCHEMA,
+        exp.StorageProperty: exp.Properties.Location.UNSUPPORTED,
         exp.StreamingTableProperty: exp.Properties.Location.POST_CREATE,
         exp.StrictProperty: exp.Properties.Location.POST_SCHEMA,
         exp.Tags: exp.Properties.Location.POST_WITH,
+        exp.TableSpaceProperty: exp.Properties.Location.UNSUPPORTED,
         exp.TemporaryProperty: exp.Properties.Location.POST_CREATE,
         exp.ToTableProperty: exp.Properties.Location.POST_SCHEMA,
         exp.TransientProperty: exp.Properties.Location.POST_CREATE,
@@ -3840,6 +3844,8 @@ class Generator:
         return f"CHECK ({this})"
 
     def foreignkey_sql(self, expression: exp.ForeignKey) -> str:
+        this = self.sql(expression, "this")
+        this = f" {this}" if this else ""
         expressions = self.expressions(expression, flat=True)
         expressions = f" ({expressions})" if expressions else ""
         reference = self.sql(expression, "reference")
@@ -3850,7 +3856,7 @@ class Generator:
         update = f" ON UPDATE {update}" if update else ""
         options = self.expressions(expression, key="options", flat=True, sep=" ")
         options = f" {options}" if options else ""
-        return f"FOREIGN KEY{expressions}{reference}{delete}{update}{options}"
+        return f"FOREIGN KEY{this}{expressions}{reference}{delete}{update}{options}"
 
     def primarykey_sql(self, expression: exp.PrimaryKey) -> str:
         this = self.sql(expression, "this")
@@ -4688,6 +4694,8 @@ class Generator:
         return self._like_sql(expression)
 
     def match_sql(self, expression: exp.Match) -> str:
+        if expression.args.get("kind") or expression.args.get("analyzer"):
+            self.unsupported("MATCH variants and USING ANALYZER are not supported in this dialect")
         return self.binary(expression, "MATCH")
 
     def similarto_sql(self, expression: exp.SimilarTo) -> str:
@@ -5043,6 +5051,9 @@ class Generator:
     def dictsubproperty_sql(self, expression: exp.DictSubProperty) -> str:
         return f"{self.sql(expression, 'this')} {self.sql(expression, 'value')}"
 
+    def aggregatekeyproperty_sql(self, expression: exp.AggregateKeyProperty) -> str:
+        return f"AGGREGATE KEY ({self.expressions(expression, flat=True)})"
+
     def duplicatekeyproperty_sql(self, expression: exp.DuplicateKeyProperty) -> str:
         return f"DUPLICATE KEY ({self.expressions(expression, flat=True)})"
 
@@ -5281,6 +5292,7 @@ class Generator:
         expression_sql = self.sql(expression, "expression")
         return f"FOR {this} DO {expression_sql}"
 
+    @unsupported_args("partition_start", "partition_end", "force", "mode")
     def refresh_sql(self, expression: exp.Refresh) -> str:
         this = self.sql(expression, "this")
         kind = "" if isinstance(expression.this, exp.Literal) else f"{expression.text('kind')} "

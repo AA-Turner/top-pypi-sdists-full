@@ -16,7 +16,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from . import mrpc_mt4_error_pb2 as mrpc__mt4__error__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1emt4-term-api-market-info.proto\x12\x0cmt4_term_api\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mrpc-mt4-error.proto\"\x1e\n\x0cQuoteRequest\x12\x0e\n\x06symbol\x18\x01 \x01(\t\"g\n\nQuoteReply\x12\'\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x17.mt4_term_api.QuoteDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"\x7f\n\tQuoteData\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\x0b\n\x03\x62id\x18\x02 \x01(\x01\x12\x0b\n\x03\x61sk\x18\x03 \x01(\x01\x12-\n\tdate_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0c\n\x04high\x18\x05 \x01(\x01\x12\x0b\n\x03low\x18\x06 \x01(\x01\"#\n\x10QuoteManyRequest\x12\x0f\n\x07symbols\x18\x01 \x03(\t\"o\n\x0eQuoteManyReply\x12+\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1b.mt4_term_api.QuoteManyDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"8\n\rQuoteManyData\x12\'\n\x06quotes\x18\x01 \x03(\x0b\x32\x17.mt4_term_api.QuoteData\"\x10\n\x0eSymbolsRequest\"k\n\x0cSymbolsReply\x12)\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x19.mt4_term_api.SymbolsDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"D\n\x0bSymbolsData\x12\x35\n\x0fSymbolNameInfos\x18\x01 \x03(\x0b\x32\x1c.mt4_term_api.SymbolNameInfo\";\n\x0eSymbolNameInfo\x12\x13\n\x0bsymbol_name\x18\x01 \x01(\t\x12\x14\n\x0csymbol_index\x18\x02 \x01(\x05\"\xbe\x01\n\x13QuoteHistoryRequest\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12=\n\ttimeframe\x18\x02 \x01(\x0e\x32*.mt4_term_api.ENUM_QUOTE_HISTORY_TIMEFRAME\x12,\n\x08\x66romTime\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12*\n\x06toTime\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"u\n\x11QuoteHistoryReply\x12.\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1e.mt4_term_api.QuoteHistoryDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"I\n\x10QuoteHistoryData\x12\x35\n\x11historical_quotes\x18\x01 \x03(\x0b\x32\x1a.mt4_term_api.HistoryQuote\"\xc9\x01\n\x0cHistoryQuote\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\r\n\x05index\x18\x02 \x01(\x05\x12(\n\x04time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0c\n\x04open\x18\x04 \x01(\x01\x12\r\n\x05\x63lose\x18\x05 \x01(\x01\x12\x0c\n\x04high\x18\x06 \x01(\x01\x12\x0b\n\x03low\x18\x07 \x01(\x01\x12\x13\n\x0breal_volume\x18\x08 \x01(\x03\x12\x13\n\x0btick_volume\x18\t \x01(\x03\x12\x0e\n\x06spread\x18\n \x01(\x05\"5\n\x13SymbolSelectRequest\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\x0e\n\x06select\x18\x02 \x01(\x08\"u\n\x11SymbolSelectReply\x12.\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1e.mt4_term_api.SymbolSelectDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"#\n\x10SymbolSelectData\x12\x0f\n\x07success\x18\x01 \x01(\x08*\xc3\x01\n\x1c\x45NUM_QUOTE_HISTORY_TIMEFRAME\x12\x10\n\x0cQH_PERIOD_M1\x10\x00\x12\x10\n\x0cQH_PERIOD_M5\x10\x01\x12\x11\n\rQH_PERIOD_M15\x10\x02\x12\x11\n\rQH_PERIOD_M30\x10\x03\x12\x10\n\x0cQH_PERIOD_H1\x10\x04\x12\x10\n\x0cQH_PERIOD_H4\x10\x05\x12\x10\n\x0cQH_PERIOD_D1\x10\x06\x12\x10\n\x0cQH_PERIOD_W1\x10\x07\x12\x11\n\rQH_PERIOD_MN1\x10\x08\x32\xe7\x03\n\nMarketInfo\x12M\n\x05Quote\x12\x1a.mt4_term_api.QuoteRequest\x1a\x18.mt4_term_api.QuoteReply\"\x0e\x82\xd3\xe4\x93\x02\x08\x12\x06/Quote\x12]\n\tQuoteMany\x12\x1e.mt4_term_api.QuoteManyRequest\x1a\x1c.mt4_term_api.QuoteManyReply\"\x12\x82\xd3\xe4\x93\x02\x0c\x12\n/QuoteMany\x12U\n\x07Symbols\x12\x1c.mt4_term_api.SymbolsRequest\x1a\x1a.mt4_term_api.SymbolsReply\"\x10\x82\xd3\xe4\x93\x02\n\x12\x08/Symbols\x12i\n\x0cQuoteHistory\x12!.mt4_term_api.QuoteHistoryRequest\x1a\x1f.mt4_term_api.QuoteHistoryReply\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/QuoteHistory\x12i\n\x0cSymbolSelect\x12!.mt4_term_api.SymbolSelectRequest\x1a\x1f.mt4_term_api.SymbolSelectReply\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/SymbolSelectBBZ1git.mtapi.io/root/mrpc-proto.git/mt4/libraries/go\xaa\x02\x0cmt4_term_apib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1emt4-term-api-market-info.proto\x12\x0cmt4_term_api\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14mrpc-mt4-error.proto\"\x1e\n\x0cQuoteRequest\x12\x0e\n\x06symbol\x18\x01 \x01(\t\"g\n\nQuoteReply\x12\'\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x17.mt4_term_api.QuoteDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"\xb2\x01\n\tQuoteData\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\x0b\n\x03\x62id\x18\x02 \x01(\x01\x12\x0b\n\x03\x61sk\x18\x03 \x01(\x01\x12-\n\tdate_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rdate_time_utc\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0c\n\x04high\x18\x05 \x01(\x01\x12\x0b\n\x03low\x18\x06 \x01(\x01\"#\n\x10QuoteManyRequest\x12\x0f\n\x07symbols\x18\x01 \x03(\t\"o\n\x0eQuoteManyReply\x12+\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1b.mt4_term_api.QuoteManyDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"8\n\rQuoteManyData\x12\'\n\x06quotes\x18\x01 \x03(\x0b\x32\x17.mt4_term_api.QuoteData\"\x10\n\x0eSymbolsRequest\"k\n\x0cSymbolsReply\x12)\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x19.mt4_term_api.SymbolsDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"D\n\x0bSymbolsData\x12\x35\n\x0fSymbolNameInfos\x18\x01 \x03(\x0b\x32\x1c.mt4_term_api.SymbolNameInfo\";\n\x0eSymbolNameInfo\x12\x13\n\x0bsymbol_name\x18\x01 \x01(\t\x12\x14\n\x0csymbol_index\x18\x02 \x01(\x05\"\x9e\x02\n\x13QuoteHistoryRequest\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12=\n\ttimeframe\x18\x02 \x01(\x0e\x32*.mt4_term_api.ENUM_QUOTE_HISTORY_TIMEFRAME\x12,\n\x08\x66romTime\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0b\x66romTimeUtc\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12*\n\x06toTime\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12-\n\ttoTimeUtc\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"u\n\x11QuoteHistoryReply\x12.\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1e.mt4_term_api.QuoteHistoryDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"I\n\x10QuoteHistoryData\x12\x35\n\x11historical_quotes\x18\x01 \x03(\x0b\x32\x1a.mt4_term_api.HistoryQuote\"\xf7\x01\n\x0cHistoryQuote\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\r\n\x05index\x18\x02 \x01(\x05\x12(\n\x04time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12,\n\x08time_utc\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0c\n\x04open\x18\x04 \x01(\x01\x12\r\n\x05\x63lose\x18\x05 \x01(\x01\x12\x0c\n\x04high\x18\x06 \x01(\x01\x12\x0b\n\x03low\x18\x07 \x01(\x01\x12\x13\n\x0breal_volume\x18\x08 \x01(\x03\x12\x13\n\x0btick_volume\x18\t \x01(\x03\x12\x0e\n\x06spread\x18\n \x01(\x05\"5\n\x13SymbolSelectRequest\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\x0e\n\x06select\x18\x02 \x01(\x08\"u\n\x11SymbolSelectReply\x12.\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1e.mt4_term_api.SymbolSelectDataH\x00\x12$\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x13.mt4_term_api.ErrorH\x00\x42\n\n\x08response\"#\n\x10SymbolSelectData\x12\x0f\n\x07success\x18\x01 \x01(\x08*\xc3\x01\n\x1c\x45NUM_QUOTE_HISTORY_TIMEFRAME\x12\x10\n\x0cQH_PERIOD_M1\x10\x00\x12\x10\n\x0cQH_PERIOD_M5\x10\x01\x12\x11\n\rQH_PERIOD_M15\x10\x02\x12\x11\n\rQH_PERIOD_M30\x10\x03\x12\x10\n\x0cQH_PERIOD_H1\x10\x04\x12\x10\n\x0cQH_PERIOD_H4\x10\x05\x12\x10\n\x0cQH_PERIOD_D1\x10\x06\x12\x10\n\x0cQH_PERIOD_W1\x10\x07\x12\x11\n\rQH_PERIOD_MN1\x10\x08\x32\xea\x03\n\nMarketInfo\x12M\n\x05Quote\x12\x1a.mt4_term_api.QuoteRequest\x1a\x18.mt4_term_api.QuoteReply\"\x0e\x82\xd3\xe4\x93\x02\x08\x12\x06/Quote\x12]\n\tQuoteMany\x12\x1e.mt4_term_api.QuoteManyRequest\x1a\x1c.mt4_term_api.QuoteManyReply\"\x12\x82\xd3\xe4\x93\x02\x0c\x12\n/QuoteMany\x12U\n\x07Symbols\x12\x1c.mt4_term_api.SymbolsRequest\x1a\x1a.mt4_term_api.SymbolsReply\"\x10\x82\xd3\xe4\x93\x02\n\x12\x08/Symbols\x12l\n\x0cQuoteHistory\x12!.mt4_term_api.QuoteHistoryRequest\x1a\x1f.mt4_term_api.QuoteHistoryReply\"\x18\x88\x02\x01\x82\xd3\xe4\x93\x02\x0f\x12\r/QuoteHistory\x12i\n\x0cSymbolSelect\x12!.mt4_term_api.SymbolSelectRequest\x1a\x1f.mt4_term_api.SymbolSelectReply\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/SymbolSelectBBZ1git.mtapi.io/root/mrpc-proto.git/mt4/libraries/go\xaa\x02\x0cmt4_term_apib\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'mt4_term_api_market_info_pb2', globals())
@@ -31,45 +31,45 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _MARKETINFO.methods_by_name['Symbols']._options = None
   _MARKETINFO.methods_by_name['Symbols']._serialized_options = b'\202\323\344\223\002\n\022\010/Symbols'
   _MARKETINFO.methods_by_name['QuoteHistory']._options = None
-  _MARKETINFO.methods_by_name['QuoteHistory']._serialized_options = b'\202\323\344\223\002\017\022\r/QuoteHistory'
+  _MARKETINFO.methods_by_name['QuoteHistory']._serialized_options = b'\210\002\001\202\323\344\223\002\017\022\r/QuoteHistory'
   _MARKETINFO.methods_by_name['SymbolSelect']._options = None
   _MARKETINFO.methods_by_name['SymbolSelect']._serialized_options = b'\202\323\344\223\002\017\022\r/SymbolSelect'
-  _ENUM_QUOTE_HISTORY_TIMEFRAME._serialized_start=1668
-  _ENUM_QUOTE_HISTORY_TIMEFRAME._serialized_end=1863
+  _ENUM_QUOTE_HISTORY_TIMEFRAME._serialized_start=1862
+  _ENUM_QUOTE_HISTORY_TIMEFRAME._serialized_end=2057
   _QUOTEREQUEST._serialized_start=133
   _QUOTEREQUEST._serialized_end=163
   _QUOTEREPLY._serialized_start=165
   _QUOTEREPLY._serialized_end=268
-  _QUOTEDATA._serialized_start=270
-  _QUOTEDATA._serialized_end=397
-  _QUOTEMANYREQUEST._serialized_start=399
-  _QUOTEMANYREQUEST._serialized_end=434
-  _QUOTEMANYREPLY._serialized_start=436
-  _QUOTEMANYREPLY._serialized_end=547
-  _QUOTEMANYDATA._serialized_start=549
-  _QUOTEMANYDATA._serialized_end=605
-  _SYMBOLSREQUEST._serialized_start=607
-  _SYMBOLSREQUEST._serialized_end=623
-  _SYMBOLSREPLY._serialized_start=625
-  _SYMBOLSREPLY._serialized_end=732
-  _SYMBOLSDATA._serialized_start=734
-  _SYMBOLSDATA._serialized_end=802
-  _SYMBOLNAMEINFO._serialized_start=804
-  _SYMBOLNAMEINFO._serialized_end=863
-  _QUOTEHISTORYREQUEST._serialized_start=866
-  _QUOTEHISTORYREQUEST._serialized_end=1056
-  _QUOTEHISTORYREPLY._serialized_start=1058
-  _QUOTEHISTORYREPLY._serialized_end=1175
-  _QUOTEHISTORYDATA._serialized_start=1177
-  _QUOTEHISTORYDATA._serialized_end=1250
-  _HISTORYQUOTE._serialized_start=1253
-  _HISTORYQUOTE._serialized_end=1454
-  _SYMBOLSELECTREQUEST._serialized_start=1456
-  _SYMBOLSELECTREQUEST._serialized_end=1509
-  _SYMBOLSELECTREPLY._serialized_start=1511
-  _SYMBOLSELECTREPLY._serialized_end=1628
-  _SYMBOLSELECTDATA._serialized_start=1630
-  _SYMBOLSELECTDATA._serialized_end=1665
-  _MARKETINFO._serialized_start=1866
-  _MARKETINFO._serialized_end=2353
+  _QUOTEDATA._serialized_start=271
+  _QUOTEDATA._serialized_end=449
+  _QUOTEMANYREQUEST._serialized_start=451
+  _QUOTEMANYREQUEST._serialized_end=486
+  _QUOTEMANYREPLY._serialized_start=488
+  _QUOTEMANYREPLY._serialized_end=599
+  _QUOTEMANYDATA._serialized_start=601
+  _QUOTEMANYDATA._serialized_end=657
+  _SYMBOLSREQUEST._serialized_start=659
+  _SYMBOLSREQUEST._serialized_end=675
+  _SYMBOLSREPLY._serialized_start=677
+  _SYMBOLSREPLY._serialized_end=784
+  _SYMBOLSDATA._serialized_start=786
+  _SYMBOLSDATA._serialized_end=854
+  _SYMBOLNAMEINFO._serialized_start=856
+  _SYMBOLNAMEINFO._serialized_end=915
+  _QUOTEHISTORYREQUEST._serialized_start=918
+  _QUOTEHISTORYREQUEST._serialized_end=1204
+  _QUOTEHISTORYREPLY._serialized_start=1206
+  _QUOTEHISTORYREPLY._serialized_end=1323
+  _QUOTEHISTORYDATA._serialized_start=1325
+  _QUOTEHISTORYDATA._serialized_end=1398
+  _HISTORYQUOTE._serialized_start=1401
+  _HISTORYQUOTE._serialized_end=1648
+  _SYMBOLSELECTREQUEST._serialized_start=1650
+  _SYMBOLSELECTREQUEST._serialized_end=1703
+  _SYMBOLSELECTREPLY._serialized_start=1705
+  _SYMBOLSELECTREPLY._serialized_end=1822
+  _SYMBOLSELECTDATA._serialized_start=1824
+  _SYMBOLSELECTDATA._serialized_end=1859
+  _MARKETINFO._serialized_start=2060
+  _MARKETINFO._serialized_end=2550
 # @@protoc_insertion_point(module_scope)

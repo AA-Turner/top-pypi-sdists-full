@@ -27,7 +27,6 @@ extern "C" {
         name: *mut ffi::PyObject,
     ) -> *mut ffi::PyObject;
 
-    // Public C API (Objects/classobject.c) that pyo3-ffi does not declare.
     fn PyMethod_New(function: *mut ffi::PyObject, self_: *mut ffi::PyObject) -> *mut ffi::PyObject;
     /// Borrowed reference to a bound method's `__func__`.
     fn PyMethod_Function(method: *mut ffi::PyObject) -> *mut ffi::PyObject;
@@ -88,9 +87,6 @@ pub struct SerializerState {
     globals: Py<PyDict>,
     ext_type: Py<PyAny>,
     timestamp_type: Py<PyAny>,
-    // `msgpack.packb`, for the leaf types msgpack packs without calling
-    // `default`: ExtType, Timestamp and memoryview. Each call gets its own
-    // Packer, as `kolo.serialize` keeps its packers per thread.
     packb: Py<PyAny>,
     // The bound method type (`PyMethod_Type`), whose reprs are composed
     // natively. Taken from a real bound method: `types.MethodType` is a
@@ -249,11 +245,6 @@ impl SerializerState {
     }
 }
 
-// Large immutable values are the dominant cost in traces with real payloads:
-// copying the same request body, rendered template, or model blob into every
-// call/return frame consumes callback time, writer bandwidth, and disk space.
-// References remain an internal wire detail; every reader expands them back
-// into the exact str/bytes value before exposing a frame.
 const VALUE_REFERENCE_EXTENSION_TYPE: i8 = 9;
 const MIN_INTERNED_VALUE_BYTES: usize = 4 * 1024;
 const MAX_INTERNED_VALUE_BYTES: usize = 16 * 1024 * 1024;
@@ -310,10 +301,7 @@ struct InternedValue {
     encoded: Arc<[u8]>,
     payload_start: usize,
     kind: InternedValueKind,
-    // Exact str/bytes are immutable and cannot run user finalizers. Keeping a
-    // bounded strong reference makes their address a permanent identity, so
-    // the hot reference path need not reread a multi-kilobyte payload merely
-    // to defend against CPython reusing an address after object destruction.
+    // A strong reference makes the address a permanent identity: CPython cannot reuse it.
     object: Py<PyAny>,
 }
 
@@ -464,7 +452,6 @@ pub struct ValueInterning {
     table: Mutex<ValueTable>,
     disabled: AtomicBool,
     candidate_bytes: AtomicUsize,
-    // Lives as long as the monitor/profiler, like the interned values.
     repr_reuse: super::repr_reuse::ReprReuse,
 }
 
@@ -563,34 +550,15 @@ fn write_value_reference(buf: &mut Vec<u8>, id: u32) {
     buf.extend_from_slice(&id.to_be_bytes());
 }
 
-// The same exact list or dict reachable many times from one root (a DAG such
-// as `a = [x, x]; b = [a, a]; ...`) would otherwise be packed once per path,
-// which is exponential in time and bytes. Once a root has packed
-// `SHARED_TRACKING_THRESHOLD` plain containers, every completed list or dict
-// of at least two items is remembered by identity, and a later occurrence in
-// the same root is written as a back-reference: the number of arrays and maps
-// completed in the root's stream since the referenced one. Readers resolve it
-// to the earlier decoded value, so the decoded value stays equal to the
-// original. Containers inside a tuple/set payload or inside a dict made by
-// the default hook are never referenced, which keeps the rule computable
-// from the exact containers alone (see `_replay_shared_reference_rule` in
-// kolo/serialize.py, which mirrors it).
+// Repeated lists/dicts in one root are written as back-references; this rule must match
+// `_replay_shared_reference_rule` in kolo/serialize.py.
 const SHARED_REFERENCE_EXTENSION_TYPE: i8 = 11;
 const SHARED_TRACKING_THRESHOLD: u32 = 1024;
-// Containers one root remembers at most. Each costs a table entry and a pin
-// (about 30 bytes) for the root's lifetime, against as little as 3 bytes of
-// output, so without a cap the table would outgrow the value budget many
-// times over. A DAG needs one per level, far below this.
+// Cap remembered containers because their pins and table entries can dwarf the encoded value.
 const MAX_SHARED_CONTAINERS: usize = 1 << 18;
-// A root whose encoding exceeds the configured `max_value_mb` budget is
-// replaced by this marker, so one runaway value cannot stall the app or fill
-// the disk. Its payload names the type and the budget.
 const TRUNCATED_VALUE_EXTENSION_TYPE: i8 = 12;
-// Runs of scalars are checked against the budget once every this many plus
-// one items (containers, strings and other payloads are checked each time),
-// which bounds the overshoot without a check per value.
+// Check scalar runs periodically; the interval bounds budget overshoot.
 const BUDGET_CHECK_MASK: usize = 0xff;
-// Longest type name a truncation marker repeats, so the marker stays small.
 const MAX_MARKER_TYPE_NAME_CHARS: usize = 200;
 // Frame fields `encode_capped_map` never caps, as `_ENVELOPE_KEYS` in
 // kolo/serialize.py.
@@ -669,17 +637,11 @@ const SERIALIZATION_ERROR_EXTENSION_TYPE: i8 = 127;
 // `msgpack_encode_hook` -> `_dump_msgpack` -> `_pack_with_msgpack` are the
 // Python frames each nested tuple/set/frozenset costs the Python serializer.
 const PYTHON_FRAMES_PER_NESTED_EXTENSION: i32 = 3;
-// The careful pass adds `_pack_careful` to those.
 const PYTHON_FRAMES_PER_CAREFUL_NESTED_EXTENSION: i32 = 4;
-// Nesting (of extension payloads, or of dict subclass copies) past which the
-// first pass looks for a cycle (see `enter_extension`): cycles repeat within
-// a few levels, and shallow values pay nothing.
 const FIRST_PASS_CYCLE_CHECK_DEPTH: i32 = 8;
 const REPR_EXTENSION_TYPE: i8 = 0;
 /// A str with lone surrogates, as `str.encode("utf-8", "surrogatepass")`.
 const SURROGATE_STR_EXTENSION_TYPE: i8 = 10;
-// What the careful pass writes (as repr text) for a container already being
-// packed, as Python's repr marks a recursive reference.
 const LIST_CYCLE_MARKER: &[u8] = b"[...]";
 const DICT_CYCLE_MARKER: &[u8] = b"{...}";
 const TUPLE_CYCLE_MARKER: &[u8] = b"(...)";
@@ -1075,8 +1037,6 @@ struct ReprMemo {
     arena: Vec<u8>,
     inline: [Option<ReprMemoEntry>; REPR_MEMO_INLINE],
     spilled: Vec<ReprMemoEntry>,
-    // Built only past the scan limit: even an empty hasher is not free to
-    // create for every event.
     index: Option<HashMap<usize, usize>>,
     len: usize,
 }
@@ -1253,8 +1213,6 @@ impl Drop for NativeMsgpackEncoder<'_> {
         if !counted {
             NATIVE_ENCODES.with(|count| count.set(count.get() + 1));
         }
-        // Every snapshot and pin is released on success and failure alike,
-        // so this only guards against a panic mid-pack.
         if !self.snapshot.is_empty() {
             self.release_snapshot(0);
         }
@@ -1293,9 +1251,8 @@ impl<'a> NativeMsgpackEncoder<'a> {
 
     /// Replace any root whose encoding exceeds `value_budget` bytes by a
     /// truncation marker (see `encode_value`).
-    // Set in place, not as a by-value builder: the encoder is large (its
-    // inline snapshot and repr memo) and built for every event, so a move
-    // here is a memcpy on the hot path.
+    // Set in place, not a by-value builder: the encoder is large and built per event,
+    // so a move would be a memcpy on the hot path.
     pub(super) fn set_value_budget(&mut self, value_budget: Option<usize>) {
         self.value_budget = value_budget;
     }
@@ -1409,9 +1366,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
         self.reserved_header_bytes = 0;
         let mut packed = self.pack(value, buf, self.serializer.recurse_limit);
         if packed.is_err() && self.retry_carefully(value) {
-            // `dump_msgpack`'s second, careful pass (see `careful`). Like
-            // kolo.serialize's, it shares repeated containers with a fresh
-            // table; the budget still applies, from the root's start again.
             buf.truncate(start);
             self.release_shared();
             self.reserved_header_bytes = 0;
@@ -1457,9 +1411,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
     #[inline(never)]
     fn write_truncation_marker(&self, value: &Bound<'_, PyAny>, buf: &mut Vec<u8>) {
         let py = value.py();
-        // The first characters of the name as an exact str (a str subclass's
-        // overrides never run), UTF-8 with lone surrogates escaped, as
-        // `kolo.serialize.truncation_marker` builds it.
         let qualname = value
             .get_type()
             .qualname()
@@ -1505,8 +1456,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
 
     /// Fail once the current root has written more than its budget. Only
     /// ever fails when the finished root would be larger than the budget too.
-    // Inlined in release builds; out of line in unoptimized ones, whose
-    // container recursion frames would otherwise grow by its temporaries.
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(not(debug_assertions), inline(always))]
     fn check_budget(&mut self, buf: &[u8], additional: usize) -> Packed {
@@ -1529,8 +1478,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
     /// Only counters are touched inline: this sits on the container
     /// recursion path, whose stack use bounds the nesting a small (Windows
     /// main thread) stack can encode.
-    // Inlined in release builds; out of line in unoptimized ones, whose
-    // container recursion frames would otherwise grow by its temporaries.
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(not(debug_assertions), inline(always))]
     fn enter_shared(&mut self, object: *mut ffi::PyObject, buf: &mut Vec<u8>) -> bool {
@@ -1571,8 +1518,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
     /// array and map of the root's own stream (not those inside tuple/set
     /// payloads) in completion order, so every one counts; only containers
     /// `enter_shared` saw, of at least two items when done, are remembered.
-    // Inlined in release builds; out of line in unoptimized ones, whose
-    // container recursion frames would otherwise grow by its temporaries.
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(not(debug_assertions), inline(always))]
     fn complete_container(&mut self, object: *mut ffi::PyObject, len: usize) {
@@ -1722,7 +1667,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
                     rmp::encode::write_uint(buf, value).expect("Writing to memory, not I/O");
                     return Ok(());
                 }
-                // Outside 64 bits the Packer hands exact ints to `default`.
                 return self.write_unsupported_leaf(value, buf, nest_limit);
             }
             if object_type == ptr::addr_of_mut!(ffi::PyFloat_Type) {
@@ -1804,8 +1748,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
         if !self.careful || !error.is_instance_of::<PyUnicodeEncodeError>(py) {
             return self.fail(error);
         }
-        // Each code point takes at least a byte: refuse an oversized str
-        // before encoding a copy of it, and the copy before writing it.
         let chars = self.check(py_string.len())?;
         self.check_budget(buf, chars)?;
         let payload = py_string
@@ -1893,9 +1835,7 @@ impl<'a> NativeMsgpackEncoder<'a> {
         packed
     }
 
-    // Inlined into `pack` in release builds, as before the sharing and
-    // budget bookkeeping grew it; out of line in debug builds to keep
-    // the recursion's frames small.
+    // Inlined into `pack` in release builds; out of line in debug builds to keep recursion frames small.
     #[cfg_attr(not(debug_assertions), inline(always))]
     fn pack_dict(
         &mut self,
@@ -1903,17 +1843,12 @@ impl<'a> NativeMsgpackEncoder<'a> {
         buf: &mut Vec<u8>,
         nest_limit: i32,
     ) -> Packed {
-        // Nothing new stays live across the recursion below: its stack use
-        // bounds the nesting a small stack can encode. The careful pass
-        // shares repeated containers too, with a table of its own.
         if self.hook_depth == 0
             && self.extension_depth == 0
             && self.enter_shared(dict.as_ptr(), buf)
         {
             return Ok(());
         }
-        // Every item takes at least a byte, so refuse an oversized container
-        // before snapshotting its items.
         self.check_budget(buf, 2 * dict.len())?;
         if self.careful {
             return self.pack_dict_carefully(dict, buf, nest_limit);
@@ -2111,7 +2046,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
         nest_limit: i32,
     ) -> Option<Packed> {
         if nest_limit < 0 {
-            // `pack` reports the recursion limit.
             return None;
         }
         if object == ffi::Py_None() {
@@ -2188,7 +2122,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
         Ok(())
     }
 
-    // As `pack_dict`.
     #[cfg_attr(not(debug_assertions), inline(always))]
     fn pack_list(
         &mut self,
@@ -2196,17 +2129,12 @@ impl<'a> NativeMsgpackEncoder<'a> {
         buf: &mut Vec<u8>,
         nest_limit: i32,
     ) -> Packed {
-        // Nothing new stays live across the recursion below: its stack use
-        // bounds the nesting a small stack can encode. The careful pass
-        // shares repeated containers too, with a table of its own.
         if self.hook_depth == 0
             && self.extension_depth == 0
             && self.enter_shared(list.as_ptr(), buf)
         {
             return Ok(());
         }
-        // Every item takes at least a byte, so refuse an oversized container
-        // before snapshotting its items.
         self.check_budget(buf, list.len())?;
         if self.careful {
             return self.pack_list_carefully(list, buf, nest_limit);
@@ -2427,9 +2355,7 @@ impl<'a> NativeMsgpackEncoder<'a> {
         let defaulted = match self.call_default(value, buf) {
             Ok(defaulted) => defaulted,
             Err(Fail) => {
-                // A reservation abandoned here stays counted, which only
-                // makes the in-progress check more lenient; the final check
-                // in `encode_value` is exact.
+                // Abandoned reservation accounting is lenient; encode_value performs the exact final check.
                 buf.truncate(start);
                 return self.handle_default_error(value, buf);
             }
@@ -2545,7 +2471,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
         let caught = blocked
             || (!self.lightweight_repr
                 && error.is_instance_of::<PyException>(py)
-                // Left for the careful pass to record instead.
                 && (self.careful || !needs_careful(py, &error)));
         if !caught {
             self.error = Some(EncodeError::Python(error));
@@ -2594,8 +2519,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
                 self.check(written)
             }
             Err(new_error) => {
-                // CPython already chained errors raised by Python code;
-                // errors created here in Rust still need the context.
                 let new_value = new_error.value(py).as_ptr();
                 // Safety: GetContext returns a new reference (or NULL), and
                 // SetContext steals the reference to `error`.
@@ -2623,8 +2546,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
     ) -> Result<Defaulted<'py>, Fail> {
         let py = value.py();
         if let Ok(tuple) = value.cast_exact::<PyTuple>() {
-            // Exact tuples are the one hook type common enough to skip the
-            // ladder for; `isinstance(obj, tuple)` matches them first anyway.
             if self.is_active(value) {
                 return Ok(Defaulted::CycleMarker(TUPLE_CYCLE_MARKER));
             }
@@ -2635,9 +2556,7 @@ impl<'a> NativeMsgpackEncoder<'a> {
         self.used_default_hook = true;
         self.set_profiler_flag(py)?;
 
-        // Whether the ladder provably matches nothing and reading
-        // `__class__` runs no code, so only `repr()` is left to run (and with
-        // `lightweight_repr` nothing).
+        // Fall through only when no handler matches and reading __class__ runs no code.
         #[cfg(all(Py_3_12, not(Py_GIL_DISABLED)))]
         let falls_through = self
             .serializer
@@ -2645,8 +2564,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
         #[cfg(not(all(Py_3_12, not(Py_GIL_DISABLED))))]
         let falls_through = false;
 
-        // Kept to two type reads here, with the rest out of line: this is
-        // the path of every value the hook sees.
         if construction::worth_checking(
             value.as_ptr(),
             falls_through,
@@ -2714,8 +2631,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
                 copy.cast_into::<PyDict>().expect("dict() returns a dict"),
             ));
         }
-        // What fits before the budget ends, as `check_budget` measures it;
-        // `None` without a budget.
         let room = (self.budget_end != usize::MAX).then(|| {
             self.budget_end
                 .saturating_add(self.reserved_header_bytes)
@@ -2735,7 +2650,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
         let placeholder = self.construction_placeholder(value, falls_through);
         match self.check(placeholder)? {
             Some(text) => {
-                // A class name can hold lone surrogates.
                 let payload = escaped_utf8_payload(text);
                 Ok(Some(Defaulted::Ext(0, self.check(payload)?)))
             }
@@ -2761,9 +2675,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
                 (false, object)
             }
         };
-        // `lightweight_repr` does not `repr()` a method. A value that falls
-        // through the ladder got here because `repr()` would run its class's
-        // code (`worth_checking`); for any other, look at the type first.
         if (is_method && self.lightweight_repr)
             || ((is_method || !falls_through || self.lightweight_repr)
                 && !construction::may_run_user_code(
@@ -2834,9 +2745,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
         let int_type = ptr::addr_of_mut!(ffi::PyLong_Type).cast::<ffi::PyObject>();
         if self.isinstance(value, int_type, class_is_type)? {
             let bit_length = value.call_method0(intern!(py, "bit_length"))?;
-            // The payload takes more than a byte per 8 bits: refuse an
-            // oversized exact int before `to_bytes()` copies it (a subclass's
-            // methods may disagree, so it is measured after).
             if let (Some(room), true) = (room, value.is_exact_instance_of::<PyInt>()) {
                 if let Ok(bits) = bit_length.extract::<u64>() {
                     if !usize::try_from(bits / 8).is_ok_and(|bytes| bytes <= room) {
@@ -2943,8 +2851,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
             ReprText::Native(native) => self
                 .repr_memo
                 .insert(value, MemoText::Native(native.clone())),
-            // Only exact str results are reused: a str subclass's own methods
-            // (`encode`) still run on every use, as on a fresh repr.
             ReprText::Py(text) => {
                 if let Ok(text) = text.cast_exact::<PyString>() {
                     self.repr_memo
@@ -3016,10 +2922,7 @@ impl<'a> NativeMsgpackEncoder<'a> {
             Some(name) => Some(name),
             None => optional_attr(&function, intern!(py, "__name__"))?,
         };
-        // `PyUnicode_Check`: str subclasses are used as they are.
         let name = name.and_then(|name| name.cast_into::<PyString>().ok());
-        // `method_repr` calls `PyObject_Repr` on `__self__`, so a method
-        // bound to a method is not composed again.
         let self_repr = self.repr(&bound_self, false)?;
         let name_text = match &name {
             Some(name) => name.to_str().ok(),
@@ -3186,7 +3089,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
         } else {
             PYTHON_FRAMES_PER_NESTED_EXTENSION
         };
-        // `msgpack_encode_hook_lightweight_repr` wraps `_lightweight_repr_ext`.
         let frames_per_extension = base_frames + i32::from(self.lightweight_repr);
         // Safety: reads the interpreter's recursion limit, which is never
         // below 64 frames in practice.
@@ -3212,8 +3114,6 @@ impl<'a> NativeMsgpackEncoder<'a> {
                     return encoder.fail(PyValueError::new_err("list is too large"));
                 };
                 rmp::encode::write_array_len(buf, len).expect("Writing to memory, not I/O");
-                // The list copy would be packed at `limit`, its items one
-                // level below.
                 tuple.iter().enumerate().try_for_each(|(index, item)| {
                     encoder.pack(&item, buf, limit - 1)?;
                     if index & BUDGET_CHECK_MASK == BUDGET_CHECK_MASK {
@@ -3295,10 +3195,8 @@ impl<'a> NativeMsgpackEncoder<'a> {
                     if let Err(error) = value_context.publish_value(id, Arc::clone(&value.encoded))
                     {
                         table.remove_last(id);
-                        // A capture that cannot publish one value will never
-                        // accept later references reliably. Disable interning
-                        // once instead of re-locking and rolling back the
-                        // process-wide table on every subsequent callback.
+                        // A capture that cannot publish one value will never accept later references reliably;
+                        // disable interning once rather than re-locking the process-wide table on every callback.
                         value_interning.disabled.store(true, Ordering::Relaxed);
                         if value_context.writer_circuit_is_open() {
                             return ValueLookup::WriterCircuit(error.to_string());
@@ -3562,7 +3460,6 @@ impl SerializerState {
             BuiltinRepr::Object(value_type)
         } else if slot == reprs.class && unsafe { ffi::PyType_Check(object) } != 0 {
             let class = object.cast::<ffi::PyTypeObject>();
-            // `type_repr` of a type before `PyType_Ready`.
             if unsafe { (*class).tp_name }.is_null() {
                 return Ok(None);
             }
@@ -3574,8 +3471,6 @@ impl SerializerState {
         } else {
             return Ok(None);
         };
-        // `type_qualname` of a static type decodes `tp_name` strictly and
-        // fails on invalid UTF-8; leave that error to CPython.
         if let BuiltinRepr::Object(class) | BuiltinRepr::Class(class) = kind {
             // Safety: a live type object.
             let static_type =
@@ -3602,7 +3497,6 @@ impl SerializerState {
         }
         let _guard = LeaveRecursiveCall;
 
-        // Typical reprs fit without the arena regrowing from empty.
         arena.reserve(REPR_TEXT_RESERVE);
         let start = arena.len();
         let text = &mut *arena;
@@ -3801,8 +3695,6 @@ fn class_name<'py>(py: Python<'py>, class: *mut ffi::PyTypeObject) -> PyResult<C
             });
         }
         let mut module = ptr::null_mut();
-        // `type_module` looks `__module__` up in the type's own dict; a
-        // missing key or a lookup error both leave no module.
         if ffi::compat::PyDict_GetItemRef(
             (*class).tp_dict,
             intern!(py, "__module__").as_ptr(),
@@ -4062,7 +3954,6 @@ mod type_ladder {
                 return Some((version, false));
             }
             let globals = self.globals.bind(py);
-            // Interned str keys of a module dict: no Python code runs.
             let global = |name| globals.get_item(name).ok().flatten();
             let mut classes = vec![
                 ptr::addr_of_mut!(ffi::PyTuple_Type).cast::<ffi::PyObject>(),

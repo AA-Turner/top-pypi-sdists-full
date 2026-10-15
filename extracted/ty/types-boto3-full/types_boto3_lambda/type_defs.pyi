@@ -512,6 +512,7 @@ class CapacityProviderVpcConfigTypeDef(TypedDict):
 class ChainedInvokeOptionsTypeDef(TypedDict):
     FunctionName: str
     TenantId: NotRequired[str]
+    XAmznTraceId: NotRequired[str]
 
 class EventInputTypeDef(TypedDict):
     Payload: NotRequired[str]

@@ -32,6 +32,7 @@ Revision History:
 #include "ast/rewriter/fpa_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/ff_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/recfun_rewriter.h"
 #include "model/model_smt2_pp.h"
@@ -56,6 +57,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     fpa_rewriter                    m_f_rw;
     seq_rewriter                    m_seq_rw;
     recfun_rewriter                 m_rec_rw;
+    ff_rewriter m_ff_rw;
     array_util                      m_ar;
     arith_util                      m_au;
     fpa_util                        m_fpau;
@@ -84,6 +86,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_f_rw(m),
         m_seq_rw(m),
         m_rec_rw(m),
+        m_ff_rw(m),
         m_ar(m),
         m_au(m),
         m_fpau(m),
@@ -99,6 +102,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
         params_ref rp;
         rp.set_bool("unfold_recursive_functions", true);
         m_rec_rw.updt_params(rp);
+        params_ref sp;
+        sp.set_uint("max_power_expansion", UINT_MAX);
+        m_seq_rw.updt_params(sp);
         updt_params(p);
         //add_unspecified_function_models(md);
     }
@@ -294,6 +300,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             st = m_f_rw.mk_app_core(f, num, args, result);
         else if (fid == m_seq_rw.get_fid())
             st = m_seq_rw.mk_app_core(f, num, args, result);
+        else if (fid == m_ff_rw.get_fid())
+            st = m_ff_rw.mk_app_core(f, num, args, result);
         else if (fid == m_rec_rw.get_fid())
             st = m_rec_rw.mk_app_core(f, num, args, result);
         else if (fid == m.get_label_family_id() && num == 1) {
@@ -332,6 +340,15 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }
         expr_ref tmp(m);
         func_interp* fi = m_model.get_func_interp(g);
+        family_id gfid = g->get_family_id();
+        bool g_is_uninterp = gfid == null_family_id || m.get_plugin(gfid)->is_considered_uninterpreted(g);
+        // Do not complete fresh/skolem functions that back internal as-array model values.
+        if (!fi && g_is_uninterp && !g->is_skolem()) {
+            fi = alloc(func_interp, m, g->get_arity());
+            fi->set_else(m_model.get_some_value(g->get_range()));
+            m_model.register_decl(g, fi);
+            fi = m_model.get_func_interp(g);
+        }
         if (fi && !fi->get_else()) {
             fi->set_else(m_model.get_some_value(g->get_range()));
         }
@@ -471,7 +488,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 if (interp) {
                     var_subst vs(m, false);
                     result = vs(fi->get_interp(), num, args);
-                    result = m.mk_ite(m.mk_eq(m_au.mk_numeral(rational(0), args[1]->get_sort()), args[1]), result, m.mk_app(f, num, args));
+                    expr_ref is_zero(m.mk_eq(m_au.mk_numeral(rational(0), args[1]->get_sort()), args[1]), m);
+                    expr_ref application(m.mk_app(f, num, args), m);
+                    result = m.mk_ite(is_zero, result, application);
                     return BR_DONE;
                 }
             }
@@ -539,8 +558,40 @@ struct evaluator_cfg : public default_rewriter_cfg {
         if (extract_array_func_interp(a, stores1, else1, args_are_unique1) &&
             extract_array_func_interp(b, stores2, else2, args_are_unique2)) {
             expr_ref_vector conj(m), args1(m), args2(m);
+            // When the array domain is small and finite and the union of explicit
+            // store indices already covers every domain element, the "else" (default)
+            // values are never actually observed, so they need not agree.
+            bool small_domain_fully_covered = false;
+            if (args_are_unique1 && args_are_unique2 && !m.are_equal(else1, else2)) {
+                sort* asort = a->get_sort();
+                unsigned arity = get_array_arity(asort);
+                rational dom_size(1);
+                bool finite = true;
+                for (unsigned i = 0; finite && i < arity; ++i) {
+                    sort* d = get_array_domain(asort, i);
+                    if (d->is_infinite() || d->is_very_big()) 
+                        finite = false;
+                    else
+                        dom_size *= rational(d->get_num_elements().size(), rational::ui64());
+                }
+                if (finite && dom_size.is_unsigned() && (!stores1.empty() || !stores2.empty())) {
+                    args_hash ah(arity);
+                    args_eq   ae(arity);
+                    args_table seen(DEFAULT_HASHTABLE_INITIAL_CAPACITY, ah, ae);
+                    unsigned count = 0;
+                    for (auto& s : stores1) 
+                        if (!seen.contains(s.data())) { seen.insert(s.data()); ++count; }
+                    for (auto& s : stores2) 
+                        if (!seen.contains(s.data())) { seen.insert(s.data()); ++count; }
+                    if (rational(count) >= dom_size)
+                        small_domain_fully_covered = true;
+                }
+            }
             if (m.are_equal(else1, else2)) {
                 // no op
+            }
+            else if (small_domain_fully_covered) {
+                // defaults are not observed on any domain element; no constraint needed
             }
             else if (m.are_distinct(else1, else2) && !(else1->get_sort()->get_info()->get_num_elements().is_finite())) {
                 result = m.mk_false();

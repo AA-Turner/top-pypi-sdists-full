@@ -44,31 +44,20 @@ RICH_TEXT_PLAIN = 26
 ENUM_PROPERTY_GET = 30
 
 # f-string field conversions, mirrored natively.
-CONV_FORMAT = 0  # f"{x}"
-CONV_STR = 1  # f"{x!s}"
-CONV_REPR = 2  # f"{x!r}" / f"{x!a}"
-CONV_EXACT_STR = 3  # operand of `+`, must already be an exact str
+CONV_FORMAT = 0
+CONV_STR = 1
+CONV_REPR = 2
+CONV_EXACT_STR = 3
 
 ROOT_SELF = 0
 ROOT_TYPE_OF_SELF = 1
 
 _CO_SEMANTIC_FLAGS = (
-    0x0001  # CO_OPTIMIZED
-    | 0x0002  # CO_NEWLOCALS
-    | 0x0004  # CO_VARARGS
-    | 0x0008  # CO_VARKEYWORDS
-    | 0x0020  # CO_GENERATOR
-    | 0x0080  # CO_COROUTINE
-    | 0x0100  # CO_ITERABLE_COROUTINE
-    | 0x0200  # CO_ASYNC_GENERATOR
+    0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0020 | 0x0080 | 0x0100 | 0x0200
 )
 
-# The native side checks its private layouts against the running interpreter
-# separately; this gates the bytecode verifier, whose opcode set is checked
-# against each of these releases.
-# 3.12.5 is the oldest 3.12 release the `sys.monitoring` instrumentation
-# used by `_runs_what_it_shows` was checked on (early 3.12 releases fixed
-# crashes instrumenting code with live frames).
+# 3.12.5 is the oldest 3.12 the sys.monitoring use in `_runs_what_it_shows` was checked on
+# (early 3.12 releases crashed instrumenting code with live frames).
 SUPPORTED = (
     (3, 12, 5) <= sys.version_info[:3]
     and sys.version_info[:2] <= (3, 15)
@@ -92,10 +81,7 @@ def _const_key(value):
         )
     if type(value) is frozenset:
         return ("frozenset", tuple(sorted(repr(_const_key(item)) for item in value)))
-    # Compiled constants are exact str/bytes/int/float/complex/bool/None/
-    # Ellipsis, whose reprs are exact and distinguish -0.0 from 0.0. Anything
-    # else (a constant planted with `code.replace`) never matches a
-    # reference.
+    # Only exact compiled literal types match references; preserve repr’s distinction between -0.0 and 0.0.
     if type(value) in _CONST_TYPES:
         return (type(value).__name__, repr(value))
     return ("unknown", id(value))
@@ -156,10 +142,7 @@ def _find_code(code, qualname):
     return None
 
 
-# Audited reference implementations, copied verbatim from the library
-# versions they were audited against. The native plan for each kind models
-# exactly what this code reads; any difference in the bytecode (a different
-# library version, a monkeypatched function) simply fails certification.
+# Copied verbatim from the audited library versions: any bytecode difference fails certification.
 _REFERENCES = [
     (
         DC_WRAPPER_312,
@@ -392,7 +375,6 @@ class property:
 ]
 
 _reference_keys = None
-# The references' `co_code`: a cheap first test before the full code key.
 _reference_codes: frozenset = frozenset()
 
 
@@ -422,7 +404,6 @@ class _Reject(Exception):
 # present with this name in 3.12 to 3.15.
 _dis: Any = dis
 
-# `+` (`NB_ADD`) as BINARY_OP's argument.
 _NB_ADD = 0
 # Instructions whose argument indexes `co_names` shifted by one bit.
 _SHIFTED_NAMES = ("LOAD_ATTR", "LOAD_GLOBAL")
@@ -629,7 +610,6 @@ _ALL_OPNAME = getattr(dis, "_all_opname", None) or dis.opname
 # `dis` reports them as `Instruction.cache_info`).
 _CACHE_FORMAT = getattr(__import__("opcode"), "_cache_format", {})
 _CACHE_INFO = sys.version_info >= (3, 13)
-# Specialized instruction name -> its base instruction's name.
 _SPECIALIZED_BASE = {
     specialized: base
     for base, family in getattr(__import__("opcode"), "_specializations", {}).items()
@@ -688,7 +668,6 @@ def _runs_what_it_shows(code):
     except Exception:
         return False
     finally:
-        # Cleared even when interrupted (a kept id is not freed).
         try:
             monitoring.set_local_events(tool, code, 0)
         finally:
@@ -711,11 +690,8 @@ def _runs_what_it_shows(code):
             continue
         if name == "INSTRUMENTED_" + base:
             continue
-        # A specialization of an instruction whose inline cache holds at
-        # most a warmup counter (RESUME_CHECK) has no cached data that could
-        # come from elsewhere.
-        # 3.12's `dis` reports no cache layout: only cache-free
-        # instructions qualify there (as before this check stopped using it).
+        # Counter-only inline caches (e.g. RESUME_CHECK) hold no data that could come from elsewhere.
+        # 3.12's `dis` reports no cache layout: only cache-free instructions qualify there.
         caches = (_CACHE_FORMAT.get(base) or {}) if _CACHE_INFO else {}
         counters_only = end == offset + 2 or (
             bool(caches) and all(field == "counter" for field in caches)
@@ -746,7 +722,6 @@ def classify(code):
 def _verdict(code):
     """The verdict for `code` from what `co_code` shows (see `classify`)."""
     references = _references()
-    # Equal code keys have equal `co_code`: skip building the key otherwise.
     reference = (
         references.get(_code_key(code)) if code.co_code in _reference_codes else None
     )
@@ -763,8 +738,6 @@ def _verdict(code):
         globals_used, fields = _fstring_program(code)
     except (_Reject, IndexError):
         return None
-    # Exactly `return self.<name>` (which the verifier also accepts, as
-    # an exact-str operand): a getter, whose value is used as is.
     body = [(op, arg) for op, arg, _ in _ops(code) if op not in ("RESUME", "NOP")]
     if (
         len(body) == 3

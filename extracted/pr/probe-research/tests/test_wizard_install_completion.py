@@ -224,3 +224,38 @@ def test_the_settled_install_reports_the_machine_not_its_last_agent(installation
     *_, (last_agent, complete, snapshot) = installation.registrations
     assert (last_agent, complete) == ("codex", True)
     assert snapshot["capture"] == "installed"
+
+
+def test_install_sets_this_computers_workspace_after_every_agent_and_before_imports(
+    installation, monkeypatch,
+):
+    """The workspace step runs once, after every agent applied (the credential
+    is saved) and before the import offer, so imports land there too. It asks
+    on an interactive install (the unattended branch: test_computer_workspace)."""
+    from probe.cli import computer_workspace
+
+    calls = []
+    monkeypatch.setattr(
+        computer_workspace,
+        "choose",
+        lambda *, asking: calls.append(
+            (asking, [row[1] for row in installation.registrations], len(installation.offers))
+        )
+        or ["✔ this computer's work goes into Mine"],
+    )
+
+    result = CliRunner().invoke(main.app, ["install", "--agent", "both"])
+
+    assert result.exit_code == 0, result.output
+    assert calls == [(True, [False, True], 0)]
+    assert len(installation.offers) == 1
+
+
+@pytest.mark.usefixtures("real_computer_workspace")
+def test_an_install_finishes_when_the_workspace_step_cannot_reach_the_server(installation, monkeypatch):
+    monkeypatch.setattr("probe.sdk.client.Client", lambda **_k: (_ for _ in ()).throw(ConnectionError("down")))
+
+    result = CliRunner().invoke(main.app, ["install", "--agent", "claude"])
+
+    assert result.exit_code == 0, result.output
+    assert len(installation.handoffs) == 1

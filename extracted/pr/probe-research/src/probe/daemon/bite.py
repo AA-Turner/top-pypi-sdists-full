@@ -45,7 +45,7 @@ from importlib import resources
 from pathlib import Path
 
 from probe.daemon.events import READER_SOURCE, REQUEST_SOURCE, Kind
-from probe.daemon.store import StoredEvent, Store
+from probe.daemon.store import BEFORE_DAEMON_BITE, StoredEvent, Store
 
 CHARS_PER_TOKEN = 4
 WINDOW_TOKENS = 50_000
@@ -67,6 +67,8 @@ TEXT_SHOWN_CHARS = 20_000
 REASONING_SHOWN_CHARS = 2_000
 #: A line from the coding agent's harness (not a daemon notice) shows this much.
 HARNESS_SHOWN_CHARS = 300
+#: A file change (its first line, then the new file's start or the diff) shows this much.
+FILE_SHOWN_CHARS = 3_000
 RECENT_WRITES = 10
 #: The stream of the daemon's own notices (`worker._notice_event`); any other
 #: META event is a line from the coding agent's harness.
@@ -142,7 +144,7 @@ def render(ev: StoredEvent, *, calls: dict[str, StoredEvent] | None = None) -> s
             return f"[daemon notice · {ev.event_id}] {ev.text}"
         return f"[harness · {ev.event_id}] {_cap(ev.text, HARNESS_SHOWN_CHARS, ev)}"
     if k == Kind.FILE_CHANGE:
-        return f"[file changed · {ev.event_id}] {_cap(ev.text, 3000, ev)}"
+        return f"[file changed · {ev.event_id}] {_cap(ev.text, FILE_SHOWN_CHARS, ev)}"
     if k == Kind.RUN_EVENT:
         return f"[run event · {ev.event_id}] {ev.text[:1000]}"
     return f"[{k.value} · {ev.event_id}] {ev.text[:300]}"
@@ -173,6 +175,28 @@ def shown_chars(ev: StoredEvent) -> int:
     return min(ev.chars, TEXT_SHOWN_CHARS) + 40
 
 
+def render_for_reader(ev: StoredEvent) -> str:
+    """One event as the daemon's reader sees it: as `render`, except a file change
+    is its first line only (what changed, the sizes) -- the new file's start or
+    the diff is one `session(op=open)` away. File bodies were 76% of the text the
+    reader was sent (150 strand-ai turns, 2026-10-14); it looks up prior work, so
+    it needs which file changed, rarely how."""
+    if ev.kind != Kind.FILE_CHANGE or ev.source in (READER_SOURCE, REQUEST_SOURCE):
+        return render(ev)
+    head, _, body = (ev.text or "").partition("\n")
+    if not body:
+        return f"[file changed · {ev.event_id}] {head}"
+    lines = body.count("\n") + 1
+    return f"[file changed · {ev.event_id}] {head} · {lines:,} more lines: session op=open event_id={ev.event_id}"
+
+
+def reader_shown_chars(ev: StoredEvent) -> int:
+    """About how many characters `render_for_reader` shows for `ev`."""
+    if ev.kind == Kind.FILE_CHANGE and ev.source not in (READER_SOURCE, REQUEST_SOURCE):
+        return min(shown_chars(ev), len((ev.text or "").partition("\n")[0]) + 120)
+    return shown_chars(ev)
+
+
 @dataclass
 class Bite:
     first_seq: int  # the first new event covered
@@ -181,6 +205,9 @@ class Bite:
     instructions: str
     prompt: str
     window_first_turn: int
+    #: Lean history (daemon cost round 5): the last logbook write id the prompt's
+    #: "writes since" list shows; kept when the run completes.
+    writes_mark: int | None = None
 
 
 def cover(store: Store, shrink: tuple[int, int] | None = None) -> tuple[int, int] | None:
@@ -246,8 +273,10 @@ def build(store: Store, *, trigger: str, context_line: str, pending_lines: list[
     turn_seq = next((s for t, s, _ in sizes if t == first_turn), first_seq)
     start = min(turn_seq, first_seq)
     # The writer never sees what arrived while the switch read `read only (daemon)`.
-    shown = _cap_turn([(ev, render(ev)) for ev in store.events_between(start, last_seq, recorded=True)], first_seq,
-                      store.turn_of(last_seq))
+    # Above the divider the history a first worker left as context shows as context;
+    # below it, only new events (`Store.cover_before_daemon`).
+    shown = _cap_turn([(ev, render(ev)) for ev in store.events_between(start, last_seq, recorded=True)
+                       if ev.seq < first_seq or ev.bite != BEFORE_DAEMON_BITE], first_seq, store.turn_of(last_seq))
     chat: list[str] = []
     divider_done = False
     for ev, text in shown:
@@ -326,7 +355,8 @@ def instructions_for(context_line: str) -> str:
 
 
 def build_next(store: Store, *, trigger: str, instructions: str, shrink: tuple[int, int] | None = None,
-               carry_on: bool = False) -> Bite | None:
+               carry_on: bool = False, events_text: str | None = None,
+               span: tuple[int, int] | None = None) -> Bite | None:
     """Conversation mode (T15): the next user message of the session's one
     conversation -- only the events new since the last one (the same span a bite
     covers, rendered as a bite renders them). The chat before them and the
@@ -334,16 +364,21 @@ def build_next(store: Store, *, trigger: str, instructions: str, shrink: tuple[i
     (the worker adds the agent memory index again after a compaction);
     `session(op=status)` reads the state of the record fresh on demand.
     `carry_on`: the last run was paused (`worker.ROUNDS_BEFORE_YIELD`): a
-    message is built even with no new events (first_seq 0)."""
-    span = cover(store, shrink)
+    message is built even with no new events (first_seq 0). `events_text`: the
+    events of `span` (default `cover(store, shrink)`) as the writer reads them
+    instead of rendered (`index.index_events`, daemon cost round 5)."""
+    if span is None or events_text is None:
+        span = cover(store, shrink)
     if span is None:
         if not carry_on:
             return None
         return Bite(first_seq=0, last_seq=0, trigger=trigger, instructions=instructions, prompt=NOTHING_NEW,
                     window_first_turn=store.current_turn())
     first_seq, last_seq = span
-    events = [render(ev) for ev in store.events_between(first_seq, last_seq, recorded=True)]
-    prompt = f"{DIVIDER}\n\n" + "\n\n".join(events)
+    if events_text is None:
+        events_text = "\n\n".join(render(ev) for ev in store.events_between(first_seq, last_seq, recorded=True,
+                                                                                new=True))
+    prompt = f"{DIVIDER}\n\n{events_text}"
     return Bite(first_seq=first_seq, last_seq=last_seq, trigger=trigger, instructions=instructions, prompt=prompt,
                 window_first_turn=store.turn_of(first_seq))
 

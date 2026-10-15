@@ -1,0 +1,457 @@
+# Runs one SaaS Sandbox reproduction case: the control image and a target
+# built from an airbytehq/airbyte PR or commit both read the case's seeded
+# sandbox scenario, and the READ verdict says whether they did what `goal`
+# asks (see "Reproduction Cases" in docs/regression-tests.md).
+#
+# Separate from connector-regression-test.yml on purpose: no live provider
+# accounts, Cloud connections, GSM secrets or HTTP replay are involved, and the
+# only secret is the Octavia app, used to read airbytehq/saas-sandbox.
+#
+# The code always comes from this workflow's own checkout. With `case_ref`, only
+# the case directory is read from that commit, as data, so a caller can judge a
+# case from an unreviewed PR head with the logic on `main`. Only callers in this
+# repository are supported: the checkouts follow the caller's repository.
+name: Sandbox Case Run
+
+run-name: >-
+  Sandbox case ${{ inputs.connector_name }}/${{ inputs.case }} ${{ inputs.goal }}
+  vs ${{ inputs.pr && format('PR #{0}', inputs.pr) || inputs.connector_ref }}${{ inputs.request_id && format(' [{0}]', inputs.request_id) || '' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      connector_name:
+        description: "Connector the case belongs to, e.g. source-slack."
+        required: true
+        type: string
+      case:
+        description: "Case directory name under <case_root>/<connector_name>/."
+        required: true
+        type: string
+      goal:
+        description: "'fixed': the control violates the case and the target satisfies it. 'reproduced': both violate it (the target is the affected release's unmodified source)."
+        required: true
+        type: choice
+        options:
+          - fixed
+          - reproduced
+      control_image:
+        description: "Control image, airbyte/<connector_name>:<tag>; usually the case's affected release."
+        required: true
+        type: string
+      pr:
+        description: "airbytehq/airbyte PR number to build the target from. Set exactly one of 'pr' and 'connector_ref'."
+        required: false
+        type: string
+      connector_ref:
+        description: "Full airbytehq/airbyte commit SHA to build the target from. Set exactly one of 'pr' and 'connector_ref'."
+        required: false
+        type: string
+      case_ref:
+        description: "Full airbyte-ops-mcp commit SHA to read the case from (as data only). Defaults to this run's checkout."
+        required: false
+        type: string
+      case_root:
+        description: "Where the case lives: 'regression_cases', or the reference cases under 'tests/fixtures/regression_cases'."
+        required: false
+        type: choice
+        options:
+          - regression_cases
+          - tests/fixtures/regression_cases
+        default: regression_cases
+      result_artifact_name:
+        description: "Name of the uploaded result artifact. Callers making more than one call in a run must pass distinct names."
+        required: false
+        type: string
+        default: sandbox-case-result
+      request_id:
+        description: "Optional caller id shown in the run name, so a dispatcher can find its run."
+        required: false
+        type: string
+
+  workflow_call:
+    inputs:
+      connector_name:
+        description: "Connector the case belongs to, e.g. source-slack."
+        required: true
+        type: string
+      case:
+        description: "Case directory name under <case_root>/<connector_name>/."
+        required: true
+        type: string
+      goal:
+        description: "'fixed': the control violates the case and the target satisfies it. 'reproduced': both violate it (the target is the affected release's unmodified source)."
+        required: true
+        type: string
+      control_image:
+        description: "Control image, airbyte/<connector_name>:<tag>; usually the case's affected release."
+        required: true
+        type: string
+      pr:
+        description: "airbytehq/airbyte PR number to build the target from. Set exactly one of 'pr' and 'connector_ref'."
+        required: false
+        type: string
+      connector_ref:
+        description: "Full airbytehq/airbyte commit SHA to build the target from. Set exactly one of 'pr' and 'connector_ref'."
+        required: false
+        type: string
+      case_ref:
+        description: "Full airbyte-ops-mcp commit SHA to read the case from (as data only). Defaults to this run's checkout."
+        required: false
+        type: string
+      case_root:
+        description: "Where the case lives: 'regression_cases', or the reference cases under 'tests/fixtures/regression_cases'."
+        required: false
+        type: string
+        default: regression_cases
+      result_artifact_name:
+        description: "Name of the uploaded result artifact. Callers making more than one call in a run must pass distinct names."
+        required: false
+        type: string
+        default: sandbox-case-result
+      request_id:
+        description: "Optional caller id shown in the run name, so a dispatcher can find its run."
+        required: false
+        type: string
+    secrets:
+      OCTAVIA_BOT_APP_ID:
+        required: true
+      OCTAVIA_BOT_PRIVATE_KEY:
+        required: true
+    outputs:
+      verdict:
+        description: "PASS (reproduced and fixed), PASS (reproduced), FAIL (not fixed), FAIL (not reproduced), FAIL (twin gap), FAIL (inconclusive), or ERROR when there is no verdict."
+        value: ${{ jobs.run.outputs.verdict }}
+      passed:
+        description: "'true' if the verdict passes for the goal, else 'false'. The job fails unless it is 'true'."
+        value: ${{ jobs.run.outputs.passed }}
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: "Sandbox case: ${{ inputs.connector_name }}/${{ inputs.case }} (${{ inputs.goal }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      verdict: ${{ steps.finalize.outputs.verdict }}
+      passed: ${{ steps.finalize.outputs.passed }}
+    env:
+      CONNECTOR_NAME: ${{ inputs.connector_name }}
+      CASE_NAME: ${{ inputs.case }}
+      GOAL: ${{ inputs.goal }}
+      CONTROL_IMAGE: ${{ inputs.control_image }}
+      PR: ${{ inputs.pr }}
+      CONNECTOR_REF: ${{ inputs.connector_ref }}
+      CASE_REF: ${{ inputs.case_ref }}
+      CASE_ROOT: ${{ inputs.case_root }}
+      RESULT_ARTIFACT_NAME: ${{ inputs.result_artifact_name }}
+      REQUEST_ID: ${{ inputs.request_id }}
+      OUTPUT_DIR: /tmp/sandbox-case-run
+    steps:
+      # The workflow's own commit; it uses no input.
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate inputs
+        id: inputs
+        run: |
+          # Every value below is later used in paths and commands, so anything
+          # outside these shapes stops the run before any other checkout.
+          fail() {
+            echo "::error::$1"
+            echo "invalid inputs: $1" > "$RUNNER_TEMP/sandbox-case-error"
+            exit 1
+          }
+          # First, so the ERROR record of any other bad input still reaches the
+          # caller under the name it asked for.
+          if [[ "$RESULT_ARTIFACT_NAME" =~ ^[a-z0-9-]{1,64}$ ]]; then
+            echo "artifact_name=$RESULT_ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          fi
+          [[ "$CONNECTOR_NAME" =~ ^[a-z0-9-]+$ ]] || fail "connector_name must match ^[a-z0-9-]+\$"
+          [[ "$CASE_NAME" =~ ^[A-Za-z0-9_-]+$ ]] || fail "case must match ^[A-Za-z0-9_-]+\$"
+          case "$GOAL" in fixed|reproduced) ;; *) fail "goal must be 'fixed' or 'reproduced'" ;; esac
+          case "$CASE_ROOT" in
+            regression_cases|tests/fixtures/regression_cases) ;;
+            *) fail "case_root must be 'regression_cases' or 'tests/fixtures/regression_cases'" ;;
+          esac
+          [[ "$CONTROL_IMAGE" =~ ^airbyte/${CONNECTOR_NAME}:[A-Za-z0-9._-]+$ ]] \
+            || fail "control_image must be airbyte/$CONNECTOR_NAME:<tag>"
+          [[ "$RESULT_ARTIFACT_NAME" =~ ^[a-z0-9-]{1,64}$ ]] || fail "result_artifact_name must match ^[a-z0-9-]{1,64}\$"
+          [[ -z "$REQUEST_ID" || "$REQUEST_ID" =~ ^[A-Za-z0-9-]{1,64}$ ]] || fail "request_id must match ^[A-Za-z0-9-]{1,64}\$"
+          [[ -z "$CASE_REF" || "$CASE_REF" =~ ^[0-9a-f]{40}$ ]] || fail "case_ref must be a full 40-character commit SHA"
+          if [ -n "$PR" ] && [ -n "$CONNECTOR_REF" ]; then
+            fail "set only one of 'pr' and 'connector_ref'"
+          elif [ -n "$CONNECTOR_REF" ]; then
+            # A full SHA keeps the target reproducible; a branch would move under the run.
+            [[ "$CONNECTOR_REF" =~ ^[0-9a-f]{40}$ ]] || fail "connector_ref must be a full 40-character commit SHA"
+            echo "target_ref=$CONNECTOR_REF" >> "$GITHUB_OUTPUT"
+          elif [[ "$PR" =~ ^[0-9]+$ ]]; then
+            echo "target_ref=refs/pull/$PR/head" >> "$GITHUB_OUTPUT"
+          else
+            fail "set 'pr' to an airbytehq/airbyte PR number or 'connector_ref' to a commit SHA"
+          fi
+          echo "case_path=$CASE_ROOT/$CONNECTOR_NAME/$CASE_NAME" >> "$GITHUB_OUTPUT"
+
+      # Only the case path is materialised (no cone mode, so no top-level files
+      # and no symlinked parent can stand in for it), and nothing here is run.
+      - name: Checkout the case from case_ref
+        if: inputs.case_ref != ''
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.case_ref }}
+          path: case-src
+          sparse-checkout: /${{ steps.inputs.outputs.case_path }}/
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Locate the case
+        id: case
+        env:
+          CASE_PATH: ${{ steps.inputs.outputs.case_path }}
+        run: |
+          fail() {
+            echo "::error::$1"
+            echo "$1" > "$RUNNER_TEMP/sandbox-case-error"
+            exit 1
+          }
+          if [ -n "$CASE_REF" ]; then
+            BASE="$GITHUB_WORKSPACE/case-src"
+            REF="$CASE_REF"
+            if [ -n "$(find "$BASE" -path "$BASE/.git" -prune -o -type l -print -quit)" ]; then
+              fail "the case at $CASE_REF contains a symlink"
+            fi
+          else
+            BASE="$GITHUB_WORKSPACE"
+            REF="$GITHUB_SHA"
+          fi
+          CASE_DIR="$BASE/$CASE_PATH"
+          [ -d "$CASE_DIR" ] || fail "case $CASE_PATH not found at $REF"
+          case "$(realpath "$CASE_DIR")" in
+            "$(realpath "$BASE")"/*) ;;
+            *) fail "case $CASE_PATH resolves outside its checkout" ;;
+          esac
+          echo "dir=$CASE_DIR" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --group dev --group live-tests --all-packages
+
+      - name: Get SaaS Sandbox checkout token
+        id: sandbox-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+          owner: airbytehq
+          repositories: saas-sandbox
+          permission-contents: read
+          # Revoked explicitly below, before any target code is checked out.
+          skip-token-revoke: true
+
+      - name: Set up SaaS Sandbox
+        id: sandbox
+        uses: ./.github/actions/setup-saas-sandbox
+        with:
+          token: ${{ steps.sandbox-token.outputs.token }}
+
+      # The target can be any airbytehq/airbyte PR, forks included, and it is
+      # built next. Nothing after the saas-sandbox checkout needs the token (the
+      # server and relay images build from local files), so it is revoked here,
+      # whether or not the setup succeeded. A failed revoke stops the run.
+      - name: Revoke the SaaS Sandbox checkout token
+        if: always() && steps.sandbox-token.outputs.token != ''
+        env:
+          GH_API_URL: ${{ github.api_url }}
+          SANDBOX_TOKEN: ${{ steps.sandbox-token.outputs.token }}
+        run: |
+          curl -fsS -X DELETE \
+            -H "Authorization: Bearer $SANDBOX_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$GH_API_URL/installation/token"
+          echo "Revoked the saas-sandbox checkout token"
+
+      - name: Checkout the target
+        uses: actions/checkout@v6
+        with:
+          repository: airbytehq/airbyte
+          ref: ${{ steps.inputs.outputs.target_ref }}
+          path: connector-repo
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Record the target commit
+        id: target
+        run: echo "commit=$(git -C connector-repo rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up the case
+        id: setup
+        env:
+          CASE_DIR: ${{ steps.case.outputs.dir }}
+        run: uv run airbyte-ops cloud connector regression-case-setup "$CASE_DIR"
+
+      - name: Run READ
+        id: read
+        timeout-minutes: 25
+        env:
+          CASE_DIR: ${{ steps.setup.outputs.case_dir }}
+          CONFIG_PATH: ${{ steps.setup.outputs.config_path }}
+          SCENARIO_ID: ${{ steps.setup.outputs.scenario_id }}
+          REGRESSION_TEST_ARTIFACT_NAME: ${{ inputs.result_artifact_name }}
+        run: |
+          # The verdict, not the exit code, decides the run; see the last step.
+          echo "started=true" >> "$GITHUB_OUTPUT"
+          set +e
+          sandbox exec "$SCENARIO_ID" -- uv run airbyte-ops cloud connector regression-test \
+            --command read \
+            --connector-name "$CONNECTOR_NAME" \
+            --repo-root "$GITHUB_WORKSPACE/connector-repo" \
+            --control-image "$CONTROL_IMAGE" \
+            --config-path "$CONFIG_PATH" \
+            --repro-case-dir "$CASE_DIR" \
+            --sandbox-scenario "$SCENARIO_ID" \
+            --repro-goal "$GOAL" \
+            --output-dir "$OUTPUT_DIR"
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Finalize the result
+        id: finalize
+        if: always()
+        env:
+          CASE_SOURCE_REF: ${{ steps.case.outputs.ref }}
+          TARGET_COMMIT: ${{ steps.target.outputs.commit }}
+          INPUTS_OUTCOME: ${{ steps.inputs.outcome }}
+          READ_STARTED: ${{ steps.read.outputs.started }}
+          READ_EXIT_CODE: ${{ steps.read.outputs.exit_code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Only a sandbox that was actually set up counts as the one used.
+          SANDBOX_REF: ${{ steps.sandbox.outcome == 'success' && steps.sandbox.outputs.ref || '' }}
+        run: |
+          mkdir -p "$OUTPUT_DIR"
+          RESULT="$OUTPUT_DIR/result.json"
+          KNOWN_VERDICTS='["PASS (reproduced and fixed)", "PASS (reproduced)", "FAIL (not fixed)", "FAIL (not reproduced)", "FAIL (twin gap)", "FAIL (inconclusive)"]'
+          if [ ! -f "$RESULT" ]; then
+            # No verdict: say where it stopped, in the same shape as a verdict.
+            if [ -f "$RUNNER_TEMP/sandbox-case-error" ]; then
+              ERROR="$(cat "$RUNNER_TEMP/sandbox-case-error")"
+            elif [ -n "$READ_EXIT_CODE" ]; then
+              ERROR="READ produced no verdict (exit code $READ_EXIT_CODE); see the run log"
+            elif [ -n "$READ_STARTED" ]; then
+              ERROR="READ did not finish (timed out or was cancelled); see the run log"
+            else
+              ERROR="the run stopped before READ; see the run log"
+            fi
+          elif ! jq -e --argjson known "$KNOWN_VERDICTS" \
+              'type == "object" and (.verdict as $v | $known | index($v) != null) and (.passed | type == "boolean")' \
+              "$RESULT" > /dev/null 2>&1; then
+            # The outputs and the record must never disagree, so a record that
+            # is not a known verdict is replaced, not just ignored.
+            ERROR="the CLI wrote an unreadable result.json; see the run log"
+          else
+            ERROR=""
+          fi
+          if [ -n "$ERROR" ]; then
+            # Same keys as `case_result` in repro_case.py; a unit test keeps them so.
+            jq -n --arg error "$ERROR" --arg goal "$GOAL" --arg connector "$CONNECTOR_NAME" \
+              --arg case "$CASE_NAME" --arg control "$CONTROL_IMAGE" '{
+                schema_version: 1, verdict: "ERROR", passed: false, goal: $goal,
+                detail: null, error: $error,
+                case: {connector: $connector, name: $case, root: null, ref: null},
+                control: {image: $control},
+                target: {image: null, pr: null, connector_ref: null, commit: null},
+                twin_gaps: [], sides: null, sandbox_ref: null, run_url: null
+              }' > "$RESULT"
+          fi
+          jq --arg root "$CASE_ROOT" --arg ref "$CASE_SOURCE_REF" --arg pr "$PR" \
+            --arg connector_ref "$CONNECTOR_REF" --arg commit "$TARGET_COMMIT" --arg url "$RUN_URL" \
+            --arg sandbox_ref "$SANDBOX_REF" '
+              def nonempty: if . == "" then null else . end;
+              .case.root = $root | .case.ref = ($ref | nonempty)
+              | .target.pr = (if $pr | test("^[0-9]+$") then $pr | tonumber else null end)
+              | .target.connector_ref = ($connector_ref | nonempty)
+              | .target.commit = ($commit | nonempty) | .run_url = $url
+              | .sandbox_ref = ($sandbox_ref | nonempty)
+            ' "$RESULT" > "$RESULT.tmp"
+          mv "$RESULT.tmp" "$RESULT"
+
+          # Only these two checked values reach the step outputs.
+          VERDICT="$(jq -r '.verdict' "$RESULT")"
+          PASSED=false
+          if [[ "$VERDICT" == PASS* ]] && [ "$(jq -r '.passed' "$RESULT")" = "true" ]; then
+            PASSED=true
+          fi
+          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
+
+          # Free text partly comes from connector output, so it goes in fenced
+          # blocks with backticks removed.
+          fenced() { echo '```text'; tr -d '`'; echo '```'; }
+          if [ "$INPUTS_OUTCOME" != "success" ]; then
+            # Rejected inputs are not repeated outside a fenced block.
+            {
+              echo "## Sandbox case: $VERDICT"
+              echo ""
+              jq -r '.error // ""' "$RESULT" | fenced
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## Sandbox case: \`$CONNECTOR_NAME/$CASE_NAME\` ($GOAL)"
+            echo ""
+            echo "- **Verdict:** $VERDICT"
+            echo "- **Control:** \`$CONTROL_IMAGE\`"
+            if [ -n "$CONNECTOR_REF" ]; then
+              echo "- **Target:** [commit \`$CONNECTOR_REF\`](https://github.com/airbytehq/airbyte/commit/$CONNECTOR_REF)"
+            elif [ -n "$PR" ]; then
+              echo "- **Target:** [airbytehq/airbyte#$PR](https://github.com/airbytehq/airbyte/pull/$PR) at \`$TARGET_COMMIT\`"
+            fi
+            echo "- **Case:** \`$CASE_ROOT/$CONNECTOR_NAME/$CASE_NAME\` at \`$CASE_SOURCE_REF\`"
+            echo "- **SaaS Sandbox:** \`${SANDBOX_REF:-not set up}\`"
+            echo "- **Result artifact:** \`$RESULT_ARTIFACT_NAME\` (\`result.json\`)"
+            echo ""
+            jq -r '.detail // .error // ""' "$RESULT" | fenced
+            if [ "$(jq '.twin_gaps | length' "$RESULT")" != "0" ]; then
+              echo ""
+              echo "**Twin gaps:**"
+              jq -r '.twin_gaps[]' "$RESULT" | fenced
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          # A rejected name cannot be uploaded, and the ERROR record must be.
+          name: ${{ steps.inputs.outputs.artifact_name || 'sandbox-case-result' }}
+          # HTTP dumps would hold full response bodies; replay is off in case
+          # mode, so this only guards against them appearing.
+          path: |
+            ${{ env.OUTPUT_DIR }}/
+            !${{ env.OUTPUT_DIR }}/**/*.mitm
+            !${{ env.OUTPUT_DIR }}/**/*.har
+          retention-days: 30
+
+      - name: Fail unless the verdict passes
+        if: always()
+        env:
+          VERDICT: ${{ steps.finalize.outputs.verdict }}
+          PASSED: ${{ steps.finalize.outputs.passed }}
+        run: |
+          if [ "$PASSED" != "true" ]; then
+            echo "::error::Sandbox case verdict: ${VERDICT:-ERROR}"
+            exit 1
+          fi

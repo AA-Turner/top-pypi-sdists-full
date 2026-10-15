@@ -11,6 +11,7 @@
     Do not edit the class manually.
 """  # noqa: E501
 
+import json
 from typing import Any, Optional
 from typing_extensions import Self
 
@@ -226,11 +227,34 @@ class IstariError(Exception):
     """Base class for every error raised by the istari SDK."""
 
     def __init__(self, message, *, status_code=None, request_id=None, response=None):
-        """Create an error carrying optional HTTP status / request id / body."""
+        """Create an error carrying optional HTTP status / request id / body.
+
+        ``response`` is the raw response body (a string for HTTP errors). Prefer the
+        :attr:`detail` convenience to read the service's human-readable message.
+        """
         super().__init__(message)
         self.status_code = status_code
         self.request_id = request_id
         self.response = response
+
+    @property
+    def detail(self):
+        """The service's ``detail`` message, or the raw body if it has none.
+
+        FastAPI error bodies are ``{"detail": "..."}``; this parses ``response`` and
+        returns that field (e.g. to detect a 409/400 "already exists"), falling back to
+        the raw body string when it is not such a JSON object. Returns ``None`` if there
+        is no response body.
+        """
+        if self.response is None:
+            return None
+        try:
+            parsed = json.loads(self.response)
+        except (ValueError, TypeError):
+            return self.response
+        if isinstance(parsed, dict) and "detail" in parsed:
+            return parsed["detail"]
+        return self.response
 
 
 class DetachedInstanceError(IstariError):

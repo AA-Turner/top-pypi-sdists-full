@@ -106,12 +106,12 @@ def test_crest_egg_maps_to_the_classic_digimental():
 def test_shop_panel_walks_every_tab_and_the_bag():
     p = _pet()
     pan = ShopPanel(p)
-    assert pan._tabs() == ["Food", "Items", "Eggs", "Honors"]
+    assert pan._tabs() == ["Food", "Items", "Honors"]   # crests: towns only
     for _ in range(len(pan._tabs())):
         assert pan.text().plain
         pan.key("right")
     pan.key("tab")                       # the bag: goods tabs, no Honors
-    assert pan._tabs() == ["Food", "Items", "Eggs"]
+    assert pan._tabs() == ["Food", "Items", "Crests"]
     assert pan.text().plain
 
 
@@ -135,13 +135,17 @@ def test_the_classic_tab_bar_is_back():
     pan = ShopPanel(_pet())
     pan.msg_t = 0
     plain = pan.text().plain
-    assert "[Food] Items  Eggs  Honors" in plain
+    assert "[Food] Items  Honors" in plain
     pan.key("right")
-    assert " Food [Items] Eggs  Honors" in pan.text().plain
-    # the Eggs tab is the DIGIMENTAL shelf -- goods, never digitama
-    pan.key("right")
-    rows = pan._rows()
-    assert rows and all(str(e["key"]).startswith("egg_of_") for e in rows)
+    assert " Food [Items] Honors" in pan.text().plain
+    # crests are adventure-town exclusives (Joel 2026-10-15): the home shop
+    # never sells one; a town's Crests tab holds goods, never digitama
+    assert not any(e["category"] == shop.ARMOR_CATEGORY
+                   for e in shop.home_stock(pet=_pet()))
+    tpan = ShopPanel(_pet(), town_id=20)                  # Volcano: Courage
+    tpan.tab = tpan._tabs().index("Crests")
+    rows = tpan._rows()
+    assert rows and all(str(e["key"]).split(":")[-1].startswith("egg_of_") for e in rows)
     assert not any(e.get("egg_idx") is not None for e in rows)
 
 
@@ -190,7 +194,7 @@ def test_the_bag_dossier_shows_resale():
     plain = pan.text().plain
     from tuipet.app import _hud_plain
     assert "R sell" in _hud_plain(pan.strip())   # keys ride the STRIP (round 31)
-    assert "sells 100b" in plain              # resale in the dossier info
+    assert "sells 300b" in plain              # resale in the dossier info (600b drink)
 
 
 def test_crest_note_is_the_live_gate():
@@ -238,9 +242,9 @@ def test_the_eggs_tab_renders_like_every_other_tab():
     from tuipet import data
     assert not hasattr(data, "load_armor_eggs")
     p = _pet()
-    pan = ShopPanel(p)
+    pan = ShopPanel(p, town_id=20)            # crests sell in towns (Volcano: Courage)
     pan.msg_t = 0
-    pan.tab = pan._tabs().index("Eggs")
+    pan.tab = pan._tabs().index("Crests")
     assert not hasattr(pan, "_eggs_text")
     assert not hasattr(pan, "_armor_egg")
     plain = pan.text().plain
@@ -384,14 +388,15 @@ def test_the_shelf_fills_the_lcd_and_keys_left_the_footer():
         assert "ENTER" not in lines[-1]           # no key footer in the LCD
 
 
-def test_the_honors_tab_strip_says_wear():
+def test_the_honors_tab_strip_names_the_live_action():
     from tuipet.app import _hud_plain
     p = _pet()
     pan = ShopPanel(p)
     pan.msg_t = 0
     pan.tab = pan._tabs().index("Honors")
     s = _hud_plain(pan.strip())
-    assert "ENTER wear" in s and len(s) <= 40
+    # menus audit 2026-10-14: an unowned honor is bought before it can be worn.
+    assert "ENTER buy" in s and len(s) <= 40
 
 
 def test_refusals_and_shortfalls_sound_like_refusals():

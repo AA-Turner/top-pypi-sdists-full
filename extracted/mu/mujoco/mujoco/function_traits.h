@@ -35,7 +35,7 @@ struct mj_defaultVFS {
 
 struct mj_mountVFS {
   static constexpr char name[] = "mj_mountVFS";
-  static constexpr char doc[] = "Mount a ResourceProvider to handle file operations under the given path; return 0: success, 2: repeated name, -1: invalid resource provider.";
+  static constexpr char doc[] = "Mount a provider to handle file operations under the given path; return 0: success, 2: repeated name, -1: invalid provider.";
   using type = int (mjVFS *, const char *, const mjpResourceProvider *);
   static constexpr auto param_names = std::make_tuple("vfs", "filepath", "provider");
 
@@ -46,7 +46,7 @@ struct mj_mountVFS {
 
 struct mj_unmountVFS {
   static constexpr char name[] = "mj_unmountVFS";
-  static constexpr char doc[] = "Unmount a previously mounted ResourceProvider; return 0: success, -1: not found in VFS.";
+  static constexpr char doc[] = "Unmount a previously mounted provider; return 0: success, -1: not found in VFS.";
   using type = int (mjVFS *, const char *);
   static constexpr auto param_names = std::make_tuple("vfs", "filename");
 
@@ -244,7 +244,7 @@ struct mj_compile {
 
 struct mj_copyBack {
   static constexpr char name[] = "mj_copyBack";
-  static constexpr char doc[] = "Copy real-valued arrays from model to spec; return 1 on success.";
+  static constexpr char doc[] = "Copy the values which were changed in a model to the spec it was compiled from; return 1 on success.";
   using type = int (mjSpec *, const mjModel *);
   static constexpr auto param_names = std::make_tuple("s", "m");
 
@@ -4136,58 +4136,58 @@ struct mjp_getPluginAtSlot {
   }
 };
 
-struct mjp_defaultResourceProvider {
-  static constexpr char name[] = "mjp_defaultResourceProvider";
-  static constexpr char doc[] = "Set default resource provider definition.";
+struct mjp_defaultProvider {
+  static constexpr char name[] = "mjp_defaultProvider";
+  static constexpr char doc[] = "Set default provider definition.";
   using type = void (mjpResourceProvider *);
   static constexpr auto param_names = std::make_tuple("provider");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjp_defaultResourceProvider;
+    return ::mjp_defaultProvider;
   }
 };
 
-struct mjp_registerResourceProvider {
-  static constexpr char name[] = "mjp_registerResourceProvider";
-  static constexpr char doc[] = "Globally register a resource provider in a thread-safe manner. The provider must have a prefix that is not a sub-prefix or super-prefix of any current registered providers. Return a slot number >= 0 on success, -1 on failure.";
+struct mjp_registerProvider {
+  static constexpr char name[] = "mjp_registerProvider";
+  static constexpr char doc[] = "Globally register a provider in a thread-safe manner. The provider must have a prefix that is not a sub-prefix or super-prefix of any current registered providers. Return a slot number >= 0 on success, -1 on failure.";
   using type = int (const mjpResourceProvider *);
   static constexpr auto param_names = std::make_tuple("provider");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjp_registerResourceProvider;
+    return ::mjp_registerProvider;
   }
 };
 
-struct mjp_resourceProviderCount {
-  static constexpr char name[] = "mjp_resourceProviderCount";
-  static constexpr char doc[] = "Return the number of globally registered resource providers.";
+struct mjp_providerCount {
+  static constexpr char name[] = "mjp_providerCount";
+  static constexpr char doc[] = "Return the number of globally registered providers.";
   using type = int ();
   static constexpr auto param_names = std::make_tuple();
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjp_resourceProviderCount;
+    return ::mjp_providerCount;
   }
 };
 
-struct mjp_getResourceProvider {
-  static constexpr char name[] = "mjp_getResourceProvider";
-  static constexpr char doc[] = "Return the resource provider with the prefix that matches against the resource name. If no match, return NULL.";
+struct mjp_findProvider {
+  static constexpr char name[] = "mjp_findProvider";
+  static constexpr char doc[] = "Return the provider with the prefix that matches against the resource name. If no match, return NULL.";
   using type = const mjpResourceProvider * (const char *);
   static constexpr auto param_names = std::make_tuple("resource_name");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjp_getResourceProvider;
+    return ::mjp_findProvider;
   }
 };
 
-struct mjp_getResourceProviderAtSlot {
-  static constexpr char name[] = "mjp_getResourceProviderAtSlot";
-  static constexpr char doc[] = "Look up a resource provider by slot number returned by mjp_registerResourceProvider. If invalid slot number, return NULL.";
+struct mjp_getProviderAtSlot {
+  static constexpr char name[] = "mjp_getProviderAtSlot";
+  static constexpr char doc[] = "Look up a provider by slot number returned by mjp_registerProvider. If invalid slot number, return NULL.";
   using type = const mjpResourceProvider * (int);
   static constexpr auto param_names = std::make_tuple("slot");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjp_getResourceProviderAtSlot;
+    return ::mjp_getProviderAtSlot;
   }
 };
 
@@ -4215,7 +4215,7 @@ struct mjp_defaultDecoder {
 
 struct mjp_findDecoder {
   static constexpr char name[] = "mjp_findDecoder";
-  static constexpr char doc[] = "Return the resource provider with the prefix that matches against the resource name. If no match, return NULL.";
+  static constexpr char doc[] = "Return the decoder that matches against the resource or content type. If no match, return NULL.";
   using type = const mjpDecoder * (const mjResource *, const char *);
   static constexpr auto param_names = std::make_tuple("resource", "content_type");
 
@@ -4257,42 +4257,42 @@ struct mjp_findEncoder {
   }
 };
 
-struct mjp_registerArchiveResourceProvider {
-  static constexpr char name[] = "mjp_registerArchiveResourceProvider";
-  static constexpr char doc[] = "Globally register an archive resource provider. This function is thread-safe. provider->prefix specifies the filename extension(s) (e.g. .mjz|.zip).";
+struct mjp_registerArchiveProvider {
+  static constexpr char name[] = "mjp_registerArchiveProvider";
+  static constexpr char doc[] = "Globally register an archive provider. This function is thread-safe. provider->prefix specifies the filename extension(s) (e.g. .mjz|.zip).";
   using type = void (const mjpResourceProvider *);
   static constexpr auto param_names = std::make_tuple("provider");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjp_registerArchiveResourceProvider;
+    return ::mjp_registerArchiveProvider;
   }
 };
 
-struct mjp_findArchiveResourceProvider {
-  static constexpr char name[] = "mjp_findArchiveResourceProvider";
-  static constexpr char doc[] = "Return the archive resource provider that matches against the resource name. If no match, return NULL.";
+struct mjp_findArchiveProvider {
+  static constexpr char name[] = "mjp_findArchiveProvider";
+  static constexpr char doc[] = "Return the archive provider that matches against the resource name. If no match, return NULL.";
   using type = const mjpResourceProvider * (const char *);
   static constexpr auto param_names = std::make_tuple("resource_name");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjp_findArchiveResourceProvider;
+    return ::mjp_findArchiveProvider;
   }
 };
 
-struct mjp_archiveResourceProviderCount {
-  static constexpr char name[] = "mjp_archiveResourceProviderCount";
-  static constexpr char doc[] = "Return the number of globally registered archive resource providers.";
+struct mjp_archiveProviderCount {
+  static constexpr char name[] = "mjp_archiveProviderCount";
+  static constexpr char doc[] = "Return the number of globally registered archive providers.";
   using type = int ();
   static constexpr auto param_names = std::make_tuple();
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
-    return ::mjp_archiveResourceProviderCount;
+    return ::mjp_archiveProviderCount;
   }
 };
 
 struct mju_openResource {
   static constexpr char name[] = "mju_openResource";
-  static constexpr char doc[] = "Open a resource; if the name doesn't have a prefix matching a registered resource provider, then the OS filesystem is used.";
+  static constexpr char doc[] = "Open a resource; if the name doesn't have a prefix matching a registered provider, then the OS filesystem is used.";
   using type = mjResource * (const char *, const char *, const mjVFS *, char *, size_t);
   static constexpr auto param_names = std::make_tuple("dir", "name", "vfs", "error", "nerror");
 
@@ -4325,7 +4325,7 @@ struct mju_readResource {
 
 struct mju_writeResource {
   static constexpr char name[] = "mju_writeResource";
-  static constexpr char doc[] = "Write resource data via its resource provider, return bytes written or -1 on error.";
+  static constexpr char doc[] = "Write resource data via its provider, return bytes written or -1 on error.";
   using type = mjtSize (const char *, const void *, mjtSize, const mjVFS *, char *, size_t);
   static constexpr auto param_names = std::make_tuple("name", "buffer", "nbytes", "vfs", "error", "nerror");
 
@@ -4358,9 +4358,9 @@ struct mju_isModifiedResource {
 
 struct mju_decodeResource {
   static constexpr char name[] = "mju_decodeResource";
-  static constexpr char doc[] = "Find the decoder for a resource and return the decoded spec. The caller takes ownership of the spec and is responsible for cleaning it up.";
-  using type = mjSpec * (mjResource *, const char *, const mjVFS *);
-  static constexpr auto param_names = std::make_tuple("resource", "content_type", "vfs");
+  static constexpr char doc[] = "Find the decoder for a resource and return the decoded spec. The caller takes ownership of the spec and is responsible for cleaning it up. On failure, return NULL and write the reason to error.";
+  using type = mjSpec * (mjResource *, const char *, const mjVFS *, char *, int);
+  static constexpr auto param_names = std::make_tuple("resource", "content_type", "vfs", "error", "error_sz");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mju_decodeResource;
@@ -5343,6 +5343,39 @@ struct mjs_resolveOrientation {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return *reinterpret_cast<type*>(&::mjs_resolveOrientation);
+  }
+};
+
+struct mjs_fuseStatic {
+  static constexpr char name[] = "mjs_fuseStatic";
+  static constexpr char doc[] = "Fuse the static bodies of the spec with their parents, return 0 on success.";
+  using type = int (mjSpec *, const mjVFS *);
+  static constexpr auto param_names = std::make_tuple("s", "vfs");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_fuseStatic;
+  }
+};
+
+struct mjs_discardVisual {
+  static constexpr char name[] = "mjs_discardVisual";
+  static constexpr char doc[] = "Discard the visual elements of the spec, return 0 on success.";
+  using type = int (mjSpec *, const mjVFS *);
+  static constexpr auto param_names = std::make_tuple("s", "vfs");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_discardVisual;
+  }
+};
+
+struct mjs_adoptInertial {
+  static constexpr char name[] = "mjs_adoptInertial";
+  static constexpr char doc[] = "Make the inertial which compilation infers for a body part of the spec, return 0 on success.";
+  using type = int (mjsBody *, const mjVFS *);
+  static constexpr auto param_names = std::make_tuple("body", "vfs");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_adoptInertial;
   }
 };
 

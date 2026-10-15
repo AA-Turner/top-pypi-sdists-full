@@ -295,12 +295,14 @@ def test_battle_dodge_leap_never_exits_upward():
 
 def test_dodge_turns_away_while_airborne():
     """The tuipet turn-away dodge (Joel 2026-07-21, a DELIBERATE canon
-    deviation -- ANIM_REFERENCE): airborne (dt 1-9) the dodger wears the
-    OPPOSITE of its battle facing; touchdown (dt 10) and the return steps
+    deviation -- ANIM_REFERENCE): airborne the dodger wears the
+    OPPOSITE of its battle facing; touchdown and the return steps
     land it facing the foe again."""
     from tuipet import strikefx
     from tuipet.pet import Pet
     from tuipet import battlescreen as bs
+    # Joel reversed speed changes 2026-10-14: restore the original dodge and landing.
+    assert bs.DODGE_T == 14
     rows = ["0110", "1100", "0110"]                    # asymmetric ink
     # the seam: turn inverts each side's normal mirror flag
     place, _ = strikefx.place_combatant(True, rows)

@@ -338,10 +338,10 @@ def get_dropdown_value(annot: DictionaryObject, widget: Dropdown) -> None:
     Retrieves the selected value of a dropdown annotation and updates the widget.
 
     This function determines the current value of the dropdown, considering
-    whether it's a child annotation or a top-level one. It then iterates
-    through the widget's choices to find a match and sets the widget's
-    value to the index of the matched choice, or None when the first choice
-    is selected.
+    whether it's a child annotation or a top-level one. A matching choice sets
+    the widget's value to its index, including zero for the first choice. If no
+    choice matches, the widget's value is left unchanged; an initially unselected
+    widget remains None.
 
     Args:
         annot (DictionaryObject): The dropdown annotation dictionary.
@@ -354,7 +354,7 @@ def get_dropdown_value(annot: DictionaryObject, widget: Dropdown) -> None:
 
     for i, each in enumerate(widget.choices):
         if each == to_compare:
-            widget.value = i or None  # set None when 0
+            widget.value = i
 
 
 def update_text_value(
@@ -428,29 +428,34 @@ def get_text_field_alignment(widget: dict) -> int | None:
     return int(widget[Q]) if Q in widget else None
 
 
-def get_dropdown_choices(widget: dict) -> Tuple[str, ...] | None:
+def get_dropdown_choices(widget: dict) -> Tuple[str, ...]:
     """
     Extracts the choices from a dropdown widget dictionary.
 
     This function extracts the choices from a dropdown widget dictionary. Direct
     string options are returned as-is. Two-item PDF option arrays return the
-    display value stored at index 1.
+    display value stored at index 1. Empty or missing options produce an empty
+    tuple. An explicitly empty widget option array is preserved even when its
+    parent has options.
 
     Args:
         widget (dict): The widget dictionary to extract the choices from.
 
     Returns:
-        Tuple[str, ...] | None: A tuple of strings representing the choices in the dropdown, or None if the choices are not specified.
+        Tuple[str, ...]: The dropdown choices, or an empty tuple when none exist.
     """
+    choices = (
+        widget[Opt]
+        if Opt in widget
+        else extract_widget_property(widget, DROPDOWN_CHOICE_PATTERNS, (), None)
+    )
     return tuple(
         (
             each.get_object()
             if isinstance(each.get_object(), str)
             else str(each.get_object()[1])
         )
-        for each in extract_widget_property(
-            widget, DROPDOWN_CHOICE_PATTERNS, None, None
-        )
+        for each in choices
     )
 
 

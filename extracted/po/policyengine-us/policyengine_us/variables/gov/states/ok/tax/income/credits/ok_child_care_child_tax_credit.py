@@ -1,0 +1,77 @@
+from policyengine_us.model_api import *
+
+
+class ok_child_care_child_tax_credit(Variable):
+    value_type = float
+    entity = TaxUnit
+    label = "Oklahoma Child Care/Child Tax Credit"
+    unit = USD
+    definition_period = YEAR
+    reference = (
+        # 2025 Form 511-NR instructions, page 11
+        "https://oklahoma.gov/content/dam/ok/en/tax/documents/forms/individuals/current/511-NR-Pkt.pdf#page=11",
+    )
+    defined_for = StateCode.OK
+    documentation = """
+    Oklahoma Child Care/Child Tax Credit.
+
+    Oklahoma offers a combined credit that allows taxpayers to claim the
+    GREATER of two possible credits:
+    1. 20% of the federal Child and Dependent Care Credit (CDCC)
+    2. 5% of the federal Child Tax Credit (CTC)
+
+    Eligibility requirements:
+    - Federal AGI must be $100,000 or less
+    - Credit is prorated based on OK AGI / Federal AGI ratio
+
+    Calculation steps:
+    1. Check AGI eligibility (federal AGI <= $100,000)
+    2. Calculate OK CDCC: federal CDCC allowed (cdcc) * 20%
+    3. Calculate OK CTC: federal CTC allowed * 5%
+    4. Take the greater of OK CDCC or OK CTC
+    5. Prorate by (OK AGI / Federal AGI)
+
+    Example 1 - CDCC is greater:
+    - Federal AGI: $60,000 (eligible)
+    - Federal CDCC allowed: $2,000
+    - Federal CTC: $4,000
+    - OK CDCC: $2,000 * 20% = $400
+    - OK CTC: $4,000 * 5% = $200
+    - Credit (before proration): max($400, $200) = $400
+
+    Example 2 - CTC is greater:
+    - Federal AGI: $60,000 (eligible)
+    - Federal CDCC allowed: $500
+    - Federal CTC: $6,000
+    - OK CDCC: $500 * 20% = $100
+    - OK CTC: $6,000 * 5% = $300
+    - Credit (before proration): max($100, $300) = $300
+
+    Note: Uses the federal child care credit AS ALLOWED (cdcc, Form 2441
+    line 11 / the credit after the federal tax-liability limitation), per
+    the 2025 Form 511 instructions ("20% of the credit for child care
+    expenses allowed by the IRC") and the Schedule 511-F worksheet
+    ("Enter your federal child care credit"). The "greater of 20% CDCC or
+    5% CTC" structure already protects low-tax filers via the CTC path.
+    """
+
+    def formula(tax_unit, period, parameters):
+        p = parameters(period).gov.states.ok.tax.income.credits
+        # Step 1: Determine AGI eligibility (must be <= $100,000)
+        us_agi = tax_unit("adjusted_gross_income", period)
+        agi_eligible = us_agi <= p.child.agi_limit
+        # Step 2: Calculate OK CDCC amount (20% of the federal child care
+        # credit ALLOWED, i.e. after the federal tax-liability limit).
+        us_cdcc = tax_unit("cdcc", period)
+        ok_cdcc = us_cdcc * p.child.cdcc_fraction
+        # Step 3: Calculate OK CTC amount (5% of federal CTC allowed)
+        us_ctc = tax_unit("ok_federal_ctc", period)
+        ok_ctc = us_ctc * p.child.ctc_fraction
+        # Step 4: Compute proration ratio (OK AGI / Federal AGI)
+        ok_agi = tax_unit("ok_agi", period)
+        agi_ratio = np.zeros_like(us_agi)
+        mask = us_agi != 0
+        agi_ratio[mask] = ok_agi[mask] / us_agi[mask]
+        prorate = min_(1, max_(0, agi_ratio))
+        # Step 5: Return greater of OK CDCC or OK CTC, prorated
+        return agi_eligible * prorate * max_(ok_cdcc, ok_ctc)

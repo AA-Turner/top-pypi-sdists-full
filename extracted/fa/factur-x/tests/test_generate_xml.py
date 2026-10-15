@@ -4,16 +4,15 @@
 import datetime
 import json
 import unittest
+from pprint import pprint
 
+from deepdiff import DeepDiff
 from facturx import (
     data_dict_to_json,
     generate_xml,
     is_credit_note,
     parse_ubl_cii_xml,
 )
-
-# from pprint import pprint
-# from deepdiff import DeepDiff
 
 FLAVOR2LEVELS = {
     "factur-x": ["extended", "en16931", "basicwl", "extended-ctc-fr"],
@@ -37,6 +36,8 @@ class TestGenerateXML(unittest.TestCase):
             "BT-11": "Projet_Zorro",
             "BT-11-0": "Zorro super projet",
             "BT-12": "Contrat_du_siècle",
+            "EXT-FR-FE-01": "GC",
+            "EXT-FR-FE-199": datetime.date(2020, 2, 12),  # contract date
             "BT-13": "PO1242",
             "BT-14": "DEVIS2093",
             "BT-15": "BR-2026/06/42",
@@ -359,17 +360,52 @@ class TestGenerateXML(unittest.TestCase):
                     "BT-132": "PO1242-L1",
                     "BT-134": datetime.date(2026, 6, 14),
                     "BT-135": datetime.date(2026, 6, 15),
+                    "EXT-FR-FE-BG-12": {  # Seller at line level
+                        "name": "Market Quality Place",
+                        "biz_name": "Market No Place",
+                        "identifiers": {
+                            "0009": "68822825300011",
+                        },
+                        "legal_identifier": "688228253",
+                        "legal_identifier_schemeid": "0002",
+                        "vat_identifier": "FR01688228253",
+                        # tax_identifier is disabled because the
+                        # Factur-X extended schematron has a bug, cf
+                        # https://github.com/fnfempe/France_RFE/issues/85
+                        # "tax_identifier": "DGFIP_ref_87932",
+                        "einvoicing_addr": "688228253_SUFFIX",
+                        "einvoicing_addr_schemeid": "0225",
+                        "addr_l1": "7 rue du Pic d'Assan",
+                        "addr_l2": "L'Ochette",
+                        "addr_l3": "ZAC du Mystère",
+                        "city": "Ceillac",
+                        "postcode": "05600",
+                        "country_subdivision": "Hautes-Alpes",
+                        "country_code": "FR",
+                    },
                     "EXT-FR-FE-144": "Order-678",
                     "EXT-FR-FE-145": "OrderLine-490",
                     "EXT-FR-FE-135": "PX9021",
+                    # ref to previous invoice
+                    "EXT-FR-FE-136": "F824739",
+                    "EXT-FR-FE-139": "12",
+                    "EXT-FR-FE-137": "380",
+                    "EXT-FR-FE-138": datetime.date(2025, 12, 24),
+                    "EXT-FR-FE-163": "DETAIL",
+                    "EXT-FR-FE-193": "DAP",
+                    "EXT-FR-FE-194": "Barcelona",
+                    "EXT-FR-FE-200": datetime.date(2026, 2, 21),
                     "BG-32": [  # key = BT-160: value = BT-161
                         {
                             "BT-160": "Couleur",
                             "BT-161": "Vert",
                         },
                         {
-                            "BT-160": "Taille",
-                            "BT-161": "L",
+                            "EXT-FR-FE-159": "SIZE_CODE",
+                            # "BT-160": "Taille",
+                            # "BT-161": "L",
+                            "EXT-FR-FE-160": "80.5",
+                            "EXT-FR-FE-161": "CMT",
                         },
                     ],
                     "BT-158": {  # key = BT-158-1, value = {BT-158-2: BT-158}
@@ -451,6 +487,7 @@ class TestGenerateXML(unittest.TestCase):
                     "EXT-FR-FE-139": "12",
                     "EXT-FR-FE-137": "380",
                     "EXT-FR-FE-138": datetime.date(2025, 12, 24),
+                    "EXT-FR-FE-163": "DETAIL",
                 },
             ],
         }
@@ -484,6 +521,7 @@ class TestGenerateXML(unittest.TestCase):
         for flavor in ("factur-x", "ubl-2.1"):
             for level in FLAVOR2LEVELS[flavor]:
                 for bt3 in ("380", "381"):
+                    print(f"flavor={flavor} level={level} BT-3={bt3}")
                     data_dict = self._prepare_data_dict()
                     data_dict["BT-3"] = bt3
                     xml_bytes = generate_xml(
@@ -500,8 +538,8 @@ class TestGenerateXML(unittest.TestCase):
                     parsed_data_dict = parse_ubl_cii_xml(xml_bytes, check_xsd=False)
                     # pprint(parsed_data_dict)
                     if parsed_data_dict != data_dict:
-                        # diff = DeepDiff(data_dict, parsed_data_dict)
-                        # pprint(diff)
+                        diff = DeepDiff(data_dict, parsed_data_dict)
+                        pprint(diff)
                         self.assertFalse(
                             "Parsed parsed_data_dict is different than data_dict"
                         )
@@ -512,6 +550,7 @@ class TestGenerateXML(unittest.TestCase):
         for flavor in ("factur-x", "ubl-2.1"):
             for level in FLAVOR2LEVELS[flavor]:
                 for bt3 in ("380", "381"):
+                    print(f"JSON test: flavor={flavor} level={level} BT-3={bt3}")
                     data_dict = self._prepare_data_dict()
                     data_dict["BT-3"] = bt3
                     if bt3 == "381":
@@ -551,6 +590,7 @@ class TestGenerateXML(unittest.TestCase):
             "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr",
         ):
             for flavor in ("factur-x", "ubl-2.1"):
+                print(f"autodetect test: flavor={flavor} BT-24={bt24}")
                 data_dict = self._prepare_data_dict()
                 data_dict["BT-24"] = bt24
                 generate_xml(data_dict, flavor=flavor)  # autodetect

@@ -381,12 +381,14 @@ class TestLegendPlacement(unittest.TestCase):
         from geocif.viz import s2s_africa as viz
 
         src = inspect.getsource(viz.maps)
-        # exactly ONE fig.legend call survives, inside the shared _legend
+        helper = inspect.getsource(viz.legend_box)
+        # exactly ONE fig.legend call survives, inside the shared legend_box
         # helper, and it always formats an explicit width
-        self.assertEqual(src.count("fig.legend("), 1)
-        self.assertIn("LEGEND_POS.format(w=width)", src)
-        # every caller hands _legend its width (def + at least 3 call sites)
-        self.assertGreaterEqual(src.count("_legend(fig, td,"), 4)
+        self.assertEqual(src.count("fig.legend("), 0)
+        self.assertEqual(helper.count("fig.legend("), 1)
+        self.assertIn("LEGEND_POS.format(w=width)", helper)
+        # every caller hands legend_box its width (at least 3 call sites)
+        self.assertGreaterEqual(src.count("legend_box(fig, td,"), 3)
 
 
 class TestSharedOutlookStyling(unittest.TestCase):
@@ -403,10 +405,10 @@ class TestSharedOutlookStyling(unittest.TestCase):
 
         from geocif.viz import s2s_africa as viz
 
-        src = inspect.getsource(viz.maps)
-        self.assertIn("from geocif.viz._style import", src)
+        head = inspect.getsource(viz).split("def _dirs")[0]
+        self.assertIn("from geocif.viz._style import", head)
         for k in ("POLY_PEN", "COAST_KW", "CBAR_POS", "BORDER_PEN"):
-            self.assertIn(k, src, k)
+            self.assertIn(k, head, k)
 
     def test_the_map_helper_import_stays_inside_maps(self):
         """geopandas is still a module-scope import of _pygmt_render, so a
@@ -480,9 +482,9 @@ class TestFontsMatchTheOutlookMaps(unittest.TestCase):
 
         from geocif.viz import s2s_africa as viz
 
-        src = inspect.getsource(viz.maps)
-        # the pygmt.config CALL, not the whole source: the comment above it
-        # names the settings it deliberately leaves alone
+        src = inspect.getsource(viz.basemap)
+        # the pygmt.config CALL, not the whole source: the docstring above
+        # it names the settings it deliberately leaves alone
         m = re.search(r"pygmt\.config\((.*?)\)", src, re.S)
         self.assertIsNotNone(m)
         cfg = m.group(1)
@@ -701,6 +703,92 @@ class TestMapsCarryNoRegionAnnotations(unittest.TestCase):
 
         from geocif.viz import s2s_africa as viz
 
+        # the boundary frame (shared with the shift maps) carries the names
+        self.assertIn('"ADMIN1", "ADMIN2"',
+                      inspect.getsource(viz.read_boundaries))
         src = inspect.getsource(viz.maps)
-        self.assertIn('"ADMIN1", "ADMIN2"', src)
+        self.assertIn("read_boundaries(gpkg)", src)
         self.assertIn('drop(columns="geometry")', src)
+
+
+class TestColorbarCaption(unittest.TestCase):
+    """The value maps carry no title: the caption under the colorbar says
+    what is mapped, then the S2S init and the months it forecasts, which
+    differ by planting month within one crop map."""
+
+    def _frame(self, rows):
+        return pd.DataFrame(rows, columns=["init_used", "planting_month",
+                                           "offset_used"])
+
+    def test_span_text(self):
+        from geocif.viz.s2s_africa import span_text
+
+        self.assertEqual(span_text((2026, 11), (2027, 1)),
+                         "Nov 2026 to Jan 2027")
+        self.assertEqual(span_text((2027, 2), (2027, 4)), "Feb to Apr 2027")
+        self.assertEqual(span_text((2026, 12), (2026, 12)), "Dec 2026")
+
+    def test_forecast_window_is_the_season_months_the_init_reaches(self):
+        from geocif.viz.s2s_africa import forecast_window
+
+        # Nov planting, Oct init (offset 1): Nov..Feb
+        self.assertEqual(forecast_window("2026-10", 11, 1),
+                         ((2026, 11), (2027, 2)))
+        # Oct planting, Oct init (offset 0): Oct is under way, Nov..Jan
+        self.assertEqual(forecast_window("2026-10", 10, 0),
+                         ((2026, 11), (2027, 1)))
+        # Feb planting, Oct init (offset 4): leads 4-6 reach Feb..Apr
+        self.assertEqual(forecast_window("2026-10", 2, 4),
+                         ((2027, 2), (2027, 4)))
+        # Sep planting, Oct init (offset -1): Nov..Dec remain
+        self.assertEqual(forecast_window("2026-10", 9, -1),
+                         ((2026, 11), (2026, 12)))
+
+    def test_one_planting_group_is_two_lines(self):
+        from geocif.viz.s2s_africa import caption_lines
+
+        lines = caption_lines("Head", self._frame([("2026-08", 10, 2)] * 3))
+        self.assertEqual(lines, ["Head", "From the Aug 2026 S2S init, "
+                                         "forecast for Oct 2026 to Jan 2027"])
+
+    def test_two_planting_groups_are_three_lines(self):
+        from geocif.viz.s2s_africa import caption_lines
+
+        lines = caption_lines("Head", self._frame(
+            [("2026-10", 11, 1), ("2026-10", 10, 0), ("2026-10", 11, 1)]))
+        self.assertEqual(lines, [
+            "Head", "From the Oct 2026 S2S init, forecast for",
+            "Nov 2026 to Jan 2027 (Oct planting) and "
+            "Nov 2026 to Feb 2027 (Nov planting)"])
+
+    def test_more_groups_fall_back_to_the_overall_span(self):
+        from geocif.viz.s2s_africa import caption_lines
+
+        lines = caption_lines("Head", self._frame(
+            [("2026-10", 10, 0), ("2026-10", 2, 4), ("2026-10", 9, -1)]))
+        self.assertEqual(lines[-1], "Nov 2026 to Apr 2027 (per region in "
+                                    "the CSV)")
+        self.assertEqual(len(lines), 3)
+
+    def test_old_outputs_without_init_used_keep_the_head_only(self):
+        from geocif.viz.s2s_africa import caption_lines, with_forecast_months
+
+        old = pd.DataFrame({"planting_month": [11], "offset_used": [1]})
+        self.assertEqual(caption_lines("Head", old), ["Head"])
+        self.assertNotIn("forecast_months", with_forecast_months(old).columns)
+        new = with_forecast_months(self._frame([("2026-10", 11, 1)]))
+        self.assertEqual(new["forecast_months"].iloc[0],
+                         "Nov 2026 to Feb 2027")
+
+    def test_value_maps_have_no_title_and_draw_the_caption(self):
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        self.assertIn("basemap(fig, None, extent, proj)", src)
+        self.assertEqual(src.count("draw_caption("), 1)
+        self.assertNotIn("cbar_label", src)
+        self.assertNotIn('x+l', src)
+        # every colorbar map keeps the issue columns through its filter
+        self.assertGreaterEqual(src.count("+ ISSUE_COLS"), 5)

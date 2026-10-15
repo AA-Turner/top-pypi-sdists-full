@@ -2,10 +2,8 @@
 //!
 //! CodeUnit files are stored flat in `./registry/{id}.json` where id is a UUID v4.
 
-use fs2::FileExt;
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use rayon::prelude::*;
@@ -25,12 +23,19 @@ mod graph;
 mod in_memory;
 mod loader;
 pub(crate) mod paths;
+mod pushdown;
 mod query;
+pub(crate) mod storage;
 #[cfg(test)]
 pub(crate) mod test_helpers;
 #[cfg(test)]
 pub(crate) mod test_hooks;
+mod threads;
 use in_memory::InMemoryRegistry;
+use storage::index::Prefilter;
+pub use storage::{LockGuard, INDEX_ENV_VAR};
+use storage::{Storage, StorageWrite};
+pub use threads::THREADS_ENV_VAR;
 
 /// ID placeholder used in batch operations when a code unit has no ID.
 pub const UNKNOWN_ID: &str = "unknown";
@@ -379,7 +384,12 @@ impl RegistryHook for PathNormalizationHook {
 pub struct FindOptions<'a> {
     /// Optional SQL-like filter expression.
     pub filter: Option<&'a str>,
-    /// Optional field projection list.
+    /// Optional field projection list (dot paths, e.g. `"source.name"`).
+    ///
+    /// Without a `filter`, a projected read decodes only the top-level keys
+    /// the projection needs: every document is still checked for JSON
+    /// syntax, `schemaVersion`, and id/key match, but a type error in a
+    /// field *outside* the projection no longer fails the read.
     pub fields: Option<&'a [&'a str]>,
     /// When true and a filter is active, include transitive dependencies
     /// of matching units even if they do not match the filter.
@@ -458,6 +468,13 @@ fn set_path(root: &mut Value, path: &str, val: Value) -> Result<()> {
     }
 }
 
+/// Project a unit to `fields` (see [`project_fields`]).
+fn project_unit(unit: &CodeUnit, fields: &[&str]) -> Result<CodeUnit> {
+    let json_value = serde_json::to_value(unit)?;
+    let projected = project_fields(&json_value, fields)?;
+    Ok(serde_json::from_value(projected)?)
+}
+
 /// Project specified fields from a JSON value into a new object.
 /// Supports nested paths like "source.name".
 fn project_fields(value: &Value, fields: &[&str]) -> Result<Value> {
@@ -512,33 +529,25 @@ fn deep_merge(base: &mut Value, patch: &Value) {
 /// Always use LF line endings in registry JSON files for cross-platform consistency.
 const LINE_ENDING: &str = "\n";
 
-/// Lock guard that releases the lock when dropped
-pub struct LockGuard {
-    _file: File,
-}
-
-impl LockGuard {
-    fn new(file: File) -> Self {
-        Self { _file: file }
-    }
-}
-
-/// RAII guard that sets an [`AtomicBool`] to `true` on creation and
-/// restores it to `false` on drop — even if the guarded scope panics.
-struct HookGuard<'a>(&'a std::sync::atomic::AtomicBool);
+/// RAII guard that records the current thread as running hooks and clears
+/// it on drop — even if the guarded scope panics.
+struct HookGuard<'a>(&'a HookThread);
 
 impl<'a> HookGuard<'a> {
-    fn enter(flag: &'a std::sync::atomic::AtomicBool) -> Self {
-        flag.store(true, std::sync::atomic::Ordering::Relaxed);
-        Self(flag)
+    fn enter(slot: &'a HookThread) -> Self {
+        *slot.lock().unwrap_or_else(|p| p.into_inner()) = Some(std::thread::current().id());
+        Self(slot)
     }
 }
 
 impl Drop for HookGuard<'_> {
     fn drop(&mut self) {
-        self.0.store(false, std::sync::atomic::Ordering::Relaxed);
+        *self.0.lock().unwrap_or_else(|p| p.into_inner()) = None;
     }
 }
+
+/// The thread currently running this registry's before-persist hooks, if any.
+type HookThread = std::sync::Mutex<Option<std::thread::ThreadId>>;
 
 /// Built-in hook that computes `canonicalName` on both `source` and `target`
 /// metadata before persisting, delegating to [`crate::canonical_name`].
@@ -587,14 +596,17 @@ fn builtin_hooks() -> Vec<Box<dyn RegistryHook + Send + Sync>> {
     ]
 }
 
-/// A code-unit registry backed by a directory of JSON files.
+/// A code-unit registry rooted at a project directory.
 pub struct CodeUnitRegistry {
     /// Root path of the registry (contains registry/)
     root: PathBuf,
+    /// Backend holding the code unit documents.
+    storage: Storage,
     /// Before-write hooks that fire before data is persisted.
     hooks: Vec<Box<dyn RegistryHook + Send + Sync>>,
-    /// Re-entrancy guard: prevents write methods from being called inside hooks.
-    in_hook: std::sync::atomic::AtomicBool,
+    /// Re-entrancy guard: prevents write methods from being called inside
+    /// hooks (on the thread running them).
+    in_hook: HookThread,
 }
 
 impl CodeUnitRegistry {
@@ -623,7 +635,8 @@ impl CodeUnitRegistry {
         let gitignore_content = format!(".locks/{}", LINE_ENDING);
         fs::write(&gitignore, gitignore_content)?;
 
-        Ok(Self::with_root(root))
+        let storage = Storage::open(&registry_dir)?;
+        Ok(Self::with_storage(root, storage))
     }
 
     /// Open an existing registry at the given path.
@@ -637,15 +650,26 @@ impl CodeUnitRegistry {
             .fail();
         }
 
-        Ok(Self::with_root(root))
+        let storage = Storage::open(&root.join(REGISTRY_DIR))?;
+        Ok(Self::with_storage(root, storage))
     }
 
-    fn with_root(root: PathBuf) -> Self {
+    fn with_storage(root: PathBuf, storage: Storage) -> Self {
         Self {
             root,
+            storage,
             hooks: builtin_hooks(),
-            in_hook: std::sync::atomic::AtomicBool::new(false),
+            in_hook: HookThread::default(),
         }
+    }
+
+    /// How many reads on this instance were answered from the SQLite index
+    /// rather than the files. A diagnostic for benchmarks, which must not
+    /// time the files-only fallback while labelled "index on"; not part of
+    /// the stable API and not exposed to the bindings.
+    #[doc(hidden)]
+    pub fn index_reads_served(&self) -> u64 {
+        self.storage.index_reads()
     }
 
     /// Get the root path of the registry
@@ -663,34 +687,9 @@ impl CodeUnitRegistry {
         self.root.join("snowflake")
     }
 
-    /// Get the registry directory path
-    fn registry_dir(&self) -> PathBuf {
-        self.root.join(REGISTRY_DIR)
-    }
-
     /// Acquire an exclusive lock for write operations.
     pub fn acquire_lock(&self) -> Result<LockGuard> {
-        let lock_path = self.registry_dir().join(".locks").join("registry.lock");
-
-        if let Some(parent) = lock_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        let file = File::create(&lock_path)?;
-        file.lock_exclusive().map_err(|e| {
-            LockSnafu {
-                message: e.to_string(),
-            }
-            .build()
-        })?;
-
-        Ok(LockGuard::new(file))
-    }
-
-    /// Compute file path from ID.
-    /// Returns `registry/{id}.json`
-    fn id_to_path(&self, id: &str) -> PathBuf {
-        self.registry_dir().join(format!("{}.json", id))
+        self.storage.lock()
     }
 
     // ── Hooks ────────────────────────────────────────────────────────────
@@ -700,8 +699,12 @@ impl CodeUnitRegistry {
         self.hooks.push(Box::new(hook));
     }
 
+    /// Reject a write issued from inside this registry's hooks *on the hook
+    /// thread itself* (it would wait forever on the lock its caller holds).
+    /// Other threads writing concurrently are fine: they queue on the lock.
     fn guard_reentrant(&self) -> Result<()> {
-        if self.in_hook.load(std::sync::atomic::Ordering::Relaxed) {
+        let hook_thread = *self.in_hook.lock().unwrap_or_else(|p| p.into_inner());
+        if hook_thread == Some(std::thread::current().id()) {
             return HookReentrantSnafu.fail();
         }
         Ok(())
@@ -725,45 +728,24 @@ impl CodeUnitRegistry {
         })
     }
 
-    fn persist_changes(&self, changes: &[CodeUnitChange]) -> Result<()> {
-        changes
-            .par_iter()
-            .try_for_each(|change| match &change.after {
-                Some(unit) => self.write_json(&self.id_to_path(&change.id), unit, false, true),
-                None => {
-                    let path = self.id_to_path(&change.id);
-                    if path.exists() {
-                        fs::remove_file(path)?;
-                    }
-                    Ok(())
-                }
-            })?;
+    fn persist_changes(&self, lock: &LockGuard, changes: &[CodeUnitChange]) -> Result<()> {
+        for outcome in self.persist_units(lock, &Self::change_items(changes), true) {
+            outcome?;
+        }
         self.sync()
     }
 
-    fn persist_changes_batch(&self, changes: &[CodeUnitChange], result: &mut BatchResult) {
-        let outcomes: Vec<(String, std::result::Result<(), crate::error::Error>)> = changes
-            .par_iter()
-            .map(|change| {
-                let outcome = match &change.after {
-                    Some(unit) => self.write_json(&self.id_to_path(&change.id), unit, false, true),
-                    None => {
-                        let path = self.id_to_path(&change.id);
-                        if path.exists() {
-                            fs::remove_file(&path).map_err(Into::into)
-                        } else {
-                            Ok(())
-                        }
-                    }
-                };
-                (change.id.clone(), outcome)
-            })
-            .collect();
-
-        for (id, outcome) in outcomes {
+    fn persist_changes_batch(
+        &self,
+        lock: &LockGuard,
+        changes: &[CodeUnitChange],
+        result: &mut BatchResult,
+    ) {
+        let outcomes = self.persist_units(lock, &Self::change_items(changes), true);
+        for (change, outcome) in changes.iter().zip(outcomes) {
             match outcome {
-                Ok(()) => result.success(id),
-                Err(e) => result.failure(id, &e),
+                Ok(()) => result.success(change.id.clone()),
+                Err(e) => result.failure(change.id.clone(), &e),
             }
         }
         if let Err(e) = self.sync() {
@@ -771,30 +753,112 @@ impl CodeUnitRegistry {
         }
     }
 
+    fn change_items(changes: &[CodeUnitChange]) -> Vec<(&str, Option<&CodeUnit>)> {
+        changes
+            .iter()
+            .map(|c| (c.id.as_str(), c.after.as_ref()))
+            .collect()
+    }
+
+    /// Write (`Some`) or delete (`None`) each unit, returning one outcome per
+    /// item in input order. Does not sync.
+    ///
+    /// Each written unit is deep-merged on top of the document currently
+    /// stored under its ID, so fields present in storage but absent from the
+    /// `CodeUnit` struct (e.g. fields added by a newer schema version)
+    /// survive the round-trip.
+    fn persist_units(
+        &self,
+        lock: &LockGuard,
+        items: &[(&str, Option<&CodeUnit>)],
+        durable: bool,
+    ) -> Vec<Result<()>> {
+        let put_ids: Vec<String> = items
+            .iter()
+            .filter(|(_, unit)| unit.is_some())
+            .map(|(id, _)| (*id).to_string())
+            .collect();
+        let mut stored = self.storage.read_many(&put_ids).into_iter();
+        let stored: Vec<Option<String>> = items
+            .iter()
+            .map(|(_, unit)| unit.and_then(|_| stored.next().and_then(|raw| raw.ok().flatten())))
+            .collect();
+
+        let values: Vec<Result<Option<Value>>> = items
+            .par_iter()
+            .zip(stored.into_par_iter())
+            .map(|((_, unit), raw)| unit.map(|u| merge_onto_stored(u, raw)).transpose())
+            .collect();
+
+        let writes: Vec<StorageWrite<'_>> = items
+            .iter()
+            .zip(&values)
+            .filter_map(|((id, _), value)| match value {
+                Ok(Some(value)) => Some(StorageWrite::Put { id, value }),
+                Ok(None) => Some(StorageWrite::Delete { id }),
+                Err(_) => None,
+            })
+            .collect();
+        let mut written = self.storage.write_batch(lock, &writes, durable).into_iter();
+
+        values
+            .into_iter()
+            .map(|value| match value {
+                Err(e) => Err(e),
+                Ok(_) => written.next().expect("one outcome per storage write"),
+            })
+            .collect()
+    }
+
     // ── Write pipeline helpers ────────────────────────────────────────────
 
-    fn write_protected<T>(
+    /// Take the write lock on the calling thread, then run `f` in the
+    /// registry thread pool.
+    ///
+    /// The order matters with a dedicated pool (`SCAI_REGISTRY_THREADS`): a
+    /// pool thread waiting inside one operation may pick up another queued
+    /// operation, and if that one blocked on the lock there, it would wait
+    /// for a lock held further down its own stack. Blocking on the caller's
+    /// thread keeps a waiting writer out of the pool entirely.
+    fn locked<T: Send>(&self, f: impl FnOnce(&LockGuard) -> Result<T> + Send) -> Result<T> {
+        let lock = self.acquire_lock()?;
+        threads::run(|| f(&lock))
+    }
+
+    fn write_protected<T: Send>(
         &self,
         kind: ChangeType,
         options: Option<&WriteOptions>,
-        prepare: impl FnOnce() -> Result<(Vec<CodeUnitChange>, T)>,
+        prepare: impl FnOnce() -> Result<(Vec<CodeUnitChange>, T)> + Send,
     ) -> Result<T> {
-        let _lock = self.acquire_lock()?;
         self.guard_reentrant()?;
-        let (changes, value) = prepare()?;
-        let changes = self.fire_before_persist(kind, changes, options)?;
-        self.persist_changes(&changes)?;
-        Ok(value)
+        self.locked(|lock| {
+            self.storage.prepare_write(lock)?;
+            let (changes, value) = prepare()?;
+            let changes = self.fire_before_persist(kind, changes, options)?;
+            self.persist_changes(lock, &changes)?;
+            Ok(value)
+        })
     }
 
     fn write_protected_batch(
         &self,
         kind: ChangeType,
         options: Option<&WriteOptions>,
-        prepare: impl FnOnce(&mut BatchResult) -> Result<Vec<CodeUnitChange>>,
+        prepare: impl FnOnce(&mut BatchResult) -> Result<Vec<CodeUnitChange>> + Send,
     ) -> Result<BatchResult> {
         self.guard_reentrant()?;
-        let _lock = self.acquire_lock()?;
+        self.locked(|lock| self.write_protected_batch_locked(lock, kind, options, prepare))
+    }
+
+    fn write_protected_batch_locked(
+        &self,
+        lock: &LockGuard,
+        kind: ChangeType,
+        options: Option<&WriteOptions>,
+        prepare: impl FnOnce(&mut BatchResult) -> Result<Vec<CodeUnitChange>>,
+    ) -> Result<BatchResult> {
+        self.storage.prepare_write(lock)?;
         let mut result = BatchResult::new();
         let changes = prepare(&mut result)?;
         let input_ids = Self::check_duplicate_ids(&changes)?;
@@ -806,7 +870,7 @@ impl CodeUnitRegistry {
             .map(|c| c.id.clone())
             .collect();
 
-        self.persist_changes_batch(&changes, &mut result);
+        self.persist_changes_batch(lock, &changes, &mut result);
         Ok(result)
     }
 
@@ -901,8 +965,7 @@ impl CodeUnitRegistry {
             }
         };
 
-        let file_path = self.id_to_path(&id);
-        if file_path.exists() {
+        if self.storage.exists(&id)? {
             return CodeUnitAlreadyExistsSnafu { id }.fail();
         }
 
@@ -913,21 +976,17 @@ impl CodeUnitRegistry {
 
     /// Load a code unit from disk by ID.
     pub fn get_by_id(&self, id: &str, fields: Option<&[&str]>) -> Result<CodeUnit> {
-        let file_path = self.id_to_path(id);
-
-        if !file_path.exists() {
-            return CodeUnitNotFoundSnafu { id }.fail();
-        }
-
-        let code_unit = self.read_json(&file_path)?;
-        match fields {
-            Some(f) => {
-                let json_value = serde_json::to_value(&code_unit)?;
-                let projected = project_fields(&json_value, f)?;
-                Ok(serde_json::from_value(projected)?)
+        threads::run(|| {
+            let code_unit = self.load_existing(id)?;
+            match fields {
+                Some(f) => {
+                    let json_value = serde_json::to_value(&code_unit)?;
+                    let projected = project_fields(&json_value, f)?;
+                    Ok(serde_json::from_value(projected)?)
+                }
+                None => Ok(code_unit),
             }
-            None => Ok(code_unit),
-        }
+        })
     }
 
     /// List code units, optionally filtered and with field projection.
@@ -939,44 +998,55 @@ impl CodeUnitRegistry {
     /// Uses strict loading and returns an error if any registry JSON is malformed
     /// or has an ID/filename mismatch.
     pub fn find_all(&self, options: FindOptions<'_>) -> Result<Vec<CodeUnit>> {
-        let in_memory = InMemoryRegistry::build(self)?;
-        let mut units = match options.filter {
-            None => in_memory.all_units(options.fields),
-            Some(filter) => {
-                let parsed_filter = Filter::parse(filter)?;
-                let selected = {
-                    let query = in_memory.query();
-                    let mut selected =
-                        query.matching_indices(|json| parsed_filter.matches(json))?;
-                    if options.include_dependencies {
-                        query.include_transitive_dependencies(&mut selected);
-                    }
-                    selected
-                };
-                in_memory.selected_units(selected, options.fields)
-            }
-        }?;
-        // A path is resolved into the same literal map `bindings` carries, so there
-        // is exactly one substitution path whichever input the caller used.
-        let from_path = match (options.bindings, options.bindings_path) {
-            (Some(_), Some(_)) => {
-                return ValidationSnafu {
-                    message: "FindOptions: pass either `bindings` or `bindings_path`, not both"
-                        .to_string(),
+        threads::run(|| {
+            let parsed_filter = options.filter.map(Filter::parse).transpose()?;
+            let mut units = match (parsed_filter, options.fields) {
+                // Unfiltered projected read: decode only what the projection needs.
+                (None, Some(fields)) if fast_projection_enabled() => {
+                    loader::RegistryLoader::new(self).read_all_projected(fields)
                 }
-                .fail();
+                (None, fields) => InMemoryRegistry::build(self)?.all_units(fields),
+                (Some(parsed_filter), fields) => {
+                    let prefilter = prefilter_for_filter(&parsed_filter);
+                    let in_memory = if options.include_dependencies {
+                        self.load_for_query_with_dependencies(prefilter)?
+                    } else {
+                        self.load_for_query(prefilter)?
+                    };
+                    let selected = {
+                        let query = in_memory.query();
+                        let mut selected =
+                            query.matching_indices(|json| parsed_filter.matches(json))?;
+                        if options.include_dependencies {
+                            query.include_transitive_dependencies(&mut selected);
+                        }
+                        selected
+                    };
+                    in_memory.selected_units(selected, fields)
+                }
+            }?;
+            // A path is resolved into the same literal map `bindings` carries, so there
+            // is exactly one substitution path whichever input the caller used.
+            let from_path = match (options.bindings, options.bindings_path) {
+                (Some(_), Some(_)) => {
+                    return ValidationSnafu {
+                        message: "FindOptions: pass either `bindings` or `bindings_path`, not both"
+                            .to_string(),
+                    }
+                    .fail();
+                }
+                (None, Some(path)) => {
+                    Some(crate::database_bindings::read_database_bindings(path)?.token_map())
+                }
+                _ => None,
+            };
+            if let Some(bindings) = options.bindings.or(from_path.as_ref()) {
+                for unit in &mut units {
+                    crate::bindings::apply_bindings(unit, bindings);
+                }
             }
-            (None, Some(path)) => {
-                Some(crate::database_bindings::read_database_bindings(path)?.token_map())
-            }
-            _ => None,
-        };
-        if let Some(bindings) = options.bindings.or(from_path.as_ref()) {
-            for unit in &mut units {
-                crate::bindings::apply_bindings(unit, bindings);
-            }
-        }
-        Ok(units)
+            Ok(units)
+        })
     }
 
     /// Find code units matching all non-null fields of a partial code unit.
@@ -996,12 +1066,14 @@ impl CodeUnitRegistry {
         partial: &Value,
         fields: Option<&[&str]>,
     ) -> Result<Vec<CodeUnit>> {
-        let in_memory = InMemoryRegistry::build(self)?;
-        let selected = {
-            let query = in_memory.query();
-            query.matching_indices(|json| matches_partial(partial, json))?
-        };
-        in_memory.selected_units(selected, fields)
+        threads::run(|| {
+            let in_memory = self.load_for_query(prefilter_for_partial(partial))?;
+            let selected = {
+                let query = in_memory.query();
+                query.matching_indices(|json| matches_partial(partial, json))?
+            };
+            in_memory.selected_units(selected, fields)
+        })
     }
 
     // ── Update (PATCH) ───────────────────────────────────────────────────
@@ -1125,12 +1197,7 @@ impl CodeUnitRegistry {
         options: Option<&WriteOptions>,
     ) -> Result<String> {
         self.write_protected(ChangeType::Upsert, options, || {
-            let file_path = self.id_to_path(code_unit.id.as_deref().unwrap_or(""));
-            let existing = if file_path.exists() {
-                Some(self.read_json(&file_path)?)
-            } else {
-                None
-            };
+            let existing = self.load_optional(code_unit.id.as_deref().unwrap_or(""))?;
             let (id, merged) = self.prepare_upsert(code_unit, existing.as_ref())?;
             let changes = vec![CodeUnitChange {
                 id: id.clone(),
@@ -1153,13 +1220,10 @@ impl CodeUnitRegistry {
         self.write_protected_batch(ChangeType::Upsert, options, |result| {
             let mut changes = Vec::new();
             for code_unit in batch.iter_mut() {
-                let existing = code_unit
-                    .id
-                    .as_deref()
-                    .map(|id| self.id_to_path(id))
-                    .filter(|p| p.exists())
-                    .map(|p| self.read_json(&p))
-                    .transpose()?;
+                let existing = match code_unit.id.as_deref() {
+                    Some(id) => self.load_optional(id)?,
+                    None => None,
+                };
                 match self.prepare_upsert(code_unit, existing.as_ref()) {
                     Ok((id, merged)) => {
                         changes.push(CodeUnitChange {
@@ -1234,12 +1298,10 @@ impl CodeUnitRegistry {
         id: &str,
         mode: ChecksumMode,
     ) -> Result<ChecksumValidationReport> {
-        let file_path = self.id_to_path(id);
-        if !file_path.exists() {
-            return CodeUnitNotFoundSnafu { id }.fail();
-        }
-        let code_unit = self.read_json(&file_path)?;
-        Ok(validate_checksum_report(&code_unit, &mode, &self.root))
+        threads::run(|| {
+            let code_unit = self.load_existing(id)?;
+            Ok(validate_checksum_report(&code_unit, &mode, &self.root))
+        })
     }
 
     // ── Change detection ─────────────────────────────────────────────────
@@ -1260,25 +1322,28 @@ impl CodeUnitRegistry {
         mode: ChecksumMode,
         filter: Option<&str>,
     ) -> Result<SourceCodeChanges> {
-        let in_memory = InMemoryRegistry::build(self)?;
-        let units = match filter {
-            None => in_memory.all_units(None)?,
-            Some(filter_str) => {
-                let parsed_filter = Filter::parse(filter_str)?;
-                let selected = {
-                    let query = in_memory.query();
-                    query.matching_indices(|json| parsed_filter.matches(json))?
-                };
-                in_memory.selected_units(selected, None)?
-            }
-        };
-        Ok(find_sql_file_changes(
-            &units,
-            &mode,
-            &self.root,
-            &self.source_dir(),
-            &self.snowflake_dir(),
-        ))
+        threads::run(|| {
+            let parsed_filter = filter.map(Filter::parse).transpose()?;
+            let in_memory =
+                self.load_for_query(parsed_filter.as_ref().and_then(prefilter_for_filter))?;
+            let units = match parsed_filter {
+                None => in_memory.all_units(None)?,
+                Some(parsed_filter) => {
+                    let selected = {
+                        let query = in_memory.query();
+                        query.matching_indices(|json| parsed_filter.matches(json))?
+                    };
+                    in_memory.selected_units(selected, None)?
+                }
+            };
+            Ok(find_sql_file_changes(
+                &units,
+                &mode,
+                &self.root,
+                &self.source_dir(),
+                &self.snowflake_dir(),
+            ))
+        })
     }
 
     // ── Delete ───────────────────────────────────────────────────────────
@@ -1307,8 +1372,10 @@ impl CodeUnitRegistry {
     /// Uses strict cycle detection: returns `CycleDetected(1014)` if any
     /// dependency cycle is found.
     pub fn refresh_dependencies(&self) -> Result<()> {
-        let _lock = self.acquire_lock()?;
-        self.refresh_and_sync(true)
+        self.locked(|lock| {
+            self.storage.prepare_write(lock)?;
+            self.refresh_and_sync(lock, true)
+        })
     }
 
     // ── Validation ────────────────────────────────────────────────────────
@@ -1346,77 +1413,89 @@ impl CodeUnitRegistry {
     ) -> Result<BatchResult> {
         use crate::migration::SchemaMigrationStep;
 
-        let _lock = self.acquire_lock()?;
-        let registry_dir = self.registry_dir();
-        if !registry_dir.exists() {
-            return Ok(BatchResult::new());
-        }
+        self.locked(|lock| {
+            self.storage.prepare_write(lock)?;
 
-        let has_registry_aware = steps
-            .iter()
-            .any(|(_, step)| matches!(step, SchemaMigrationStep::RegistryAware(_)));
-        if !has_registry_aware {
-            return self.migrate_schema_all_per_file_only(&registry_dir, steps, target_version);
-        }
+            let has_registry_aware = steps
+                .iter()
+                .any(|(_, step)| matches!(step, SchemaMigrationStep::RegistryAware(_)));
+            if !has_registry_aware {
+                return self.migrate_schema_all_per_file_only(lock, steps, target_version);
+            }
 
-        let mut result = BatchResult::new();
-        let mut docs = self.load_all_schema_docs(&registry_dir, &mut result)?;
-        let originals: HashMap<String, Value> =
-            docs.iter().map(|(id, v)| (id.clone(), v.clone())).collect();
+            let mut result = BatchResult::new();
+            let mut docs = self.load_all_schema_docs(&mut result)?;
+            let originals: HashMap<String, Value> =
+                docs.iter().map(|(id, v)| (id.clone(), v.clone())).collect();
 
-        for &(from_ver, ref step) in steps {
-            match step {
-                SchemaMigrationStep::PerFile(f) => {
-                    Self::apply_per_file_schema_migration_step(
-                        &mut docs,
-                        from_ver,
-                        *f,
-                        &mut result,
-                    );
-                }
-                SchemaMigrationStep::RegistryAware(f) => {
-                    Self::apply_registry_aware_schema_migration_step(
-                        &mut docs, from_ver, *f, &result,
-                    )?;
+            for &(from_ver, ref step) in steps {
+                match step {
+                    SchemaMigrationStep::PerFile(f) => {
+                        Self::apply_per_file_schema_migration_step(
+                            &mut docs,
+                            from_ver,
+                            *f,
+                            &mut result,
+                        );
+                    }
+                    SchemaMigrationStep::RegistryAware(f) => {
+                        Self::apply_registry_aware_schema_migration_step(
+                            &mut docs, from_ver, *f, &result,
+                        )?;
+                    }
                 }
             }
-        }
 
-        Self::validate_schema_migration_results(&docs, target_version, &mut result);
-        self.write_changed_schema_docs(&docs, &originals, &mut result);
+            Self::validate_schema_migration_results(&docs, target_version, &mut result);
+            self.write_changed_schema_docs(lock, &docs, &originals, &mut result);
 
-        if !result.succeeded.is_empty() {
-            self.sync()?;
-        }
-        Ok(result)
+            if !result.succeeded.is_empty() {
+                self.sync()?;
+            }
+            Ok(result)
+        })
     }
 
     /// Optimized path for chains containing only per-file steps.
-    /// Processes files one at a time in parallel, no bulk load.
+    /// Processes documents chunk by chunk in parallel, no bulk load.
     fn migrate_schema_all_per_file_only(
         &self,
-        registry_dir: &Path,
+        lock: &LockGuard,
         steps: &[(i64, crate::migration::SchemaMigrationStep)],
         target_version: i64,
     ) -> Result<BatchResult> {
-        let paths = paths::json_file_paths(registry_dir)?;
-
-        let outcomes: Vec<(String, std::result::Result<bool, Error>)> = paths
-            .par_iter()
-            .map(|path| {
-                let id = paths::filename_stem(path).unwrap_or_default().to_string();
-                (id, self.migrate_schema_file(path, steps, target_version))
-            })
-            .collect();
-
         let mut result = BatchResult::new();
-        for (id, outcome) in outcomes {
-            match outcome {
-                Ok(true) => result.success(id),
-                Ok(false) => {}
-                Err(e) => result.failure(id, &e),
+        self.storage.for_each_file_chunk(|ids, texts| {
+            let outcomes: Vec<Result<Option<Value>>> = texts
+                .into_par_iter()
+                .map(|text| match text? {
+                    Some(text) => Self::migrate_schema_text(&text, steps, target_version),
+                    None => Ok(None),
+                })
+                .collect();
+
+            let writes: Vec<StorageWrite<'_>> = ids
+                .iter()
+                .zip(&outcomes)
+                .filter_map(|(id, outcome)| match outcome {
+                    Ok(Some(value)) => Some(StorageWrite::Put { id, value }),
+                    _ => None,
+                })
+                .collect();
+            let mut written = self.storage.write_batch(lock, &writes, false).into_iter();
+
+            for (id, outcome) in ids.iter().zip(outcomes) {
+                match outcome {
+                    Ok(Some(_)) => match written.next().expect("one outcome per storage write") {
+                        Ok(()) => result.success(id.clone()),
+                        Err(e) => result.failure(id.clone(), &e),
+                    },
+                    Ok(None) => {}
+                    Err(e) => result.failure(id.clone(), &e),
+                }
             }
-        }
+            Ok(())
+        })?;
 
         if !result.succeeded.is_empty() {
             self.sync()?;
@@ -1424,38 +1503,37 @@ impl CodeUnitRegistry {
         Ok(result)
     }
 
-    /// Migrate a single file on disk using the given per-file-only chain.
-    fn migrate_schema_file(
-        &self,
-        path: &Path,
+    /// Migrate a single stored document using the given per-file-only chain.
+    /// Returns the migrated document, or `None` when it is already current.
+    fn migrate_schema_text(
+        text: &str,
         steps: &[(i64, crate::migration::SchemaMigrationStep)],
         target_version: i64,
-    ) -> Result<bool> {
-        let value = Self::read_raw_json(path)?;
+    ) -> Result<Option<Value>> {
+        let value = Self::parse_raw_json(text)?;
         let migrated = crate::migration::migrate_with(value.clone(), target_version, steps)?;
 
         if migrated == value {
-            return Ok(false);
+            return Ok(None);
         }
 
         let _validated: CodeUnit = serde_json::from_value(migrated.clone())?;
-        self.write_json_inner(path, &migrated, false, false)?;
-        Ok(true)
+        Ok(Some(migrated))
     }
 
-    /// Load all JSON documents from the registry directory into memory.
+    /// Load all JSON documents from storage into memory.
     /// Parse/IO failures are recorded in `result` and the document is
     /// skipped (not added to the returned vec).
-    fn load_all_schema_docs(
-        &self,
-        registry_dir: &Path,
-        result: &mut BatchResult,
-    ) -> Result<Vec<(String, Value)>> {
-        let paths = paths::json_file_paths(registry_dir)?;
-        let mut docs = Vec::with_capacity(paths.len());
-        for path in &paths {
-            let id = paths::filename_stem(path).unwrap_or_default().to_string();
-            match Self::read_raw_json(path) {
+    fn load_all_schema_docs(&self, result: &mut BatchResult) -> Result<Vec<(String, Value)>> {
+        let loaded = self.storage.load_all_files(|id, text| {
+            (
+                id.to_string(),
+                text.and_then(|text| Self::parse_raw_json(&text)),
+            )
+        })?;
+        let mut docs = Vec::with_capacity(loaded.len());
+        for (id, value) in loaded {
+            match value {
                 Ok(value) => docs.push((id, value)),
                 Err(e) => result.failure(id, &e),
             }
@@ -1463,12 +1541,8 @@ impl CodeUnitRegistry {
         Ok(docs)
     }
 
-    fn read_raw_json(path: &Path) -> Result<Value> {
-        let mut file = File::open(path)?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        let value: Value = serde_json::from_str(&contents)?;
-        Ok(value)
+    fn parse_raw_json(text: &str) -> Result<Value> {
+        Ok(serde_json::from_str(text)?)
     }
 
     /// Run a per-file migration step over in-memory documents.
@@ -1617,16 +1691,18 @@ impl CodeUnitRegistry {
         }
     }
 
-    /// Write migrated documents back to disk. Skips documents that match
+    /// Write migrated documents back to storage. Skips documents that match
     /// their original snapshot and documents already recorded as failed.
-    /// Uses `write_json_inner` (not `write_json`) to avoid re-injecting
-    /// pre-migration data via deep-merge.
+    /// Writes the migrated value as-is (no deep-merge) to avoid
+    /// re-injecting pre-migration data.
     fn write_changed_schema_docs(
         &self,
+        lock: &LockGuard,
         docs: &[(String, Value)],
         originals: &HashMap<String, Value>,
         result: &mut BatchResult,
     ) {
+        let mut writes = Vec::new();
         for (id, doc) in docs {
             if result.has_failed(id) {
                 continue;
@@ -1636,17 +1712,18 @@ impl CodeUnitRegistry {
                 continue;
             }
             match serde_json::from_value::<CodeUnit>(doc.clone()) {
-                Ok(_) => {
-                    let path = self.id_to_path(id);
-                    if let Err(e) = self.write_json_inner(&path, doc, false, false) {
-                        result.failure(id.clone(), &e);
-                    } else {
-                        result.success(id.clone());
-                    }
-                }
-                Err(e) => {
-                    result.failure(id.clone(), &e.into());
-                }
+                Ok(_) => writes.push(StorageWrite::Put { id, value: doc }),
+                Err(e) => result.failure(id.clone(), &e.into()),
+            }
+        }
+        let outcomes = self.storage.write_batch(lock, &writes, false);
+        for (write, outcome) in writes.iter().zip(outcomes) {
+            let StorageWrite::Put { id, .. } = *write else {
+                unreachable!("schema migration only writes puts");
+            };
+            match outcome {
+                Ok(()) => result.success(id.to_string()),
+                Err(e) => result.failure(id.to_string(), &e),
             }
         }
     }
@@ -1666,7 +1743,9 @@ impl CodeUnitRegistry {
         &self,
         checksum_mode: ChecksumMode,
     ) -> Result<crate::validation::ValidationReport> {
-        crate::validation::validate_registry(&self.registry_dir(), &checksum_mode, &self.root)
+        threads::run(|| {
+            crate::validation::validate_registry(&self.storage, &checksum_mode, &self.root)
+        })
     }
 
     /// Validate a single code unit by ID.
@@ -1679,8 +1758,9 @@ impl CodeUnitRegistry {
         id: &str,
         checksum_mode: ChecksumMode,
     ) -> Result<crate::validation::ValidationReport> {
-        let file_path = self.id_to_path(id);
-        crate::validation::validate_single(&file_path, &checksum_mode, &self.root)
+        threads::run(|| {
+            crate::validation::validate_single(&self.storage, id, &checksum_mode, &self.root)
+        })
     }
 
     /// Full refresh: recompute dependency-derived fields for all units,
@@ -1693,23 +1773,33 @@ impl CodeUnitRegistry {
     ///
     /// In best-effort mode (`strict=false`), cycles silently receive
     /// `topological_rank = -1`.
-    fn refresh_and_sync(&self, strict: bool) -> Result<()> {
+    fn refresh_and_sync(&self, lock: &LockGuard, strict: bool) -> Result<()> {
         let wrote_any = std::sync::atomic::AtomicBool::new(false);
         let refresh_result = (|| {
             let mut in_memory = InMemoryRegistry::build(self)?;
             let dirty = in_memory.graph().refresh(strict)?;
             #[cfg(test)]
             test_hooks::run_after_load_hook();
-            // Parallel: writes are independent and syscall-bound. `dirty` is
-            // unique (HashSet scope, see `refresh_scope`), so no two threads
-            // touch the same unit's `.tmp`.
-            dirty.par_iter().try_for_each(|&i| -> Result<()> {
-                let unit = in_memory.unit(i);
-                let id = unit.id.as_ref().expect("loader guarantees id");
-                self.write_json(&self.id_to_path(id), unit, false, false)?;
-                wrote_any.store(true, std::sync::atomic::Ordering::Relaxed);
-                Ok(())
-            })
+            // `dirty` is unique (HashSet scope, see `refresh_scope`), so the
+            // batch never writes the same ID twice.
+            let items: Vec<(&str, Option<&CodeUnit>)> = dirty
+                .iter()
+                .map(|&i| {
+                    let unit = in_memory.unit(i);
+                    let id = unit.id.as_deref().expect("loader guarantees id");
+                    (id, Some(unit))
+                })
+                .collect();
+            let mut first_err = None;
+            for outcome in self.persist_units(lock, &items, false) {
+                match outcome {
+                    Ok(()) => wrote_any.store(true, std::sync::atomic::Ordering::Relaxed),
+                    Err(e) => {
+                        first_err.get_or_insert(e);
+                    }
+                }
+            }
+            first_err.map_or(Ok(()), Err)
         })();
         self.sync()?;
         match refresh_result {
@@ -1723,137 +1813,100 @@ impl CodeUnitRegistry {
 
     // ── Internal helpers ─────────────────────────────────────────────────
 
-    /// Sync all pending writes to disk (internal use only).
-    fn sync(&self) -> Result<()> {
-        // fsync-ing the directory handle makes the temp-file→rename in
-        // `write_json_inner` durable on POSIX. Windows can't open a directory
-        // as a `File` (returns ERROR_ACCESS_DENIED / os error 5) and doesn't
-        // need it — NTFS journals the rename — so skip the flush there.
-        #[cfg(not(windows))]
-        {
-            let registry_dir = self.registry_dir();
-            if registry_dir.exists() {
-                let dir = File::open(&registry_dir)?;
-                dir.sync_all()?;
+    /// Load the units a query needs: the index-selected candidates when the
+    /// backend can push `prefilter` down, otherwise every unit.
+    ///
+    /// Candidates are a superset of the matches (see `storage::index`), so
+    /// callers must still apply the query's predicate to the result.
+    fn load_for_query(&self, prefilter: Option<Prefilter>) -> Result<InMemoryRegistry> {
+        if let Some(prefilter) = prefilter {
+            if let Some(in_memory) = InMemoryRegistry::build_candidates(self, &prefilter)? {
+                return Ok(in_memory);
             }
         }
-        Ok(())
+        InMemoryRegistry::build(self)
+    }
+
+    /// [`Self::load_for_query`] plus the candidates' transitive dependency
+    /// closure, so `include_dependencies` expansion sees every unit it would
+    /// reach in a full load.
+    fn load_for_query_with_dependencies(
+        &self,
+        prefilter: Option<Prefilter>,
+    ) -> Result<InMemoryRegistry> {
+        if let Some(prefilter) = prefilter {
+            if let Some(in_memory) =
+                InMemoryRegistry::build_candidates_with_dependencies(self, &prefilter)?
+            {
+                return Ok(in_memory);
+            }
+        }
+        InMemoryRegistry::build(self)
+    }
+
+    /// Sync all pending writes to storage (internal use only).
+    fn sync(&self) -> Result<()> {
+        self.storage.sync()
     }
 
     /// Load an existing code unit by ID, returning `CodeUnitNotFound` if absent.
     fn load_existing(&self, id: &str) -> Result<CodeUnit> {
-        let file_path = self.id_to_path(id);
-        if !file_path.exists() {
-            return CodeUnitNotFoundSnafu { id }.fail();
+        match self.load_optional(id)? {
+            Some(unit) => Ok(unit),
+            None => CodeUnitNotFoundSnafu { id }.fail(),
         }
-        self.read_json(&file_path)
     }
 
-    /// Read JSON from file as CodeUnit, migrating to the current schema
+    /// Load a code unit by ID, or `None` if absent.
+    fn load_optional(&self, id: &str) -> Result<Option<CodeUnit>> {
+        self.storage
+            .read_raw(id)?
+            .map(|text| Self::parse_unit(&text))
+            .transpose()
+    }
+
+    /// Parse stored JSON as CodeUnit, migrating to the current schema
     /// version and normalizing paths to UNIX-style.
-    fn read_json(&self, path: &Path) -> Result<CodeUnit> {
-        let value = Self::read_raw_json(path)?;
-        let value = crate::migration::migrate(value)?;
-        let mut doc: CodeUnit = serde_json::from_value(value)?;
-        paths::normalize_code_unit_paths(&mut doc);
-        Ok(doc)
+    fn parse_unit(text: &str) -> Result<CodeUnit> {
+        let value = Self::parse_raw_json(text)?;
+        let mut value = crate::migration::migrate(value)?;
+        paths::normalize_value_paths(&mut value);
+        Ok(serde_json::from_value(value)?)
     }
+}
 
-    /// Write a `CodeUnit` to file atomically.
-    ///
-    /// Re-reads the existing file as a raw `Value`, then deep-merges the
-    /// typed output on top. Fields present on disk but absent from the
-    /// `CodeUnit` struct (e.g. fields added by a newer schema version)
-    /// survive the round-trip.
-    fn write_json(&self, path: &Path, doc: &CodeUnit, sync: bool, durable: bool) -> Result<()> {
-        let typed = serde_json::to_value(doc)?;
+/// Whether unfiltered projected reads take the decode-only-what's-needed
+/// path (see `RegistryLoader::read_all_projected`). Disabled only by tests,
+/// to compute the reference result.
+fn fast_projection_enabled() -> bool {
+    #[cfg(test)]
+    if test_hooks::fast_projection_disabled() {
+        return false;
+    }
+    true
+}
 
-        let value = match fs::read_to_string(path)
-            .ok()
-            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-        {
+fn prefilter_for_filter(filter: &Filter) -> Option<Prefilter> {
+    pushdown::from_filter(filter)
+}
+
+fn prefilter_for_partial(partial: &Value) -> Option<Prefilter> {
+    pushdown::from_partial(partial)
+}
+
+/// Deep-merge a typed unit on top of its currently stored document (if any
+/// parses), so unknown fields in storage survive the write.
+fn merge_onto_stored(unit: &CodeUnit, stored: Option<String>) -> Result<Value> {
+    let typed = serde_json::to_value(unit)?;
+    Ok(
+        match stored.and_then(|s| serde_json::from_str::<Value>(&s).ok()) {
             Some(mut raw) => {
                 deep_merge(&mut raw, &typed);
                 raw
             }
             None => typed,
-        };
-
-        self.write_json_inner(path, &value, sync, durable)
-    }
-
-    /// Low-level atomic file write: serialize `value` as pretty JSON,
-    /// write to a temp file, then rename into place. `durable` requests a
-    /// crash-durable rename (see [`Self::durable_rename`]).
-    fn write_json_inner(
-        &self,
-        path: &Path,
-        value: &Value,
-        sync: bool,
-        durable: bool,
-    ) -> Result<()> {
-        let json = serde_json::to_string_pretty(value)?;
-        let temp_path = path.with_extension("json.tmp");
-        {
-            let mut file = File::create(&temp_path)?;
-            file.write_all(json.as_bytes())?;
-            file.write_all(LINE_ENDING.as_bytes())?;
-            if sync {
-                file.sync_all()?;
-            }
-        }
-        Self::durable_rename(&temp_path, path, durable)?;
-        Ok(())
-    }
-
-    /// Rename `from`→`to`, making the rename itself crash-durable when `durable`.
-    ///
-    /// POSIX ignores `durable`: the single directory fsync in [`Self::sync`]
-    /// already flushes the rename metadata for the whole batch cheaply. Windows
-    /// has no directory-fsync (see `sync`), so a durable rename must be
-    /// write-through — `MoveFileExW` with `MOVEFILE_WRITE_THROUGH` does not
-    /// return until the move is on disk. That flush is per-rename, so only
-    /// user-initiated writes request it; derived/bulk writes pass `false` and
-    /// rely on NTFS journaling, keeping the large refresh path fast.
-    fn durable_rename(from: &Path, to: &Path, durable: bool) -> Result<()> {
-        #[cfg(windows)]
-        if durable {
-            return Self::write_through_rename(from, to);
-        }
-        #[cfg(not(windows))]
-        let _ = durable;
-        fs::rename(from, to)?;
-        Ok(())
-    }
-
-    #[cfg(windows)]
-    fn write_through_rename(from: &Path, to: &Path) -> Result<()> {
-        use std::os::windows::ffi::OsStrExt;
-        use windows_sys::Win32::Storage::FileSystem::{
-            MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
-        };
-        fn wide(p: &Path) -> Vec<u16> {
-            p.as_os_str()
-                .encode_wide()
-                .chain(std::iter::once(0))
-                .collect()
-        }
-        let from_w = wide(from);
-        let to_w = wide(to);
-        // SAFETY: both pointers reference NUL-terminated UTF-16 buffers that
-        // outlive the call; flags are valid MOVE_FILE_FLAGS constants.
-        let ok = unsafe {
-            MoveFileExW(
-                from_w.as_ptr(),
-                to_w.as_ptr(),
-                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
-            )
-        };
-        if ok == 0 {
-            return Err(std::io::Error::last_os_error().into());
-        }
-        Ok(())
-    }
+        },
+    )
 }
 
 #[cfg(test)]

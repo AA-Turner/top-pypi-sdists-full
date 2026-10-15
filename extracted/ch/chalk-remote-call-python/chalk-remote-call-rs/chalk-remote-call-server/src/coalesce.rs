@@ -14,7 +14,7 @@ use tonic::Status;
 use tracing::error;
 
 #[cfg(target_os = "linux")]
-use chalk_metrics::PublishingMetricsPipeline;
+use crate::metrics::CallMetrics;
 use chalk_remote_call_proto::chalk::runtime::v1::CallFunctionResponse;
 
 use crate::python_bridge::{CallerInput, PythonHandler};
@@ -38,7 +38,7 @@ pub struct CoalescingQueue {
     max_duration: Duration,
     state: Mutex<QueueState>,
     #[cfg(target_os = "linux")]
-    pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    metrics: Option<Arc<CallMetrics>>,
 }
 
 impl CoalescingQueue {
@@ -46,7 +46,7 @@ impl CoalescingQueue {
         handler: Arc<PythonHandler>,
         max_size: usize,
         max_duration_ms: u64,
-        #[cfg(target_os = "linux")] pipeline: Option<Arc<PublishingMetricsPipeline>>,
+        #[cfg(target_os = "linux")] metrics: Option<Arc<CallMetrics>>,
     ) -> Arc<Self> {
         Arc::new(Self {
             handler,
@@ -57,7 +57,7 @@ impl CoalescingQueue {
                 flush_task: None,
             }),
             #[cfg(target_os = "linux")]
-            pipeline,
+            metrics,
         })
     }
 
@@ -102,13 +102,13 @@ impl CoalescingQueue {
         // submissions while Python runs.
         let handler = Arc::clone(&self.handler);
         #[cfg(target_os = "linux")]
-        let pipeline = self.pipeline.clone();
+        let metrics = self.metrics.clone();
         tokio::spawn(async move {
             Self::dispatch(
                 handler,
                 items,
                 #[cfg(target_os = "linux")]
-                pipeline,
+                metrics,
             )
             .await;
         });
@@ -117,7 +117,7 @@ impl CoalescingQueue {
     async fn dispatch(
         handler: Arc<PythonHandler>,
         items: Vec<BufferedCall>,
-        #[cfg(target_os = "linux")] pipeline: Option<Arc<PublishingMetricsPipeline>>,
+        #[cfg(target_os = "linux")] metrics: Option<Arc<CallMetrics>>,
     ) {
         // Split each BufferedCall into its input (for the bridge) and its
         // response channel (for routing the reply back).
@@ -144,13 +144,13 @@ impl CoalescingQueue {
                     );
                     error!("{}", msg);
                     #[cfg(target_os = "linux")]
-                    if let Some(p) = &pipeline {
+                    if let Some(p) = &metrics {
                         crate::metrics::record_completed_call(
                             p,
                             &function_name,
                             /* success = */ false,
                             started.elapsed(),
-                            chalk_metrics::metrics::tags::Mode::Sync,
+                            crate::metrics::Mode::Sync,
                         );
                     }
                     for tx in &response_txs {
@@ -159,13 +159,13 @@ impl CoalescingQueue {
                     return;
                 }
                 #[cfg(target_os = "linux")]
-                if let Some(p) = &pipeline {
+                if let Some(p) = &metrics {
                     crate::metrics::record_completed_call(
                         p,
                         &function_name,
                         /* success = */ true,
                         started.elapsed(),
-                        chalk_metrics::metrics::tags::Mode::Sync,
+                        crate::metrics::Mode::Sync,
                     );
                 }
                 for (tx, chunk) in response_txs.into_iter().zip(per_caller_bytes) {
@@ -184,13 +184,13 @@ impl CoalescingQueue {
                 // IPC decode errors are already caught by the service's
                 // pre-validation; anything reaching here is a handler error.
                 #[cfg(target_os = "linux")]
-                if let Some(p) = &pipeline {
+                if let Some(p) = &metrics {
                     crate::metrics::record_completed_call(
                         p,
                         &function_name,
                         /* success = */ false,
                         started.elapsed(),
-                        chalk_metrics::metrics::tags::Mode::Sync,
+                        crate::metrics::Mode::Sync,
                     );
                 }
                 let status = Status::unknown(e.to_string());

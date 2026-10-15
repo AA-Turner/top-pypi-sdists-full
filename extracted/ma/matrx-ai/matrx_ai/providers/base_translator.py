@@ -154,6 +154,31 @@ class BaseTranslator(ABC):
             return None
         return render()
 
+    def get_tail_context_text(self, config: UnifiedConfig) -> str | None:
+        """This send's TAIL-CHANNEL block, or None.
+
+        Rendered by each translator AFTER the conversation's last block (and
+        after Anthropic's rolling cache breakpoint), only when the last message
+        is a tool result: mid-loop, where the model is deciding its next step.
+        A turn that ends with the person's own message gets nothing appended —
+        the person's turn is theirs alone.
+        """
+        messages = getattr(config, "messages", None)
+        render = getattr(messages, "render_tail_context", None)
+        if render is None:
+            return None
+        text = render()
+        if not text:
+            return None
+        try:
+            last = messages[-1]
+        except (IndexError, TypeError):
+            return None
+        role = getattr(last, "role", None)
+        if str(getattr(role, "value", role) or "").lower() != "tool":
+            return None
+        return text
+
     def _render_dictionary(self, config: UnifiedConfig) -> str:
         """Render config.dictionary into the shape this model class needs."""
         raw = getattr(config, "dictionary", None)

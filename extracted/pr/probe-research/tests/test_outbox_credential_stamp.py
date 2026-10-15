@@ -25,6 +25,14 @@ from probe.sdk.client import Client
 from probe.sdk.journal import CREDENTIAL_NAMESPACE, Journal, credential_fingerprint, drain
 from tests.served_fake_app import serve
 from tests.test_outbox import seeded_run
+from tests.conftest import _WS_MINE
+
+@pytest.fixture(autouse=True)
+def _set_up_computer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A computer whose setup picked its workspace (the fake seeds two, and an
+    unaddressed create in a team with several is refused)."""
+    monkeypatch.setenv("PROBE_WORKSPACE", _WS_MINE)
+
 
 ENV_A = "probe_pat_envtoken_A_0123456789abcdef"
 STORED_B = "probe_pat_storedlogin_B_0123456789abcdef"

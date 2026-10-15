@@ -38,11 +38,13 @@ class SendingConnectionDto(BaseModel):
     object_store_id: StrictStr = Field(description="The object store used by this connection.")
     tag_rules: TagRuleSetDto = Field(description="The tag policy governing what may cross this connection.")
     infosec_level_id: Optional[StrictStr] = None
-    allow_all_senders: StrictBool = Field(description="When true, anyone with share permission on a file may share it over this connection; when false, only the connection's permitted senders may.")
+    allow_all_senders: StrictBool = Field(description="When true, anyone in the connection's tenant with share permission on a file may share it over this connection; when false, only the connection's permitted senders may.")
     allow_reshare: StrictBool = Field(description="When true, the receiving organization may share files received over this connection onward over its own sending connections (daisy chaining). When false, received files cannot leave the receiving instance over a secure connection.")
+    tenant_id: StrictStr = Field(description="The tenant that owns this connection.")
+    has_cross_tenant_members: Optional[StrictBool] = None
     is_starred: Optional[StrictBool] = Field(default=False, description="Whether the requesting user has starred this connection. Stars are per-user: one admin's star is invisible to every other admin. False on a freshly created connection; star or unstar with `/api/v3/user/favorites/connections/{connection_id}`.")
     created: datetime = Field(description="Creation timestamp.")
-    __properties: ClassVar[List[str]] = ["id", "label", "description", "received_access_level", "is_archived", "shared_id", "object_store_id", "tag_rules", "infosec_level_id", "allow_all_senders", "allow_reshare", "is_starred", "created"]
+    __properties: ClassVar[List[str]] = ["id", "label", "description", "received_access_level", "is_archived", "shared_id", "object_store_id", "tag_rules", "infosec_level_id", "allow_all_senders", "allow_reshare", "tenant_id", "has_cross_tenant_members", "is_starred", "created"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -91,6 +93,11 @@ class SendingConnectionDto(BaseModel):
         if self.infosec_level_id is None and "infosec_level_id" in self.model_fields_set:
             _dict['infosec_level_id'] = None
 
+        # set to None if has_cross_tenant_members (nullable) is None
+        # and model_fields_set contains the field
+        if self.has_cross_tenant_members is None and "has_cross_tenant_members" in self.model_fields_set:
+            _dict['has_cross_tenant_members'] = None
+
         return _dict
 
     @classmethod
@@ -114,6 +121,8 @@ class SendingConnectionDto(BaseModel):
             "infosec_level_id": obj.get("infosec_level_id"),
             "allow_all_senders": obj.get("allow_all_senders"),
             "allow_reshare": obj.get("allow_reshare"),
+            "tenant_id": obj.get("tenant_id"),
+            "has_cross_tenant_members": obj.get("has_cross_tenant_members"),
             "is_starred": obj.get("is_starred") if obj.get("is_starred") is not None else False,
             "created": obj.get("created")
         })

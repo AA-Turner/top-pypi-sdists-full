@@ -44,7 +44,7 @@ class CompanyTokenTransactionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[CompanyTokenTransactionListItem, ListCompanyTokenTransactionsResponse]:
         """
-        Returns a paginated list of token transactions for a user or company, depending on the authenticated actor, with optional filtering by user and transaction type.
+        Lists an account's token transactions, newest first.
 
         Required permissions:
          - `company_token_transaction:read`
@@ -86,7 +86,7 @@ class CompanyTokenTransactionsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -117,7 +117,7 @@ class CompanyTokenTransactionsClient:
         self, *, request: CreateCompanyTokenTransactionsRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> CompanyTokenTransaction:
         """
-        Create a token transaction to add, subtract, or transfer tokens for a member within a company.
+        Creates a token transaction that adds, subtracts, or transfers tokens for a member of an account.
 
         Required permissions:
          - `company_token_transaction:create`
@@ -144,7 +144,7 @@ class CompanyTokenTransactionsClient:
         )
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -162,7 +162,7 @@ class CompanyTokenTransactionsClient:
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> CompanyTokenTransaction:
         """
-        Retrieves the details of an existing company token transaction.
+        Retrieves a token transaction.
 
         Required permissions:
          - `company_token_transaction:read`
@@ -187,7 +187,7 @@ class CompanyTokenTransactionsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -227,7 +227,7 @@ class AsyncCompanyTokenTransactionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[CompanyTokenTransactionListItem, ListCompanyTokenTransactionsResponse]:
         """
-        Returns a paginated list of token transactions for a user or company, depending on the authenticated actor, with optional filtering by user and transaction type.
+        Lists an account's token transactions, newest first.
 
         Required permissions:
          - `company_token_transaction:read`
@@ -271,7 +271,7 @@ class AsyncCompanyTokenTransactionsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -309,7 +309,7 @@ class AsyncCompanyTokenTransactionsClient:
         self, *, request: CreateCompanyTokenTransactionsRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> CompanyTokenTransaction:
         """
-        Create a token transaction to add, subtract, or transfer tokens for a member within a company.
+        Creates a token transaction that adds, subtracts, or transfers tokens for a member of an account.
 
         Required permissions:
          - `company_token_transaction:create`
@@ -338,7 +338,7 @@ class AsyncCompanyTokenTransactionsClient:
         )
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -364,7 +364,7 @@ class AsyncCompanyTokenTransactionsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> CompanyTokenTransaction:
         """
-        Retrieves the details of an existing company token transaction.
+        Retrieves a token transaction.
 
         Required permissions:
          - `company_token_transaction:read`
@@ -391,7 +391,7 @@ class AsyncCompanyTokenTransactionsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

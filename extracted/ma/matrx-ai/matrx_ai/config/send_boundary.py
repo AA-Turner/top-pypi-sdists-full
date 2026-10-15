@@ -53,6 +53,9 @@ What it owns
   2. the cache-gated context trim — SAME gate as the resolver's,
   3. record the audit as
      ``AppContext.metadata["trim_reports_by_iteration"][iteration]``,
+  3a. stage the LIVE PLAN — the agent's open task list, restated in the
+     MessageList tail channel so it rides after the newest tool result and
+     after every cache breakpoint (``config/live_plan.py``),
   4. derive the provider prompt-cache routing key,
   5. build the clone-at-send wire config (picklist / fence materialization).
 
@@ -116,6 +119,9 @@ class SendPrep:
     # What the perishable-state step marked stale on this pass (resolve stage,
     # host-enabled conversations only). ``None`` = the step did not run.
     perishable_report: dict[str, Any] | None = None
+    # What the live-plan step staged at the end of this send (loop stage only).
+    # ``None`` = no open tasks / no host source / the step failed (announced).
+    live_plan: dict[str, Any] | None = None
 
 
 async def prepare_for_send(
@@ -227,6 +233,12 @@ async def prepare_for_send(
         # after a paid round-trip. Say so here, before anything is sent.
         _refuse_empty_conversation(config, conversation_id=conversation_id)
         prep.steps.append("empty_conversation_check")
+        # AFTER the trim and the pre-flight (the block is small and rides the
+        # tail, after every cache breakpoint), BEFORE the wire clone (which
+        # deep-copies the staged tail along with the messages).
+        await _stage_live_plan(
+            prep, config, conversation_id=conversation_id, organization_id=organization_id
+        )
         _run_step(
             prep,
             "prompt_cache_key",
@@ -792,6 +804,46 @@ async def _mark_perishable_state(
             f"({', '.join(sorted(set(report.tools)))}).",
             color="cyan",
         )
+
+
+async def _stage_live_plan(
+    prep: SendPrep, config: Any, *, conversation_id: str | None, organization_id: str | None
+) -> None:
+    """Restate the agent's open task list at the END of this send (``config/live_plan.py``).
+
+    Rides the MessageList tail channel: after the newest tool result and after the
+    rolling cache breakpoint, never in the system prompt, never persisted. A failure
+    is announced and skipped — the send goes out without the block.
+    """
+    from matrx_ai.config.live_plan import LIVE_PLAN_SLOT, stage_live_plan
+
+    org = organization_id
+    if org is None:
+        try:
+            from matrx_ai.context.app_context import try_get_app_context
+
+            ctx = try_get_app_context()
+            org = getattr(ctx, "organization_id", None) if ctx is not None else None
+        except Exception:  # noqa: BLE001 — no carried context is a legal standalone call
+            org = None
+    try:
+        prep.live_plan = await stage_live_plan(
+            config,
+            conversation_id=conversation_id,
+            organization_id=str(org) if org else None,
+        )
+    except Exception as exc:  # noqa: BLE001 — shaping never costs a send
+        attach = getattr(getattr(config, "messages", None), "attach_tail_context", None)
+        if attach is not None:
+            attach("", slot=LIVE_PLAN_SLOT)
+        vcprint(
+            f"[send_boundary/{prep.stage}] step 'live_plan' failed (ignored): "
+            f"{type(exc).__name__}: {exc} — this send goes out without the agent's "
+            "task list at the end of its context.",
+            color="yellow",
+        )
+        return
+    prep.steps.append("live_plan")
 
 
 def _run_step(prep: SendPrep, name: str, fn: Any) -> None:

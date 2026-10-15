@@ -1,11 +1,17 @@
 """Command-line helpers for scrapy-ingest."""
+from __future__ import annotations
+
 import argparse
 import sys
 import threading
 import time
+from typing import Callable, TypeVar, cast
+
+T = TypeVar("T")
 
 from .config.settings import Settings, validate_settings
 from .exceptions import ConfigurationError, IngestConnectionError
+from .export.items import export_items_to_csv
 from .jobs.show import load_job_report, load_jobs_list
 from .utils.console import format_table, info
 from .utils.summary import display_database
@@ -24,8 +30,8 @@ def _truncate(text, limit=72):
     return text if len(text) <= limit else f"{text[: limit - 3]}..."
 
 
-def _run_spinner(message, action):
-    box = {}
+def _run_spinner(message: str, action: Callable[[], T]) -> T:
+    box: dict[str, object] = {}
 
     def worker():
         try:
@@ -44,12 +50,14 @@ def _run_spinner(message, action):
         i += 1
     t.join(120)
     if "e" in box:
-        raise box["e"]
-    return box.get("v")
+        raise box["e"]  # type: ignore[misc]
+    if "v" not in box:
+        raise RuntimeError(f"Spinner action did not complete: {message}")
+    return cast(T, box["v"])
 
 
-def _steps(use_spinner):
-    def run(msg, fn):
+def _steps(use_spinner: bool):
+    def run(msg: str, fn: Callable[[], T]) -> T:
         return _run_spinner(msg, fn) if use_spinner else fn()
 
     def finish(msg, status):
@@ -154,13 +162,13 @@ def run_check_config(db_url=None, search_url=None, use_spinner=True):
 
 
 def run_jobs_show(
-    job_id=None,
-    db_url=None,
-    search_url=None,
-    limit=50,
-    status=None,
-    spider=None,
-    use_spinner=True,
+        job_id=None,
+        db_url=None,
+        search_url=None,
+        limit=50,
+        status=None,
+        spider=None,
+        use_spinner=True,
 ):
     """Load job(s) from SQL or search; return ``(job, report, error)``."""
     run, finish = _steps(use_spinner)
@@ -196,6 +204,70 @@ def run_jobs_show(
         return None, None, f"job not found: {job_id}"
     finish(label, "OK")
     return job, report, None
+
+
+def run_export_items(
+        output_path,
+        *,
+        job_id=None,
+        spider=None,
+        fields=None,
+        utf8_sig=False,
+        use_spinner=True,
+):
+    """Export items to CSV; return ``(count, error)``."""
+    run, finish = _steps(use_spinner)
+    try:
+        settings = run(
+            "Loading Scrapy settings",
+            lambda: Settings(_load_crawler_settings()),
+        )
+        validate_settings(settings)
+        finish("Loading Scrapy settings", "OK")
+    except ConfigurationError as exc:
+        finish("Loading Scrapy settings", "FAIL")
+        return 0, str(exc)
+
+    label = "Exporting items"
+    try:
+        count, _columns = run(
+            label,
+            lambda: export_items_to_csv(
+                settings,
+                output_path,
+                job_id=job_id,
+                spider=spider,
+                fields=fields,
+                utf8_sig=utf8_sig,
+            ),
+        )
+    except ConfigurationError as exc:
+        finish(label, "FAIL")
+        return 0, str(exc)
+    except IngestConnectionError as exc:
+        finish(label, "FAIL")
+        return 0, f"connection error: {_truncate(exc)}"
+
+    finish(label, "OK")
+    return count, None
+
+
+def export_items_command(args):
+    fields = None
+    if args.fields:
+        fields = [part.strip() for part in args.fields.split(",") if part.strip()]
+    count, error = run_export_items(
+        args.output,
+        job_id=args.job_id,
+        spider=args.spider,
+        fields=fields,
+        utf8_sig=args.utf8_sig,
+    )
+    if error:
+        info(f"scrapy-ingest export items: {error}")
+        return 1
+    info(f"scrapy-ingest export items: wrote {count} row(s) to {args.output}")
+    return 0
 
 
 def jobs_show_command(args):
@@ -259,6 +331,34 @@ def main(argv=None):
         help="Filter listed jobs by spider name (list mode only)",
     )
     show.set_defaults(func=jobs_show_command)
+
+    export = sub.add_parser("export", help="Export ingest data to flat files")
+    export_sub = export.add_subparsers(dest="export_command", required=True)
+    export_items = export_sub.add_parser("items", help="Export scraped items to CSV")
+    export_items.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        help="Output CSV path",
+    )
+    export_items.add_argument(
+        "--job-id",
+        help="External job id (same as jobs show)",
+    )
+    export_items.add_argument(
+        "--spider",
+        help="Export all items from every job for this spider (omit --job-id)",
+    )
+    export_items.add_argument(
+        "--fields",
+        help="Comma-separated column list (default: union of all item keys)",
+    )
+    export_items.add_argument(
+        "--utf8-sig",
+        action="store_true",
+        help="Write UTF-8 with BOM for Excel",
+    )
+    export_items.set_defaults(func=export_items_command)
 
     args = parser.parse_args(argv)
     return args.func(args)

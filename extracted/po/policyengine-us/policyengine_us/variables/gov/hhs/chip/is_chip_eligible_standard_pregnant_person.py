@@ -1,0 +1,55 @@
+from policyengine_us.model_api import *
+from policyengine_us.variables.gov.hhs.medicaid.income.medicaid_income_level import (
+    medicaid_income_eligible,
+)
+
+
+class is_chip_eligible_standard_pregnant_person(Variable):
+    value_type = bool
+    entity = Person
+    label = "Pregnant person eligible for standard CHIP"
+    documentation = "Determines if a pregnant person is eligible for the standard Children's Health Insurance Program"
+    definition_period = YEAR
+    reference = (
+        "https://www.ssa.gov/OP_Home/ssact/title21/2110.htm",
+        "https://www.medicaid.gov/medicaid/national-medicaid-chip-program-information/medicaid-childrens-health-insurance-program-basic-health-program-eligibility-levels",
+        "https://www.law.cornell.edu/uscode/text/8/1611#a",
+        "https://www.law.cornell.edu/uscode/text/8/1641#b",
+        "https://www.law.cornell.edu/cfr/text/45/155.20",
+        "https://www.medicaid.gov/federal-policy-guidance/downloads/sho-12-002.pdf",
+        "https://www.medicaid.gov/federal-policy-guidance/downloads/sho26001.pdf#page=28",
+    )
+
+    def formula(person, period, parameters):
+        # Get state code
+        state_code = person.household("state_code", period)
+
+        # Check pregnancy status
+        is_pregnant = person("is_pregnant", period)
+
+        # Check if state offers CHIP program for pregnant women
+        p = parameters(period).gov.hhs.chip.pregnant
+        income_limit = p.income_limit[state_code]
+
+        state_has_pregnant_chip = income_limit > 0
+
+        # Check immigration status eligibility
+        immigration_eligible = person("is_chip_immigration_status_eligible", period)
+
+        # Check income eligibility
+        # CHIP is for pregnant women who make too much for Medicaid but below CHIP limits
+        # First, check if not eligible for Medicaid
+        medicaid_eligible = person("is_medicaid_eligible", period)
+
+        # Check if family income is below CHIP threshold
+        income_eligible = medicaid_income_eligible(
+            person, period, parameters, income_limit
+        )
+
+        return (
+            is_pregnant
+            & state_has_pregnant_chip
+            & immigration_eligible
+            & ~medicaid_eligible
+            & income_eligible
+        )

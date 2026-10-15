@@ -34,12 +34,13 @@ class SendingConnectionCreateDto(BaseModel):
     shared_id: Annotated[str, Field(min_length=1, strict=True, max_length=255)] = Field(description="The shared identifier used to pair the connection. Slashes nest the share under subfolders in the share bucket; dot-only segments such as `.` and `..` are rejected.")
     shared_secret: Annotated[str, Field(min_length=8, strict=True)] = Field(description="The shared secret used to authenticate the connection.")
     object_store_id: StrictStr = Field(description="The object store to use for this connection.")
+    tenant_id: Optional[StrictStr] = None
     tag_rules: Optional[TagRuleSetCreateDto] = None
     infosec_level_id: Optional[StrictStr] = None
     received_access_level: Optional[ReceivedAccessLevel] = Field(default=None, description="Access level the receiver should grant to owners of resources received over this connection.")
-    allow_all_senders: Optional[StrictBool] = Field(default=False, description="When true, anyone with share permission on a file may share it over this connection; when false, only the connection's permitted senders may.")
+    allow_all_senders: Optional[StrictBool] = Field(default=False, description="When true, anyone in the connection's tenant with share permission on a file may share it over this connection; when false, only the connection's permitted senders may.")
     allow_reshare: Optional[StrictBool] = Field(default=False, description="When true, the receiving organization may share files received over this connection onward over its own sending connections (daisy chaining). When false, received files cannot leave the receiving instance over a secure connection.")
-    __properties: ClassVar[List[str]] = ["label", "description", "shared_id", "shared_secret", "object_store_id", "tag_rules", "infosec_level_id", "received_access_level", "allow_all_senders", "allow_reshare"]
+    __properties: ClassVar[List[str]] = ["label", "description", "shared_id", "shared_secret", "object_store_id", "tenant_id", "tag_rules", "infosec_level_id", "received_access_level", "allow_all_senders", "allow_reshare"]
 
     @field_validator('shared_id')
     def shared_id_validate_regular_expression(cls, value):
@@ -90,6 +91,11 @@ class SendingConnectionCreateDto(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of tag_rules
         if self.tag_rules:
             _dict['tag_rules'] = self.tag_rules.to_dict()
+        # set to None if tenant_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.tenant_id is None and "tenant_id" in self.model_fields_set:
+            _dict['tenant_id'] = None
+
         # set to None if tag_rules (nullable) is None
         # and model_fields_set contains the field
         if self.tag_rules is None and "tag_rules" in self.model_fields_set:
@@ -117,6 +123,7 @@ class SendingConnectionCreateDto(BaseModel):
             "shared_id": obj.get("shared_id"),
             "shared_secret": obj.get("shared_secret"),
             "object_store_id": obj.get("object_store_id"),
+            "tenant_id": obj.get("tenant_id"),
             "tag_rules": TagRuleSetCreateDto.from_dict(obj["tag_rules"]) if obj.get("tag_rules") is not None else None,
             "infosec_level_id": obj.get("infosec_level_id"),
             "received_access_level": obj.get("received_access_level"),

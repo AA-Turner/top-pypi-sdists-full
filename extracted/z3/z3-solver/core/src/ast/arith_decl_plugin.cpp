@@ -216,6 +216,9 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     MK_UNARY(m_asinh_decl, "asinh", OP_ASINH, r);
     MK_UNARY(m_acosh_decl, "acosh", OP_ACOSH, r);
     MK_UNARY(m_atanh_decl, "atanh", OP_ATANH, r);
+    MK_UNARY(m_exp_decl, "exp", OP_EXP, r);
+    MK_OP(m_atan2_decl, "atan2", OP_ATAN2, r);
+    MK_UNARY(m_log_decl, "log", OP_LOG, r);
 
     func_decl * pi_decl = m->mk_const_decl(symbol("pi"), r, func_decl_info(id, OP_PI));
     m_pi = m->mk_const(pi_decl);
@@ -334,6 +337,9 @@ void arith_decl_plugin::finalize() {
     DEC_REF(m_asinh_decl);
     DEC_REF(m_acosh_decl);
     DEC_REF(m_atanh_decl);
+    DEC_REF(m_exp_decl);
+    DEC_REF(m_atan2_decl);
+    DEC_REF(m_log_decl);
     DEC_REF(m_pi);
     DEC_REF(m_e);
     DEC_REF(m_neg_root_decl);
@@ -391,6 +397,9 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
     case OP_ASINH:     return m_asinh_decl;
     case OP_ACOSH:     return m_acosh_decl;
     case OP_ATANH:     return m_atanh_decl;
+    case OP_EXP:       return m_exp_decl;
+    case OP_ATAN2:     return m_atan2_decl;
+    case OP_LOG:       return m_log_decl;
     case OP_PI:        return m_pi->get_decl();
     case OP_E:         return m_e->get_decl();
     //case OP_0_PW_0_INT:  return m_0_pw_0_int->get_decl();
@@ -590,6 +599,7 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
     if (logic == "NRA" ||
         logic == "QF_NRA" ||
+        logic == "QF_NTA" ||
         logic == "QF_UFNRA") {
         // TBD: remove completely pending regressions: 
         // m_convert_int_numerals_to_real = true;
@@ -622,7 +632,7 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("to_int",OP_TO_INT));
     op_names.push_back(builtin_name("is_int",OP_IS_INT));
     op_names.push_back(builtin_name("abs", OP_ABS));
-    if (logic == symbol::null || logic == symbol("ALL")) {
+    if (logic == symbol::null || logic == symbol("ALL") || logic == symbol("QF_NTA")) {
         op_names.push_back(builtin_name("^", OP_POWER));
         op_names.push_back(builtin_name("^0", OP_POWER0));
         op_names.push_back(builtin_name("sin", OP_SIN));
@@ -637,6 +647,11 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("asinh", OP_ASINH));
         op_names.push_back(builtin_name("acosh", OP_ACOSH));
         op_names.push_back(builtin_name("atanh", OP_ATANH));
+        op_names.push_back(builtin_name("exp", OP_EXP));
+        op_names.push_back(builtin_name("atan2", OP_ATAN2));
+        op_names.push_back(builtin_name("arctan2", OP_ATAN2));
+        op_names.push_back(builtin_name("log", OP_LOG));
+        op_names.push_back(builtin_name("ln", OP_LOG));
         op_names.push_back(builtin_name("pi", OP_PI));
         op_names.push_back(builtin_name("euler", OP_E));
         op_names.push_back(builtin_name("/0",OP_DIV0));
@@ -944,52 +959,72 @@ bool arith_util::is_bounded(expr* n) const {
 }
 
 bool arith_util::is_extended_numeral(expr* term, rational& r) const {
-    rational mul(1);
-    do {
-        if (is_numeral(term, r)) {
-            r *= mul;
-            return true;
-        }
-        if (is_uminus(term, term)) {
-            mul.neg();
+    if (is_numeral(term, r))
+        return true;
+    struct frame { expr* term; bool visited; bool neg; };
+    svector<frame> todo;
+    vector<rational> values;
+    todo.push_back({ term, false, false });
+    while (!todo.empty()) {
+        auto [t, visited, neg] = todo.back();
+        todo.pop_back();
+        if (visited) {
+            rational value;
+            if (is_to_int(t)) {
+                value = floor(values.back());
+                values.pop_back();
+            }
+            else if (is_add(t) || is_mul(t)) {
+                bool add = is_add(t);
+                value = add ? rational(0) : rational(1);
+                for (unsigned i = to_app(t)->get_num_args(); i-- > 0;) {
+                    if (add)
+                        value += values.back();
+                    else
+                        value *= values.back();
+                    values.pop_back();
+                }
+            }
+            else {
+                rational rhs = values.back();
+                values.pop_back();
+                rational lhs = values.back();
+                values.pop_back();
+                if (is_div(t)) {
+                    if (rhs.is_zero())
+                        return false;
+                    value = lhs / rhs;
+                }
+                else
+                    value = lhs - rhs;
+            }
+            values.push_back(neg ? -value : value);
             continue;
         }
-        if (is_to_real(term, term)) {
+        expr* arg;
+        for (;;) {
+            if (is_uminus(t, arg))
+                neg = !neg, t = arg;
+            else if (is_to_real(t, arg))
+                t = arg;
+            else
+                break;
+        }
+        rational value;
+        if (is_numeral(t, value)) {
+            values.push_back(neg ? -value : value);
             continue;
         }
-        if (is_mul(term)) {
-            r = mul;
-            rational n(0);
-            for (expr* arg : *to_app(term)) {
-                if (!is_extended_numeral(arg, n))
-                    return false;
-                r *= n;
-            }
-            return true;
-        }
-        if (is_add(term)) {
-            rational n(0);
-            r = 0;
-            for (expr* arg : *to_app(term)) {
-                if (!is_extended_numeral(arg, n))
-                    return false;
-                r += n;
-            }
-            r *= mul;
-            return true;
-        }
-        rational k1, k2;
         expr* t1, *t2;
-        if (is_sub(term, t1, t2) && 
-            is_extended_numeral(t1, k1) &&
-            is_extended_numeral(t2, k2)) {
-            r = (k1 - k2) * mul;
-            return true;
-        }
-        return false;
-    } 
-    while (true);
-    return false;
+        if (!is_to_int(t) && !is_add(t) && !is_mul(t) && !is_sub(t, t1, t2) && !is_div(t, t1, t2))
+            return false;
+        app* a = to_app(t);
+        todo.push_back({ t, true, neg });
+        for (unsigned i = a->get_num_args(); i-- > 0;)
+            todo.push_back({ a->get_arg(i), false, false });
+    }
+    r = values.back();
+    return true;
 }
 
 bool arith_util::is_underspecified(expr* e) const {
@@ -1011,4 +1046,3 @@ bool arith_util::is_underspecified(expr* e) const {
     }
     return false;
 }
-

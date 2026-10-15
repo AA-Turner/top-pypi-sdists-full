@@ -282,7 +282,7 @@ def test_source_metadata_is_rejected_outside_local_claude_import() -> None:
             "source_complete": True,
         },
     }
-    with pytest.raises(ValidationError, match="Matrx Local Claude imports"):
+    with pytest.raises(ValidationError, match="desktop \(Matrx Local or Matrx 2\) Claude imports"):
         BridgeRequest.model_validate(payload)
 
     with pytest.raises(ValidationError, match="string_pattern_mismatch"):

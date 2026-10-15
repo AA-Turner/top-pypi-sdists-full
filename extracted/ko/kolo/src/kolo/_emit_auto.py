@@ -25,26 +25,16 @@ from typing import Iterator
 
 logger = logging.getLogger("kolo")
 
-# PID-reuse / Windows backstop for the single-flight lock (1 hour). A live
-# holder is never reclaimed (see _lock_holder_alive), so this only kicks in to
-# break a lock whose recorded PID we can't trust: it has been recycled to an
-# unrelated process, or we're on a platform without a cheap liveness check.
+# Backstop for PID reuse / Windows: a live holder is never reclaimed, this only breaks
+# a lock whose recorded PID can't be trusted.
 LOCK_TIMEOUT_SECONDS = 3600
 
-# Marker file dropped into a trace directory when it is emitted outside of
-# auto-emit (e.g. via `kolo trace emit`). The file contents are a decimal
-# Unix timestamp. Directories whose marker is within MANUAL_EMIT_GRACE_SECONDS
-# are preserved by auto-emit cleanup even if the trace is no longer in the
-# latest-N window.
+# Preserve manually emitted directories during the marker's grace period, even outside latest-N.
 MANUAL_EMIT_MARKER_NAME = ".manual_emit"
 MANUAL_EMIT_GRACE_SECONDS = 24 * 3600
 
-# CPU-time cap for the detached auto-emit subprocess. Typical emits are
-# sub-second and the worst legitimate case we've measured is ~35s CPU (a 389 MB
-# trace), while a runaway (the build_frame_tree quadratic, #2785) once pinned a
-# core for 70+ minutes with nobody noticing because the process is detached and
-# silent. The kernel sends SIGXCPU at this limit and SIGKILL a grace period
-# later, giving the handler time to unwind and release the locks.
+# Worst legitimate emit measured ~35s CPU. The kernel sends SIGXCPU at this limit and SIGKILL
+# after the grace period, giving the handler time to release the locks.
 AUTO_EMIT_CPU_LIMIT_SECONDS = 120
 CPU_LIMIT_KILL_GRACE_SECONDS = 15
 
@@ -53,8 +43,6 @@ CPU_LIMIT_KILL_GRACE_SECONDS = 15
 # directory that the reconcile would mistake for a finished one.
 STAGING_DIR_NAME = ".emit-staging"
 
-# Trace IDs (one per line, in .internal/) whose emit hit the CPU limit. They
-# are skipped by later reconciles; `kolo trace emit <id>` still works.
 GAVE_UP_FILE_NAME = "emit_gave_up.txt"
 
 
@@ -100,7 +88,7 @@ def _record_gave_up(path: Path, trace_id: str) -> None:
         with open(path, "a") as f:
             f.write(f"{trace_id}\n")
     except OSError:  # pragma: no cover
-        pass  # Best-effort: worst case we retry this trace next time.
+        pass
 
 
 def write_manual_emit_marker(trace_dir: Path, now: float | None = None) -> None:
@@ -162,7 +150,7 @@ def _lock_holder_alive(lock_path: Path) -> bool:
     try:
         mtime = lock_path.stat().st_mtime
     except OSError:
-        return False  # No lock file => nothing held.
+        return False
 
     if (time.time() - mtime) >= LOCK_TIMEOUT_SECONDS:
         return False  # Past the backstop: PID is no longer trustworthy.
@@ -174,14 +162,14 @@ def _lock_holder_alive(lock_path: Path) -> bool:
     try:
         pid = int(lock_path.read_text().strip())
     except (OSError, ValueError):
-        return False  # Corrupt/unreadable PID => can't prove a live holder.
+        return False
     if pid <= 0:
         return False
 
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
-        return False  # No such process => holder is dead.
+        return False
     except PermissionError:
         return True  # Process exists (owned by another user) => alive.
     except OSError:  # pragma: no cover
@@ -202,33 +190,27 @@ def _migration_lock(lock_path: Path) -> Iterator[bool]:
     """
     acquired = False
 
-    # If a live holder already holds the lock, don't pile on.
     if _lock_holder_alive(lock_path):
         yield False
         return
 
-    # No live holder: reclaim any leftover lock file (crashed holder, corrupt
-    # PID, or past the backstop) before atomically re-creating it below.
     try:
         lock_path.unlink(missing_ok=True)
     except OSError:  # pragma: no cover
-        pass  # Race condition, let the next step handle it
+        pass
 
-    # Atomically create lock file - O_EXCL fails if file exists
     fd = None
     try:
         fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         try:
             os.write(fd, str(os.getpid()).encode())
         finally:
-            # Ensure we close the FD even if write fails (fixes FD leak)
             os.close(fd)
         acquired = True
         yield True
     except (FileExistsError, OSError):  # pragma: no cover
         yield False
     finally:
-        # Release lock if we acquired it
         if acquired:
             try:
                 lock_path.unlink(missing_ok=True)
@@ -273,7 +255,6 @@ def auto_emit(keep_count: int = 5, db_path: Path | None = None) -> None:
 
 def _auto_emit_locked(keep_count: int, db_path: Path) -> None:
     """Run the auto-emit reconcile body while holding the single-flight lock."""
-    # Lazy imports to minimize startup time
     from .db import (
         TraceNotFoundError,
         list_traces_from_db,
@@ -283,11 +264,9 @@ def _auto_emit_locked(keep_count: int, db_path: Path) -> None:
     from .trace_container import load_trace
     from .trace import Trace
 
-    # db_path is .kolo/.internal/db.sqlite3, traces are in .kolo/traces
     kolo_dir = db_path.parent.parent
     traces_dir = kolo_dir / "traces"
 
-    # Get the latest N trace IDs from the database
     traces = list_traces_from_db(db_path, count=keep_count)
     if not traces:
         return
@@ -300,21 +279,15 @@ def _auto_emit_locked(keep_count: int, db_path: Path) -> None:
     staging_dir = traces_dir / STAGING_DIR_NAME
     shutil.rmtree(staging_dir, ignore_errors=True)
 
-    # Find existing emitted directories by looking for trace ID files inside them
-    # Each emitted directory contains a {trace_id}.txt file
     existing_dirs: dict[str, Path] = {}
     for entry in traces_dir.iterdir():
         if entry.is_dir() and entry != staging_dir:
-            # Look for a trc_*.txt file to identify the trace
             for file in entry.iterdir():
                 if file.name.startswith("trc_") and file.name.endswith(".txt"):
-                    trace_id = file.stem  # Remove .txt extension
+                    trace_id = file.stem
                     existing_dirs[trace_id] = entry
                     break
 
-    # Delete directories for traces not in latest N, but preserve any that
-    # carry a fresh manual-emit marker so users/agents inspecting specific
-    # traces aren't surprised by them disappearing under them.
     now = time.time()
     for trace_id, dir_path in existing_dirs.items():
         if trace_id in latest_trace_ids:
@@ -324,9 +297,8 @@ def _auto_emit_locked(keep_count: int, db_path: Path) -> None:
         try:
             shutil.rmtree(dir_path)
         except OSError:  # pragma: no cover
-            pass  # Silent failure - this runs in background
+            pass
 
-    # Fill in any missing emitted directories within the desired latest-N set.
     # Iterate oldest->newest so newly created directory mtimes preserve recency.
     gave_up_path = db_path.parent / GAVE_UP_FILE_NAME
     gave_up = _read_gave_up(gave_up_path)
@@ -340,18 +312,15 @@ def _auto_emit_locked(keep_count: int, db_path: Path) -> None:
             trace = Trace(unprocessed_data=data, size=len(msgpack_data))
             emit_trace(trace, traces_dir, staging_dir=staging_dir)
         except CPULimitExceeded:
-            # Without this, every later trace save would respawn an emit that
-            # burns the whole budget on this trace again and never reaches
-            # the newer traces behind it.
+            # Mark an over-budget emit so subsequent saves can reach newer traces.
             _record_gave_up(gave_up_path, trace_id)
             raise
         except TraceNotFoundError:
             logger.debug("Skipping disappeared trace during auto-emit: %s", trace_id)
-        except (OSError, KeyError, ValueError):  # pragma: no cover
-            pass  # Silent failure - this runs in background
+        except Exception:
+            logger.debug("Could not emit trace %s", trace_id, exc_info=True)
     shutil.rmtree(staging_dir, ignore_errors=True)
 
-    # Update the kolo.txt file
     try:
         from ._kolotxt import update_kolotxt
 
@@ -359,7 +328,6 @@ def _auto_emit_locked(keep_count: int, db_path: Path) -> None:
     except Exception:
         logger.debug("Failed to update kolo.txt", exc_info=True)
 
-    # Run migration if needed, protected by lock
     _run_migration_if_needed(db_path)
 
 
@@ -377,10 +345,7 @@ def _run_migration_if_needed(db_path: Path) -> None:
     """
     from .db import migrate_traces_to_files, migration_pending
 
-    # Quick check before acquiring lock. migration_pending() is SQLite-only and
-    # never enumerates the raw/ directory, so this stays cheap even when the
-    # store holds millions of files (the old get_migration_status() globbed
-    # raw/ on every call, which is what melted the host under KOLO=1 fan-out).
+    # migration_pending() is SQLite-only and never lists raw/, so it stays cheap with millions of files.
     try:
         if not migration_pending(db_path):
             return
@@ -395,7 +360,6 @@ def _run_migration_if_needed(db_path: Path) -> None:
             return
 
         try:
-            # Re-check inside lock in case another process just finished
             if migration_pending(db_path):
                 migrate_traces_to_files(db_path)
         except Exception as e:  # pragma: no cover

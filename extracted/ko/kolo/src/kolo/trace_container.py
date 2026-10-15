@@ -294,10 +294,7 @@ def load_v3_trace(data: bytes | bytearray | memoryview) -> dict:
             value_table[record.sequence] = value
 
     trace = dict(metadata)
-    # Completeness is a property of the container we actually read, not
-    # user-controlled trace metadata.  Keep complete and legacy traces
-    # unchanged while making a recovered prefix impossible to mistake for a
-    # complete execution.
+    # Completeness comes from the container read, never from user-controlled metadata.
     trace.pop("recovered", None)
     if not parsed.complete:
         trace["recovered"] = True
@@ -428,10 +425,7 @@ def iter_v3_trace_chunks(
     index_entries: list[list[int]] = []
     layouts: dict[int, list[list[int]]] = {}
 
-    # A recoverable prefix must never contain a frame reference whose value
-    # record appears later in the file. Publish the bounded dictionary first
-    # on materialized/Python paths; the native streaming writer publishes
-    # each entry lazily immediately before its first referencing chunk.
+    # A recoverable prefix must never reference a value record that appears later in the file.
     value_items = (
         value_table.items()
         if isinstance(value_table, Mapping)
@@ -470,10 +464,6 @@ def iter_v3_trace_chunks(
             nonlocal chunk, chunk_bytes, offset, sequence
             if not chunk:
                 return ()
-            # Build one sidecar buffer instead of allocating a temporary bytes
-            # object for every frame length. A Python-backend trace can contain
-            # tens of thousands of frames, so the per-frame allocations made
-            # post-capture persistence contend materially with the application.
             encoded_lengths = bytearray()
             for frame in chunk:
                 _append_uleb128(encoded_lengths, len(frame))

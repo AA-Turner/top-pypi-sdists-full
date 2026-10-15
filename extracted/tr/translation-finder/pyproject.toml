@@ -14,16 +14,16 @@ lint = [
   { include-group = "pre-commit" }
 ]
 pre-commit = [
-  "prek==0.5.4"
+  "prek==0.5.5"
 ]
 test = [
-  "hypothesis==6.168.3",
+  "hypothesis==6.169.0",
   "pytest==9.1.1",
   "pytest-cov==7.1.0",
   "pytest-github-actions-annotate-failures==0.4.2"
 ]
 types = [
-  "ty==0.0.85",
+  "ty==0.0.86",
   "mypy==2.4.0"
 ]
 
@@ -60,7 +60,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 name = "translation-finder"
 requires-python = ">=3.11"
-version = "3.7.1"
+version = "3.8.0"
 
 [[project.authors]]
 email = "michal@weblate.org"

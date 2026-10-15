@@ -40,6 +40,14 @@ LANE_GATE = "gate"
 #: The gate's model, per session; unset, the server's `gate` alias picks it.
 ENV_GATE_MODEL = "PROBE_COMPANION_GATE_MODEL"
 GATE_MODEL_ALIAS = "gate"
+#: The writer's event indexer (daemon cost round 5): a cheap model that turns a
+#: run's new events into one line per step with their event ids. The server
+#: serves it like the gate: a 30 s deadline, no refusal fallback; it settles as
+#: the writer.
+LANE_INDEX = "index"
+#: The indexer's model, per session; unset, the server's `index` alias picks it.
+ENV_INDEX_MODEL = "PROBE_COMPANION_INDEX_MODEL"
+INDEX_MODEL_ALIAS = "index"
 ENV_KEY = "PROBE_DAEMON_KEY"
 #: One model request's timeout, and how often the client itself retries a failed
 #: one. A call may take 30 minutes (Richard, 2026-09-28: a 1M context, a cold
@@ -78,6 +86,25 @@ MIN_SERVER_CONTEXT_TOKENS = 100_000
 _SERVER_CONTEXT_TOKENS: dict[str, int] = {}
 
 
+class WriterHistory(StrEnum):
+    """What the writer's saved conversation keeps after a run (`WRITER_HISTORY_HEADER`,
+    daemon cost round 5). FULL keeps everything; LEAN keeps the messages the writer
+    was sent (and a compaction's summary) and drops its own answers and tool
+    traffic, so the next run's request still extends this run's first one byte for
+    byte -- the only prefix the model's prompt cache serves."""
+
+    FULL = "full"
+    LEAN = "lean"
+
+
+class WriterEvents(StrEnum):
+    """How a run's new events reach the writer (`WRITER_EVENTS_HEADER`): RAW rendered,
+    or INDEX -- a cheap model's one line per step with event ids (`index.py`)."""
+
+    RAW = "raw"
+    INDEX = "index"
+
+
 class GateMode(StrEnum):
     """The reader gate's mode (`READER_GATE_HEADER`): OFF never calls it; SHADOW
     calls it and records its verdict, and the reader looks anyway; ON skips the
@@ -97,6 +124,10 @@ READER_GATE_HEADER = "x-probe-reader-gate"
 WRITER_GAP_HEADER = "x-probe-writer-min-gap-s"
 ENV_READER_GATE = "PROBE_DAEMON_READER_GATE"
 ENV_WRITER_GAP = "PROBE_DAEMON_WRITER_GAP_S"
+WRITER_HISTORY_HEADER = "x-probe-writer-history"
+WRITER_EVENTS_HEADER = "x-probe-writer-events"
+ENV_WRITER_HISTORY = "PROBE_DAEMON_WRITER_HISTORY"
+ENV_WRITER_EVENTS = "PROBE_DAEMON_WRITER_EVENTS"
 #: A pushed gap above this is clamped: a session is never recorded less than hourly.
 MAX_WRITER_GAP_S = 3600
 _PUSHED: dict[str, object] = {}
@@ -122,8 +153,9 @@ async def _remember_served_model(response) -> None:
 
 
 def remember_pushed_settings(headers: Any) -> None:
-    """Keep the reader gate's mode and the writer's gap from a chat answer's
-    headers. A missing or malformed value leaves the last good one."""
+    """Keep the reader gate's mode, the writer's gap and the writer's layout
+    (history, events) from a chat answer's headers. A missing or malformed value
+    leaves the last good one."""
     mode = (headers.get(READER_GATE_HEADER) or "").strip().lower()
     if mode in {m.value for m in GateMode}:
         _PUSHED[READER_GATE_HEADER] = GateMode(mode)
@@ -134,6 +166,10 @@ def remember_pushed_settings(headers: Any) -> None:
         gap = None
     if gap is not None and gap >= 0:
         _PUSHED[WRITER_GAP_HEADER] = min(gap, MAX_WRITER_GAP_S)
+    for header, kind in ((WRITER_HISTORY_HEADER, WriterHistory), (WRITER_EVENTS_HEADER, WriterEvents)):
+        value = (headers.get(header) or "").strip().lower()
+        if value in {m.value for m in kind}:
+            _PUSHED[header] = kind(value)
 
 
 def reader_gate_mode() -> GateMode:
@@ -153,6 +189,22 @@ def writer_min_gap_s() -> float:
         except ValueError:
             pass
     return float(_PUSHED.get(WRITER_GAP_HEADER, 0))  # type: ignore[arg-type]
+
+
+def writer_history() -> WriterHistory:
+    """`PROBE_DAEMON_WRITER_HISTORY`, else the server's (per team), else FULL."""
+    env = (os.environ.get(ENV_WRITER_HISTORY) or "").strip().lower()
+    if env in {m.value for m in WriterHistory}:
+        return WriterHistory(env)
+    return _PUSHED.get(WRITER_HISTORY_HEADER, WriterHistory.FULL)  # type: ignore[return-value]
+
+
+def writer_events() -> WriterEvents:
+    """`PROBE_DAEMON_WRITER_EVENTS`, else the server's (per team), else RAW."""
+    env = (os.environ.get(ENV_WRITER_EVENTS) or "").strip().lower()
+    if env in {m.value for m in WriterEvents}:
+        return WriterEvents(env)
+    return _PUSHED.get(WRITER_EVENTS_HEADER, WriterEvents.RAW)  # type: ignore[return-value]
 
 
 def remember_context_sizes(headers: Any) -> None:
@@ -233,14 +285,15 @@ def endpoint() -> Endpoint:
     return Endpoint(base_url=str(base), key=str(key))
 
 
-def build(ep: Endpoint, lane: str = LANE_WRITE, *, name: str | None = None):
+def build(ep: Endpoint, lane: str = LANE_WRITE, *, name: str | None = None, retries: int = MAX_RETRIES):
     """A Pydantic AI model for one of the daemon's lanes. Imported lazily: the
     `daemon` extra. Each request times out after DEFAULT_TIMEOUT_S and is retried
     at most MAX_RETRIES times by the client. The writer asks for
     PROBE_COMPANION_MODEL or the server's default; the reader for
     PROBE_COMPANION_READ_MODEL or the server's `reader` alias; the team-note audit
     for PROBE_COMPANION_AUDIT_MODEL or the server's `auditor` alias. `name`
-    overrides all three (the audit's one re-run on the writer's model)."""
+    overrides all three (the audit's one re-run on the writer's model). `retries`:
+    the client's own retries (the indexer takes none: it falls back to raw events)."""
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
     from pydantic_ai.settings import ModelSettings
@@ -250,7 +303,7 @@ def build(ep: Endpoint, lane: str = LANE_WRITE, *, name: str | None = None):
     # The OpenAI client on this process's one keepalive HTTP client, with the
     # daemon's bounds and the lane's header.
     client = AsyncOpenAI(base_url=ep.model_base_url, api_key=ep.key, timeout=DEFAULT_TIMEOUT_S,
-                         max_retries=MAX_RETRIES, default_headers={LANE_HEADER: lane}, http_client=_http_client())
+                         max_retries=retries, default_headers={LANE_HEADER: lane}, http_client=_http_client())
     provider = OpenAIProvider(openai_client=client)
     if name is None:
         name = _lane_model(lane)
@@ -265,4 +318,6 @@ def _lane_model(lane: str) -> str:
         return os.environ.get(ENV_AUDIT_MODEL) or AUDITOR_MODEL_ALIAS
     if lane == LANE_GATE:
         return os.environ.get(ENV_GATE_MODEL) or GATE_MODEL_ALIAS
+    if lane == LANE_INDEX:
+        return os.environ.get(ENV_INDEX_MODEL) or INDEX_MODEL_ALIAS
     return os.environ.get(ENV_MODEL) or "default"

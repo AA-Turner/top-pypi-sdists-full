@@ -42,6 +42,7 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -102,7 +103,12 @@
 #include "meshioplusplus/detail/classic_stream.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
 #include "meshioplusplus/operations/fit_cad.hpp"
+#include "meshioplusplus/formats/cad_json.hpp"
+#include "meshioplusplus/formats/iges.hpp"
+#include "meshioplusplus/formats/step.hpp"
 #include "meshioplusplus/operations/fit_primitives.hpp"
+#include "meshioplusplus/formats/mfem.hpp"
+#include "meshioplusplus/operations/iga.hpp"
 #include "meshioplusplus/operations/segment.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
 #include "meshioplusplus/detail/data_ops.hpp"
@@ -122,6 +128,7 @@
 #include "meshioplusplus/operations/stats.hpp"
 #include "meshioplusplus/operations/agglomerate.hpp"
 #include "meshioplusplus/operations/subdivide.hpp"
+#include "meshioplusplus/operations/tessellate.hpp"
 #include "meshioplusplus/operations/undo_green.hpp"
 // Per-format writers for the ASCII/binary/compress variants (the registry bakes
 // one default each, so these are called directly).
@@ -395,7 +402,13 @@ void print_usage(std::ostream& os) {
           "  feature-edges           Sharp/open/non-manifold edges of a surface as a line mesh\n"
           "  segment                 Split a surface into smooth patches (regions)\n"
           "  fit-primitives          Fit a plane/sphere/cylinder/cone/torus to each patch\n"
-          "  to-cad                  Fitted patches as a STEP solid with analytic faces\n"
+          "  iga-refine              Refine a NURBS model exactly (knot insertion, degree\n"
+          "                            elevation); MFEM NURBS, CAD JSON, STEP, IGES\n"
+          "  iga-sample              Sample a NURBS model into Lagrange cells\n"
+          "  iga-evaluate            Evaluate a NURBS patch at parametric coordinates (JSON)\n"
+          "  to-cad                  Fitted patches as a STEP solid with analytic and\n"
+          "                            freeform B-spline, fillet and thread faces (--cad-json: as\n"
+          "                            Kratos CAD JSON too)\n"
           "                            (needs a build with -DMESHIOPLUSPLUS_WITH_OCCT=ON)\n"
           "  region-adjacency        Shared facets between Cell regions or cell blocks\n"
           "  find-interface         Match boundary facets of two Cell regions\n"
@@ -432,6 +445,8 @@ void print_usage(std::ostream& os) {
           "                            --difference OUT=A,B --rename OLD=NEW\n"
           "                            --retag NAME=TAG[:DIM] --delete NAME\n"
           "  convert-cells           Convert elements (linearize/simplexify/elevate)\n"
+          "  tessellate              Subdivide curved (quadratic) cells onto a reference\n"
+          "                            lattice through their own shape functions\n"
           "  subdivide               Polyhedrally refine: one polyhedral child per 3D\n"
           "                            cell face, connected to a new interior point\n"
           "  agglomerate             Polyhedrally coarsen: merge groups of cells into\n"
@@ -843,9 +858,25 @@ int cmd_convert(const std::vector<std::string>& rArgs) {
             throw std::runtime_error("--colorbar has no meaning for gltf output (svg/tikz only)");
     }
 
+    // A B-rep (CAD JSON, or STEP/IGES through OpenCASCADE) converted to CAD
+    // JSON keeps its NURBS faces, loops and edges rather than its sampling.
+    std::optional<meshioplusplus::BrepInfo> brep;
     Mesh mesh = [&]() -> Mesh {
-        if (!has_opt(p, "mesh-name"))
+        if (!has_opt(p, "mesh-name")) {
+            std::string from, to;
+            try {
+                from = meshioplusplus::resolve_format(infile, in_fmt);
+                to = meshioplusplus::resolve_write_format(outfile, out_fmt);
+            } catch (const std::exception&) {
+            }
+            if (to == "cad_json" && (from == "cad_json" || from == "step" || from == "iges")) {
+                brep.emplace();
+                return from == "cad_json" ? meshioplusplus::read_cad_json(infile, *brep)
+                       : from == "step"   ? meshioplusplus::read_step(infile, *brep)
+                                          : meshioplusplus::read_iges(infile, *brep);
+            }
             return read_mesh_cli(infile, in_fmt, opts);
+        }
         if (meshioplusplus::resolve_format(infile, in_fmt) != "med")
             throw std::invalid_argument("--mesh-name is only supported for MED inputs");
 #ifdef MESHIOPLUSPLUS_HAS_HDF5
@@ -908,6 +939,8 @@ int cmd_convert(const std::vector<std::string>& rArgs) {
         if (!float_fmt.empty())
             std::cerr << "note: --float-format only affects ASCII output (--ascii)\n";
         meshioplusplus::registry_write_ex(outfile, mesh, fmt, wopts);
+    } else if (brep) {
+        meshioplusplus::write_cad_json(outfile, mesh, *brep);
     } else {
         if (!float_fmt.empty())
             std::cerr << "note: --float-format only affects ASCII output (--ascii)\n";
@@ -1845,6 +1878,258 @@ int cmd_fit_primitives(const std::vector<std::string>& rArgs) {
     return 0;
 }
 
+// --- the isogeometric layer: iga-refine, iga-sample, iga-evaluate -----------------------
+
+// A NURBS model read from MFEM, CAD JSON, STEP or IGES.
+struct CliIgaModel {
+    std::string mFormat;
+    std::optional<meshioplusplus::NurbsInfo> mNurbs;
+    std::optional<meshioplusplus::BrepInfo> mBrep;
+    Mesh mMesh;
+};
+
+CliIgaModel cli_iga_read(const std::string& rPath, const std::string& rFormat) {
+    CliIgaModel m;
+    m.mFormat = meshioplusplus::resolve_format(rPath, rFormat);
+    if (m.mFormat == "mfem") {
+        m.mNurbs.emplace();
+        m.mMesh = meshioplusplus::read_mfem(rPath, {}, meshioplusplus::ReadOptions{}, *m.mNurbs);
+        if (m.mNurbs->mPatches.empty())
+            throw std::runtime_error("'" + rPath + "' is not an MFEM NURBS mesh");
+    } else if (m.mFormat == "cad_json" || m.mFormat == "step" || m.mFormat == "iges") {
+        m.mBrep.emplace();
+        m.mMesh = m.mFormat == "cad_json" ? meshioplusplus::read_cad_json(rPath, *m.mBrep)
+                  : m.mFormat == "step"   ? meshioplusplus::read_step(rPath, *m.mBrep)
+                                          : meshioplusplus::read_iges(rPath, *m.mBrep);
+    } else {
+        throw std::runtime_error("'" + m.mFormat +
+                                 "' carries no NURBS model (use an MFEM NURBS mesh, CAD JSON, STEP or "
+                                 "IGES)");
+    }
+    return m;
+}
+
+std::array<std::int32_t, 3> cli_iga_triple(const std::string& rText, const char* pName) {
+    std::vector<std::int32_t> values;
+    for (std::size_t at = 0; at <= rText.size();) {
+        const std::size_t comma = std::min(rText.find(',', at), rText.size());
+        const std::string part = rText.substr(at, comma - at);
+        at = comma + 1;
+        if (!part.empty())
+            values.push_back(static_cast<std::int32_t>(std::stol(part)));
+    }
+    if (values.empty() || values.size() > 3)
+        throw std::runtime_error(std::string("--") + pName + " takes one to three integers");
+    return {values[0], values[std::min<std::size_t>(1, values.size() - 1)],
+            values[std::min<std::size_t>(2, values.size() - 1)]};
+}
+
+meshioplusplus::IgaSampleOptions cli_iga_sample_options(const cli_parsed& rP,
+                                                        const char* pSubdivisionsOption) {
+    meshioplusplus::IgaSampleOptions so;
+    if (has_opt(rP, pSubdivisionsOption))
+        so.mSubdivisions = static_cast<std::int32_t>(std::stol(opt_value(rP, pSubdivisionsOption)));
+    if (has_opt(rP, "trim-samples"))
+        so.mTrimSamples = static_cast<std::int32_t>(std::stol(opt_value(rP, "trim-samples")));
+    so.mEdges = !has_flag(rP, "no-edges");
+    so.mTrim = !has_flag(rP, "no-trim");
+    return so;
+}
+
+// Write the (sampled) mesh; a model goes back as MFEM NURBS or CAD JSON when the
+// output is that format, anything else gets the cells.
+void cli_iga_write(const std::string& rPath, const std::string& rFormat, const Mesh& rMesh,
+                   const std::optional<meshioplusplus::NurbsInfo>& rNurbs,
+                   const std::optional<meshioplusplus::BrepInfo>& rBrep) {
+    const std::string to = meshioplusplus::resolve_write_format(rPath, rFormat);
+    if (to == "mfem" && rNurbs)
+        meshioplusplus::write_mfem(rPath, rMesh, false, *rNurbs);
+    else if (to == "cad_json" && rBrep)
+        meshioplusplus::write_cad_json(rPath, rMesh, *rBrep);
+    else
+        write_mesh_cli(rPath, rMesh, rFormat);
+}
+
+void cli_iga_summary(const cli_parsed& rP, const char* pName, const char* pModel, const Mesh& rMesh,
+                     std::size_t Patches) {
+    std::size_t ncells = 0;
+    for (const auto cb : rMesh.CellRange())
+        ncells += cb.NumCells();
+    if (has_flag(rP, "json")) {
+        meshioplusplus::cli::JsonOut json(std::cout);
+        json.BeginObject();
+        json.Field("operation", pName);
+        json.Field("model", pModel);
+        json.Field("num_patches", Patches);
+        json.Field("num_points", rMesh.NumPoints());
+        json.Field("num_cells", ncells);
+        json.Key("cell_blocks");
+        json.BeginArray();
+        for (const auto cb : rMesh.CellRange()) {
+            json.BeginObject();
+            json.Field("type", std::string(cb.Type()));
+            json.Field("num_cells", cb.NumCells());
+            json.EndObject();
+        }
+        json.EndArray();
+        json.EndObject();
+    } else if (!has_flag(rP, "quiet")) {
+        std::cout << pName << ": " << Patches << " patch(es), " << rMesh.NumPoints() << " points, "
+                  << ncells << " cells\n";
+    }
+}
+
+int cmd_iga_refine(const std::vector<std::string>& rArgs) {
+    auto p = cli_parse(rArgs, {
+                                  {"input-format", {"-i"}, true},
+                                  {"output-format", {"-o"}, true},
+                                  {"subdivisions", {"-s"}, true},
+                                  {"elevate", {"-e"}, true},
+                                  {"sample-subdivisions", {}, true},
+                                  {"trim-samples", {}, true},
+                                  {"no-edges", {}, false},
+                                  {"no-trim", {}, false},
+                                  {"json", {}, false},
+                                  {"quiet", {"-q"}, false},
+                              });
+    if (p.positionals.size() != 2)
+        throw std::runtime_error("iga-refine requires exactly INFILE and OUTFILE");
+    CliIgaModel model = cli_iga_read(p.positionals[0], opt_value(p, "input-format"));
+    meshioplusplus::IgaRefineOptions ro;
+    if (has_opt(p, "subdivisions"))
+        ro.mSubdivisions = cli_iga_triple(opt_value(p, "subdivisions"), "subdivisions");
+    if (has_opt(p, "elevate"))
+        ro.mElevate = cli_iga_triple(opt_value(p, "elevate"), "elevate");
+    const meshioplusplus::IgaSampleOptions so = cli_iga_sample_options(p, "sample-subdivisions");
+    Mesh mesh;
+    std::size_t patches = 0;
+    std::optional<meshioplusplus::NurbsInfo> mapped;
+    std::optional<meshioplusplus::BrepInfo> refined;
+    if (model.mNurbs) {
+        const meshioplusplus::NurbsInfo r = meshioplusplus::iga_refine(*model.mNurbs, ro);
+        mapped.emplace();
+        mesh = meshioplusplus::iga_sample(r, so, &*mapped);
+        patches = r.mPatches.size();
+    } else {
+        refined = meshioplusplus::iga_refine(*model.mBrep, ro);
+        mesh = meshioplusplus::iga_sample(*refined, so);
+        patches = refined->mPatches.size();
+    }
+    cli_iga_write(p.positionals[1], opt_value(p, "output-format"), mesh, mapped, refined);
+    cli_iga_summary(p, "iga_refine", model.mNurbs ? "nurbs" : "brep", mesh, patches);
+    return 0;
+}
+
+int cmd_iga_sample(const std::vector<std::string>& rArgs) {
+    auto p = cli_parse(rArgs, {
+                                  {"input-format", {"-i"}, true},
+                                  {"output-format", {"-o"}, true},
+                                  {"subdivisions", {"-s"}, true},
+                                  {"trim-samples", {}, true},
+                                  {"no-edges", {}, false},
+                                  {"no-trim", {}, false},
+                                  {"json", {}, false},
+                                  {"quiet", {"-q"}, false},
+                              });
+    if (p.positionals.size() != 2)
+        throw std::runtime_error("iga-sample requires exactly INFILE and OUTFILE");
+    CliIgaModel model = cli_iga_read(p.positionals[0], opt_value(p, "input-format"));
+    const meshioplusplus::IgaSampleOptions so = cli_iga_sample_options(p, "subdivisions");
+    Mesh mesh;
+    std::size_t patches = 0;
+    std::optional<meshioplusplus::NurbsInfo> mapped;
+    if (model.mNurbs) {
+        mapped.emplace();
+        mesh = meshioplusplus::iga_sample(*model.mNurbs, so, &*mapped);
+        patches = model.mNurbs->mPatches.size();
+    } else {
+        mesh = meshioplusplus::iga_sample(*model.mBrep, so);
+        patches = model.mBrep->mPatches.size();
+    }
+    cli_iga_write(p.positionals[1], opt_value(p, "output-format"), mesh, mapped, model.mBrep);
+    cli_iga_summary(p, "iga_sample", model.mNurbs ? "nurbs" : "brep", mesh, patches);
+    return 0;
+}
+
+int cmd_iga_evaluate(const std::vector<std::string>& rArgs) {
+    auto p = cli_parse(rArgs, {
+                                  {"input-format", {"-i"}, true},
+                                  {"param", {"-p"}, true},
+                                  {"patch", {}, true},
+                                  {"derivatives", {}, true},
+                                  {"trim-samples", {}, true},
+                              });
+    if (p.positionals.size() != 1)
+        throw std::runtime_error("iga-evaluate requires exactly INFILE");
+    if (!has_opt(p, "param"))
+        throw std::runtime_error("iga-evaluate requires at least one --param u[,v[,w]]");
+    CliIgaModel model = cli_iga_read(p.positionals[0], opt_value(p, "input-format"));
+    const auto patch = static_cast<std::size_t>(
+        has_opt(p, "patch") ? std::stoll(opt_value(p, "patch")) : 0);
+    const auto derivatives = static_cast<std::int32_t>(
+        has_opt(p, "derivatives") ? std::stol(opt_value(p, "derivatives")) : 0);
+    const auto trim_samples = static_cast<std::int32_t>(
+        has_opt(p, "trim-samples") ? std::stol(opt_value(p, "trim-samples")) : 16);
+    const std::size_t dim = model.mNurbs ? (patch < model.mNurbs->mPatches.size()
+                                                 ? model.mNurbs->mPatches[patch].mDegrees.size()
+                                                 : 0)
+                                         : 2;
+    // Every --param, point after point (the parser keeps the values of a repeated option).
+    std::vector<double> flat;
+    for (const std::string& text : opt_values(p, "param")) {
+        std::size_t n = 0;
+        for (std::size_t at = 0; at <= text.size();) {
+            const std::size_t comma = std::min(text.find(',', at), text.size());
+            flat.push_back(meshioplusplus::detail::stod_c(text.substr(at, comma - at)));
+            at = comma + 1;
+            ++n;
+        }
+        if (dim && n != dim)
+            throw std::runtime_error("--param needs " + std::to_string(dim) + " numbers per point");
+    }
+    const std::size_t d = dim ? dim : 2;
+    NDArray params(meshioplusplus::DType::Float64, {flat.size() / d, d});
+    std::copy(flat.begin(), flat.end(), params.As<double>());
+    const meshioplusplus::IgaEvaluation e =
+        model.mNurbs ? meshioplusplus::iga_evaluate(*model.mNurbs, patch, params, derivatives)
+                     : meshioplusplus::iga_evaluate(*model.mBrep, patch, params, derivatives,
+                                                    trim_samples);
+    meshioplusplus::cli::JsonOut json(std::cout);
+    const auto array = [&](const char* pName, const NDArray& rA) {
+        json.Key(pName);
+        json.BeginArray();
+        for (std::size_t i = 0; i < rA.Size(); ++i) {
+            if (rA.Dtype() == meshioplusplus::DType::UInt8)
+                json.Bool(rA.As<std::uint8_t>()[i] != 0);
+            else
+                json.Number(rA.As<double>()[i]);
+        }
+        json.EndArray();
+    };
+    json.BeginObject();
+    json.Field("num_points", params.Shape()[0]);
+    json.Field("space_dim", e.mPoints.Shape()[1]);
+    array("points", e.mPoints);
+    json.Key("fields");
+    json.BeginArray();
+    for (const NDArray& f : e.mFields) {
+        json.BeginObject();
+        json.Field("components", f.Shape()[1]);
+        array("values", f);
+        json.EndObject();
+    }
+    json.EndArray();
+    if (e.mDerivatives.Size())
+        array("derivatives", e.mDerivatives);
+    if (e.mNormals.Size())
+        array("normals", e.mNormals);
+    if (model.mBrep)
+        array("inside", e.mInside);
+    json.EndObject();
+    std::cout << "\n";
+    return 0;
+}
+
 int cmd_to_cad(const std::vector<std::string>& rArgs) {
     auto p = cli_parse(rArgs, {
                                   {"input-format", {"-i"}, true},
@@ -1856,7 +2141,14 @@ int cmd_to_cad(const std::vector<std::string>& rArgs) {
                                   {"types", {}, true},
                                   {"mesh-deflection", {}, true},
                                   {"max-demotion-rounds", {}, true},
+                                  {"no-freeform", {}, false},
+                                  {"freeform-degree", {}, true},
+                                  {"freeform-max-control", {}, true},
+                                  {"no-freeform-split", {}, false},
+                                  {"no-fillets", {}, false},
+                                  {"no-threads", {}, false},
                                   {"mesh-out", {}, true},
+                                  {"cad-json", {}, true},
                                   {"json", {}, false},
                                   {"quiet", {"-q"}, false},
                               });
@@ -1890,9 +2182,19 @@ int cmd_to_cad(const std::vector<std::string>& rArgs) {
         options.mMeshDeflection = meshioplusplus::detail::stod_c(opt_value(p, "mesh-deflection"));
     if (has_opt(p, "max-demotion-rounds"))
         options.mMaxDemotionRounds = std::stoll(opt_value(p, "max-demotion-rounds"));
+    options.mFreeform = !has_flag(p, "no-freeform");
+    if (has_opt(p, "freeform-degree"))
+        options.mFreeformDegree = static_cast<std::int32_t>(std::stoi(opt_value(p, "freeform-degree")));
+    if (has_opt(p, "freeform-max-control"))
+        options.mFreeformMaxControl = std::stoll(opt_value(p, "freeform-max-control"));
+    options.mFreeformSplit = !has_flag(p, "no-freeform-split");
+    options.mFillets = !has_flag(p, "no-fillets");
+    options.mThreads = !has_flag(p, "no-threads");
     meshioplusplus::FitCadResult r = meshioplusplus::fit_cad(mesh, p.positionals[1], options);
     if (has_opt(p, "mesh-out"))
         write_mesh_cli(opt_value(p, "mesh-out"), r.mMesh, "");
+    if (has_opt(p, "cad-json"))
+        meshioplusplus::write_cad_json(opt_value(p, "cad-json"), r.mMesh, r.mBrep);
     if (has_flag(p, "json")) {
         meshioplusplus::cli::JsonOut json(std::cout);
         json.BeginObject();
@@ -1914,6 +2216,13 @@ int cmd_to_cad(const std::vector<std::string>& rArgs) {
         json.Field("num_exact_edges", r.mNumExactEdges);
         json.Field("num_approx_edges", r.mNumApproxEdges);
         json.Field("num_solids", r.mNumSolids);
+        json.Field("num_bspline", r.mNumBspline);
+        json.Field("num_split_patches", r.mNumSplitPatches);
+        json.Field("num_fillet", r.mNumFillet);
+        json.Field("num_helical", r.mNumHelical);
+        json.Field("num_variable_fillet", r.mNumVariableFillet);
+        json.Field("num_blend", r.mNumBlend);
+        json.Field("num_rounded_thread", r.mNumRoundedThread);
         json.EndObject();
     } else if (!has_flag(p, "quiet")) {
         std::cout << "to-cad: " << r.mNumFaces << " face(s) in " << r.mNumSolids << " solid(s), "
@@ -1923,6 +2232,19 @@ int cmd_to_cad(const std::vector<std::string>& rArgs) {
         std::cout << "  cylinder:  " << r.mNumCylinder << "\n";
         std::cout << "  cone:      " << r.mNumCone << "\n";
         std::cout << "  torus:     " << r.mNumTorus << "\n";
+        std::cout << "  bspline:   " << r.mNumBspline;
+        if (r.mNumSplitPatches > 0)
+            std::cout << " (" << r.mNumSplitPatches << " split piece(s))";
+        std::cout << "\n";
+        std::cout << "  fillet:    " << r.mNumFillet;
+        if (r.mNumVariableFillet > 0 || r.mNumBlend > 0)
+            std::cout << " (" << r.mNumVariableFillet << " of varying radius, " << r.mNumBlend
+                      << " blend(s))";
+        std::cout << "\n";
+        std::cout << "  helical:   " << r.mNumHelical;
+        if (r.mNumRoundedThread > 0)
+            std::cout << " (" << r.mNumRoundedThread << " rounded)";
+        std::cout << "\n";
         std::cout << "  facets:    " << r.mNumFacetedFaces << "\n";
         std::cout << "  demoted:   " << r.mNumDemoted << " patch(es)\n";
         std::cout << "  volume ratio " << r.mVolumeRatio << ", max deviation " << r.mMaxDeviation
@@ -3203,6 +3525,65 @@ int cmd_convert_cells(const std::vector<std::string>& rArgs) {
 
     auto result = meshioplusplus::convert_cells(mesh, options);
     write_mesh_cli(p.positionals[1], result.mMesh, opt_value(p, "output-format"));
+    return 0;
+}
+
+int cmd_tessellate(const std::vector<std::string>& rArgs) {
+    auto p = cli_parse(rArgs, {
+                                  {"input-format", {"-i"}, true},
+                                  {"output-format", {"-o"}, true},
+                                  {"levels", {}, true},
+                                  {"no-curved", {}, false},
+                                  {"no-fields", {}, false},
+                                  {"record-stencil", {}, false},
+                                  {"json", {}, false},
+                                  {"quiet", {"-q"}, false},
+                              });
+    if (p.positionals.size() != 2)
+        throw std::runtime_error("tessellate requires exactly INFILE and OUTFILE");
+    Mesh mesh = read_mesh_cli(p.positionals[0], opt_value(p, "input-format"));
+
+    meshioplusplus::TessellateOptions options;
+    if (has_opt(p, "levels"))
+        options.mLevels = std::stoll(opt_value(p, "levels"));
+    options.mCurved = !has_flag(p, "no-curved");
+    options.mFields = !has_flag(p, "no-fields");
+    options.mRecordStencil = has_flag(p, "record-stencil");
+
+    meshioplusplus::TessellateResult r = meshioplusplus::tessellate(mesh, options);
+    write_mesh_cli(p.positionals[1], r.mMesh, opt_value(p, "output-format"));
+    if (has_flag(p, "json")) {
+        // The same keys as the Python CLI's report (`Tessellation.schema`
+        // without its `version`).
+        meshioplusplus::cli::JsonOut json(std::cout);
+        json.BeginObject();
+        json.Field("levels", options.mLevels);
+        json.Field("curved", options.mCurved);
+        json.Field("num_source_points", r.mNumSourcePoints);
+        json.Field("num_source_cells", r.mNumSourceCells);
+        json.Field("num_curved_source_cells", r.mNumCurvedSourceCells);
+        json.Field("num_pass_through_source_cells", r.mNumPassThroughSourceCells);
+        json.Field("num_points", r.mNumPoints);
+        json.Field("num_cells", r.mNumCells);
+        json.Field("stencil_width", meshioplusplus::kTessellateStencilWidth);
+        json.Key("watertight");
+        json.BeginObject();
+        json.Field("num_boundary_facets", r.mNumBoundaryFacets);
+        json.Field("num_interior_facets", r.mNumInteriorFacets);
+        json.Field("num_facets_with_bad_count", r.mNumFacetsWithBadCount);
+        json.EndObject();
+        json.EndObject();
+    } else if (!has_flag(p, "quiet")) {
+        std::cout << "tessellated " << r.mNumSourcePoints << " points to " << r.mNumPoints << "\n";
+        std::cout << "  curved source cells:  " << r.mNumCurvedSourceCells << "\n";
+        std::cout << "  pass-through cells:   " << r.mNumPassThroughSourceCells << "\n";
+        std::cout << "  output cells:         " << r.mNumCells << "\n";
+        std::cout << "  watertight: ";
+        if (r.mNumFacetsWithBadCount == 0)
+            std::cout << "yes\n";
+        else
+            std::cout << "NO (" << r.mNumFacetsWithBadCount << " bad facet(s))\n";
+    }
     return 0;
 }
 
@@ -5530,6 +5911,12 @@ int main(int argc, char** argv) {
             return cmd_segment(rest);
         if (cmd == "fit-primitives")
             return cmd_fit_primitives(rest);
+        if (cmd == "iga-refine")
+            return cmd_iga_refine(rest);
+        if (cmd == "iga-sample")
+            return cmd_iga_sample(rest);
+        if (cmd == "iga-evaluate")
+            return cmd_iga_evaluate(rest);
         if (cmd == "to-cad")
             return cmd_to_cad(rest);
         if (cmd == "region-adjacency")
@@ -5572,6 +5959,8 @@ int main(int argc, char** argv) {
             return cmd_regions(rest);
         if (cmd == "convert-cells")
             return cmd_convert_cells(rest);
+        if (cmd == "tessellate")
+            return cmd_tessellate(rest);
         if (cmd == "subdivide")
             return cmd_subdivide(rest);
         if (cmd == "agglomerate")

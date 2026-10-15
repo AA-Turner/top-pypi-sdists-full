@@ -91,6 +91,7 @@
 #include "meshioplusplus/detail/value_io.hpp"
 #include "meshioplusplus/detail/vtk_xml.hpp"
 #include "meshioplusplus/exceptions.hpp"
+#include "meshioplusplus/formats/cad_json.hpp"
 #include "meshioplusplus/formats/ansysinp.hpp"
 #include "meshioplusplus/formats/cgns.hpp"
 #include "meshioplusplus/formats/exodus.hpp"
@@ -114,7 +115,9 @@
 #include "meshioplusplus/operations/curvature.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
 #include "meshioplusplus/operations/fit_primitives.hpp"
+#include "meshioplusplus/operations/iga.hpp"
 #include "meshioplusplus/operations/segment.hpp"
+#include "meshioplusplus/operations/tessellate.hpp"
 #include "meshioplusplus/operations/render.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
 #include "meshioplusplus/operations/hausdorff.hpp"
@@ -835,7 +838,7 @@ namespace {
 bool format_supports_info(const std::string& rFormat) {
     return rFormat == "openfoam" || rFormat == "med" || rFormat == "mdpa" ||
            rFormat == "ansysinp" || rFormat == "unv" || rFormat == "gmsh" || rFormat == "exodus" ||
-           rFormat == "mfem";
+           rFormat == "mfem" || rFormat == "cad_json";
 }
 
 val string_vec_to_val(const std::vector<std::string>& rStrings) {
@@ -1448,6 +1451,290 @@ meshioplusplus::NurbsInfo val_to_nurbs_info(const val& rInfo) {
     return info;
 }
 
+// --- Kratos CAD JSON: the B-rep side channel --------------------------
+// `{format: 'cad_json', patches, breps, faces, edges, vertices, extra}`, the
+// layout of the Python `mesh.info["brep"]` in camelCase (index.d.ts
+// `CadJsonInfo`): control nets flat (points, 3), every index 0-based, ids -1
+// where an entity is named instead, `extra` members as compact JSON text.
+
+val brep_doubles_to_val(const std::vector<double>& rV) {
+    return val::array(rV);
+}
+
+val brep_curve_to_val(const meshioplusplus::BrepCurve& rC) {
+    val c = val::object();
+    c.set("degree", rC.mDegree);
+    c.set("knots", brep_doubles_to_val(rC.mKnots));
+    c.set("reducedKnots", rC.mReducedKnots);
+    c.set("rational", rC.mRational);
+    c.set("controlPoints", ndarray_to_typed_array(rC.mControlPoints));
+    c.set("weights", ndarray_to_typed_array(rC.mWeights));
+    c.set("ids", ndarray_to_typed_array(rC.mIds));
+    c.set("activeRange", brep_doubles_to_val(rC.mActiveRange));
+    c.set("extra", rC.mExtra);
+    return c;
+}
+
+val brep_trims_to_val(const std::vector<meshioplusplus::BrepTrim>& rTrims) {
+    val out = val::array();
+    for (const auto& t : rTrims) {
+        val v = val::object();
+        v.set("trimIndex", static_cast<double>(t.mTrimIndex));
+        v.set("direction", t.mDirection);
+        v.set("curve", brep_curve_to_val(t.mCurve));
+        v.set("extra", t.mExtra);
+        out.call<void>("push", v);
+    }
+    return out;
+}
+
+val brep_refs_to_val(const std::vector<meshioplusplus::BrepRef>& rRefs) {
+    val out = val::array();
+    for (const auto& r : rRefs) {
+        val v = val::object();
+        v.set("id", static_cast<double>(r.mId));
+        v.set("name", r.mName);
+        v.set("trimIndex", static_cast<double>(r.mTrimIndex));
+        v.set("relativeDirection", r.mRelativeDirection);
+        v.set("localCoordinates", brep_doubles_to_val(r.mLocalCoordinates));
+        v.set("extra", r.mExtra);
+        out.call<void>("push", v);
+    }
+    return out;
+}
+
+val brep_info_to_val(const meshioplusplus::BrepInfo& rInfo) {
+    val out = val::object();
+    out.set("format", std::string("cad_json"));
+    val patches = val::array();
+    for (const auto& p : rInfo.mPatches) {
+        val item = val::object();
+        item.set("degrees", val::array(p.mDegrees));
+        val knots = val::array();
+        for (const std::vector<double>& k : p.mKnots)
+            knots.call<void>("push", val::array(k));
+        item.set("knots", knots);
+        item.set("controlPoints", ndarray_to_typed_array(p.mControlPoints));
+        item.set("weights", ndarray_to_typed_array(p.mWeights));
+        patches.call<void>("push", item);
+    }
+    out.set("patches", patches);
+    val breps = val::array();
+    for (const auto& b : rInfo.mBreps) {
+        val item = val::object();
+        item.set("id", static_cast<double>(b.mId));
+        item.set("name", b.mName);
+        const std::vector<double> faces(b.mFaces.begin(), b.mFaces.end());
+        const std::vector<double> edges(b.mEdges.begin(), b.mEdges.end());
+        const std::vector<double> vertices(b.mVertices.begin(), b.mVertices.end());
+        item.set("faces", val::array(faces));
+        item.set("edges", val::array(edges));
+        item.set("vertices", val::array(vertices));
+        item.set("extra", b.mExtra);
+        breps.call<void>("push", item);
+    }
+    out.set("breps", breps);
+    val faces = val::array();
+    for (const auto& f : rInfo.mFaces) {
+        val item = val::object();
+        item.set("id", static_cast<double>(f.mId));
+        item.set("name", f.mName);
+        item.set("patch", static_cast<double>(f.mPatch));
+        item.set("swappedNormal", f.mSwappedNormal);
+        item.set("trimmed", f.mTrimmed);
+        item.set("rational", f.mRational);
+        item.set("reducedKnots", f.mReducedKnots);
+        item.set("controlPointIds", ndarray_to_typed_array(f.mControlPointIds));
+        val loops = val::array();
+        for (const auto& l : f.mLoops) {
+            val lv = val::object();
+            lv.set("type", l.mType);
+            lv.set("trims", brep_trims_to_val(l.mTrims));
+            lv.set("extra", l.mExtra);
+            loops.call<void>("push", lv);
+        }
+        item.set("loops", loops);
+        item.set("embeddedEdges", brep_trims_to_val(f.mEmbeddedEdges));
+        item.set("surfaceExtra", f.mSurfaceExtra);
+        item.set("extra", f.mExtra);
+        faces.call<void>("push", item);
+    }
+    out.set("faces", faces);
+    val edges = val::array();
+    for (const auto& e : rInfo.mEdges) {
+        val item = val::object();
+        item.set("id", static_cast<double>(e.mId));
+        item.set("name", e.mName);
+        item.set("curve", e.mHasCurve ? brep_curve_to_val(e.mCurve) : val::null());
+        item.set("topology", brep_refs_to_val(e.mTopology));
+        item.set("extra", e.mExtra);
+        edges.call<void>("push", item);
+    }
+    out.set("edges", edges);
+    val vertices = val::array();
+    for (const auto& v : rInfo.mVertices) {
+        val item = val::object();
+        item.set("id", static_cast<double>(v.mId));
+        item.set("name", v.mName);
+        item.set("topology", brep_refs_to_val(v.mTopology));
+        item.set("extra", v.mExtra);
+        vertices.call<void>("push", item);
+    }
+    out.set("vertices", vertices);
+    out.set("extra", rInfo.mExtra);
+    return out;
+}
+
+// A JS value that must be present.
+val brep_js_get(const val& rObj, const char* pKey) {
+    const val v = rObj[pKey];
+    if (v.isUndefined())
+        throw meshioplusplus::WriteError(std::string("CAD JSON info: '") + pKey + "' is missing");
+    return v;
+}
+
+std::string brep_js_string(const val& rObj, const char* pKey) {
+    const val v = rObj[pKey];
+    return v.isUndefined() || v.isNull() ? std::string() : v.as<std::string>();
+}
+
+std::int64_t brep_js_int(const val& rObj, const char* pKey) {
+    const double v = val::global("Number")(brep_js_get(rObj, pKey)).as<double>();
+    if (!std::isfinite(v) || std::floor(v) != v || std::abs(v) > 9007199254740991.0)
+        throw meshioplusplus::WriteError(std::string("CAD JSON info: '") + pKey +
+                                         "' must be an integer");
+    return static_cast<std::int64_t>(v);
+}
+
+std::vector<std::int64_t> brep_js_index_list(const val& rObj, const char* pKey) {
+    const NDArray a = nurbs_js_ints(brep_js_get(rObj, pKey), 1, pKey);
+    return std::vector<std::int64_t>(a.As<std::int64_t>(), a.As<std::int64_t>() + a.Size());
+}
+
+meshioplusplus::BrepCurve val_to_brep_curve(const val& rC) {
+    meshioplusplus::BrepCurve c;
+    c.mDegree = static_cast<std::int32_t>(brep_js_int(rC, "degree"));
+    c.mKnots = emscripten::vecFromJSArray<double>(brep_js_get(rC, "knots"));
+    c.mReducedKnots = brep_js_get(rC, "reducedKnots").as<bool>();
+    c.mRational = brep_js_get(rC, "rational").as<bool>();
+    c.mControlPoints = nurbs_js_doubles(brep_js_get(rC, "controlPoints"), 3, "controlPoints");
+    c.mWeights = nurbs_js_doubles(brep_js_get(rC, "weights"), 1, "weights");
+    c.mIds = nurbs_js_ints(brep_js_get(rC, "ids"), 1, "ids");
+    c.mActiveRange = emscripten::vecFromJSArray<double>(brep_js_get(rC, "activeRange"));
+    c.mExtra = brep_js_string(rC, "extra");
+    return c;
+}
+
+std::vector<meshioplusplus::BrepTrim> val_to_brep_trims(const val& rArr) {
+    std::vector<meshioplusplus::BrepTrim> out;
+    for (unsigned i = 0; i < rArr["length"].as<unsigned>(); ++i) {
+        const val t = rArr[i];
+        meshioplusplus::BrepTrim trim;
+        trim.mTrimIndex = brep_js_int(t, "trimIndex");
+        trim.mDirection = brep_js_get(t, "direction").as<bool>();
+        trim.mCurve = val_to_brep_curve(brep_js_get(t, "curve"));
+        trim.mExtra = brep_js_string(t, "extra");
+        out.push_back(std::move(trim));
+    }
+    return out;
+}
+
+std::vector<meshioplusplus::BrepRef> val_to_brep_refs(const val& rArr) {
+    std::vector<meshioplusplus::BrepRef> out;
+    for (unsigned i = 0; i < rArr["length"].as<unsigned>(); ++i) {
+        const val r = rArr[i];
+        meshioplusplus::BrepRef ref;
+        ref.mId = brep_js_int(r, "id");
+        ref.mName = brep_js_string(r, "name");
+        ref.mTrimIndex = brep_js_int(r, "trimIndex");
+        ref.mRelativeDirection = static_cast<std::int32_t>(brep_js_int(r, "relativeDirection"));
+        ref.mLocalCoordinates = emscripten::vecFromJSArray<double>(brep_js_get(r, "localCoordinates"));
+        ref.mExtra = brep_js_string(r, "extra");
+        out.push_back(std::move(ref));
+    }
+    return out;
+}
+
+meshioplusplus::BrepInfo val_to_brep_info(const val& rInfo) {
+    meshioplusplus::BrepInfo info;
+    const val patches = brep_js_get(rInfo, "patches");
+    for (unsigned i = 0; i < patches["length"].as<unsigned>(); ++i) {
+        const val p = patches[i];
+        meshioplusplus::NurbsPatch patch;
+        for (double d : emscripten::vecFromJSArray<double>(brep_js_get(p, "degrees")))
+            patch.mDegrees.push_back(static_cast<std::int32_t>(d));
+        const val knots = brep_js_get(p, "knots");
+        for (unsigned d = 0; d < knots["length"].as<unsigned>(); ++d)
+            patch.mKnots.push_back(emscripten::vecFromJSArray<double>(knots[d]));
+        patch.mControlPoints = nurbs_js_doubles(brep_js_get(p, "controlPoints"), 3, "controlPoints");
+        patch.mWeights = nurbs_js_doubles(brep_js_get(p, "weights"), 1, "weights");
+        info.mPatches.push_back(std::move(patch));
+    }
+    const val breps = brep_js_get(rInfo, "breps");
+    for (unsigned i = 0; i < breps["length"].as<unsigned>(); ++i) {
+        const val b = breps[i];
+        meshioplusplus::Brep brep;
+        brep.mId = brep_js_int(b, "id");
+        brep.mName = brep_js_string(b, "name");
+        brep.mFaces = brep_js_index_list(b, "faces");
+        brep.mEdges = brep_js_index_list(b, "edges");
+        brep.mVertices = brep_js_index_list(b, "vertices");
+        brep.mExtra = brep_js_string(b, "extra");
+        info.mBreps.push_back(std::move(brep));
+    }
+    const val faces = brep_js_get(rInfo, "faces");
+    for (unsigned i = 0; i < faces["length"].as<unsigned>(); ++i) {
+        const val f = faces[i];
+        meshioplusplus::BrepFace face;
+        face.mId = brep_js_int(f, "id");
+        face.mName = brep_js_string(f, "name");
+        face.mPatch = brep_js_int(f, "patch");
+        face.mSwappedNormal = brep_js_get(f, "swappedNormal").as<bool>();
+        face.mTrimmed = brep_js_get(f, "trimmed").as<bool>();
+        face.mRational = brep_js_get(f, "rational").as<bool>();
+        face.mReducedKnots = brep_js_get(f, "reducedKnots").as<bool>();
+        face.mControlPointIds = nurbs_js_ints(brep_js_get(f, "controlPointIds"), 1, "controlPointIds");
+        const val loops = brep_js_get(f, "loops");
+        for (unsigned l = 0; l < loops["length"].as<unsigned>(); ++l) {
+            meshioplusplus::BrepLoop loop;
+            loop.mType = brep_js_string(loops[l], "type");
+            loop.mTrims = val_to_brep_trims(brep_js_get(loops[l], "trims"));
+            loop.mExtra = brep_js_string(loops[l], "extra");
+            face.mLoops.push_back(std::move(loop));
+        }
+        face.mEmbeddedEdges = val_to_brep_trims(brep_js_get(f, "embeddedEdges"));
+        face.mSurfaceExtra = brep_js_string(f, "surfaceExtra");
+        face.mExtra = brep_js_string(f, "extra");
+        info.mFaces.push_back(std::move(face));
+    }
+    const val edges = brep_js_get(rInfo, "edges");
+    for (unsigned i = 0; i < edges["length"].as<unsigned>(); ++i) {
+        const val e = edges[i];
+        meshioplusplus::BrepEdge edge;
+        edge.mId = brep_js_int(e, "id");
+        edge.mName = brep_js_string(e, "name");
+        const val curve = e["curve"];
+        edge.mHasCurve = !curve.isUndefined() && !curve.isNull();
+        if (edge.mHasCurve)
+            edge.mCurve = val_to_brep_curve(curve);
+        edge.mTopology = val_to_brep_refs(brep_js_get(e, "topology"));
+        edge.mExtra = brep_js_string(e, "extra");
+        info.mEdges.push_back(std::move(edge));
+    }
+    const val vertices = brep_js_get(rInfo, "vertices");
+    for (unsigned i = 0; i < vertices["length"].as<unsigned>(); ++i) {
+        const val v = vertices[i];
+        meshioplusplus::BrepVertex vertex;
+        vertex.mId = brep_js_int(v, "id");
+        vertex.mName = brep_js_string(v, "name");
+        vertex.mTopology = val_to_brep_refs(brep_js_get(v, "topology"));
+        vertex.mExtra = brep_js_string(v, "extra");
+        info.mVertices.push_back(std::move(vertex));
+    }
+    info.mExtra = brep_js_string(rInfo, "extra");
+    return info;
+}
+
 // --- Exodus (read-only) ------------------------------------------------
 #ifdef MESHIOPLUSPLUS_HAS_NETCDF
 
@@ -1508,6 +1795,12 @@ Mesh read_with_info(const std::string& rPath, const std::string& rFormat,
         rInfoOut = nurbs_info_to_val(info);
         return mesh;
     }
+    if (rFormat == "cad_json") {
+        meshioplusplus::BrepInfo info;
+        Mesh mesh = meshioplusplus::read_cad_json(rPath, info);
+        rInfoOut = brep_info_to_val(info);
+        return mesh;
+    }
 #ifdef MESHIOPLUSPLUS_HAS_HDF5
     if (rFormat == "med") {
         meshioplusplus::MedInfo info;
@@ -1547,6 +1840,10 @@ void write_with_info(const std::string& rPath, const Mesh& rMesh, const std::str
     }
     if (rFormat == "mfem") {
         meshioplusplus::write_mfem(rPath, rMesh, false, val_to_nurbs_info(rInfo));
+        return;
+    }
+    if (rFormat == "cad_json") {
+        meshioplusplus::write_cad_json(rPath, rMesh, val_to_brep_info(rInfo));
         return;
     }
     if (rFormat == "mdpa") {
@@ -4197,6 +4494,194 @@ val fit_primitives_js(const val& rMeshObj, const std::string& rPatchData, double
 }
 
 // ---------------------------------------------------------------------
+// The isogeometric layer (v16.43.0): `igaRefine`, `igaSample` and
+// `igaEvaluate` act on the side-channel object `readMeshSelective(path,
+// {info: true}).info` of an MFEM NURBS mesh (`format: 'mfem'`) or a B-rep
+// (`format: 'cad_json'`). See operations/iga.hpp and doc/iga.md.
+// ---------------------------------------------------------------------
+
+std::int32_t iga_js_int(const val& rOptions, const char* pKey, std::int32_t Default) {
+    if (rOptions.isUndefined() || rOptions.isNull() || !rOptions.hasOwnProperty(pKey))
+        return Default;
+    const double v = rOptions[pKey].as<double>();
+    if (!std::isfinite(v) || v != std::floor(v) || std::fabs(v) > 1e9)
+        throw std::invalid_argument(std::string("meshio++: iga: '") + pKey +
+                                    "' must be an integer");
+    return static_cast<std::int32_t>(v);
+}
+
+bool iga_js_bool(const val& rOptions, const char* pKey, bool Default) {
+    if (rOptions.isUndefined() || rOptions.isNull() || !rOptions.hasOwnProperty(pKey))
+        return Default;
+    return rOptions[pKey].as<bool>();
+}
+
+// `{subdivisions, elevate}`: a number or an array of up to three numbers each.
+std::array<std::int32_t, 3> iga_js_triple(const val& rOptions, const char* pKey,
+                                          std::int32_t Default) {
+    std::array<std::int32_t, 3> out{Default, Default, Default};
+    if (rOptions.isUndefined() || rOptions.isNull() || !rOptions.hasOwnProperty(pKey))
+        return out;
+    const val v = rOptions[pKey];
+    if (v.typeOf().as<std::string>() == "number") {
+        out.fill(iga_js_int(rOptions, pKey, Default));
+        return out;
+    }
+    const auto n = v["length"].as<std::size_t>();
+    if (n < 1 || n > 3)
+        throw std::invalid_argument(std::string("meshio++: iga: '") + pKey +
+                                    "' must be a number or one to three numbers");
+    for (std::size_t d = 0; d < 3; ++d)
+        out[d] = static_cast<std::int32_t>(v[static_cast<unsigned>(std::min(d, n - 1))].as<double>());
+    return out;
+}
+
+meshioplusplus::IgaSampleOptions iga_js_sample_options(const val& rOptions) {
+    meshioplusplus::IgaSampleOptions so;
+    so.mSubdivisions = iga_js_int(rOptions, "sampleSubdivisions", 0);
+    so.mTrimSamples = iga_js_int(rOptions, "trimSamples", 16);
+    so.mEdges = iga_js_bool(rOptions, "edges", true);
+    so.mTrim = iga_js_bool(rOptions, "trim", true);
+    return so;
+}
+
+std::string iga_js_format(const val& rInfo) {
+    if (rInfo.isUndefined() || rInfo.isNull() || !rInfo.hasOwnProperty("format"))
+        throw std::invalid_argument("meshio++: iga: the info object has no 'format'");
+    const std::string f = rInfo["format"].as<std::string>();
+    if (f != "mfem" && f != "cad_json")
+        throw std::invalid_argument("meshio++: iga: a '" + f +
+                                    "' side channel is not a NURBS model (mfem or cad_json)");
+    return f;
+}
+
+val iga_refine_js(const val& rInfo, const val& rOptions) {
+    return with_js_errors([&]() -> val {
+        const std::string fmt = iga_js_format(rInfo);
+        meshioplusplus::IgaRefineOptions ro;
+        ro.mSubdivisions = iga_js_triple(rOptions, "subdivisions", 1);
+        ro.mElevate = iga_js_triple(rOptions, "elevate", 0);
+        const meshioplusplus::IgaSampleOptions so = iga_js_sample_options(rOptions);
+        val out = val::object();
+        if (fmt == "mfem") {
+            const meshioplusplus::NurbsInfo refined =
+                meshioplusplus::iga_refine(val_to_nurbs_info(rInfo), ro);
+            meshioplusplus::NurbsInfo mapped;
+            out.set("mesh", mesh_to_val(meshioplusplus::iga_sample(refined, so, &mapped)));
+            out.set("info", nurbs_info_to_val(mapped));
+        } else {
+            const meshioplusplus::BrepInfo refined =
+                meshioplusplus::iga_refine(val_to_brep_info(rInfo), ro);
+            out.set("mesh", mesh_to_val(meshioplusplus::iga_sample(refined, so)));
+            out.set("info", brep_info_to_val(refined));
+        }
+        return out;
+    });
+}
+
+val iga_sample_js(const val& rInfo, const val& rOptions) {
+    return with_js_errors([&]() -> val {
+        const std::string fmt = iga_js_format(rInfo);
+        const meshioplusplus::IgaSampleOptions so = iga_js_sample_options(rOptions);
+        val out = val::object();
+        if (fmt == "mfem") {
+            meshioplusplus::NurbsInfo mapped;
+            out.set("mesh", mesh_to_val(meshioplusplus::iga_sample(val_to_nurbs_info(rInfo), so,
+                                                                   &mapped)));
+            out.set("info", nurbs_info_to_val(mapped));
+        } else {
+            const meshioplusplus::BrepInfo brep = val_to_brep_info(rInfo);
+            out.set("mesh", mesh_to_val(meshioplusplus::iga_sample(brep, so)));
+            out.set("info", brep_info_to_val(brep));
+        }
+        return out;
+    });
+}
+
+val iga_evaluate_js(const val& rInfo, double patch, const val& rParams, const val& rOptions) {
+    return with_js_errors([&]() -> val {
+        const std::string fmt = iga_js_format(rInfo);
+        if (!std::isfinite(patch) || patch != std::floor(patch) || patch < 0)
+            throw std::invalid_argument("meshio++: iga: patch must be a non-negative integer");
+        const std::int32_t derivatives = iga_js_int(rOptions, "derivatives", 0);
+        const std::int32_t trim_samples = iga_js_int(rOptions, "trimSamples", 16);
+        const auto index = static_cast<std::size_t>(patch);
+        // `params`: a flat array/typed array, `d` numbers per point.
+        const std::size_t dim =
+            fmt == "mfem" ? 0 : 2;  // an mfem patch's own dimension is read below
+        meshioplusplus::NurbsInfo nurbs;
+        meshioplusplus::BrepInfo brep;
+        std::size_t d = dim;
+        if (fmt == "mfem") {
+            nurbs = val_to_nurbs_info(rInfo);
+            if (index >= nurbs.mPatches.size())
+                throw std::invalid_argument("meshio++: iga: patch out of range");
+            d = nurbs.mPatches[index].mDegrees.size();
+        } else {
+            brep = val_to_brep_info(rInfo);
+        }
+        const NDArray params = nurbs_js_doubles(rParams, d, "params");
+        meshioplusplus::IgaEvaluation e =
+            fmt == "mfem"
+                ? meshioplusplus::iga_evaluate(nurbs, index, params, derivatives)
+                : meshioplusplus::iga_evaluate(brep, index, params, derivatives, trim_samples);
+        val out = val::object();
+        out.set("spaceDim", static_cast<double>(cols_of(e.mPoints)));
+        out.set("points", ndarray_to_typed_array(e.mPoints));
+        val fields = val::array();
+        val comps = val::array();
+        for (const NDArray& f : e.mFields) {
+            fields.call<void>("push", ndarray_to_typed_array(f));
+            comps.call<void>("push", static_cast<double>(cols_of(f)));
+        }
+        out.set("fields", fields);
+        out.set("fieldComponents", comps);
+        if (e.mDerivatives.Size())
+            out.set("derivatives", ndarray_to_typed_array(e.mDerivatives));
+        if (e.mNormals.Size())
+            out.set("normals", ndarray_to_typed_array(e.mNormals));
+        if (fmt == "cad_json")
+            out.set("inside", ndarray_to_typed_array(e.mInside));
+        return out;
+    });
+}
+
+/**
+ * @brief Isoparametric tessellation of curved (quadratic) cells. See
+ * operations/tessellate.hpp.
+ */
+val tessellate_js(const val& rMeshObj, double levels, bool curved, bool fields,
+                  bool recordStencil) {
+    return with_js_errors([&]() -> val {
+        // A non-integer count would truncate silently, and a NaN, infinite or
+        // huge one is undefined behaviour in the cast below; the core range
+        // check (0..20) handles the rest.
+        if (!std::isfinite(levels) || levels != std::floor(levels) ||
+            std::fabs(levels) > 9007199254740992.0)
+            throw std::invalid_argument("meshio++: tessellate: levels must be an integer");
+        meshioplusplus::TessellateOptions options;
+        options.mLevels = static_cast<std::int64_t>(levels);
+        options.mCurved = curved;
+        options.mFields = fields;
+        options.mRecordStencil = recordStencil;
+        meshioplusplus::TessellateResult r =
+            meshioplusplus::tessellate(val_to_mesh(rMeshObj), options);
+        val out = val::object();
+        out.set("mesh", mesh_to_val(r.mMesh));
+        out.set("numSourcePoints", static_cast<double>(r.mNumSourcePoints));
+        out.set("numSourceCells", static_cast<double>(r.mNumSourceCells));
+        out.set("numCurvedSourceCells", static_cast<double>(r.mNumCurvedSourceCells));
+        out.set("numPassThroughSourceCells", static_cast<double>(r.mNumPassThroughSourceCells));
+        out.set("numPoints", static_cast<double>(r.mNumPoints));
+        out.set("numCells", static_cast<double>(r.mNumCells));
+        out.set("numBoundaryFacets", static_cast<double>(r.mNumBoundaryFacets));
+        out.set("numInteriorFacets", static_cast<double>(r.mNumInteriorFacets));
+        out.set("numFacetsWithBadCount", static_cast<double>(r.mNumFacetsWithBadCount));
+        return out;
+    });
+}
+
+// ---------------------------------------------------------------------
 // Software rendering (v16.33.0, field rendering v16.34.0): a deterministic
 // rasterizer that needs no WebGL (a server-side preview, a Node script). The
 // options travel as one JS object with the camelCase names of the TypeScript
@@ -6186,6 +6671,10 @@ EMSCRIPTEN_BINDINGS(meshioplusplus_wasm) {
     emscripten::function("featureEdges", &feature_edges_js);
     emscripten::function("segment", &segment_js);
     emscripten::function("fitPrimitives", &fit_primitives_js);
+    emscripten::function("tessellate", &tessellate_js);
+    emscripten::function("igaRefine", &iga_refine_js);
+    emscripten::function("igaSample", &iga_sample_js);
+    emscripten::function("igaEvaluate", &iga_evaluate_js);
     emscripten::function("render", &render_js);
     emscripten::function("renderText", &render_text_js);
     emscripten::function("renderPng", &render_png_js);

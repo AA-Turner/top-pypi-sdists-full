@@ -152,7 +152,7 @@ class Trajectories(APIResource):
     self,
     trajectory_id: str,
     *,
-    include_steps: bool | Omit = omit,
+    include_steps: bool | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -161,6 +161,9 @@ class Trajectories(APIResource):
     """Detail
 
     Args:
+      include_steps: Include every step; listTrajectorySteps pages them. Defaults to false with
+        Trajectory-API-Version: tmp-contract and to true otherwise.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request

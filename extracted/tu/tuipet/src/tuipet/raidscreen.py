@@ -24,6 +24,8 @@ from . import menu
 COLS, ROWS = 40, 12
 BOARD_POLL_T = 50   # frames between gate polls on the BOARD (~5s)
 POOL_POLL_T = 20    # ...and DURING a volley (~2s): the bar has ~20s to move
+FALL_T = 40            # ORIGINAL SPEED (Joel 2026-10-14: "i never told you to speed up animations"); skips stay
+REWARD_T = 120
 
 
 def _fmt(n):
@@ -152,6 +154,10 @@ class RaidPanel(menu.SubHost):
                 self._credited += dealt
                 self.msg = f"Gate credits {dealt:,} damage!"
                 self.sfx = "attackHit"
+            elif hit.get("ok"):
+                # battle audit 2026-10-14: a whiff still spends an attempt.
+                self.msg = "Not a scratch — attempt spent. Rest and try again."
+                self.sfx = "refuse"
             else:
                 # the gate REFUSED the report -- speak ITS reason (the ack
                 # carries `why`: a fallen boss OR spent attempts; the old
@@ -184,27 +190,37 @@ class RaidPanel(menu.SubHost):
                 # boss") -- the server archives on the felling blow, so the
                 # view swaps bosses in one frame.  Hold the FELLED boss on
                 # the arena in the Dying collapse pose (frame 10, the real
-                # DVPet death animation) for ~4s before the incoming boss
+                # DVPet death animation) for 1.2s before the incoming boss
                 # takes the stage.
-                self._fell = (prev[4], prev[3], self.frame_i + 40)
+                self._fell = (prev[4], prev[3], self.frame_i + FALL_T)
             self._pool_seen = (b.get("start"), b.get("hp", 0),
                                b.get("end", 0), b.get("name", "The boss"),
                                int(b.get("num", -1)))
         if self._fell is not None and self.frame_i >= self._fell[2]:
-            self._fell = None
-            if (self.view or {}).get("award"):
-                # the hold ends on the answer to "what did i win???" -- the
-                # purse claim was a strip hint the fanfare talked over
-                self.msg = "Your share is ready — press C to claim!"
-                self.sfx = "confirm"
+            self._finish_show()
         if self._won is not None and self.frame_i >= self._won[0]:
             self._won = None
+
+    def _finish_show(self):
+        if self._fell is not None and (self.view or {}).get("award"):
+            self.msg = "Your share is ready — press C to claim!"
+            self.sfx = "confirm"
+        self._fell = self._won = None
 
     def _apply_reward(self, reward):
         if not reward.get("ok"):
             self.msg = "Nothing to claim."
             self.sfx = "error"
             return
+        rid = reward.get("id")
+        if rid is not None and persistence.raid_paid(rid):
+            # a RE-SENT payout this profile already applied (its ack was
+            # lost): never pay twice, just let the server drop its copy
+            self.client.raid_ack(rid)
+            self.msg = "Already collected."
+            return
+        if rid is not None:
+            persistence.note_raid_paid(rid)  # ledger FIRST: a crash can't double-pay
         bits = int(reward.get("bits", 0))
         self.pet.bits += bits
         got = list(reward.get("items") or [])
@@ -234,16 +250,20 @@ class RaidPanel(menu.SubHost):
             self.sfx = "confirm"
         # THE CLAIM REVEAL (Joel 2026-07-28: "i didnt know what i got last
         # time either") -- the prize line printed once and the context
-        # alternation talked over it.  Hold it PINNED for ~12s; a felled
+        # alternation talked over it.  Hold it for at most 3s; a felled
         # claim puts the PET on the arena in its victory cheer (the defeat
         # moment's mirror: body on the field, then the champion's bounce).
         self._fell = None
-        self._won = (self.frame_i + 120, bool(reward.get("defeated")))
+        self._won = (self.frame_i + REWARD_T, bool(reward.get("defeated")))
+        if rid is not None:
+            self.client.raid_ack(rid)        # applied: the server drops its copy
 
     def strip(self):
         if self.sub is not None:
             return ""
-        return menu.hints(("SPACE", "raid!"), ("C", "claim"), ("ESC", "out"))
+        if self._fell is not None or self._won is not None:
+            return menu.hints(("any key", "skip"))
+        return menu.hints(("SPACE", "raid!"), ("C", "claim"), ("ESC", "back"))
 
     # ---- the attempt ----
     def _boss_enemy(self):
@@ -279,15 +299,17 @@ class RaidPanel(menu.SubHost):
         # back None, and an ESC mid-show fast-runs the bout to completion.
         self.pet.record_battle(bool(getattr(b, "won", False)), online=True)
         dealt = int(getattr(b, "dealt", 0) or 0)
-        if dealt > 0 and self.view:
-            self.client.raid_hit(dealt)
-            self._dealt += dealt
+        # battle audit 2026-10-14: every thrown volley spends an attempt;
+        # a whiff or a poll's missing cached view must not refund it.
+        self.client.raid_hit(dealt)
+        self._dealt += dealt
+        if dealt > 0:
             # NEUTRAL until the ack lands: "reported!" used to stand even
             # when the gate rejected it or the socket was down (raid review
             # 2026-07-18); the ack path speaks the credit or the refusal
             self.msg = f"Landed {dealt} — reporting to the gate…"
         else:
-            self.msg = "Not a scratch. Rest and try again."
+            self.msg = "Not a scratch — reporting the attempt…"
 
     def key(self, k):
         if self.sub is not None:
@@ -295,6 +317,11 @@ class RaidPanel(menu.SubHost):
             if r is not None and r[0] == "done":
                 self.sub = None
                 self._report(r[1])
+            return None
+        if self._fell is not None or self._won is not None:
+            # Joel approved skips 2026-10-14. Rewards are already booked;
+            # this press cannot claim again, start an attempt, or leave.
+            self._finish_show()
             return None
         if k in ("space", "enter"):
             v = self.view
@@ -378,7 +405,8 @@ class RaidPanel(menu.SubHost):
             left = max(0, int(b.get("end", 0) - v.get("now", 0)))
             days, hrs = left // 86400, left % 86400 // 3600
             fest = _cad.holiday()
-            # the relay pays x1.5 on WEEKENDS only -- "2x" and a festival
+            # battle audit 2026-10-14: the relay bonuses weekend FINISHES.
+            # The relay pays x1.5 on WEEKENDS only -- "2x" and a festival
             # bonus were promises the server never paid (raid review
             # 2026-07-18); the festival stays as pure calendar flavor.
             # The weekend note keys off the SERVER'S clock (its own `now`,
@@ -390,7 +418,7 @@ class RaidPanel(menu.SubHost):
             srv_wknd = _time.gmtime(v.get("now", _time.time())).tm_wday >= 5
             alt = (f"weekly boss · {days}d {hrs}h left"
                    + (f" · {fest}" if fest
-                      else " · weekend claims pay 1.5x" if srv_wknd else ""))
+                      else " · weekend finishes pay 1.5x" if srv_wknd else ""))
         if self.msg and (not alt or (self.frame_i // 40) % 2 == 0):
             return self.msg
         return alt or self.msg

@@ -53,7 +53,7 @@ class RawPaymentMethodDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[PaymentMethodDomain, ListPaymentMethodDomainsResponse]:
         """
-        Lists payment method domains. Without `account_id`, returns the caller's own domains and those of every connected account.
+        Lists the payment method domains registered for your account and its connected accounts.
 
         Parameters
         ----------
@@ -213,12 +213,12 @@ class RawPaymentMethodDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PaymentMethodDomain]:
         """
-        Registers a hostname with the wallet provider and attempts verification inline. Returns `verified` when the provider fetched the domain-association file (for Apple Pay, `/.well-known/apple-developer-merchantid-domain-association`), or `pending` when it could not — host the file, then retry with the verify endpoint.
+        Registers a hostname with the wallet provider and attempts verification inline. Returns `verified` when the provider fetched the domain-association file (for Apple Pay, `/.well-known/apple-developer-merchantid-domain-association`), or `pending` when it could not: host the file, then retry with `POST /payment_method_domains/:id/verify`.
 
         Parameters
         ----------
         hostname : str
-            Hostname to register (e.g. `checkout.shinetime.example`).
+            Hostname to register (e.g. `checkout.shinetime.com`).
 
         account_id : typing.Optional[str]
             Account to register the domain for (`biz_` tag). Required when authenticating as a user; an account API key supplies its own account.
@@ -328,7 +328,7 @@ class RawPaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -405,7 +405,7 @@ class RawPaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -482,7 +482,7 @@ class RawPaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -595,7 +595,7 @@ class AsyncRawPaymentMethodDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[PaymentMethodDomain, ListPaymentMethodDomainsResponse]:
         """
-        Lists payment method domains. Without `account_id`, returns the caller's own domains and those of every connected account.
+        Lists the payment method domains registered for your account and its connected accounts.
 
         Parameters
         ----------
@@ -758,12 +758,12 @@ class AsyncRawPaymentMethodDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PaymentMethodDomain]:
         """
-        Registers a hostname with the wallet provider and attempts verification inline. Returns `verified` when the provider fetched the domain-association file (for Apple Pay, `/.well-known/apple-developer-merchantid-domain-association`), or `pending` when it could not — host the file, then retry with the verify endpoint.
+        Registers a hostname with the wallet provider and attempts verification inline. Returns `verified` when the provider fetched the domain-association file (for Apple Pay, `/.well-known/apple-developer-merchantid-domain-association`), or `pending` when it could not: host the file, then retry with `POST /payment_method_domains/:id/verify`.
 
         Parameters
         ----------
         hostname : str
-            Hostname to register (e.g. `checkout.shinetime.example`).
+            Hostname to register (e.g. `checkout.shinetime.com`).
 
         account_id : typing.Optional[str]
             Account to register the domain for (`biz_` tag). Required when authenticating as a user; an account API key supplies its own account.
@@ -873,7 +873,7 @@ class AsyncRawPaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -950,7 +950,7 @@ class AsyncRawPaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1027,7 +1027,7 @@ class AsyncRawPaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

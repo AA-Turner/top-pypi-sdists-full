@@ -192,6 +192,7 @@ class VM:
         block_network: Optional[bool] = None,
         allow_list: Optional[List[str]] = None,
         protected_ports: Optional[List[int]] = None,
+        public_ports: Optional[List[int]] = None,
         request_id: Optional[str] = None,
         disks: Optional[List[DurableDisk]] = None,
         volumes: Optional[List[Volume]] = None,
@@ -233,6 +234,7 @@ class VM:
             "block_network": block_network,
             "allow_list": allow_list,
             "protected_ports": protected_ports,
+            "public_ports": public_ports,
             "disks": (
                 [disk.export().to_dict(casing=betterproto.Casing.SNAKE) for disk in disks]
                 if disks is not None
@@ -715,6 +717,15 @@ print(json.dumps({'timestamp': time.time(), 'cpu_count': os.cpu_count(),
         from .desktop_api import VMDesktop
 
         return VMDesktop(self)
+
+    @property
+    def public_ipv6(self) -> Optional[str]:
+        """Persistent public IPv6 address, or None when one has not been allocated.
+
+        Available after create(), get() or refresh(); reading it does not make
+        a network request. The address survives stop/start and pause/resume.
+        """
+        return self.info.get("public_ipv6") or None
 
     @property
     def desktop_url(self):

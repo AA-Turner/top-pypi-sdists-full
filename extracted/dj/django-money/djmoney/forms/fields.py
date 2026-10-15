@@ -61,11 +61,11 @@ class MoneyField(MultiValueField):
 
         self.initial = [default_amount, default_currency]
 
-    def hidden_widget(self):
+    def hidden_widget(self, *args, **kwargs):
         # TODO: This should inherit the constraints of the field
         #  Otherwise, we won't validate that min, max value and currency_choices are valid?
         # This is usually used to pre-fill the 'initial data' hidden input, so it's not very sensitive to tampering.
-        return HiddenMoneyWidget()
+        return HiddenMoneyWidget(*args, **kwargs)
 
     def compress(self, data_list):
         if data_list:

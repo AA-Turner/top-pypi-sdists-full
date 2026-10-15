@@ -13,6 +13,18 @@ STAGES = ["Fresh", "InTraining", "Rookie", "Champion", "Ultimate", "Mega"]
 # design; ver1's Betamon road + the ver2-verE canon rewrite, 2026-07-07 --
 # every device line now matches its humulos DM20 chart)
 DECLARED_EDGES = {
+    # bfa -- the official Blizzard Fang DIM card's connectors the corpus graph
+    # never carried (humulos vbdm/vol; Joel approved the line 2026-10-15)
+    (628, 547), (547, 391), (136, 696), (547, 696), (696, 290), (696, 1047), (201, 649), (627, 649), (1284, 649),
+    # nme -- the official Nu Metal Empire DIM card's connectors the corpus
+    # graph never carried (humulos vbdm/vol; Joel approved the line 2026-10-15)
+    (960, 961), (42, 681), (42, 690), (112, 478), (690, 699), (112, 213), (681, 589), (681, 687), (213, 1360), (478, 375), (589, 689), (687, 276),
+    # iti -- the official Infinite Tide DIM card's connectors the corpus graph
+    # never carried (humulos vbdm/vol; Joel approved the line 2026-10-15)
+    (878, 110), (878, 105), (105, 202), (879, 881), (110, 881), (106, 206), (603, 275), (880, 283), (206, 283),
+    # vbe -- the official Volcanic Beat DIM card's connectors the corpus graph
+    # never carried (humulos vbdm/vol; Joel approved the line 2026-10-15)
+    (97, 267), (124, 217), (97, 424), (95, 250), (250, 635), (424, 507), (390, 724), (217, 724), (424, 724),
     (29, 95), (29, 102), (31, 87), (31, 91), (33, 94), (33, 115),
     (34, 101), (34, 136), (34, 140), (35, 94), (35, 114), (35, 148),
     (37, 90), (37, 95), (37, 102), (43, 101), (43, 109), (43, 136),
@@ -233,12 +245,20 @@ def _all_lines():
     return lines.load_lines()
 
 
+# a card places a form in a slot its global stage disagrees with, and Joel
+# ruled to keep it there playing as its global stage (2026-10-15: Blizzard
+# Fang's Daipenmon sits in the card's Ultimate slot, a Mega in tuipet)
+STAGE_SLOT_EXCEPTIONS = {("bfa", 696)}
+
+
 def test_every_member_is_a_real_form_at_its_stage():
     _, by_num = data.load_sprites()
     for lid, line in _all_lines().items():
         for num, row in line["members"].items():
             assert num in by_num, (lid, num)
             assert not data.is_placeholder(num), (lid, num)
+            if (lid, num) in STAGE_SLOT_EXCEPTIONS:
+                continue
             assert by_num[num]["stage"] == row["stage"], (lid, num)
 
 
@@ -485,3 +505,36 @@ def test_dm20_jogress_capstones_are_declared_doors():
         pet.dead = False
         o = next(o for o in jogress.options(pet) if o["num"] == target)
         assert o["partner_num"] == partner and o["partners"] == []
+
+
+def test_shadow_ties_are_current_and_every_shadowed_form_is_reachable():
+    """Evolution call #18 = A (Joel 2026-10-15): 42 chart rows could never
+    win first-match.  They now tie with the first match (the stage roll
+    picks), so each is reachable; the shipped table matches its generator."""
+    import json
+    import os
+    import subprocess
+    import sys
+    from types import SimpleNamespace
+    root = os.path.join(os.path.dirname(__file__), "..")
+    env = dict(os.environ, PYTHONPATH=os.path.join(root, "src"))
+    out = subprocess.run([sys.executable, os.path.join(root, "tools", "shadow_ties.py"),
+                          "--check"], env=env, capture_output=True, text=True, timeout=300)
+    assert out.returncode == 0, out.stdout + out.stderr
+    ties = lines.shadow_ties()
+    assert sum(len(t) for chart in ties.values() for t in chart.values()) == 42
+    # Garurumon 108 on vbu: WereGarurumon 222 used to win every time
+    assert 201 in ties["vbu"][108]
+    rows = lines.load_lines()["vbu"]["children"][108]
+    mammoth = next(r for r in rows if r["num"] == 201)
+    alt = mammoth["rule"][0]
+    cm = next((lo for k, lo, _ in alt if k == "cm"), 0)
+    picks = set()
+    for roll in range(100):
+        pet = SimpleNamespace(num=108, line_id="vbu", stage="Champion",
+                              care_mistakes=cm, stage_trainings=99, overeat=0,
+                              stage_battles=15, exp=10**6, mega_kills=0, gcell=0,
+                              stage_roll=roll, gcell_fragment=False,
+                              battle_log=[1] * 15)
+        picks.add(lines.select_line(pet))
+    assert {201, 222} <= picks

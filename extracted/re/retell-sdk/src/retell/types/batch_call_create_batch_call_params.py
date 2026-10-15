@@ -1531,7 +1531,7 @@ class TaskAgentOverrideAgentVoicemailOption(TypedDict, total=False):
 class TaskAgentOverrideAgent(TypedDict, total=False):
     """Override agent configuration settings.
 
-    Any properties specified here will override the base agent configuration for this call.
+    Any properties specified here will override the base agent configuration for this call. If a Retell LLM or Conversation Flow response engine is specified without a version, it uses the latest version.
     """
 
     agent_name: Optional[str]
@@ -1976,6 +1976,7 @@ class TaskAgentOverrideAgent(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-argon",
         ]
     ]
     """The model to use for post call analysis. Default to gpt-5.6-terra."""
@@ -2225,6 +2226,7 @@ class TaskAgentOverrideConversationFlowModelChoiceModelChoiceCascading(TypedDict
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-argon",
         ]
     ]
     """The LLM model to use"""
@@ -2234,6 +2236,13 @@ class TaskAgentOverrideConversationFlowModelChoiceModelChoiceCascading(TypedDict
 
     high_priority: bool
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: bool
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class TaskAgentOverrideConversationFlowModelChoiceModelChoiceS2S(TypedDict, total=False):
@@ -2311,7 +2320,7 @@ class TaskAgentOverrideRetellLlmKBConfig(TypedDict, total=False):
 class TaskAgentOverrideRetellLlm(TypedDict, total=False):
     """Override Retell LLM configuration settings.
 
-    Only applicable when using Retell LLM as the response engine. Supported attributes - model, s2s_model, model_temperature, model_high_priority, tool_call_strict_mode, knowledge_base_ids, kb_config, start_speaker, begin_after_user_silence_ms, begin_message.
+    Only applicable when using Retell LLM as the response engine. Supported attributes - model, s2s_model, model_temperature, model_high_priority, model_ultrafast, tool_call_strict_mode, knowledge_base_ids, kb_config, start_speaker, begin_after_user_silence_ms, begin_message.
     """
 
     begin_after_user_silence_ms: Optional[int]
@@ -2368,6 +2377,7 @@ class TaskAgentOverrideRetellLlm(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-argon",
         ]
     ]
     """Select the underlying text LLM. If not set, would default to gpt-5.6-terra."""
@@ -2385,6 +2395,14 @@ class TaskAgentOverrideRetellLlm(TypedDict, total=False):
     Value ranging from [0,1]. Lower value means more deterministic, while higher
     value means more random. If unset, default value 0 will apply. Note that for
     tool calling, a lower value is recommended.
+    """
+
+    model_ultrafast: Optional[bool]
+    """
+    If set to true, will use the ultrafast tier for much faster response generation,
+    default to false. Only supported by gpt-6.1-sol on voice agents; ignored
+    otherwise. Takes precedence over model_high_priority. This feature comes with a
+    higher cost.
     """
 
     s2s_model: Optional[
@@ -2425,7 +2443,8 @@ class TaskAgentOverride(TypedDict, total=False):
     """Override agent configuration settings.
 
     Any properties specified here will override the base agent configuration for
-    this call.
+    this call. If a Retell LLM or Conversation Flow response engine is specified
+    without a version, it uses the latest version.
     """
 
     conversation_flow: TaskAgentOverrideConversationFlow
@@ -2441,8 +2460,8 @@ class TaskAgentOverride(TypedDict, total=False):
 
     Only applicable when using Retell LLM as the response engine. Supported
     attributes - model, s2s_model, model_temperature, model_high_priority,
-    tool_call_strict_mode, knowledge_base_ids, kb_config, start_speaker,
-    begin_after_user_silence_ms, begin_message.
+    model_ultrafast, tool_call_strict_mode, knowledge_base_ids, kb_config,
+    start_speaker, begin_after_user_silence_ms, begin_message.
     """
 
 

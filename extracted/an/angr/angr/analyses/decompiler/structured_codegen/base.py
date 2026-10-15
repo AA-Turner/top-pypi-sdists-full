@@ -37,6 +37,18 @@ class CConstantType(Enum):
 #
 
 
+class FunctionRef:
+    """
+    A function a parsed decompilation refers to, carried by address until it is first needed, so that parsing a
+    decompilation does not load functions.
+    """
+
+    __slots__ = ("addr",)
+
+    def __init__(self, addr: int):
+        self.addr = addr
+
+
 class PositionMappingElement:
     __slots__ = ("length", "obj", "start")
 
@@ -134,11 +146,15 @@ class InstructionMapping:
             self._insmap[ins_addr] = InstructionMappingElement(ins_addr, posmap_pos)
 
     def get_nearest_pos(self, ins_addr: int) -> int | None:
-        try:
-            pre_max = next(self._insmap.irange(maximum=ins_addr, reverse=True))
-            pre_min = next(self._insmap.irange(minimum=ins_addr, reverse=False))
-        except StopIteration:
+        # either neighbor may be missing, e.g., a function head that precedes the first mapped statement
+        pre_max = next(self._insmap.irange(maximum=ins_addr, reverse=True), None)
+        pre_min = next(self._insmap.irange(minimum=ins_addr, reverse=False), None)
+        if pre_max is None and pre_min is None:
             return None
+        if pre_max is None:
+            return self._insmap[pre_min].posmap_pos
+        if pre_min is None:
+            return self._insmap[pre_max].posmap_pos
 
         e1: InstructionMappingElement = self._insmap[pre_max]
         e2: InstructionMappingElement = self._insmap[pre_min]
@@ -263,3 +279,77 @@ def register_display_name(arch: archinfo.Arch, reg_offset: int, size: int) -> st
     name = arch.translate_register_name(reg_offset, size)
     # translate_register_name falls back to the decimal offset
     return name if name.isidentifier() else f"reg_{reg_offset:x}"
+
+
+#
+# Flavor-independent node kinds
+#
+# The C, Rust, and Go code generators each have their own node class hierarchy. These markers let consumers (e.g. the
+# angr management pseudocode view) recognize a kind of node without naming every flavor's class.
+#
+
+
+class CodegenNode:
+    """Marker base of every structured-codegen node kind shared across flavors."""
+
+    __slots__ = ()
+
+
+class ExpressionNode(CodegenNode):
+    __slots__ = ()
+
+
+class VariableNode(CodegenNode):
+    """A variable access; has ``variable`` and ``unified_variable``."""
+
+    __slots__ = ()
+
+
+class IndexedVariableNode(CodegenNode):
+    __slots__ = ()
+
+
+class VariableFieldNode(CodegenNode):
+    __slots__ = ()
+
+
+class StructFieldNode(CodegenNode):
+    """A struct field name; has ``struct_type``, ``offset``, and ``field``."""
+
+    __slots__ = ()
+
+
+class FunctionNode(CodegenNode):
+    """The function being decompiled; has ``addr`` and ``name``."""
+
+    __slots__ = ()
+
+
+class FunctionCallNode(CodegenNode):
+    """A call; has ``callee_func`` (a Function or None) and ``callee_target``."""
+
+    __slots__ = ()
+
+
+class ConstantNode(CodegenNode):
+    """A constant; has ``value`` and ``reference_values``."""
+
+    __slots__ = ()
+
+
+class LabelNode(CodegenNode):
+    __slots__ = ()
+
+
+class BinaryOpNode(CodegenNode):
+    __slots__ = ()
+
+
+class UnaryOpNode(CodegenNode):
+    __slots__ = ()
+
+
+class ClosingObjectNode(CodegenNode):
+    """A closing bracket, brace, or parenthesis."""
+
+    __slots__ = ()

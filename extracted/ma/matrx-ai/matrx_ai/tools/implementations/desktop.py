@@ -9,7 +9,11 @@ op's schema (the tool ↔ op map is ``TOOL_CATALOG`` in the protocol package).
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
+
+from croniter import croniter
 
 from matrx_ai.tools._sandbox_proxy import (
     DEVICE_OP_MAX_SECONDS,
@@ -34,6 +38,7 @@ from matrx_ai.tools.arg_models.desktop_args import (
     DesktopMessagesArgs,
     DesktopNetArgs,
     DesktopNotesArgs,
+    DesktopOutlookArgs,
     DesktopPhotosArgs,
     DesktopPowerArgs,
     DesktopProcessArgs,
@@ -784,6 +789,16 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
             90,
         ),
     },
+    "desktop_outlook": {
+        "status": _Act("outlook.status", timeout_s=60),
+        "draft": _Act(
+            "outlook.draft",
+            ("to", "cc", "bcc", "subject", "body", "body_format", "attachments", "account", "display"),
+            timeout_s=120,
+        ),
+        "list": _Act("outlook.list", ("folder", "account", "unread_only", "limit"), timeout_s=150),
+        "read": _Act("outlook.read", ("id",), ("id",), 90),
+    },
     "desktop_messages": {
         "chats": _Act("messages.chats", ("limit",), timeout_s=60),
         "list": _Act("messages.list", ("chat_id", "limit"), timeout_s=60),
@@ -961,6 +976,11 @@ async def desktop_mail(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     return await _sidecar("desktop_mail", DesktopMailArgs, args, ctx)
 
 
+async def desktop_outlook(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """The user's own Microsoft Outlook app, with no Microsoft consent (ops ``outlook.*``)."""
+    return await _sidecar("desktop_outlook", DesktopOutlookArgs, args, ctx)
+
+
 async def desktop_messages(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """The Messages app on the user's Mac (ops ``messages.*``)."""
     return await _sidecar("desktop_messages", DesktopMessagesArgs, args, ctx)
@@ -1013,6 +1033,7 @@ _SCHEDULABLE: dict[str, Any] = {
     "desktop_documents": DesktopDocumentsArgs,
     "desktop_entities": DesktopEntitiesArgs,
     "desktop_mail": DesktopMailArgs,
+    "desktop_outlook": DesktopOutlookArgs,
     "desktop_messages": DesktopMessagesArgs,
     "desktop_contacts": DesktopContactsArgs,
     "desktop_calendar": DesktopCalendarArgs,
@@ -1024,17 +1045,34 @@ _SCHEDULABLE: dict[str, Any] = {
 _SCHEDULE_DEFAULT_ACTION = {"desktop_automation": "run", "desktop_location": "get"}
 
 
-def _schedule_plan(a: DesktopScheduleArgs) -> tuple[str, dict[str, Any], float] | str:
-    if a.action == "list":
-        return ("schedule.list", {"include_finished": bool(a.include_finished)}, 30)
-    if a.action == "cancel":
-        return (
-            ("schedule.cancel", {"id": a.id}, 30)
-            if a.id
-            else "cancel needs the id (from create or list)"
-        )
-    if not (a.name and a.tool and a.interval_s):
-        return "create needs name, tool and interval_s"
+# A scheduled coding session: Claude Code or Codex started on the computer at each run, as a new
+# session every time (the computer mints each run's client_request_id; none is stored here).
+SCHEDULED_CODING_TOOL = "coding_sessions_drive"
+_CODING_PROVIDERS = ("claude", "codex")
+
+
+def _coding_session_op(args: dict[str, Any]) -> tuple[str, dict[str, Any]] | str:
+    """coding.start's stored params from tool_args {folder, prompt, provider, account_profile_id}, or why not."""
+    folder = str(args.get("folder") or "").strip()
+    prompt = str(args.get("prompt") or "").strip()
+    provider = str(args.get("provider") or "claude").strip().lower()
+    if not folder or not prompt:
+        return f"{SCHEDULED_CODING_TOOL} needs tool_args.folder (a full path on that computer) and tool_args.prompt"
+    if provider not in _CODING_PROVIDERS:
+        return f"{SCHEDULED_CODING_TOOL}: provider is claude or codex, not {provider}"
+    params: dict[str, Any] = {"provider": provider, "cwd": folder, "prompt": prompt}
+    account = str(args.get("account_profile_id") or "").strip()
+    if account:
+        params["account_profile_id"] = account
+    return "coding.start", params
+
+
+def _schedule_op(a: DesktopScheduleArgs) -> tuple[str, dict[str, Any]] | str:
+    """The op and params a scheduled run sends (the scheduled tool's own plan), or why not."""
+    if not (a.name and a.tool):
+        return "create needs name and tool, and one of interval_s, cron or at"
+    if a.tool == SCHEDULED_CODING_TOOL:
+        return _coding_session_op(a.tool_args or {})
     model = _SCHEDULABLE.get(a.tool)
     if model is None:
         return f"{a.tool} cannot be scheduled; one of: {', '.join(sorted(_SCHEDULABLE))}"
@@ -1047,20 +1085,329 @@ def _schedule_plan(a: DesktopScheduleArgs) -> tuple[str, dict[str, Any], float] 
     if isinstance(plan, str):
         return plan
     op, params, _ = plan
-    create: dict[str, Any] = {
-        "name": a.name,
-        "op": op,
-        "params": params,
-        "interval_s": a.interval_s,
-        "run_now": bool(a.run_now),
+    return op, params
+
+
+def _schedule_trigger(a: DesktopScheduleArgs) -> tuple[str, dict[str, Any], datetime] | str:
+    """The sch_trigger (type, config) and its first due time, or why not. Exactly one timing."""
+    timings = [n for n, v in (("interval_s", a.interval_s), ("cron", a.cron), ("at", a.at)) if v]
+    if len(timings) != 1:
+        return "create needs exactly one of interval_s, cron or at"
+    now = datetime.now(UTC)
+    if a.interval_s:
+        first = now if a.run_now else now + timedelta(seconds=a.interval_s)
+        return "interval", {"every_seconds": a.interval_s}, first
+    if a.cron:
+        tz_name = a.timezone or "UTC"
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:  # noqa: BLE001 - the agent reads why
+            return f"timezone {tz_name!r} is not an IANA timezone such as America/Los_Angeles"
+        try:
+            nxt = croniter(a.cron, now.astimezone(tz)).get_next(datetime).astimezone(UTC)
+        except Exception as exc:  # noqa: BLE001
+            return f"cron {a.cron!r}: {str(exc)[:200]}"
+        return "cron", {"expression": a.cron, "tz": tz_name}, (now if a.run_now else nxt)
+    try:
+        at = datetime.fromisoformat(str(a.at).replace("Z", "+00:00"))
+    except ValueError:
+        return f"at {a.at!r} is not an ISO-8601 time such as 2026-10-15T09:00:00-07:00"
+    at = at if at.tzinfo else at.replace(tzinfo=UTC)
+    return "one-shot", {"at": at.astimezone(UTC).isoformat()}, at.astimezone(UTC)
+
+
+def _bound_device_id() -> str | None:
+    """The conversation's bound computer (its app_instances id), as the binding carries it."""
+    binding = get_active_sandbox()
+    if binding is None or binding.target_kind != "local_machine":
+        return None
+    return binding.device_id
+
+
+def _schedule_models() -> tuple[Any, Any, Any]:
+    from matrx_ai.db._registry import get_model as get_db_model
+
+    return get_db_model("SchTask"), get_db_model("SchTrigger"), get_db_model("AppInstances")
+
+
+def _schedule_refusal(call_id: str, started_at: float, error_type: str, message: str) -> ToolResult:
+    return ToolResult(
+        success=False,
+        error=ToolError(error_type=error_type, message=message),
+        started_at=started_at,
+        completed_at=time.time(),
+        tool_name="desktop_schedule",
+        call_id=call_id,
+    )
+
+
+def _schedule_ok(call_id: str, started_at: float, output: dict[str, Any]) -> ToolResult:
+    return ToolResult(
+        success=True,
+        output=output,
+        started_at=started_at,
+        completed_at=time.time(),
+        tool_name="desktop_schedule",
+        call_id=call_id,
+    )
+
+
+class DeviceTaskRefused(Exception):
+    """Why a device task was not made, in words for the person or agent (error_type, message)."""
+
+    def __init__(self, error_type: str, message: str) -> None:
+        super().__init__(message)
+        self.error_type = error_type
+        self.message = message
+
+
+async def create_device_op_task(
+    a: DesktopScheduleArgs,
+    *,
+    user_id: str,
+    organization_id: str | None,
+    device_id: str | None,
+    created_via: str,
+    description: str | None = None,
+    homes: list[dict[str, Any]] | None = None,
+    agent: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """THE one writer of a ``device_op`` task on a chosen computer (sch_task + its one sch_trigger).
+
+    Both doors call it: the ``desktop_schedule`` tool (an agent) and aidream's
+    ``POST /scheduling/device-tasks`` (the web's schedule form). The task is filed in the COMPUTER's
+    organization (where its schedule host reads it), falling back to the caller's. Raises
+    DeviceTaskRefused with the reason; returns the saved task, device and first run time.
+    """
+    if agent is not None:
+        # An agent on this computer (kind agent): the agent runs on AI Matrx, started by the computer.
+        if not str(agent.get("prompt") or "").strip():
+            raise DeviceTaskRefused("invalid_argument", "an agent task needs a prompt")
+        op, params = "", {}
+    else:
+        planned = _schedule_op(a)
+        if isinstance(planned, str):
+            raise DeviceTaskRefused("invalid_argument", planned)
+        op, params = planned
+    trigger = _schedule_trigger(a)
+    if isinstance(trigger, str):
+        raise DeviceTaskRefused("invalid_argument", trigger)
+    ttype, tconfig, first_due = trigger
+    if not device_id:
+        raise DeviceTaskRefused(
+            "no_computer",
+            "Name the computer with device_id, or connect a computer to this conversation; "
+            "a scheduled task runs on one chosen computer.",
+        )
+    sch_task, sch_trigger, app_instances = _schedule_models()
+    rows = await app_instances.filter(id=device_id, user_id=user_id, deleted_at__isnull=True).limit(1).values(
+        "id", "instance_name", "hostname", "organization_id"
+    )
+    if not rows:
+        raise DeviceTaskRefused(
+            "invalid_argument", f"device {device_id} is not one of this person's computers (or it was removed)"
+        )
+    org = str(rows[0].get("organization_id") or "") or organization_id
+    if not org:
+        raise DeviceTaskRefused(
+            "configuration", "That computer is not in an organization; open Matrx 2 on it and sign in again."
+        )
+    device_name = rows[0].get("instance_name") or rows[0].get("hostname") or "your computer"
+    device_op: dict[str, Any] = {"op": op, "params": params, "tool": a.tool, "max_runs": a.max_runs}
+    if homes:
+        device_op["homes"] = homes
+    task = await sch_task.create_item(
+        user_id=user_id,
+        organization_id=org,
+        kind="agent" if agent is not None else "device_op",
+        title=a.name,
+        description=description,
+        surfaces=["desktop"],
+        enabled=True,
+        target_device_id=device_id,
+        metadata={"created_via": created_via} if agent is not None else {"created_via": created_via, "device_op": device_op},
+    )
+    task_id = str(task.id)
+    try:
+        if agent is not None:
+            from matrx_ai.db._registry import get_model as get_db_model
+
+            await get_db_model("SchAgentTask").create_item(id=task_id, organization_id=org, **agent)
+        await sch_trigger.create_item(
+            user_id=user_id,
+            organization_id=org,
+            task_id=task_id,
+            type=ttype,
+            config=tconfig,
+            enabled=True,
+            next_due_at=first_due,
+        )
+    except Exception:
+        # Delete means archive, even for a rollback: the half-made task never fires and never lists.
+        await sch_task.update_where({"id": task_id}, deleted_at=datetime.now(UTC), enabled=False)
+        raise
+    return {
+        "task": {"id": task_id, "name": a.name, "op": op, "trigger": {"type": ttype, **tconfig}},
+        "device": {"id": device_id, "name": device_name},
+        "organization_id": org,
+        "next_run_at": first_due.isoformat(),
     }
-    if a.max_runs is not None:
-        create["max_runs"] = a.max_runs
-    return ("schedule.create", create, 60)
+
+
+async def update_device_op_task(
+    task_id: str,
+    a: DesktopScheduleArgs,
+    *,
+    user_id: str,
+    device_id: str,
+    description: str | None,
+    homes: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """THE one editor of a coding schedule on a computer: title, description, computer, the work in
+    metadata.device_op (keys the edit does not name are kept; a fresh client_request_id is never
+    stored) and its one time trigger. ``homes``: None keeps them, [] removes them."""
+    trigger = _schedule_trigger(a)
+    if isinstance(trigger, str):
+        raise DeviceTaskRefused("invalid_argument", trigger)
+    ttype, tconfig, first_due = trigger
+    planned = _schedule_op(a)
+    if isinstance(planned, str):
+        raise DeviceTaskRefused("invalid_argument", planned)
+    _, new_params = planned
+    sch_task, sch_trigger, app_instances = _schedule_models()
+    rows = await sch_task.filter(id=task_id, user_id=user_id, deleted_at__isnull=True).limit(1).values("id", "kind", "metadata")
+    if not rows or rows[0].get("kind") != "device_op":
+        raise DeviceTaskRefused("not_found", "No such schedule on a computer of yours.")
+    if not await app_instances.filter(id=device_id, user_id=user_id, deleted_at__isnull=True).limit(1).values("id"):
+        raise DeviceTaskRefused("invalid_argument", f"device {device_id} is not one of this person's computers")
+    metadata = dict(rows[0].get("metadata") or {})
+    current = dict(metadata.get("device_op") or {"op": "coding.start", "tool": a.tool})
+    params = {**dict(current.get("params") or {}), **new_params}
+    params.pop("client_request_id", None)
+    if "account_profile_id" not in new_params:
+        params.pop("account_profile_id", None)
+    current["params"] = params
+    if homes is not None:
+        if homes:
+            current["homes"] = homes
+        else:
+            current.pop("homes", None)
+    metadata["device_op"] = current
+    await sch_task.update_where(
+        {"id": task_id, "user_id": user_id},
+        title=a.name,
+        description=description,
+        metadata=metadata,
+        target_device_id=device_id,
+    )
+    await sch_trigger.update_where(
+        {"task_id": task_id, "deleted_at__isnull": True}, type=ttype, config=tconfig, next_due_at=first_due
+    )
+    return {"id": task_id, "next_run_at": first_due.isoformat(), "device_op": current}
+
+
+async def _schedule_create(a: DesktopScheduleArgs, ctx: ToolContext, started_at: float) -> ToolResult:
+    try:
+        made = await create_device_op_task(
+            a,
+            user_id=ctx.user_id,
+            organization_id=ctx.organization_id,
+            device_id=a.device_id or _bound_device_id(),
+            created_via="agent",
+        )
+    except DeviceTaskRefused as refused:
+        if refused.error_type == "invalid_argument":
+            return _invalid("desktop_schedule", ctx.call_id, started_at, refused.message)
+        return _schedule_refusal(ctx.call_id, started_at, refused.error_type, refused.message)
+    how = "the computer you named" if a.device_id else "the computer connected to this conversation"
+    device_name = made["device"]["name"]
+    return _schedule_ok(
+        ctx.call_id,
+        started_at,
+        {
+            "action": "create",
+            "task": made["task"],
+            "device": {**made["device"], "chosen_as": how},
+            "next_run_at": made["next_run_at"],
+            "note": f"Saved in AI Matrx; it runs on {device_name} whenever Matrx 2 is open there "
+            "(a run missed while it is off runs once when it is back, by default).",
+        },
+    )
+
+
+async def _schedule_list(a: DesktopScheduleArgs, ctx: ToolContext, started_at: float) -> ToolResult:
+    sch_task, sch_trigger, _ = _schedule_models()
+    filters: dict[str, Any] = {"user_id": ctx.user_id, "kind": "device_op", "deleted_at__isnull": True}
+    if a.device_id:
+        filters["target_device_id"] = a.device_id
+    if not a.include_finished:
+        filters["enabled"] = True
+    tasks = await sch_task.filter(**filters).order_by("next_due_at").limit(200).values(
+        "id", "title", "enabled", "next_due_at", "last_run_at", "target_device_id", "metadata"
+    )
+    out: list[dict[str, Any]] = []
+    for t in tasks:
+        triggers = await sch_trigger.filter(task_id=t["id"], deleted_at__isnull=True).limit(1).values("type", "config")
+        dop = (t.get("metadata") or {}).get("device_op") or {}
+        out.append(
+            {
+                "id": str(t["id"]),
+                "name": t["title"],
+                "enabled": t["enabled"],
+                "device_id": str(t["target_device_id"]) if t.get("target_device_id") else None,
+                "op": dop.get("op"),
+                "trigger": ({"type": triggers[0]["type"], **(triggers[0]["config"] or {})} if triggers else None),
+                "next_run_at": t["next_due_at"].isoformat() if t.get("next_due_at") else None,
+                "last_run_at": t["last_run_at"].isoformat() if t.get("last_run_at") else None,
+            }
+        )
+    output: dict[str, Any] = {"action": "list", "tasks": out}
+    # Tasks made before schedules lived in AI Matrx stay in the bound computer's own list.
+    binding = get_active_sandbox()
+    if binding is not None and binding.target_kind == "local_machine":
+        try:
+            output["on_this_computer_only"] = await device_op(
+                binding, "schedule.list", {"include_finished": bool(a.include_finished)}, timeout_s=30
+            )
+        except SandboxProxyError as exc:
+            output["on_this_computer_only"] = {"unavailable": str(exc)[:300]}
+    return _schedule_ok(ctx.call_id, started_at, output)
+
+
+async def _schedule_cancel(a: DesktopScheduleArgs, ctx: ToolContext, started_at: float) -> ToolResult:
+    if not a.id:
+        return _invalid("desktop_schedule", ctx.call_id, started_at, "cancel needs the id (from create or list)")
+    sch_task, _, _ = _schedule_models()
+    rows = await sch_task.filter(id=a.id, user_id=ctx.user_id, kind="device_op", deleted_at__isnull=True).limit(1).values("id")
+    if rows:
+        await sch_task.update_where({"id": a.id}, deleted_at=datetime.now(UTC), enabled=False)
+        return _schedule_ok(ctx.call_id, started_at, {"action": "cancel", "id": a.id, "cancelled": True})
+    # Not in AI Matrx: a task the bound computer keeps itself (made before this change).
+    return await _call_ops("desktop_schedule", ctx, started_at, ("schedule.cancel", {"id": a.id}, 30), action="cancel")
 
 
 async def desktop_schedule(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    """Run a desktop tool's action on the user's computer on an interval (ops ``schedule.*``)."""
+    """Run a desktop tool's action on one of the user's computers on a schedule.
+
+    Saved as a ``scheduler.sch_task`` (kind ``device_op``, ``target_device_id`` = the computer,
+    the op in ``metadata.device_op``) with one ``sch_trigger``: interval, cron or one-shot. The
+    computer's Matrx 2 is its scheduler host (claims, runs it through its own tool switches,
+    finishes the run). The device is ``device_id`` or, by default, the conversation's bound
+    computer; the result says which."""
     started_at = time.time()
     a = DesktopScheduleArgs(**args)
-    return await _call_ops("desktop_schedule", ctx, started_at, _schedule_plan(a), action=a.action)
+    try:
+        if a.action == "create":
+            return await _schedule_create(a, ctx, started_at)
+        if a.action == "list":
+            return await _schedule_list(a, ctx, started_at)
+        return await _schedule_cancel(a, ctx, started_at)
+    except Exception as exc:  # noqa: BLE001 - loud: the agent reads the database's words
+        return ToolResult(
+            success=False,
+            error=ToolError.from_exception(exc, error_type="database", message=f"desktop_schedule {a.action}: {str(exc)[:300]}"),
+            started_at=started_at,
+            completed_at=time.time(),
+            tool_name="desktop_schedule",
+            call_id=ctx.call_id,
+        )

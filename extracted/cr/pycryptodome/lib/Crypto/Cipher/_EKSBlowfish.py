@@ -1,43 +1,30 @@
-# ===================================================================
-#
-# Copyright (c) 2019, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2019 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
+
+from __future__ import annotations
 
 import sys
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Union
 
 from Crypto.Cipher import _create_cipher
-from Crypto.Util._raw_api import (load_pycryptodome_raw_lib,
-                                  VoidPointer, SmartPointer, c_size_t,
-                                  c_uint8_ptr, c_uint)
+from Crypto.Util._raw_api import (
+    SmartPointer,
+    VoidPointer,
+    c_size_t,
+    c_uint,
+    c_uint8_ptr_len,
+    load_pycryptodome_raw_lib,
+)
+
+if TYPE_CHECKING:
+    from Crypto.Cipher._mode_ecb import EcbMode
+
+Buffer = Union[bytes, bytearray, memoryview]
 
 _raw_blowfish_lib = load_pycryptodome_raw_lib(
-        "Crypto.Cipher._raw_eksblowfish",
-        """
+    "Crypto.Cipher._raw_eksblowfish",
+    """
         int EKSBlowfish_start_operation(const uint8_t key[],
                                         size_t key_len,
                                         const uint8_t salt[16],
@@ -54,8 +41,18 @@ _raw_blowfish_lib = load_pycryptodome_raw_lib(
                                 uint8_t *out,
                                 size_t data_len);
         int EKSBlowfish_stop_operation(void *state);
-        """
-        )
+        int EKSBlowfish_bcrypt(const uint8_t key[], size_t key_len,
+                               const uint8_t salt[], size_t salt_len,
+                               unsigned cost, unsigned invert,
+                               const uint8_t ctext[], size_t ctext_len,
+                               uint8_t out[]);
+        int EKSBlowfish_bcrypt2(const uint8_t key[], size_t key_len,
+                                const uint8_t salt1[], const uint8_t salt2[], size_t salt_len,
+                                unsigned cost, unsigned invert,
+                                const uint8_t ctext[], size_t ctext_len,
+                                uint8_t out1[], uint8_t out2[]);
+        """,
+)
 
 
 def _create_base_cipher(dict_parameters):
@@ -78,22 +75,25 @@ def _create_base_cipher(dict_parameters):
     stop_operation = _raw_blowfish_lib.EKSBlowfish_stop_operation
 
     void_p = VoidPointer()
-    result = start_operation(c_uint8_ptr(key),
-                             c_size_t(len(key)),
-                             c_uint8_ptr(salt),
-                             c_size_t(len(salt)),
-                             c_uint(cost),
-                             c_uint(int(invert)),
-                             void_p.address_of())
+    key_ptr, key_len = c_uint8_ptr_len(key)
+    salt_ptr, salt_len = c_uint8_ptr_len(salt)
+    result = start_operation(
+        key_ptr,
+        c_size_t(key_len),
+        salt_ptr,
+        c_size_t(salt_len),
+        c_uint(cost),
+        c_uint(int(invert)),
+        void_p.address_of(),
+    )
     if result:
-        raise ValueError("Error %X while instantiating the EKSBlowfish cipher"
-                         % result)
+        raise ValueError("Error %X while instantiating the EKSBlowfish cipher" % result)
     return SmartPointer(void_p.get(), stop_operation)
 
 
-def new(key, mode, salt, cost, invert):
+def new(key: Buffer, mode: int, salt: Buffer, cost: int, invert: bool) -> EcbMode:
     """Create a new EKSBlowfish cipher
-    
+
     Args:
 
       key (bytes, bytearray, memoryview):
@@ -119,13 +119,13 @@ def new(key, mode, salt, cost, invert):
     :Return: an EKSBlowfish object
     """
 
-    kwargs = { 'salt':salt, 'cost':cost, 'invert':invert }
+    kwargs = {"salt": salt, "cost": cost, "invert": invert}
     return _create_cipher(sys.modules[__name__], key, mode, **kwargs)
 
 
-MODE_ECB = 1
+MODE_ECB: int = 1
 
 # Size of a data block (in bytes)
-block_size = 8
+block_size: int = 8
 # Size of a key (in bytes)
-key_size = range(0, 72 + 1)
+key_size: Iterable[int] = range(72 + 1)

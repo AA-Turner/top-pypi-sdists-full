@@ -22,6 +22,32 @@ def call_sql(frame, event, arg, context):
     return frame.f_code is not context["class"].execute_sql.__code__
 
 
+def _executed_query(ops, cursor, sql, params):
+    """The query as the database driver sent it, or the query template when
+    the driver has nothing to report: it raised before sending the query
+    (a NUL byte in a parameter on PostgreSQL, for one)."""
+    try:
+        query = ops.last_executed_query(cursor, sql, params)
+    except Exception:
+        query = None
+    # MySQL reports a query it did not run as the string "None".
+    if not query or query == "None":
+        query = sql
+    return str(query).strip()
+
+
+def _exception_summary(event, arg):
+    """``{"exception": "ExceptionType: message"}`` for a query that raised.
+    Only ``sys.monitoring`` passes the exception."""
+    if event != "unwind" or not isinstance(arg, BaseException):
+        return {}
+    try:
+        summary = f"{type(arg).__name__}: {arg}"
+    except Exception:
+        summary = type(arg).__name__
+    return {"exception": summary[:1000]}
+
+
 def process_sql(
     frame: types.FrameType,
     event: str,
@@ -36,8 +62,8 @@ def process_sql(
             "call_timestamp": timestamp,
         }
 
+    exception = _exception_summary(event, arg)
     if event == "unwind":
-        # sys.monitoring passes the exception; no rows were returned.
         arg = None
     else:
         assert event == "return"
@@ -55,13 +81,12 @@ def process_sql(
             query = None
         else:
             query_template = sql.strip()
-            # Unset if connection.cursor() itself raised.
             cursor = frame.f_locals.get("cursor")
             if cursor is None:
                 query = None
             else:
                 ops = frame.f_locals["self"].connection.ops
-                query = ops.last_executed_query(cursor, sql, params).strip()
+                query = _executed_query(ops, cursor, sql, params)
 
     return {
         "database": database,
@@ -70,6 +95,7 @@ def process_sql(
         "query": query,
         "query_data": arg,
         "query_params": params,
+        **exception,
     }
 
 
@@ -89,8 +115,8 @@ def process_raw_sql(
             "call_timestamp": timestamp,
         }
 
+    exception = _exception_summary(event, arg)
     if event == "unwind":
-        # sys.monitoring passes the exception; no rows were returned.
         arg = None
     else:
         assert event == "return"
@@ -105,12 +131,11 @@ def process_raw_sql(
     else:
         cursor = raw_query.cursor
         query_template = sql.strip()
-        # None if connection.cursor() itself raised.
         if cursor is None:
             query = None
         else:
             ops = connection.ops
-            query = ops.last_executed_query(cursor, sql, params).strip()
+            query = _executed_query(ops, cursor, sql, params)
 
     return {
         "database": database,
@@ -119,6 +144,7 @@ def process_raw_sql(
         "query": query,
         "query_data": arg,
         "query_params": params,
+        **exception,
     }
 
 

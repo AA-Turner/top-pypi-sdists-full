@@ -19,6 +19,7 @@ Revision History:
 #include "solver/check_logic.h"
 #include "solver/smt_logics.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
@@ -48,6 +49,7 @@ struct check_logic::imp {
     bool          m_bvs;       // true if the logic supports bit-vectors
     bool          m_quantifiers; // true if the logic supports quantifiers
     bool          m_unknown_logic;
+    bool          m_allow_casts; // true if to_real/to_int are allowed despite the logic not otherwise mixing Int and Real
 
     imp(ast_manager & _m):m(_m), m_a_util(m), m_bv_util(m), m_ar_util(m), m_seq_util(m), m_dt_util(m), m_pb_util(m) {
         reset();
@@ -65,6 +67,7 @@ struct check_logic::imp {
         m_bvs         = false;
         m_quantifiers = false;
         m_unknown_logic = true;
+        m_allow_casts = false;
     }
 
     void set_logic(symbol const & logic) {
@@ -123,6 +126,9 @@ struct check_logic::imp {
         else if (logic == "QF_AX") {
             m_arrays = true;
         }
+        else if (smt_logics::logic_is_ff(logic)) {
+            // Only Boolean structure and prime-field terms.
+        }
         else if (logic == "QF_BV") {
             m_bvs    = true;
         }
@@ -147,6 +153,12 @@ struct check_logic::imp {
         else if (logic == "QF_NRA") {
             m_reals     = true;
             m_nonlinear = true;
+        }
+        else if (logic == "QF_NTA") {
+            // QF_NRA extended with transcendental functions (sin, cos, exp, log, ...)
+            m_reals     = true;
+            m_nonlinear = true;
+            m_allow_casts = true;
         }
         else if (logic == "QF_UF") {
             m_uf = true;
@@ -232,6 +244,9 @@ struct check_logic::imp {
         if (s->get_family_id() == null_family_id) {
             if (!m_uf)
                 fail("logic does not support uninterpreted sorts");
+        }
+        else if (ff_util(m).is_ff(s)) {
+            if (!smt_logics::logic_has_ff(m_logic)) fail("logic does not support finite fields");
         }
         else if (m.is_bool(s)) {
             return;
@@ -445,9 +460,12 @@ struct check_logic::imp {
                     check_diff_predicate(n);
             }
             if (!m_ints || !m_reals) {
-                if (m_a_util.is_to_real(n) || m_a_util.is_to_int(n))
+                if (!m_allow_casts && (m_a_util.is_to_real(n) || m_a_util.is_to_int(n)))
                     fail("logic does not support casting operators");
             }
+        }
+        else if (fid == ff_util(m).get_fid() && smt_logics::logic_has_ff(m_logic)) {
+            // Sort construction and the declaration plugin check field operations.
         }
         else if (fid == m_bv_util.get_family_id()) {
             // nothing to check...

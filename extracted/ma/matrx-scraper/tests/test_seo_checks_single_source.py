@@ -193,6 +193,27 @@ def healthy(**overrides) -> PageEvidence:
     return PageEvidence(**base)
 
 
+#: A blog-section URL: `content_depth` only judges pages that are real articles.
+BLOG_URL = "https://example.com/blog/a"
+
+
+def alt_items(total: int, missing: int) -> list[dict]:
+    """A complete image inventory: `missing` images carry no alt attribute at all."""
+    return [
+        {
+            "src": f"https://example.com/i{i}.jpg",
+            "alt": None if i < missing else "described",
+            "width": 100,
+            "height": 100,
+            "loading": "eager" if i < 3 else "lazy",
+        }
+        for i in range(total)
+    ]
+
+
+ALT_ITEMS_2_OF_10_MISSING = alt_items(10, 2)
+
+
 def assert_db_valid(outcome: CheckOutcome) -> None:
     """Mirror of analysis_result_status_score_valid + status_valid."""
     assert outcome.status in ("pass", "warn", "fail", "n_a")
@@ -419,25 +440,13 @@ def test_a_healthy_page_trips_nothing():
         # --- title
         ({"title": None, "title_metrics": {}}, {"title_presence"}),
         (
-            {
-                "title_metrics": {
-                    "ok": False,
-                    "character_count": 9,
-                    "issues": ["Title is too short"],
-                }
-            },
+            {"title": "Too short"},  # 9 chars: under the contract's 15
             {"title_length"},
         ),
         # --- meta description
         ({"description": None, "description_metrics": {}}, {"meta_description_presence"}),
         (
-            {
-                "description_metrics": {
-                    "ok": False,
-                    "character_count": 12,
-                    "issues": ["Description is too short"],
-                }
-            },
+            {"description": "Too short."},  # under the contract's 50
             {"meta_description_length"},
         ),
         # --- structure
@@ -447,9 +456,13 @@ def test_a_healthy_page_trips_nothing():
         # thin is ALSO short for its own declared type — both verdicts are true
         # and they are deliberately different questions (absolute floor vs
         # per-type expectation).
-        ({"word_count": CONTENT_OK_WORDS - 1}, {"thin_content", "content_depth"}),
+        # (content_depth judges only real articles — a blog-section URL here.)
         (
-            {"word_count": CONTENT_FAIL_WORDS - 1},
+            {"url": BLOG_URL, "word_count": CONTENT_OK_WORDS - 1},
+            {"thin_content", "content_depth"},
+        ),
+        (
+            {"url": BLOG_URL, "word_count": CONTENT_FAIL_WORDS - 1},
             {"thin_content", "content_depth"},
         ),
         # --- outline
@@ -468,12 +481,12 @@ def test_a_healthy_page_trips_nothing():
         ({"headings": []}, {"heading_hierarchy"}),
         # --- content depth (its own defect: long enough to clear the thin-content
         # floor, short for a page that calls itself an article)
-        ({"word_count": CONTENT_DEPTH_ARTICLE_MIN_WORDS - 1}, {"content_depth"}),
+        ({"url": BLOG_URL, "word_count": CONTENT_DEPTH_ARTICLE_MIN_WORDS - 1}, {"content_depth"}),
         # --- text-to-HTML ratio
         ({"text_bytes": 1_000}, {"text_html_ratio"}),
         # --- soft 404: a 200 that titles itself an error and carries nothing
         (
-            {"title": "404 — Page Not Found", "word_count": 12},
+            {"url": BLOG_URL, "title": "404 — Page Not Found", "word_count": 12},
             {"soft_404_detection", "thin_content", "content_depth"},
         ),
         # --- temporary redirect: a 302 hop on the way to a 200
@@ -486,7 +499,10 @@ def test_a_healthy_page_trips_nothing():
             },
             {"temporary_redirect_usage"},
         ),
-        ({"image_count": 10, "images_missing_alt": 2}, {"image_alt_presence"}),
+        (
+            {"image_count": 10, "image_items": ALT_ITEMS_2_OF_10_MISSING},
+            {"image_alt_presence"},
+        ),
         # --- indexability
         ({"meta_robots": "noindex", "noindex": True}, {"meta_robots_conflicts"}),
         ({"meta_robots": "index, nofollow", "nofollow": True}, {"meta_robots_conflicts"}),
@@ -555,7 +571,8 @@ def test_a_healthy_page_trips_nothing():
         # --- social card
         (
             {"og": {**COMPLETE_OG, "og:image": ""}},
-            {"og_image_validity", "social_meta_completeness"},
+            # og_image_validity owns the missing picture; the social check does not repeat it.
+            {"og_image_validity"},
         ),
         ({"og": {**COMPLETE_OG, "og:image": "/share.png"}}, {"og_image_validity"}),
         (
@@ -719,17 +736,18 @@ def test_content_depth_is_per_type_and_never_a_second_thin_content():
     # ...while the absolute floor still fires for it. Different questions.
     assert seo_audit.check_thin_content(typeless).status == "warn"
 
-    article_short = healthy(word_count=CONTENT_DEPTH_ARTICLE_MIN_WORDS - 1)
+    article_short = healthy(url=BLOG_URL, word_count=CONTENT_DEPTH_ARTICLE_MIN_WORDS - 1)
     assert seo_audit.check_content_depth(article_short).score == 55
     # Deep enough for the thin-content floor, shallow for an article: this is
     # exactly the gap `content_depth` exists to report.
     assert seo_audit.check_thin_content(article_short).status == "pass"
 
     solid = seo_audit.check_content_depth(
-        healthy(word_count=CONTENT_DEPTH_ARTICLE_TARGET_WORDS - 1)
+        healthy(url=BLOG_URL, word_count=CONTENT_DEPTH_ARTICLE_TARGET_WORDS - 1)
     )
     assert solid.status == "pass" and solid.score == 80
-    full = seo_audit.check_content_depth(healthy(word_count=CONTENT_DEPTH_ARTICLE_TARGET_WORDS))
+    full = seo_audit.check_content_depth(healthy(url=BLOG_URL, word_count=CONTENT_DEPTH_ARTICLE_TARGET_WORDS)
+    )
     assert full.status == "pass" and full.score == 100
 
     # The SAME word count is a shallow article and a normal product page.
@@ -774,7 +792,10 @@ def test_soft_404_needs_a_200_and_scores_signals_separately():
     strong = seo_audit.check_soft_404_detection(error_page)
     assert strong.status == "fail" and strong.score == 15
 
-    empty = seo_audit.check_soft_404_detection(healthy(word_count=SOFT_404_EMPTY_MAX_WORDS - 1))
+    # Nothing counted AND no heading anywhere: the contract's "no meaningful content".
+    empty = seo_audit.check_soft_404_detection(
+        healthy(word_count=SOFT_404_EMPTY_MAX_WORDS - 1, headings=[], h1_count=0)
+    )
     assert empty.status == "warn" and empty.score == 40
 
     phrasing_only = seo_audit.check_soft_404_detection(healthy(title="404 error"))
@@ -783,7 +804,8 @@ def test_soft_404_needs_a_200_and_scores_signals_separately():
     thin_only = seo_audit.check_soft_404_detection(
         healthy(word_count=SOFT_404_PHRASE_MAX_WORDS - 1)
     )
-    assert thin_only.status == "warn" and thin_only.score == 70
+    # Word count alone is thin_content's finding, not a soft-404 signal.
+    assert thin_only.status == "pass"
 
     # An honest 404 is not a soft 404 — that is `broken_page_4xx`'s job.
     honest = seo_audit.check_soft_404_detection(
@@ -826,11 +848,11 @@ def test_temporary_redirect_reads_hop_statuses_and_never_guesses():
 
 
 def test_image_alt_escalates_at_both_declared_bounds():
-    ratio_fail = healthy(image_count=10, images_missing_alt=int(10 * IMAGE_ALT_FAIL_RATIO))
+    ratio_fail = healthy(image_count=10, image_items=alt_items(10, int(10 * IMAGE_ALT_FAIL_RATIO)))
     assert seo_audit.check_image_alt_presence(ratio_fail).status == "fail"
-    count_fail = healthy(image_count=100, images_missing_alt=IMAGE_ALT_FAIL_COUNT)
+    count_fail = healthy(image_count=100, image_items=alt_items(100, IMAGE_ALT_FAIL_COUNT))
     assert seo_audit.check_image_alt_presence(count_fail).status == "fail"
-    warn = healthy(image_count=100, images_missing_alt=IMAGE_ALT_FAIL_COUNT - 1)
+    warn = healthy(image_count=100, image_items=alt_items(100, IMAGE_ALT_FAIL_COUNT - 1))
     assert seo_audit.check_image_alt_presence(warn).status == "warn"
 
 
@@ -976,12 +998,13 @@ def test_audit_html_output_feeds_the_checks_directly():
         "title_length",
         "meta_description_presence",
         "h1_presence",
-        "thin_content",
         "image_alt_presence",
         "meta_robots_conflicts",
         "canonical_conflicts",
         "mixed_content",
     } <= tripped
+    # The page is noindexed, so it is not held to a thin-content bar.
+    assert "thin_content" not in tripped
     for outcome in run_page_checks(evidence).values():
         assert_db_valid(outcome)
 

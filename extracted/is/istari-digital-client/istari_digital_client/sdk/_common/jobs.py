@@ -20,6 +20,7 @@ from istari_digital_client.sdk._exceptions import NotFoundError, PermissionDenie
 from istari_digital_client.sdk._generated.v2.models.archive_status import ArchiveStatus
 from istari_digital_client.sdk._generated.v2.models.job_status_name import JobStatusName
 from istari_digital_client.sdk._generated.v2.models.new_job import NewJob
+from istari_digital_client.sdk._generated.v2.models.os import OS
 
 
 _TERMINAL_STATUSES = frozenset(
@@ -139,6 +140,11 @@ class Jobs(_SupportsAccess):
 
         # The v2 path param is still named ``model_id`` (deprecated); the value is
         # a resource id — models/artifacts are unified as resources.
+        # Accept a plain host-OS string (e.g. "Ubuntu 22.04") as well as an OS enum.
+        if operating_system is not None:
+            operating_system = coerce_enum(
+                OS, operating_system, param="operating_system"
+            )
         job_kwargs: dict[str, Any] = dict(
             function_name=function,
             new_job=NewJob(revision=file_rev),

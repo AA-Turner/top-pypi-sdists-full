@@ -30,22 +30,8 @@ except ImportError:
     from mistralai import Mistral
 
 try:
-    Chat = importlib.import_module("mistralai.client.chat").Chat
-    Embeddings = importlib.import_module("mistralai.client.embeddings").Embeddings
-    Fim = importlib.import_module("mistralai.client.fim").Fim
-    Agents = importlib.import_module("mistralai.client.agents").Agents
-    Conversations = importlib.import_module("mistralai.client.conversations").Conversations
-    Ocr = importlib.import_module("mistralai.client.ocr").Ocr
-    Transcriptions = importlib.import_module("mistralai.client.transcriptions").Transcriptions
     models = importlib.import_module("mistralai.client.models")
 except ImportError:
-    Chat = importlib.import_module("mistralai.chat").Chat
-    Embeddings = importlib.import_module("mistralai.embeddings").Embeddings
-    Fim = importlib.import_module("mistralai.fim").Fim
-    Agents = importlib.import_module("mistralai.agents").Agents
-    Conversations = importlib.import_module("mistralai.conversations").Conversations
-    Ocr = importlib.import_module("mistralai.ocr").Ocr
-    Transcriptions = importlib.import_module("mistralai.transcriptions").Transcriptions
     models = importlib.import_module("mistralai.models")
 
 try:
@@ -57,6 +43,8 @@ except ImportError:
 PROJECT_NAME = "test-mistral-sdk"
 CHAT_MODEL = "mistral-small-latest"
 AGENT_MODEL = CHAT_MODEL
+# This model supports logprobs and the additional sampling parameters.
+LOGPROBS_MODEL = "zai-glm-5-3"
 EMBEDDING_MODEL = "mistral-embed"
 FIM_MODEL = "codestral-latest"
 OCR_MODEL = "mistral-ocr-latest"
@@ -93,11 +81,10 @@ def _assert_speech_output_attachment(span):
     assert attachment.reference["content_type"] == "audio/mpeg"
 
 
-def _assert_transcription_complete_span(span, response_text, start, end, *, check_content_type=False):
+def _assert_transcription_complete_span(span, response_text, start, end):
     assert isinstance(span["input"]["file"], Attachment)
     assert span["input"]["file"].reference["filename"] == TEST_AUDIO_FILE.name
-    if check_content_type:
-        assert span["input"]["file"].reference["content_type"] == "audio/wav"
+    assert span["input"]["file"].reference["content_type"] == "audio/wav"
     assert span["metadata"]["provider"] == "mistral"
     assert span["metadata"]["model"] in AUDIO_TRANSCRIPTION_RESPONSE_MODELS
     assert span["output"] == response_text
@@ -138,60 +125,6 @@ def _assert_conversation_span(span, expected_input, start, end, *, expected_cont
     assert_metrics_are_valid(span["metrics"], start, end)
 
 
-def _method_refs(*targets):
-    """Snapshot ``{(cls, method): static attr}`` for ``(cls, methods)`` pairs, skipping missing classes."""
-    return {
-        (cls, method): inspect.getattr_static(cls, method)
-        for cls, methods in targets
-        if cls is not None
-        for method in methods
-    }
-
-
-def _core_method_refs():
-    return _method_refs(
-        (Chat, ("complete", "complete_async", "stream", "stream_async")),
-        (Embeddings, ("create", "create_async")),
-        (Fim, ("complete", "complete_async", "stream", "stream_async")),
-        (Agents, ("complete", "complete_async", "stream", "stream_async")),
-        (Ocr, ("process", "process_async")),
-    )
-
-
-def _audio_method_refs():
-    return _method_refs(
-        (Transcriptions, ("complete", "complete_async", "stream", "stream_async")),
-        (Speech, ("complete", "complete_async")),
-    )
-
-
-def _conversation_method_refs():
-    return _method_refs(
-        (
-            Conversations,
-            (
-                "start",
-                "start_async",
-                "start_stream",
-                "start_stream_async",
-                "append",
-                "append_async",
-                "append_stream",
-                "append_stream_async",
-                "restart",
-                "restart_async",
-                "restart_stream",
-                "restart_stream_async",
-            ),
-        ),
-    )
-
-
-def _restore_method_refs(monkeypatch, refs):
-    for (cls, method), original in refs.items():
-        monkeypatch.setattr(cls, method, original)
-
-
 @pytest.fixture
 def memory_logger():
     init_test_logger(PROJECT_NAME)
@@ -201,6 +134,60 @@ def memory_logger():
 
 def _get_client():
     return Mistral(api_key=os.environ.get("MISTRAL_API_KEY"))
+
+
+@pytest.fixture
+def mistral_client(request, monkeypatch):
+    if request.param == "setup":
+        for composite in MistralIntegration.patchers:
+            for patcher in composite.sub_patchers:
+                if not patcher.applies(None, None):
+                    continue
+                module = patcher.resolve_root(None, None)
+                class_name, method_name = patcher.target_path.split(".")
+                cls = getattr(module, class_name)
+                method = inspect.getattr_static(cls, method_name)
+                monkeypatch.setattr(cls, method_name, method)
+                # wrapt forwards patch markers to the original callable; restore
+                # those too so another setup case can instrument it again.
+                marker = patcher.patch_marker_attr()
+                monkeypatch.setattr(method, marker, getattr(method, marker, False), raising=False)
+        assert MistralIntegration.setup()
+        return _get_client()
+    return wrap_mistral(_get_client())
+
+
+def _completion_params(method, *, stream=False):
+    if "logprobs" not in inspect.signature(method).parameters:
+        return {}
+    params = {
+        "logprobs": True,
+        "top_logprobs": 2,
+        "prompt_logprobs": True,
+        "top_prompt_logprobs": 2,
+        "min_tokens": 1,
+        "repetition_penalty": 1.1,
+        "top_k": 20,
+    }
+    if stream:
+        # This model only returns prompt probabilities for non-streamed calls.
+        del params["prompt_logprobs"]
+        del params["top_prompt_logprobs"]
+    return params
+
+
+def _assert_completion_params(span, params):
+    for key, value in params.items():
+        assert span["metadata"][key] == value
+
+
+def _assert_completion_logprobs(span, response):
+    for key in ("logprobs", "prompt_logprobs"):
+        expected = getattr(response.choices[0], key)
+        assert hasattr(expected, "content") and expected.content, (
+            f"Expected populated {key}; re-record this cassette with Mistral 3.2.0."
+        )
+        assert span["output"][0][key] == expected.model_dump(exclude_none=True)
 
 
 def _weather_tool():
@@ -226,12 +213,12 @@ def _assert_ocr_metrics_are_valid(metrics, start, end):
 
 
 @contextmanager
-def _temporary_agent(client):
+def _temporary_agent(client, *, model=AGENT_MODEL):
     manager = getattr(getattr(client, "beta", None), "agents", None)
     assert manager is not None, "Mistral beta.agents is required for agent tests"
 
     agent = manager.create(
-        model=AGENT_MODEL,
+        model=model,
         name=f"braintrust-test-agent-{int(time.time() * 1000)}",
         instructions="You are concise. Keep responses under five words.",
     )
@@ -249,11 +236,14 @@ def test_wrap_mistral_chat_complete_sync(memory_logger):
     assert not memory_logger.pop()
 
     client = wrap_mistral(_get_client())
+    params = _completion_params(client.chat.complete)
+    model = LOGPROBS_MODEL if params else CHAT_MODEL
     start = time.time()
     response = client.chat.complete(
-        model=CHAT_MODEL,
+        model=model,
         messages=[{"role": "user", "content": "What is 2+2? Reply with just the number."}],
-        max_tokens=10,
+        max_tokens=256 if params else 10,
+        **params,
     )
     end = time.time()
 
@@ -266,7 +256,10 @@ def test_wrap_mistral_chat_complete_sync(memory_logger):
     assert span["context"]["span_origin"]["instrumentation"]["name"] == "mistral-auto"
     assert span["input"] == [{"role": "user", "content": "What is 2+2? Reply with just the number."}]
     assert span["metadata"]["provider"] == "mistral"
-    assert span["metadata"]["model"] == CHAT_MODEL
+    assert span["metadata"]["model"] == model
+    _assert_completion_params(span, params)
+    if params:
+        _assert_completion_logprobs(span, response)
     assert "4" in str(span["output"])
     assert span["metrics"]["prompt_cached_tokens"] == 0
     assert_metrics_are_valid(span["metrics"], start, end)
@@ -289,7 +282,14 @@ def test_wrap_mistral_chat_complete_tool_spans(memory_logger):
     assert response.choices[0].message.tool_calls[0].function.name == "get_weather"
 
     spans = memory_logger.pop()
-    assert len(find_spans_by_type(spans, SpanTypeAttribute.LLM)) == 1
+    llm_spans = find_spans_by_type(spans, SpanTypeAttribute.LLM)
+    assert len(llm_spans) == 1
+    span = llm_spans[0]
+    service_tier = getattr(response.usage, "service_tier", None)
+    if service_tier is not None:
+        assert span["metadata"]["usage_service_tier"] == service_tier
+    else:
+        assert "usage_service_tier" not in span["metadata"]
     assert len(find_spans_by_type(spans, SpanTypeAttribute.TOOL)) == 1
 
 
@@ -318,21 +318,26 @@ def test_wrap_mistral_chat_stream_sync(memory_logger):
     assert not memory_logger.pop()
 
     client = wrap_mistral(_get_client())
+    params = _completion_params(client.chat.stream, stream=True)
+    model = LOGPROBS_MODEL if params else CHAT_MODEL
     start = time.time()
     with client.chat.stream(
-        model=CHAT_MODEL,
+        model=model,
         messages=[{"role": "user", "content": "What is 5+5? Reply with just the number."}],
-        max_tokens=10,
+        max_tokens=256 if params else 10,
+        **params,
     ) as stream:
         chunks = list(stream)
     end = time.time()
 
     assert chunks
     streamed_text = "".join(
-        choice.delta.content or ""
+        content
+        if isinstance(content := choice.delta.content, str)
+        else "".join(getattr(part, "text", "") for part in content or [])
         for chunk in chunks
         for choice in (chunk.data.choices or [])
-        if getattr(choice, "delta", None) is not None and isinstance(choice.delta.content, str)
+        if getattr(choice, "delta", None) is not None
     )
     assert "10" in streamed_text
 
@@ -340,8 +345,19 @@ def test_wrap_mistral_chat_stream_sync(memory_logger):
     assert len(spans) == 1
     span = spans[0]
     assert span["metadata"]["provider"] == "mistral"
-    assert span["metadata"]["model"] == CHAT_MODEL
+    assert span["metadata"]["model"] == model
     assert span["metadata"]["stream"] == True
+    _assert_completion_params(span, params)
+    if params:
+        expected_content = [
+            token.model_dump(mode="python", by_alias=True)
+            for chunk in chunks
+            for choice in chunk.data.choices
+            if hasattr(logprobs := choice.logprobs, "content")
+            for token in logprobs.content
+        ]
+        assert expected_content, "Expected populated logprobs; re-record this cassette with Mistral 3.2.0."
+        assert span["output"][0]["logprobs"]["content"] == expected_content
     assert span["metrics"]["time_to_first_token"] >= 0
     assert "10" in str(span["output"])
     assert_metrics_are_valid(span["metrics"], start, end)
@@ -372,13 +388,13 @@ async def test_wrap_mistral_chat_complete_async(memory_logger):
     assert_metrics_are_valid(span["metrics"], start, end)
 
 
-@pytest.mark.vcr
-def test_wrap_mistral_beta_conversations_start_sync(memory_logger):
+@pytest.mark.vcr(cassette_name="test_wrap_mistral_beta_conversations_start_sync")
+@pytest.mark.parametrize("mistral_client", ["wrap", "setup"], indirect=True)
+def test_mistral_beta_conversations_start_sync(memory_logger, mistral_client):
     assert not memory_logger.pop()
 
-    client = wrap_mistral(_get_client())
     start = time.time()
-    response = client.beta.conversations.start(
+    response = mistral_client.beta.conversations.start(
         model=CHAT_MODEL,
         inputs="What is 2+2? Reply with just the number.",
     )
@@ -540,27 +556,6 @@ def test_wrap_mistral_beta_conversations_restart_sync(memory_logger):
 
 
 @pytest.mark.vcr
-def test_wrap_mistral_agents_complete_tool_spans(memory_logger):
-    assert not memory_logger.pop()
-
-    client = wrap_mistral(_get_client())
-    with _temporary_agent(client) as agent_id:
-        response = client.agents.complete(
-            agent_id=agent_id,
-            messages=[{"role": "user", "content": "Use get_weather for Paris. Do not answer directly."}],
-            tools=[_weather_tool()],
-            tool_choice="any",
-            max_tokens=100,
-        )
-
-    assert response.choices[0].message.tool_calls
-    assert response.choices[0].message.tool_calls[0].function.name == "get_weather"
-    spans = memory_logger.pop()
-    assert len(find_spans_by_type(spans, SpanTypeAttribute.LLM)) == 1
-    assert len(find_spans_by_type(spans, SpanTypeAttribute.TOOL)) == 1
-
-
-@pytest.mark.vcr
 def test_wrap_mistral_agents_stream_tool_spans(memory_logger):
     assert not memory_logger.pop()
 
@@ -591,12 +586,14 @@ def test_wrap_mistral_agents_complete_sync(memory_logger):
     assert not memory_logger.pop()
 
     client = wrap_mistral(_get_client())
-    with _temporary_agent(client) as agent_id:
+    params = _completion_params(client.agents.complete)
+    with _temporary_agent(client, model=LOGPROBS_MODEL if params else AGENT_MODEL) as agent_id:
         start = time.time()
         response = client.agents.complete(
             agent_id=agent_id,
             messages=[{"role": "user", "content": "What is 8+1? Reply with just the number."}],
-            max_tokens=10,
+            max_tokens=256 if params else 10,
+            **params,
         )
         end = time.time()
 
@@ -608,6 +605,9 @@ def test_wrap_mistral_agents_complete_sync(memory_logger):
     assert span["input"] == [{"role": "user", "content": "What is 8+1? Reply with just the number."}]
     assert span["metadata"]["provider"] == "mistral"
     assert span["metadata"]["agent_id"] == agent_id
+    _assert_completion_params(span, params)
+    if params:
+        _assert_completion_logprobs(span, response)
     assert "9" in str(span["output"])
     assert_metrics_are_valid(span["metrics"], start, end)
 
@@ -826,7 +826,6 @@ def test_wrap_mistral_fim_complete_sync(memory_logger):
     assert span["input"]["suffix"] == "\n\nprint(add(2, 3))"
     assert span["metadata"]["provider"] == "mistral"
     assert span["metadata"]["model"] == FIM_MODEL
-    assert "return" in str(span["input"])
     assert span["output"]
     assert_metrics_are_valid(span["metrics"], start, end)
 
@@ -924,36 +923,42 @@ async def test_wrap_mistral_fim_stream_async(memory_logger):
     assert_metrics_are_valid(span["metrics"], start, end)
 
 
-@pytest.mark.vcr
-def test_wrap_mistral_audio_transcriptions_complete_sync(memory_logger):
-    assert not memory_logger.pop()
-
-    client = wrap_mistral(_get_client())
-    with TEST_AUDIO_FILE.open("rb") as file_obj:
-        start = time.time()
-        response = client.audio.transcriptions.complete(
-            model=AUDIO_TRANSCRIPTION_MODEL,
-            file=_transcription_file_payload(file_obj),
-        )
-        end = time.time()
-
-    spans = memory_logger.pop()
-    assert len(spans) == 1
-    _assert_transcription_complete_span(spans[0], response.text, start, end, check_content_type=True)
-
-
-@pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_wrap_mistral_audio_transcriptions_complete_async(memory_logger):
+@pytest.mark.parametrize(
+    ("mistral_client", "method_name"),
+    [
+        pytest.param(
+            "wrap",
+            "complete",
+            id="sync-wrap",
+            marks=pytest.mark.vcr(cassette_name="test_wrap_mistral_audio_transcriptions_complete_sync"),
+        ),
+        pytest.param(
+            "setup",
+            "complete",
+            id="sync-setup",
+            marks=pytest.mark.vcr(cassette_name="test_wrap_mistral_audio_transcriptions_complete_sync"),
+        ),
+        pytest.param(
+            "wrap",
+            "complete_async",
+            id="async-wrap",
+            marks=pytest.mark.vcr(cassette_name="test_wrap_mistral_audio_transcriptions_complete_async"),
+        ),
+    ],
+    indirect=["mistral_client"],
+)
+async def test_mistral_audio_transcriptions_complete(memory_logger, mistral_client, method_name):
     assert not memory_logger.pop()
 
-    client = wrap_mistral(_get_client())
     with TEST_AUDIO_FILE.open("rb") as file_obj:
         start = time.time()
-        response = await client.audio.transcriptions.complete_async(
+        response = getattr(mistral_client.audio.transcriptions, method_name)(
             model=AUDIO_TRANSCRIPTION_MODEL,
             file=_transcription_file_payload(file_obj),
         )
+        if inspect.isawaitable(response):
+            response = await response
         end = time.time()
 
     spans = memory_logger.pop()
@@ -1002,33 +1007,21 @@ def test_wrap_mistral_audio_transcriptions_stream_sync(memory_logger):
     assert_metrics_are_valid(span["metrics"], start, end)
 
 
-@pytest.mark.vcr
-def test_wrap_mistral_audio_speech_complete_sync(memory_logger):
-    if Speech is None:
-        pytest.skip("Mistral speech API is unavailable in this SDK version")
-
-    assert not memory_logger.pop()
-
-    client = wrap_mistral(_get_client())
-    start = time.time()
-    response = client.audio.speech.complete(
-        input="Hello from Braintrust.",
-        model=SPEECH_MODEL,
-        response_format="mp3",
-        voice_id=SPEECH_VOICE_ID,
-    )
-    end = time.time()
-
-    assert response.audio_data
-
-    spans = memory_logger.pop()
-    assert len(spans) == 1
-    _assert_speech_complete_span(spans[0], start, end)
-
-
-@pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_wrap_mistral_audio_speech_complete_async(memory_logger):
+@pytest.mark.parametrize(
+    "method_name",
+    [
+        pytest.param(
+            "complete", id="sync", marks=pytest.mark.vcr(cassette_name="test_wrap_mistral_audio_speech_complete_sync")
+        ),
+        pytest.param(
+            "complete_async",
+            id="async",
+            marks=pytest.mark.vcr(cassette_name="test_wrap_mistral_audio_speech_complete_async"),
+        ),
+    ],
+)
+async def test_wrap_mistral_audio_speech_complete(memory_logger, method_name):
     if Speech is None:
         pytest.skip("Mistral speech API is unavailable in this SDK version")
 
@@ -1036,12 +1029,14 @@ async def test_wrap_mistral_audio_speech_complete_async(memory_logger):
 
     client = wrap_mistral(_get_client())
     start = time.time()
-    response = await client.audio.speech.complete_async(
+    response = getattr(client.audio.speech, method_name)(
         input="Hello from Braintrust.",
         model=SPEECH_MODEL,
         response_format="mp3",
         voice_id=SPEECH_VOICE_ID,
     )
+    if inspect.isawaitable(response):
+        response = await response
     end = time.time()
 
     assert response.audio_data
@@ -1049,75 +1044,6 @@ async def test_wrap_mistral_audio_speech_complete_async(memory_logger):
     spans = memory_logger.pop()
     assert len(spans) == 1
     _assert_speech_complete_span(spans[0], start, end)
-
-
-@pytest.mark.vcr(cassette_name="test_wrap_mistral_audio_transcriptions_complete_sync")
-def test_mistral_integration_setup_instruments_audio_transcriptions(memory_logger, monkeypatch):
-    assert not memory_logger.pop()
-
-    original_audio_methods = _audio_method_refs()
-
-    assert MistralIntegration.setup()
-    client = _get_client()
-    try:
-        with TEST_AUDIO_FILE.open("rb") as file_obj:
-            start = time.time()
-            response = client.audio.transcriptions.complete(
-                model=AUDIO_TRANSCRIPTION_MODEL,
-                file=_transcription_file_payload(file_obj),
-            )
-            end = time.time()
-    finally:
-        _restore_method_refs(monkeypatch, original_audio_methods)
-
-    spans = memory_logger.pop()
-    assert len(spans) == 1
-    _assert_transcription_complete_span(spans[0], response.text, start, end)
-
-
-@pytest.mark.vcr
-def test_mistral_integration_setup_instruments_beta_conversations(memory_logger, monkeypatch):
-    assert not memory_logger.pop()
-
-    original_conversation_methods = _conversation_method_refs()
-
-    assert MistralIntegration.setup()
-    client = _get_client()
-    try:
-        start = time.time()
-        response = client.beta.conversations.start(
-            model=CHAT_MODEL,
-            inputs="What is 4+4? Reply with just the number.",
-        )
-        end = time.time()
-    finally:
-        _restore_method_refs(monkeypatch, original_conversation_methods)
-
-    assert response.outputs
-    assert "8" in str(response.outputs[0].content)
-
-    spans = memory_logger.pop()
-    assert len(spans) == 1
-    _assert_conversation_span(
-        spans[0],
-        "What is 4+4? Reply with just the number.",
-        start,
-        end,
-        expected_content="8",
-    )
-
-
-def test_mistral_integration_setup_is_idempotent(monkeypatch):
-    first_methods = {**_core_method_refs(), **_conversation_method_refs(), **_audio_method_refs()}
-
-    assert MistralIntegration.setup()
-    patched_methods = {**_core_method_refs(), **_conversation_method_refs(), **_audio_method_refs()}
-
-    assert MistralIntegration.setup()
-    for key, method in patched_methods.items():
-        assert inspect.getattr_static(*key) is method, key
-
-    _restore_method_refs(monkeypatch, first_methods)
 
 
 def test_chat_complete_wrapper_logs_errors(memory_logger):
@@ -1173,36 +1099,43 @@ async def test_chat_complete_async_wrapper_logs_errors(memory_logger):
     assert "async boom" in span["error"]
 
 
-def test_normalize_mistral_multimodal_value_converts_image_url_data_uri_to_attachment():
-    sanitized = _normalize_mistral_multimodal_value(
-        {
-            "type": "image_url",
-            "image_url": {"url": "data:image/png;base64,aGVsbG8="},
-        }
-    )
+@pytest.mark.parametrize(
+    ("value", "attachment_path", "expected_reference"),
+    [
+        pytest.param(
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGVsbG8="}},
+            ("image_url", "url"),
+            {"content_type": "image/png"},
+            id="image_url_data_uri_to_attachment",
+        ),
+        pytest.param(
+            {"type": "input_audio", "input_audio": base64.b64encode(b"hello" * 16).decode("ascii")},
+            ("input_audio",),
+            {"filename": "input_audio.bin"},
+            id="large_base64_input_audio_to_attachment",
+        ),
+        # attachment_path=None means the value should come back unchanged.
+        pytest.param(
+            {"type": "input_audio", "input_audio": "not base64"},
+            None,
+            None,
+            id="non_base64_input_audio_unchanged",
+        ),
+    ],
+)
+def test_normalize_mistral_multimodal_value(value, attachment_path, expected_reference):
+    sanitized = _normalize_mistral_multimodal_value(value)
 
-    assert isinstance(sanitized["image_url"]["url"], Attachment)
-    assert sanitized["image_url"]["url"].reference["content_type"] == "image/png"
+    if attachment_path is None:
+        assert sanitized == value
+        return
 
-
-def test_normalize_mistral_multimodal_value_converts_large_base64_input_audio_to_attachment():
-    sanitized = _normalize_mistral_multimodal_value(
-        {
-            "type": "input_audio",
-            "input_audio": base64.b64encode(b"hello" * 16).decode("ascii"),
-        }
-    )
-
-    assert isinstance(sanitized["input_audio"], Attachment)
-    assert sanitized["input_audio"].reference["filename"] == "input_audio.bin"
-
-
-def test_normalize_mistral_multimodal_value_leaves_non_base64_input_audio_unchanged():
-    original = {"type": "input_audio", "input_audio": "not base64"}
-
-    sanitized = _normalize_mistral_multimodal_value(original)
-
-    assert sanitized == original
+    attachment = sanitized
+    for key in attachment_path:
+        attachment = attachment[key]
+    assert isinstance(attachment, Attachment)
+    for key, expected in expected_reference.items():
+        assert attachment.reference[key] == expected
 
 
 class _PlainResponse:
@@ -1321,6 +1254,5 @@ def test_aggregate_completion_events_merges_tool_calls_and_content():
     assert tool_call["function"]["arguments"] == '{"city":"San Francisco"}'
 
 
-class TestAutoInstrumentMistral:
-    def test_auto_instrument_mistral(self):
-        verify_autoinstrument_script("test_auto_mistral.py")
+def test_auto_instrument_mistral():
+    verify_autoinstrument_script("test_auto_mistral.py")

@@ -232,7 +232,7 @@ def handle_static_file(static_path: str) -> Tuple[bytes, str]:
 
 def handle_open_editor(file_path: str, editor: str) -> None:
     """Handle opening files in external editors"""
-    assert editor == "pycharm"  # Currently only support PyCharm
+    assert editor == "pycharm"
 
     resolved = _resolve_safe_source_path(file_path)
     open_in_pycharm(str(resolved))

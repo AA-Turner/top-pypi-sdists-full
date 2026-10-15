@@ -151,6 +151,13 @@ SESSION_TRIGGERS = frozenset({"manual", "scheduled"})
 # would not have reaped it" must never disagree.
 RUN_LEASE_TTL = STALE_SESSION_AFTER
 RUN_LEASE_HEARTBEAT_EVERY = timedelta(seconds=30)
+# A run that HOLDS a lease beats it every 30 s, so silence for this long (ten
+# missed beats) means its process is gone. Such a session is judged dead — no
+# longer blocking its site's lane — and the dead-lease sweep
+# (web_crawl/lease_reaper.fail_dead_lease_sessions) hands it to the owning
+# deployment's crash-resume within minutes, not after the 30-minute quiet
+# window that leaseless sessions still get (they have no heartbeat to judge).
+DEAD_RUN_LEASE_AFTER = timedelta(minutes=5)
 # Bounded re-read-and-retry for the event ledger's unique (session_id,
 # sequence). Layer TWO under the lease: even if ownership is somehow shared,
 # a sequence collision must be recoverable, never run-fatal.
@@ -407,6 +414,20 @@ UNNAMED_RUN_OWNER = "production"
 CRASH_RESUME_OWNER_SCAN_FACTOR = 10
 
 
+def next_stalled_count(resume: dict, pages_done: int) -> int:
+    """Consecutive resumes whose previous life captured no new page.
+
+    `resume` is `metadata.resume` with `attempts` ALREADY counting the resume
+    being judged. A session resumed under this rule carries `progress_mark`
+    (pages captured when it was last resumed); one that predates it (or was
+    never resumed) counts any captured page as progress."""
+    if "progress_mark" in resume:
+        if int(pages_done) > int(resume.get("progress_mark") or 0):
+            return 0
+        return int(resume.get("stalled") or 0) + 1
+    return 0 if int(pages_done) > 0 else int(resume.get("attempts") or 0)
+
+
 def run_owner_deployment(session: object) -> str:
     """The deployment whose sweep may auto-resume this session."""
 
@@ -490,7 +511,8 @@ def run_lease_is_live(session: object, *, now: datetime | None = None) -> bool:
         signal = max(signals, default=None)
     if signal is None:
         return False
-    return (now or utcnow()) - signal < RUN_LEASE_TTL
+    ttl = DEAD_RUN_LEASE_AFTER if lease.get("owner") else RUN_LEASE_TTL
+    return (now or utcnow()) - signal < ttl
 
 
 @dataclass(frozen=True)
@@ -510,6 +532,17 @@ class HomepageCapture:
     page_id: str
     snapshot_id: str
     final_url: str
+
+
+def _cumulative_progress(state: "CrawlPersistenceState", *, fetched: int, remaining: int) -> dict[str, int]:
+    """The session-lifetime progress a UI shows: `pages_done_total` (pages
+    captured across every process life of this session) and `pages_total`
+    (done + still queued, never above the session's original page budget)."""
+    done = int(state.prior_pages_done or 0) + max(0, int(fetched or 0))
+    total = done + max(0, int(remaining or 0))
+    if state.page_budget:
+        total = min(total, max(done, int(state.page_budget)))
+    return {"pages_done_total": done, "pages_total": total}
 
 
 @dataclass
@@ -539,6 +572,10 @@ class CrawlPersistenceState:
     # points at the previously stored files instead of fresh copies.
     pages_unchanged: int = 0
     homepage_screenshot_id: str | None = None
+    # Site initialization: the identity render also captures the desktop-profile screenshots; they are held here
+    # (not persisted by the crawl path, which would file them under different kinds) and the initialization
+    # screenshots step persists them with the mobile ones, saving one full navigation of the homepage.
+    initialization_shots: list[Any] = field(default_factory=list)
     screenshots_expected: int = 0
     screenshots_captured: int = 0
     screenshots_persisted: int = 0
@@ -553,6 +590,13 @@ class CrawlPersistenceState:
     # can never mark the WINNER's session failed. None = unleased legacy path:
     # the guards degrade to their old unconditional behaviour.
     run_lease_token: str | None = None
+    # Honest progress across process lives. `prior_pages_done` is the durable
+    # count of pages this session captured BEFORE this life (0 for a fresh run;
+    # a resume reads it from web.crawl_url), and `page_budget` is the session's
+    # ORIGINAL max_pages. The crawler's own counters restart at 0 every life, so
+    # without these a resumed crawl reported only its latest life's pages.
+    prior_pages_done: int = 0
+    page_budget: int | None = None
     crawl_url_ids: dict[str, str] = field(default_factory=dict)
     page_identity_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -932,6 +976,12 @@ class WebCrawlRepository:
             )
             return int(row.sequence) if row is not None and row.sequence is not None else 0
 
+    async def captured_page_count(self, session_id: str) -> int:
+        """Pages this session has durably captured, across every process life
+        (append-only web.crawl_url ledger, outcome `captured`)."""
+        async with self.rls():
+            return int(await WebCrawlUrl.filter(session_id=session_id, outcome="captured").count())
+
     async def max_event_sequence(self, session_id: str) -> int:
         """Highest crawl_event sequence already written for a session.
 
@@ -950,7 +1000,9 @@ class WebCrawlRepository:
             )
             return int(row.sequence) if row is not None and row.sequence is not None else 0
 
-    async def claim_run_lease(self, session_id: str, *, is_resume: bool) -> tuple[str, int]:
+    async def claim_run_lease(
+        self, session_id: str, *, is_resume: bool, pages_done: int | None = None
+    ) -> tuple[str, int]:
         """Take exclusive cross-process ownership of a session's run.
 
         ONE atomic compare-and-swap on the row's `version` (the platform
@@ -1004,6 +1056,12 @@ class WebCrawlRepository:
                 attempt = int(resume.get("attempts") or 0) + 1
                 resume["attempts"] = attempt
                 resume["last_resumed_at"] = now.isoformat()
+                if pages_done is not None:
+                    # The resume cap counts lives that made NO progress, not
+                    # lives a deploy ended: a crawl longer than the release
+                    # cadence is stopped many times while working correctly.
+                    resume["stalled"] = next_stalled_count(resume, pages_done)
+                    resume["progress_mark"] = int(pages_done)
                 metadata["resume"] = resume
                 updates["finished_at"] = None
                 updates["error"] = None
@@ -1426,6 +1484,11 @@ class WebCrawlRepository:
                         ),
                         "coverage_qualified": state.coverage_qualified,
                         "reconciliation": reconciliation,
+                        **_cumulative_progress(
+                            state,
+                            fetched=event.pages_fetched,
+                            remaining=int(event.remaining_queue_depth or 0),
+                        ),
                     },
                     finished_at=_parse_event_time(event.ts),
                     error=event.error_message,
@@ -1483,6 +1546,11 @@ class WebCrawlRepository:
             "screenshots_persisted": state.screenshots_persisted,
             "screenshots_failed": max(0, state.screenshots_expected - state.screenshots_persisted),
             "coverage_qualified": state.coverage_qualified,
+            **_cumulative_progress(
+                state,
+                fetched=event.pages_fetched,
+                remaining=int(event.queue_depth or 0) + int(event.pages_in_flight or 0),
+            ),
         }
 
     async def _persist_failed_url_in_active_transaction(
@@ -2243,6 +2311,9 @@ class CanonicalBodyPersister:
             raise ValueError("canonical persistence requires a non-empty response body")
         if self.state.homepage_bootstrap and not request.screenshots:
             raise RuntimeError("homepage bootstrap did not produce a screenshot")
+        if self.state.site_initialization and request.screenshots:
+            self.state.initialization_shots = list(request.screenshots)
+            request.screenshots = []
         # SOURCE-CONVERGENCE §4.7: every crawled page lands as a Source through the injected door.
         # An unwired door is the host's defect — refused BEFORE any artifact or row is written,
         # never discovered after the snapshot committed.

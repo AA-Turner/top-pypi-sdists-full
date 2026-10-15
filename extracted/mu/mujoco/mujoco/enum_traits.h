@@ -296,7 +296,8 @@ struct mjtCtrlInput {
     std::make_pair("mjINPUT_VEL", ::mjtCtrlInput::mjINPUT_VEL),
     std::make_pair("mjINPUT_FF", ::mjtCtrlInput::mjINPUT_FF),
     std::make_pair("mjINPUT_VOLTAGE", ::mjtCtrlInput::mjINPUT_VOLTAGE),
-    std::make_pair("mjINPUT_NONE", ::mjtCtrlInput::mjINPUT_NONE)};
+    std::make_pair("mjINPUT_NONE", ::mjtCtrlInput::mjINPUT_NONE),
+    std::make_pair("mjINPUT_PRESSURE", ::mjtCtrlInput::mjINPUT_PRESSURE)};
 };
 
 struct mjtObj {
@@ -421,6 +422,8 @@ struct mjtConDataField {
     std::make_pair("mjCONDATA_POS", ::mjtConDataField::mjCONDATA_POS),
     std::make_pair("mjCONDATA_NORMAL", ::mjtConDataField::mjCONDATA_NORMAL),
     std::make_pair("mjCONDATA_TANGENT", ::mjtConDataField::mjCONDATA_TANGENT),
+    std::make_pair("mjCONDATA_LINVEL", ::mjtConDataField::mjCONDATA_LINVEL),
+    std::make_pair("mjCONDATA_ANGVEL", ::mjtConDataField::mjCONDATA_ANGVEL),
     std::make_pair("mjNCONDATA", ::mjtConDataField::mjNCONDATA)};
 };
 
@@ -648,7 +651,13 @@ struct mjtMeshBuiltin {
     std::make_pair("mjMESH_BUILTIN_SUPERSPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_SUPERSPHERE),
     std::make_pair("mjMESH_BUILTIN_SUPERTORUS", ::mjtMeshBuiltin::mjMESH_BUILTIN_SUPERTORUS),
     std::make_pair("mjMESH_BUILTIN_WEDGE", ::mjtMeshBuiltin::mjMESH_BUILTIN_WEDGE),
-    std::make_pair("mjMESH_BUILTIN_PLATE", ::mjtMeshBuiltin::mjMESH_BUILTIN_PLATE)};
+    std::make_pair("mjMESH_BUILTIN_PLATE", ::mjtMeshBuiltin::mjMESH_BUILTIN_PLATE),
+    std::make_pair("mjMESH_BUILTIN_GRID", ::mjtMeshBuiltin::mjMESH_BUILTIN_GRID),
+    std::make_pair("mjMESH_BUILTIN_BOX", ::mjtMeshBuiltin::mjMESH_BUILTIN_BOX),
+    std::make_pair("mjMESH_BUILTIN_CYLINDER", ::mjtMeshBuiltin::mjMESH_BUILTIN_CYLINDER),
+    std::make_pair("mjMESH_BUILTIN_ELLIPSOID", ::mjtMeshBuiltin::mjMESH_BUILTIN_ELLIPSOID),
+    std::make_pair("mjMESH_BUILTIN_SQUARE", ::mjtMeshBuiltin::mjMESH_BUILTIN_SQUARE),
+    std::make_pair("mjMESH_BUILTIN_DISC", ::mjtMeshBuiltin::mjMESH_BUILTIN_DISC)};
 };
 
 struct mjtBuiltin {
@@ -716,6 +725,32 @@ struct mjtConflict {
     std::make_pair("mjCONFLICT_WARNING", ::mjtConflict::mjCONFLICT_WARNING),
     std::make_pair("mjCONFLICT_MERGE", ::mjtConflict::mjCONFLICT_MERGE),
     std::make_pair("mjCONFLICT_ERROR", ::mjtConflict::mjCONFLICT_ERROR)};
+};
+
+struct mjtScaling {
+  static constexpr char name[] = "mjtScaling";
+  using type = ::mjtScaling;
+  static constexpr auto values = std::array{
+    std::make_pair("mjSCALING_SIMILAR", ::mjtScaling::mjSCALING_SIMILAR),
+    std::make_pair("mjSCALING_GEOMETRY", ::mjtScaling::mjSCALING_GEOMETRY)};
+};
+
+struct mjtActuator {
+  static constexpr char name[] = "mjtActuator";
+  using type = ::mjtActuator;
+  static constexpr auto values = std::array{
+    std::make_pair("mjACTUATOR_GENERAL", ::mjtActuator::mjACTUATOR_GENERAL),
+    std::make_pair("mjACTUATOR_MOTOR", ::mjtActuator::mjACTUATOR_MOTOR),
+    std::make_pair("mjACTUATOR_POSITION", ::mjtActuator::mjACTUATOR_POSITION),
+    std::make_pair("mjACTUATOR_VELOCITY", ::mjtActuator::mjACTUATOR_VELOCITY),
+    std::make_pair("mjACTUATOR_INTVELOCITY", ::mjtActuator::mjACTUATOR_INTVELOCITY),
+    std::make_pair("mjACTUATOR_DAMPER", ::mjtActuator::mjACTUATOR_DAMPER),
+    std::make_pair("mjACTUATOR_CYLINDER", ::mjtActuator::mjACTUATOR_CYLINDER),
+    std::make_pair("mjACTUATOR_MUSCLE", ::mjtActuator::mjACTUATOR_MUSCLE),
+    std::make_pair("mjACTUATOR_ADHESION", ::mjtActuator::mjACTUATOR_ADHESION),
+    std::make_pair("mjACTUATOR_PID", ::mjtActuator::mjACTUATOR_PID),
+    std::make_pair("mjACTUATOR_ORIENTATION", ::mjtActuator::mjACTUATOR_ORIENTATION),
+    std::make_pair("mjACTUATOR_DCMOTOR", ::mjtActuator::mjACTUATOR_DCMOTOR)};
 };
 
 struct mjtCTimer {
@@ -1103,6 +1138,8 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtInertiaFromGeom{},
     mjtOrientation{},
     mjtConflict{},
+    mjtScaling{},
+    mjtActuator{},
     mjtCTimer{},
     mjtCatBit{},
     mjtMouse{},

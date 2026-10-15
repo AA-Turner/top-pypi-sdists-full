@@ -3,6 +3,8 @@ from fontTools.misc.roundTools import noRound
 from fontTools.misc.testTools import stripVariableItemsFromTTX
 from fontTools.misc.textTools import Tag
 from fontTools.pens.recordingPen import RecordingPen
+from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.fontBuilder import FontBuilder
 from fontTools import ttLib
 from fontTools import designspaceLib
 from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
@@ -627,6 +629,146 @@ class InstantiateHVARTest(object):
         assert varStore.VarRegionList.RegionAxisCount == 1
 
 
+class InstantiateVVARTest:
+    @pytest.fixture
+    def varfont(self, fvarAxes):
+        font = ttLib.TTFont()
+        glyphOrder = [".notdef", "a", "b", "c"]
+        font.setGlyphOrder(glyphOrder)
+        font["fvar"] = ttLib.newTable("fvar")
+        font["fvar"].axes = deepcopy(fvarAxes)
+        font["vmtx"] = ttLib.newTable("vmtx")
+        font["vmtx"].metrics = {glyph: (1000, 100) for glyph in glyphOrder}
+        font["VORG"] = ttLib.newTable("VORG")
+        font["VORG"].majorVersion = 1
+        font["VORG"].minorVersion = 0
+        font["VORG"].defaultVertOriginY = 800
+        font["VORG"].VOriginRecords = {"b": 850}
+
+        vvar = otTables.VVAR()
+        vvar.Version = 0x10000
+        vvar.VarStore = builder.buildVarStore(
+            builder.buildVarRegionList(
+                [{"wght": (0, 1, 1)}, {"wdth": (-1, -1, 0)}],
+                ["wght", "wdth"],
+            ),
+            [builder.buildVarData([0, 1], [[0, 0], [10, 0], [100, 30], [-50, 0]])],
+        )
+        vvar.AdvHeightMap = builder.buildVarIdxMap([0] * 4, glyphOrder)
+        vvar.TsbMap = vvar.BsbMap = None
+        vvar.VOrgMap = builder.buildVarIdxMap(
+            [1, 2, 3, otTables.NO_VARIATION_INDEX], glyphOrder
+        )
+        font["VVAR"] = ttLib.newTable("VVAR")
+        font["VVAR"].table = vvar
+        return font
+
+    @pytest.mark.parametrize(
+        "limits, expected, remainingLocation, remainingOrigins",
+        [
+            ({"wght": 1, "wdth": 0}, [810, 900, 800, 800], None, None),
+            (
+                {"wght": 1},
+                [810, 900, 800, 800],
+                {"wdth": -1},
+                [810, 930, 800, 800],
+            ),
+            (
+                {"wght": (0.5, 0.5, 1), "wdth": 0},
+                [805, 850, 825, 800],
+                {"wght": 1},
+                [810, 900, 800, 800],
+            ),
+        ],
+    )
+    def test_vertical_origins(
+        self, varfont, limits, expected, remainingLocation, remainingOrigins
+    ):
+        limits = instancer.NormalizedAxisLimits(limits)
+        instancer.instantiateVVAR(varfont, limits)
+
+        glyphOrder = varfont.getGlyphOrder()
+        vorg = varfont["VORG"]
+        assert [vorg[glyph] for glyph in glyphOrder] == expected
+        assert vorg.defaultVertOriginY == 800
+        assert all(value != 800 for value in vorg.VOriginRecords.values())
+        assert varfont["vmtx"].metrics == {glyph: (1000, 100) for glyph in glyphOrder}
+
+        reloaded = ttLib.newTable("VORG")
+        reloaded.decompile(vorg.compile(varfont), varfont)
+        assert [reloaded[glyph] for glyph in glyphOrder] == expected
+
+        if remainingLocation is None:
+            assert "VVAR" not in varfont
+        else:
+            vvar = varfont["VVAR"].table
+            remainingAxes = [
+                axis
+                for axis in varfont["fvar"].axes
+                if axis.axisTag not in limits.pinnedLocation()
+            ]
+            evaluator = varStore.VarStoreInstancer(
+                vvar.VarStore, remainingAxes, remainingLocation
+            )
+            assert [
+                vorg[glyph] + evaluator[vvar.VOrgMap.mapping[glyph]]
+                for glyph in glyphOrder
+            ] == remainingOrigins
+
+    @pytest.mark.parametrize("delta, rounded", [(37, 19), (-37, -18)])
+    def test_uniform_origins_and_half_unit_rounding(self, varfont, delta, rounded):
+        glyphOrder = varfont.getGlyphOrder()
+        varfont["VORG"].VOriginRecords = {}
+        vvar = varfont["VVAR"].table
+        vvar.VarStore.VarData[0].Item[1] = [delta, 0]
+        vvar.VOrgMap = builder.buildVarIdxMap([1] * len(glyphOrder), glyphOrder)
+        vvar.AdvHeightMap = builder.buildVarIdxMap([1] * len(glyphOrder), glyphOrder)
+        instancer.instantiateVVAR(
+            varfont, instancer.NormalizedAxisLimits(wght=0.5, wdth=0)
+        )
+        vorg = varfont["VORG"]
+        assert vorg.defaultVertOriginY == 800 + rounded
+        assert vorg.VOriginRecords == {}
+        assert [vorg[glyph] for glyph in glyphOrder] == [800 + rounded] * len(
+            glyphOrder
+        )
+        assert varfont["vmtx"].metrics == {
+            glyph: (1000 + rounded, 100) for glyph in glyphOrder
+        }
+        reloaded = ttLib.newTable("VORG")
+        reloaded.decompile(vorg.compile(varfont), varfont)
+        assert reloaded.defaultVertOriginY == 800 + rounded
+        assert reloaded.VOriginRecords == {}
+
+    @pytest.mark.parametrize("delta, rounded", [(37, 19), (-37, -18)])
+    def test_hvar_half_unit_rounding(self, varfont, delta, rounded):
+        glyphOrder = varfont.getGlyphOrder()
+        varfont["hmtx"] = ttLib.newTable("hmtx")
+        varfont["hmtx"].metrics = {glyph: (1000, 100) for glyph in glyphOrder}
+        hvar = otTables.HVAR()
+        hvar.Version = 0x10000
+        hvar.VarStore = deepcopy(varfont["VVAR"].table.VarStore)
+        hvar.VarStore.VarData[0].Item[1] = [delta, 0]
+        hvar.AdvWidthMap = builder.buildVarIdxMap([1] * len(glyphOrder), glyphOrder)
+        hvar.LsbMap = hvar.RsbMap = None
+        varfont["HVAR"] = ttLib.newTable("HVAR")
+        varfont["HVAR"].table = hvar
+        instancer.instantiateHVAR(
+            varfont, instancer.NormalizedAxisLimits(wght=0.5, wdth=0)
+        )
+        assert varfont["hmtx"].metrics == {
+            glyph: (1000 + rounded, 100) for glyph in glyphOrder
+        }
+
+    def test_no_origin_mapping(self, varfont):
+        varfont["VVAR"].table.VOrgMap = None
+        instancer.instantiateVVAR(
+            varfont, instancer.NormalizedAxisLimits(wght=1, wdth=0)
+        )
+        assert varfont["VORG"].defaultVertOriginY == 800
+        assert varfont["VORG"].VOriginRecords == {"b": 850}
+
+
 class InstantiateItemVariationStoreTest(object):
     def test_VarRegion_get_support(self):
         axisOrder = ["wght", "wdth", "opsz"]
@@ -1018,6 +1160,83 @@ def getBaseCoord(varfont):
 
 
 class InstantiateOTLTest(object):
+    @pytest.mark.parametrize("full", [False, True])
+    @pytest.mark.parametrize("delta", [1, 3, 7])
+    @pytest.mark.parametrize("kind", ["GDEF", "BASE", "GPOS"])
+    def test_preserves_ppem_devices(self, request, full, delta, kind):
+        from fontTools.otlLib.builder import buildDevice
+
+        vf = request.getfixturevalue("varfont" + kind)
+        hint = buildDevice({10: delta})
+        if kind == "GDEF":
+            record = vf["GDEF"].table.LigCaretList.LigGlyph[0].CaretValue[0]
+            record.DeviceTable = hint
+            original = record.Coordinate
+        elif kind == "BASE":
+            record = getBaseCoord(vf)
+            record.DeviceTable = hint
+            original = record.Coordinate
+        else:
+            subtable = vf["GPOS"].table.LookupList.Lookup[0].SubTable[0]
+            record = subtable.PairSet[0].PairValueRecord[0].Value1
+            record.XAdvDevice = hint
+            original = record.XAdvance
+        limits = {"wght": 1.0}
+        if full:
+            limits["wdth"] = 0.0
+        instancer.instantiateOTL(vf, instancer.NormalizedAxisLimits(limits))
+        if kind == "GDEF":
+            record = vf["GDEF"].table.LigCaretList.LigGlyph[0].CaretValue[0]
+        elif kind == "BASE":
+            record = getBaseCoord(vf)
+        else:
+            subtable = vf["GPOS"].table.LookupList.Lookup[0].SubTable[0]
+            record = subtable.PairSet[0].PairValueRecord[0].Value1
+        if kind in ("GDEF", "BASE"):
+            assert record.Format == 3
+            assert record.Coordinate == original
+            device = record.DeviceTable
+        else:
+            assert record.XAdvance == original
+            assert subtable.ValueFormat1 == 0x44
+            device = record.XAdvDevice
+        assert device.DeltaFormat == hint.DeltaFormat
+        assert device.DeltaValue == [delta]
+
+    @pytest.mark.parametrize("full", [False, True])
+    @pytest.mark.parametrize("delta", [1, 3, 7])
+    @pytest.mark.parametrize("hint_axis", ["X", "Y"])
+    def test_preserves_mixed_anchor_devices(self, varfontGPOS2, full, delta, hint_axis):
+        from fontTools.otlLib.builder import buildDevice
+
+        vf = varfontGPOS2
+        anchor = (
+            vf["GPOS"]
+            .table.LookupList.Lookup[0]
+            .SubTable[0]
+            .BaseArray.BaseRecord[0]
+            .BaseAnchor[0]
+        )
+        hint = buildDevice({10: delta})
+        setattr(anchor, hint_axis + "DeviceTable", hint)
+        limits = {"wght": 1.0}
+        if full:
+            limits["wdth"] = 0.0
+        instancer.instantiateOTL(vf, instancer.NormalizedAxisLimits(limits))
+        anchor = (
+            vf["GPOS"]
+            .table.LookupList.Lookup[0]
+            .SubTable[0]
+            .BaseArray.BaseRecord[0]
+            .BaseAnchor[0]
+        )
+        assert anchor.Format == 3
+        assert anchor.XCoordinate == (270 if hint_axis == "X" else 330)
+        assert anchor.YCoordinate == 450
+        assert getattr(anchor, hint_axis + "DeviceTable").DeltaValue == [delta]
+        if full and hint_axis == "Y":
+            assert getattr(anchor, "XDeviceTable", None) is None
+
     @pytest.mark.parametrize(
         "location, expected",
         [
@@ -2533,6 +2752,72 @@ def makeFeatureVarsFont(conditionalSubstitutions):
 
 
 class InstantiateFeatureVariationsTest(object):
+    @pytest.mark.parametrize("pinned_axis", ["wght", "wdth"])
+    def test_partial_instance_preserves_rule_substitutions(self, pinned_axis):
+        fb = FontBuilder(1000)
+        order = [".notdef", "dollar", "dollar.nostroke", "A", "a"]
+        fb.setupGlyphOrder(order)
+        fb.setupCharacterMap({0x24: "dollar", 0x41: "A", 0x61: "a"})
+        fb.setupGlyf({name: TTGlyphPen(None).glyph() for name in order})
+        fb.setupHorizontalMetrics({name: (500, 0) for name in order})
+        fb.setupHorizontalHeader()
+        fb.setupNameTable({"familyName": "Rules", "styleName": "Regular"})
+        fb.setupOS2()
+        fb.setupPost()
+        fb.setupFvar(
+            [
+                ("wght", 100, 400, 900, "Weight"),
+                ("wdth", 50, 100, 200, "Width"),
+            ],
+            [],
+        )
+        featureVars.addFeatureVariations(
+            fb.font,
+            [
+                ([{"wght": (0.2, 1)}], {"dollar": "dollar.nostroke"}),
+                ([{"wdth": (0.75, 1)}], {"A": "a"}),
+            ],
+        )
+
+        def roundtrip(font):
+            stream = BytesIO()
+            font.save(stream)
+            stream.seek(0)
+            return ttLib.TTFont(stream)
+
+        def substitutions(font, location):
+            gsub = font["GSUB"].table
+            feature = gsub.FeatureList.FeatureRecord[0].Feature
+            axes = [axis.axisTag for axis in font["fvar"].axes]
+            variations = getattr(gsub, "FeatureVariations", None)
+            for record in variations.FeatureVariationRecord if variations else []:
+                conditions = (
+                    record.ConditionSet.ConditionTable if record.ConditionSet else []
+                )
+                if all(
+                    condition.FilterRangeMinValue
+                    <= location.get(axes[condition.AxisIndex], 0)
+                    <= condition.FilterRangeMaxValue
+                    for condition in conditions
+                ):
+                    feature = record.FeatureTableSubstitution.SubstitutionRecord[
+                        0
+                    ].Feature
+                    break
+            return _getSubstitutions(gsub, feature.LookupListIndex)
+
+        original = roundtrip(fb.font)
+        partial = roundtrip(
+            instancer.instantiateVariableFont(
+                original, {pinned_axis: 900 if pinned_axis == "wght" else 200}
+            )
+        )
+        remaining_axis = "wdth" if pinned_axis == "wght" else "wght"
+        for value in (-1, 0, 0.5, 0.8, 1):
+            assert substitutions(partial, {remaining_axis: value}) == substitutions(
+                original, {pinned_axis: 1, remaining_axis: value}
+            )
+
     @pytest.mark.parametrize(
         "location, appliedSubs, expectedRecords",
         [
@@ -2554,7 +2839,7 @@ class InstantiateFeatureVariationsTest(object):
                         {"cntr": (0.75, 1.0)},
                         {"uni0024": "uni0024.nostroke", "uni0041": "uni0061"},
                     ),
-                    ({}, {}),
+                    ({}, {"uni0024": "uni0024.nostroke"}),
                 ],
             ),
             (
@@ -2573,7 +2858,7 @@ class InstantiateFeatureVariationsTest(object):
                         {"wght": (0.20886, 1.0)},
                         {"uni0024": "uni0024.nostroke", "uni0041": "uni0061"},
                     ),
-                    ({}, {}),
+                    ({}, {"uni0041": "uni0061"}),
                 ],
             ),
             (
@@ -2736,6 +3021,68 @@ class InstantiateFeatureVariationsTest(object):
 
         lookupIndices = gsub.FeatureList.FeatureRecord[0].Feature.LookupListIndex
         assert _getSubstitutions(gsub, lookupIndices) == {"uni0024": "uni0024.nostroke"}
+
+    @pytest.mark.parametrize("explicit_empty", [False, True])
+    @pytest.mark.parametrize("lazy", [False, True])
+    @pytest.mark.parametrize(
+        "partial, coordinate, expected",
+        [
+            (False, 0, {"A.alt": "A"}),
+            (False, 0.375, {"A": "A.alt"}),
+            (False, 0.75, {"A.alt": "A"}),
+            (True, -0.5, {"A.alt": "A"}),
+            (True, -0.25, {"A": "A.alt"}),
+            (True, 0, {"A.alt": "A"}),
+            (True, 0.5, {"A.alt": "A"}),
+        ],
+    )
+    def test_null_substitution(
+        self, explicit_empty, lazy, partial, coordinate, expected
+    ):
+        font = makeFeatureVarsFont([([{"wght": (0.25, 1.0)}], {"A": "A.alt"})])
+        gsub = font["GSUB"].table
+        featureVars.buildSubstitutionLookups(
+            gsub, [(("A.alt", "A"),)], processLast=True
+        )
+        feature = gsub.FeatureList.FeatureRecord[0].Feature
+        feature.LookupListIndex = [1]
+        feature.LookupCount = 1
+        first = deepcopy(gsub.FeatureVariations.FeatureVariationRecord[0])
+        first.ConditionSet.ConditionTable[0].FilterRangeMinValue = 0.5
+        if explicit_empty:
+            first.FeatureTableSubstitution.SubstitutionRecord = []
+            first.FeatureTableSubstitution.SubstitutionCount = 0
+        else:
+            first.FeatureTableSubstitution = None
+        gsub.FeatureVariations.FeatureVariationRecord.insert(0, first)
+        gsub.FeatureVariations.FeatureVariationCount = 2
+        data = font["GSUB"].compile(font)
+        font.lazy = lazy
+        font["GSUB"] = ttLib.newTable("GSUB")
+        font["GSUB"].decompile(data, font)
+
+        if partial:
+            instancer.instantiateFeatureVariations(
+                font, instancer.NormalizedAxisLimits({"wght": (-1, 0.75, 1)})
+            )
+            gsub = font["GSUB"].table
+            assert gsub.FeatureVariations.FeatureVariationCount == 2
+            first = gsub.FeatureVariations.FeatureVariationRecord[0]
+            if explicit_empty:
+                assert first.FeatureTableSubstitution.SubstitutionCount == 0
+            else:
+                assert first.FeatureTableSubstitution is None
+            data = font["GSUB"].compile(font)
+            font["GSUB"] = ttLib.newTable("GSUB")
+            font["GSUB"].decompile(data, font)
+
+        instancer.instantiateFeatureVariations(
+            font, instancer.NormalizedAxisLimits({"wght": coordinate})
+        )
+        gsub = font["GSUB"].table
+        assert not hasattr(gsub, "FeatureVariations")
+        indices = gsub.FeatureList.FeatureRecord[0].Feature.LookupListIndex
+        assert _getSubstitutions(gsub, indices) == expected
 
     def test_unsupported_condition_format(self, caplog):
         font = makeFeatureVarsFont(
@@ -3105,6 +3452,25 @@ def test_main(varfont, tmpdir):
 
     # exits without errors
     assert instancer.main(args) is None
+
+
+def test_main_missing_fvar(tmpdir):
+    font = ttLib.TTFont()
+    font.importXML(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "ttLib",
+            "data",
+            "TestTTF-Regular.ttx",
+        )
+    )
+    fontfile = str(tmpdir / "static.ttf")
+    font.save(fontfile)
+
+    with pytest.raises(ValueError, match="Missing required table fvar"):
+        instancer.main([fontfile])
 
 
 def test_main_exit_nonexistent_file(capsys):

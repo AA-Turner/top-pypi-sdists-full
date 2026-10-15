@@ -2390,6 +2390,18 @@ CANONICAL_CASES = [
         },
         (),
     ),
+    # Values for a key both patterns claim need an intersection the canonical algebra cannot express.
+    (
+        {
+            "type": "object",
+            "patternProperties": {
+                "^a": {"type": "object", "patternProperties": {"^a": {"type": "null"}}},
+                "b$": {"type": "object", "additionalProperties": {"type": "string"}, "patternProperties": {"x$": {}}},
+            },
+            "additionalProperties": False,
+        },
+        (lambda value: any(key.startswith("a") and key.endswith("b") for key in value),),
+    ),
 ]
 # NOT `ids=str`: pytest applies an `ids` callable per parameter, so a predicate tuple stringifies with
 # a memory address and `pytest -n auto` aborts with "Different tests were collected between gw0 and
@@ -2504,7 +2516,7 @@ def test_pattern_properties_root_reference_overlap():
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
     @given(built)
-    @settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+    @settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow])
     def test(value):
         assert is_valid(value), value
 

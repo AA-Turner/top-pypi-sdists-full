@@ -219,6 +219,18 @@ class GoogleTranslator(BaseTranslator):
             if google_content:
                 contents.append(google_content)
 
+        # TAIL CHANNEL (config/live_plan.py): a text part after the newest
+        # function_response parts, in the same (user) turn.
+        tail_text = self.get_tail_context_text(config)
+        if tail_text and contents:
+            last_content = contents[-1]
+            if (
+                isinstance(last_content, dict)
+                and last_content.get("role") == "user"
+                and isinstance(last_content.get("parts"), list)
+            ):
+                last_content["parts"].append({"text": tail_text})
+
         # An empty `contents` is NEVER a valid Gemini request — the SDK raises a bare
         # ValueError('contents are required.') before any HTTP call, which then gets
         # misclassified as a retryable provider error and burns 2 paid retries. This

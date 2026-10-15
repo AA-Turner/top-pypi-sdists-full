@@ -202,21 +202,26 @@ bool IsFilamentReady() {
 // Applies a parsed state payload to the app. Called via AppCallbacks::OnPayload
 // after Session validates model CRC and payload readiness.
 void ApplyStatePayload(const StatePayloadView& view) {
-  mjModel* model = g_app.model_holder->model();
-
-  // Physics state. Guard against a size mismatch (e.g. a stale packet from
-  // before a model change).
+  // Physics state. While a new model is downloading, buffer it unconditionally
+  // (the current model's state size is the old model's); MainLoopImpl checks
+  // the size against the model actually in use right before mj_setState.
   if (view.physics != nullptr) {
-    const size_t expected_bytes =
-        mj_stateSize(model, view.physics_spec) * sizeof(mjtNum);
-    if (view.physics_bytes == expected_bytes) {
+    bool accept = true;
+    if (!g_app.download_status.is_downloading) {
+      mjModel* model = g_app.model_holder->model();
+      const size_t expected_bytes =
+          mj_stateSize(model, view.physics_spec) * sizeof(mjtNum);
+      accept = view.physics_bytes == expected_bytes;
+      if (!accept) {
+        LOG(Warning, "Physics state size mismatch (%zu != %zu); dropping",
+            view.physics_bytes, expected_bytes);
+      }
+    }
+    if (accept) {
       g_app.backend_state.resize(view.physics_bytes / sizeof(mjtNum));
       memcpy(g_app.backend_state.data(), view.physics, view.physics_bytes);
       g_app.backend_state_sig = view.physics_spec;
       g_app.backend_state_dirty = true;
-    } else {
-      LOG(Warning, "Physics state size mismatch (%zu != %zu); dropping",
-          view.physics_bytes, expected_bytes);
     }
   }
 
@@ -237,9 +242,12 @@ void ApplyStatePayload(const StatePayloadView& view) {
 
     g_app.perturb = rs.perturb;
     g_app.vis_options = rs.vis_options;
-    model->opt = rs.opt;
-    model->vis = rs.vis;
-    model->stat = rs.stat;
+    if (!g_app.download_status.is_downloading) {
+      mjModel* model = g_app.model_holder->model();
+      model->opt = rs.opt;
+      model->vis = rs.vis;
+      model->stat = rs.stat;
+    }
 
     // Apply render flags to the renderer's scene if available.
     if (g_app.renderer) {
@@ -414,8 +422,9 @@ void BuildBrowserGui() {
   const double last_msg = g_app.session.LastMessageTime();
   const double stale_sec =
       last_msg > 0 ? emscripten_get_now() / 1000.0 - last_msg : -1.0;
-  g_app.disconnect_notice.Draw(g_app.session.ServerCloseCode(), stale_sec,
-                               g_app.download_status.is_downloading);
+  g_app.disconnect_notice.Draw(g_app.session.ServerCloseCode(),
+                               g_app.session.ServerCloseReason().c_str(),
+                               stale_sec, g_app.download_status.is_downloading);
 
   SessionView view;
   g_app.session.FillView(&view);
@@ -461,8 +470,8 @@ void MainLoopImpl() {
 
   // Reconnect the state WebSocket if it dropped. Receiving a payload with a
   // different model identity then triggers a page reload (Session). Deliberate
-  // server closes (session full, inactivity) are transient; retry them too,
-  // using a gentler pace.
+  // server closes (session full, inactivity, the viewer stopped with an error)
+  // are transient; retry them too, using a gentler pace.
   const int state_retry_interval =
       g_app.session.ServerCloseCode() != 0 ? 300 : 60;
   if (!g_app.session.HasSocket() && g_app.model_holder &&
@@ -570,9 +579,13 @@ void MainLoopImpl() {
     if (g_app.backend_state_dirty && !g_app.download_status.is_downloading) {
       mjModel* model = g_app.model_holder->model();
       mjData* data = g_app.model_holder->data();
-      mj_setState(model, data, g_app.backend_state.data(),
-                  g_app.backend_state_sig);
-      mj_forward(model, data);
+      const size_t expected_size =
+          static_cast<size_t>(mj_stateSize(model, g_app.backend_state_sig));
+      if (g_app.backend_state.size() == expected_size) {
+        mj_setState(model, data, g_app.backend_state.data(),
+                    g_app.backend_state_sig);
+        mj_forward(model, data);
+      }
       g_app.backend_state_dirty = false;
     }
 
@@ -599,15 +612,21 @@ void SetupScene(const mjModel* m) {
   // textures) and re-upload them on the new Filament context.
   g_app.remote_ui.UpdateTextures();
 
-  mjv_defaultPerturb(&g_app.perturb);
-  mjv_defaultCamera(&g_app.camera);
-  mjv_defaultOption(&g_app.vis_options);
+  // Only initialize default camera/perturb/vis_options before the state
+  // WebSocket connects; on model reloads, keep the current camera and visual
+  // state streamed from the Python viewer so the view does not snap to the
+  // default camera for a frame.
+  if (!g_app.session.HasSocket()) {
+    mjv_defaultPerturb(&g_app.perturb);
+    mjv_defaultCamera(&g_app.camera);
+    mjv_defaultOption(&g_app.vis_options);
 
-  const int model_cam = m->vis.global.cameraid;
-  if (model_cam >= 0 && model_cam < m->ncam) {
-    mujoco::studio::SetCamera(m, &g_app.camera, model_cam);
-  } else {
-    mjv_defaultFreeCamera(m, &g_app.camera);
+    const int model_cam = m->vis.global.cameraid;
+    if (model_cam >= 0 && model_cam < m->ncam) {
+      mujoco::studio::SetCamera(m, &g_app.camera, model_cam);
+    } else {
+      mjv_defaultFreeCamera(m, &g_app.camera);
+    }
   }
 }
 
@@ -765,7 +784,7 @@ void RegisterAsset(std::string filename, emscripten::val contents) {
 // resolve from the AssetRegistry populated by registerAsset().
 static void RegisterAssetProviders() {
   mjpResourceProvider resource_provider;
-  mjp_defaultResourceProvider(&resource_provider);
+  mjp_defaultProvider(&resource_provider);
 
   resource_provider.open = [](mjResource* resource) {
     AssetRegistry& r = AssetRegistry::Instance();
@@ -780,7 +799,7 @@ static void RegisterAssetProviders() {
   resource_provider.close = [](mjResource* resource) {};
   for (const char* prefix : {"filament", "font"}) {
     resource_provider.prefix = prefix;
-    mjp_registerResourceProvider(&resource_provider);
+    mjp_registerProvider(&resource_provider);
   }
 }
 

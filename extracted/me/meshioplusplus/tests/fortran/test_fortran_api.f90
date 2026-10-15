@@ -192,10 +192,112 @@ program test_fortran_api
             call check(all(back_info%nurbs_control_points(1) == xyz), 'nurbs round trip')
             call back%free()
             call back_info%free()
+            ! ---- the isogeometric layer: refine, write back, evaluate
+            block
+                type(mio_mesh) :: fine
+                type(mio_format_info) :: refined
+                type(mio_iga_evaluation) :: ev_a, ev_b
+                real(real64) :: uv(2, 2)
+                real(real64), allocatable :: pa(:, :), pb(:, :), da(:, :, :), nrm(:, :)
+                fine = info%iga_refine(subdivisions=[3], elevate=[1], refined=refined, &
+                                       stat=ierr, errmsg=msg)
+                call check(ierr == 0, 'iga_refine succeeds')
+                if (ierr == 0) then
+                    call check(refined%format() == 'mfem', 'iga_refine keeps the format')
+                    call check(all(refined%nurbs_degrees(1) == [3, 2]), 'iga_refine raised degrees')
+                    call fine%write_with_info(output_path, refined, 'mfem', stat=ierr)
+                    call check(ierr == 0, 'refined model writes back')
+                    uv = reshape([0.3_real64, 0.7_real64, 0.9_real64, 0.2_real64], [2, 2])
+                    ev_a = info%iga_evaluate(1, uv, derivatives=1, stat=ierr)
+                    ev_b = refined%iga_evaluate(1, uv, stat=ierr)
+                    call check(ierr == 0, 'iga_evaluate succeeds')
+                    pa = ev_a%points()
+                    pb = ev_b%points()
+                    call check(all(shape(pa) == [2, 2]), 'iga points shape')
+                    call check(maxval(abs(pa - pb)) < 1.0e-13_real64, 'refinement keeps the geometry')
+                    da = ev_a%derivatives()
+                    call check(all(shape(da) == [2, 2, 2]), 'iga derivatives shape')
+                    nrm = ev_a%normals(stat=ierr)
+                    call check(ierr /= 0, 'a planar patch has no 3-D normals')
+                    call check(ev_a%num_fields() == 0, 'iga carries no fields here')
+                    call ev_a%free()
+                    call ev_b%free()
+                end if
+                call fine%free()
+                call refined%free()
+                fine = info%iga_sample(stat=ierr)
+                call check(ierr == 0, 'iga_sample succeeds')
+                call fine%free()
+                ev_a = info%iga_evaluate(1, reshape([2.0_real64, 0.5_real64], [2, 1]), stat=ierr)
+                call check(ierr /= 0, 'an out-of-range parameter fails')
+                call ev_a%free()
+            end block
             open (newunit=unit, file=output_path, status='old')
             close (unit, status='delete')
         end if
         call nurbs_mesh%free()
+        call info%free()
+        open (newunit=unit, file=input_path, status='old')
+        close (unit, status='delete')
+    end block
+
+    ! ---- the B-rep side channel of a Kratos CAD JSON file -----------------
+    block
+        type(mio_mesh) :: cad_mesh, back
+        type(mio_format_info) :: info, back_info
+        integer :: unit
+        integer(int64), allocatable :: ids(:)
+        real(real64), allocatable :: xyz(:, :), knots(:)
+        character(:), allocatable :: input_path, output_path
+
+        input_path = prefix//'_brep.cad.json'
+        output_path = prefix//'_brep_out.cad.json'
+        open (newunit=unit, file=input_path, status='replace')
+        write (unit, '(a)') '{"breps": [{"brep_id": 1, "faces": [{"brep_id": 2, "surface": {', &
+            '"is_trimmed": true, "degrees": [1, 1], "knot_vectors": [[0, 1], [0, 1]],', &
+            '"control_points": [[1, [0, 0, 0, 1]], [2, [2, 0, 0, 1]], [3, [0, 2, 0, 1]], [4, [2, 2, 0, 1]]]},', &
+            '"boundary_loops": [{"loop_type": "outer", "trimming_curves": [', &
+            '{"trim_index": 0, "curve_direction": true, "parameter_curve": {"degree": 1,', &
+            '"knot_vector": [0, 0, 1, 1], "active_range": [0, 1],', &
+            '"control_points": [[[0, 0, 0, 1]], [[1, 0, 0, 1]]]}}]}]}],', &
+            '"edges": [{"brep_id": 3, "topology": [{"brep_id": 2, "trim_index": 0}]}]}]}'
+        close (unit)
+        call cad_mesh%read_with_info(input_path, info, 'cad_json', stat=ierr, errmsg=msg)
+        call check(ierr == 0, 'brep read_with_info succeeds')
+        if (ierr == 0) then
+            call check(info%format() == 'cad_json', 'brep format name')
+            call check(info%brep_count(MIO_BREP_FACES) == 1, 'brep face count')
+            call check(info%brep_count(MIO_BREP_TRIMS) == 1, 'brep trim count')
+            call check(info%brep_int(MIO_BREP_FACES, 1, 0) == 2_int64, 'brep face id')
+            call check(info%brep_int(MIO_BREP_FACES, 1, 1) == 1_int64, 'brep 1-based patch')
+            call check(info%brep_int(MIO_BREP_FACES, 1, 5) == 1_int64, 'brep reduced knots')
+            call check(info%brep_int(MIO_BREP_TRIMS, 1, 1) == 1_int64, 'brep 1-based loop')
+            call check(info%brep_int(MIO_BREP_PATCHES, 1, 0) == 1_int64, 'brep degree')
+            knots = info%brep_values(MIO_BREP_PATCHES, 1, 2)
+            call check(all(knots == [0.0_real64, 0.0_real64, 1.0_real64, 1.0_real64]), &
+                       'brep full knots')
+            xyz = info%brep_points(MIO_BREP_PATCHES, 1, 0)
+            call check(all(shape(xyz) == [3, 4]) .and. xyz(1, 2) == 2.0_real64, 'brep net')
+            xyz = info%brep_points(MIO_BREP_TRIMS, 1, 10)
+            call check(all(shape(xyz) == [3, 2]), 'brep trim curve')
+            ids = info%brep_ids(MIO_BREP_FACES, 1, 0)
+            call check(all(ids == [1_int64, 2_int64, 3_int64, 4_int64]), 'brep control ids')
+            ids = info%brep_ids(MIO_BREP_BREPS, 1, 1)
+            call check(all(ids == [1_int64]), 'brep 1-based edge list')
+            call check(info%brep_string(MIO_BREP_LOOPS, 1, 0) == 'outer', 'brep loop type')
+            call check(info%brep_int(MIO_BREP_REFS, 1, 1) == 0_int64, 'brep ref trim index')
+            call cad_mesh%write_with_info(output_path, info, 'cad_json', stat=ierr)
+            call check(ierr == 0, 'brep write_with_info succeeds')
+            call back%read_with_info(output_path, back_info, 'cad_json', stat=ierr)
+            call check(ierr == 0, 'brep reread succeeds')
+            call check(all(back_info%brep_points(MIO_BREP_PATCHES, 1, 0) == &
+                           info%brep_points(MIO_BREP_PATCHES, 1, 0)), 'brep round trip')
+            call back%free()
+            call back_info%free()
+            open (newunit=unit, file=output_path, status='old')
+            close (unit, status='delete')
+        end if
+        call cad_mesh%free()
         call info%free()
         open (newunit=unit, file=input_path, status='old')
         close (unit, status='delete')
@@ -1624,6 +1726,7 @@ program test_fortran_api
     ! ---- per-vertex curvature --------------------------------------------
     call check_curvature()
     call check_normals()
+    call check_tessellate()
     call check_analysis_editing()
     call check_render(prefix)
     call check_repair_shrinkwrap_sobolev()
@@ -1943,9 +2046,62 @@ contains
         call sq%free()
     end subroutine
 
+    !> Tessellate one straight-sided tetra10: the default two levels give the
+    !> 35-point, 64-tetra lattice with every facet used once or twice.
+    subroutine check_tessellate()
+        type(mio_mesh) :: t10, out, bad
+        integer(int64) :: ncurved, npts, ncells, nbound, ninner, nbad
+        integer :: ierr
+        real(real64) :: pts(3, 10)
+        integer(int64) :: conn(10, 1)
+
+        pts = reshape([0.0_real64, 0.0_real64, 0.0_real64, &
+                       1.0_real64, 0.0_real64, 0.0_real64, &
+                       0.0_real64, 1.0_real64, 0.0_real64, &
+                       0.0_real64, 0.0_real64, 1.0_real64, &
+                       0.5_real64, 0.0_real64, 0.0_real64, &
+                       0.5_real64, 0.5_real64, 0.0_real64, &
+                       0.0_real64, 0.5_real64, 0.0_real64, &
+                       0.0_real64, 0.0_real64, 0.5_real64, &
+                       0.5_real64, 0.0_real64, 0.5_real64, &
+                       0.0_real64, 0.5_real64, 0.5_real64], [3, 10])
+        conn = reshape([1_int64, 2_int64, 3_int64, 4_int64, 5_int64, &
+                        6_int64, 7_int64, 8_int64, 9_int64, 10_int64], [10, 1])
+        call t10%create()
+        call t10%set_points(pts)
+        call t10%add_cell_block('tetra10', conn)
+
+        out = t10%tessellate(num_curved_source_cells=ncurved, num_points=npts, &
+                             num_cells=ncells, num_boundary_facets=nbound, &
+                             num_interior_facets=ninner, num_facets_with_bad_count=nbad, &
+                             stat=ierr)
+        call check(ierr == 0, 'tessellate succeeded')
+        call check(ncurved == 1_int64, 'tessellate counts one curved cell')
+        call check(npts == 35_int64 .and. out%num_points() == 35_int64, &
+                   'a twice-split tetra10 has 35 points')
+        call check(ncells == 64_int64, 'a twice-split tetra10 has 64 tetras')
+        call check(nbound == 64_int64 .and. ninner == 96_int64, 'tessellate facet counts')
+        call check(nbad == 0_int64, 'tessellate is conforming')
+        call check(out%num_point_data() == 1_int64, 'tessellate adds source_point')
+        call check(out%point_data_name(1) == 'tessellate:source_point', &
+                   'tessellate:source_point attached')
+        call out%free()
+
+        out = t10%tessellate(levels=1_int64, record_stencil=.true., num_cells=ncells, &
+                             stat=ierr)
+        call check(ierr == 0 .and. ncells == 8_int64, 'one level splits into 8 tetras')
+        call check(out%num_point_data() == 3_int64, 'record_stencil adds stencil and weights')
+        call out%free()
+
+        bad = t10%tessellate(levels=-1_int64, stat=ierr)
+        call check(ierr /= 0, 'tessellate rejects negative levels')
+        call t10%free()
+    end subroutine
+
     subroutine check_analysis_editing()
         type(mio_mesh) :: sq, other, edges, edited, bad, seg, fitted, solid
         integer(int64) :: nfeat, nbound, nfixed, npatch, nplane, nfaces
+        integer(int64) :: nsplit, nfillet, nhelical, nvarfillet, nblend, nrounded
         logical :: cad_valid
         character(:), allocatable :: msg
         integer(int64), allocatable :: s_ids(:), m_ids(:)
@@ -2000,6 +2156,18 @@ contains
             call check(ierr == 0, 'fit_cad succeeded')
             call check(cad_valid, 'the cube solid is valid')
             call check(nfaces == 6_int64, 'the cube solid has 6 faces')
+            call solid%free()
+            solid = sq%fit_cad(freeform_split=.false., fillets=.false., threads=.false., &
+                               num_faces=nfaces, num_split_patches=nsplit, &
+                               num_fillet=nfillet, num_helical=nhelical, &
+                               num_variable_fillet=nvarfillet, num_blend=nblend, &
+                               num_rounded_thread=nrounded, stat=ierr)
+            call check(ierr == 0, 'fit_cad without fillets and threads succeeded')
+            call check(nfaces == 6_int64, 'still 6 plane faces')
+            call check(nsplit == 0_int64 .and. nfillet == 0_int64 .and. nhelical == 0_int64, &
+                       'a cube has no split, fillet or thread faces')
+            call check(nvarfillet == 0_int64 .and. nblend == 0_int64 .and. nrounded == 0_int64, &
+                       'a cube has no varying fillet, blend or rounded thread')
             call solid%free()
         else
             call check(ierr /= 0, 'fit_cad fails without OpenCASCADE')

@@ -25,7 +25,10 @@ What the rows can and cannot prove:
   rewrote the file, lost with a preempted job's outbox -- is not, so
   ``latest`` falls back to the newest save that can actually be had;
 * one name can have more than one row (a name saved again): the NEWEST row is
-  the one that counts (:func:`_by_name`).
+  the one that counts (:func:`_by_name`);
+* a save from a range a later rewind abandoned carries the server-owned
+  ``meta.rewound`` (data-catalog C7): it is never ``latest`` or ``best``
+  (:func:`is_rewound`), though it stays listed and downloadable by id.
 """
 
 from __future__ import annotations
@@ -46,6 +49,8 @@ UPLOAD_FAILED = "failed"
 MEMBER_OF_KEY = "checkpoint"
 #: How many of the checkpoint's files a `.probe.config` kept out (never their names).
 EXCLUDED_KEY = "members_excluded"
+#: Server-owned: the save is from a range a rewind abandoned (``{to_step, epoch, at}``).
+REWOUND_KEY = "rewound"
 
 CHECKPOINT_KIND = "checkpoint"
 LATEST = "latest"
@@ -85,6 +90,13 @@ def step_of(row: dict) -> int | None:
         return step
     step = row.get("step_index")
     return step if isinstance(step, int) and not isinstance(step, bool) else None
+
+
+def is_rewound(row: dict) -> bool:
+    """The save is from a range a later rewind abandoned (``meta.rewound``, set
+    by the server when the run is reopened with ``rewind_to_step``)."""
+    mark = _meta(row).get(REWOUND_KEY)
+    return isinstance(mark, dict) or mark is True
 
 
 def members(row: dict) -> list[str] | None:
@@ -151,7 +163,9 @@ def _candidates(rows: list[dict], which: str, callback: str | None) -> list[dict
     """``which``'s candidates among ``rows``, newest first."""
     if which not in WHICH:
         raise ValueError(f"which must be one of {WHICH}, not {which!r}")
-    found = [r for r in rows if r.get("kind") == CHECKPOINT_KIND and not r.get("deleted_at")]
+    found = [
+        r for r in rows if r.get("kind") == CHECKPOINT_KIND and not r.get("deleted_at") and not is_rewound(r)
+    ]
     if callback is not None:
         found = [r for r in found if _meta(r).get("callback") == callback]
     if which == BEST:
@@ -168,7 +182,8 @@ def _candidates(rows: list[dict], which: str, callback: str | None) -> list[dict
 def select(rows: list[dict], which: str = LATEST, *, callback: str | None = None,
            recoverable_only: bool = True) -> dict | None:
     """The run's ``latest`` (highest step, then newest) or ``best`` checkpoint
-    among ``rows`` (all of the run's artifact rows), or None.
+    among ``rows`` (all of the run's artifact rows), or None. A save a rewind
+    abandoned (:func:`is_rewound`) is never either.
 
     ``best`` is the row whose ``meta.best`` is true -- never a guess from scores.
     Two callbacks each marking a best (Lightning: top-k by ``val_loss`` and

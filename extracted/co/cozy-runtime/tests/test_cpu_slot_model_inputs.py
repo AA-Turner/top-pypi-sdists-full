@@ -1,5 +1,5 @@
-"""A script declares its accelerator the same way to the static and the imported reader, and a
-CPU script that reaches for CUDA is told which declaration it is missing."""
+"""A script job's accelerator, declared or not, reaches the static and the imported reader the same
+way, and a CPU script that reaches for CUDA is told which declaration it is missing."""
 
 from __future__ import annotations
 
@@ -27,20 +27,22 @@ def _script(tmp_path: Path, name: str, metadata: str, body: str) -> Path:
     return project
 
 
-@pytest.mark.parametrize(
-    ("metadata", "declared"),
-    [("", False), ("# /// script\n# [tool.cozy]\n# accelerator = true\n# ///\n", True)],
-)
+@pytest.mark.parametrize("declared", [None, False, True])
 def test_a_script_declares_its_accelerator_in_both_readers(
-    tmp_path: Path, metadata: str, declared: bool
+    tmp_path: Path, declared: bool | None
 ) -> None:
     name = "accel_script_" + str(declared).lower()
+    metadata = (
+        ""
+        if declared is None
+        else f"# /// script\n# [tool.cozy]\n# accelerator = {str(declared).lower()}\n# ///\n"
+    )
     project = _script(tmp_path, name, metadata, "def main():\n    pass\n")
     sys.modules.pop(name, None)
     static = static_interface.build(project)
     imported = package_interface.build(discover(project))
     assert package_interface.canonical_bytes(static) == package_interface.canonical_bytes(imported)
-    assert static["jobs"][0]["accelerator"] is declared
+    assert static["jobs"][0].get("accelerator") is declared
 
 
 def test_a_cpu_script_that_uses_cuda_names_the_declaration(
@@ -48,6 +50,7 @@ def test_a_cpu_script_that_uses_cuda_names_the_declaration(
 ) -> None:
     # torch's own words when a process with no visible device asks for CUDA.
     (tmp_path / "cuda_script.py").write_text(
+        "# /// script\n# [tool.cozy]\n# accelerator = false\n# ///\n"
         "def main():\n    raise RuntimeError('No CUDA GPUs are available')\n"
     )
     monkeypatch.syspath_prepend(str(tmp_path))

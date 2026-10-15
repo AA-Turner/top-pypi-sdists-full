@@ -600,6 +600,27 @@ HEADER_PROFILES = [
 ]
 
 
+def httpx_decodable_encodings() -> str:
+    """The ``Accept-Encoding`` value httpx can actually decode on THIS host.
+
+    httpx decodes gzip/deflate natively, br only when ``brotli`` or ``brotlicffi``
+    is installed, zstd only when ``zstandard`` is. Advertising more than that
+    makes a site answer compressed bytes the client reads as garbage (the Smart
+    Add website-check failure, 2026-10-14). curl_cffi decodes all of them itself,
+    so only the httpx fallback uses this."""
+    import importlib.util
+
+    def _has(name: str) -> bool:
+        return importlib.util.find_spec(name) is not None
+
+    encodings = ["gzip", "deflate"]
+    if _has("brotli") or _has("brotlicffi"):
+        encodings.append("br")
+    if _has("zstandard"):
+        encodings.append("zstd")
+    return ", ".join(encodings)
+
+
 def get_random_header_profile() -> dict:
     """Get a random coherent browser header profile"""
     profile = random.choice(HEADER_PROFILES)
@@ -1064,6 +1085,8 @@ async def fetch(
             else:
                 # Fallback to httpx
                 timeout_config = Timeout(15.0, connect=60.0)
+                # curl_cffi is absent here: only advertise what httpx decodes.
+                request_headers["Accept-Encoding"] = httpx_decodable_encodings()
                 client_kwargs = {"timeout": timeout_config, "headers": request_headers}
                 if proxy:
                     # Through a proxy: every hop (httpx follows redirects

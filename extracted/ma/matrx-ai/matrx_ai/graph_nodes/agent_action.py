@@ -642,6 +642,12 @@ class StepAgent:
     is_version: bool
     config_overrides: dict[str, Any] | None
     declared_output_kind: str | None
+    #: The host's ONE consumption pipeline for this resolution (the mandate's BINDING: its consumption
+    #: map, the guaranteed values, the required-input gate). ``None`` on the pinned-``agent_id`` path
+    #: and when the host offers none.
+    materialize: Any = None
+    #: The winning binding's consumption map (``None`` = no map: the default pin, by name).
+    consumption_map: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -744,6 +750,8 @@ async def resolve_step_agent_full(
                 dict(resolution.config_overrides) if resolution.config_overrides else None
             ),
             declared_output_kind=resolution.output_kind,
+            materialize=resolution.materialize,
+            consumption_map=resolution.consumption_map,
         )
     if agent_id:
         return StepAgent(
@@ -1039,7 +1047,19 @@ async def run_step_agent(
                 f"({type(exc).__name__}: {exc}) — the step runs unattributed",
                 color="red",
             )
-    token = set_app_context(ctx.app)
+    # ONE AI CALL = ONE ``chat.user_request`` (AI-WATCH.md, 2026-10-14). A forked step
+    # context inherits the workflow root's ``request_id``, and the request row is created
+    # idempotently under it — so every AI step of a run wrote into ONE row: the first
+    # step reserved it, each later step reused it, and the finalize metadata of the last
+    # one won. Watch AI listed one entry for a round of seven calls and could not tell
+    # them apart live. Each step invocation runs under its own request id; the row still
+    # roots to the run (``origin_witness`` names the workflow run).
+    import uuid as _uuid
+
+    # (A test's stand-in context without ``with_overrides`` runs as handed.)
+    override = getattr(ctx.app, "with_overrides", None)
+    step_app = override(request_id=str(_uuid.uuid4())) if callable(override) else ctx.app
+    token = set_app_context(step_app)
     try:
         async with _block_stream_scope():
             # The AMBIENT context, read INSIDE the scope — never the captured
@@ -1049,9 +1069,39 @@ async def run_step_agent(
             # ``run_ai_task_on_spine(ctx.emitter, ...)``) would push every
             # token straight past the wrapper. That is what made the seam
             # inert in production — it opened the scope and then bypassed it.
-            return await agent_runner(agent_id, request, get_app_context())
+            ambient = get_app_context()
+            await _announce_step_request(ambient)
+            return await agent_runner(agent_id, request, ambient)
     finally:
         clear_app_context(token)
+
+
+async def _announce_step_request(app: Any) -> None:
+    """Name this step's AI run on the live wire, before the call (AI-WATCH.md).
+
+    Only the HTTP stream's opening frames ever announced a ``user_request``; a workflow
+    step's run was never named, so the run page could not bind the step's live lane to
+    its server run and Watch AI showed a pending row with nothing in it. The workflow
+    emitter forwards this one reservation as a ``record_update`` marker. Never fails a step.
+    """
+    request_id = getattr(app, "request_id", None)
+    send = getattr(getattr(app, "emitter", None), "send_record_reserved", None)
+    if not request_id or send is None:
+        return
+    try:
+        from matrx_connect.context.events import RecordReservedPayload
+
+        await send(
+            RecordReservedPayload(
+                db_project="matrx",
+                table="user_request",
+                record_id=str(request_id),
+                parent_refs={},
+                metadata={},
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — the live wire never breaks a run
+        vcprint(f"[agent_action] could not announce the step's run ({type(exc).__name__}: {exc})", color="red")
 
 
 @asynccontextmanager

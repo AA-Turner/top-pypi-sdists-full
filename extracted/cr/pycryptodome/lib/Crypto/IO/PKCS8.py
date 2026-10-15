@@ -1,54 +1,74 @@
 #
 #  PublicKey/PKCS8.py : PKCS#8 functions
 #
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
 
-from Crypto.Util.py3compat import *
+from __future__ import annotations
 
+from typing import Callable, Optional, Union
+
+from Crypto import (
+    _INCORRECT_PASSPHRASE,
+    _PASSPHRASE_REQUIRED,
+    IncorrectPassphraseError,
+    KdfLimitError,
+    PassphraseRequiredError,
+)
+from Crypto.IO._PBES import (
+    PBES1,
+    PBES2,
+    PbesError,
+    ProtParams,
+)
+from Crypto.Util._bytes import tobytes
+from Crypto.Util._threads import threads_param
 from Crypto.Util.asn1 import (
-            DerNull,
-            DerSequence,
-            DerObjectId,
-            DerOctetString,
-            )
+    DerNull,
+    DerObject,
+    DerObjectId,
+    DerOctetString,
+    DerSequence,
+)
 
-from Crypto.IO._PBES import PBES1, PBES2, PbesError, _DEFAULT_MAX_ITERATION_COUNT
-
-
-__all__ = ['wrap', 'unwrap']
+__all__ = ["wrap", "unwrap"]
 
 
-def wrap(private_key, key_oid, passphrase=None, protection=None,
-         prot_params=None, key_params=DerNull(), randfunc=None):
+#: Encryption scheme of a private key, when the ``protection`` is not specified
+DEFAULT_PROTECTION = "PBKDF2WithHMAC-SHA256AndAES256-CBC"
+
+
+def _check_kdf_params(
+    max_iteration_count: Optional[int] = None, threads: int = 1, max_memory: Optional[int] = None
+) -> None:
+    """Check the parameters that control the key derivation in :func:`wrap`
+    and :func:`unwrap`.
+
+    The functions that export and import keys call it upfront,
+    so that an invalid value is reported even if the key is not encrypted.
+    """
+
+    for name, value in (("max_iteration_count", max_iteration_count), ("max_memory", max_memory)):
+        if value is not None:
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError("'%s' must be an integer or None" % name)
+            if value < 0:
+                raise ValueError("'%s' must be a non-negative integer" % name)
+    threads_param(threads)
+
+
+def wrap(
+    private_key: bytes,
+    key_oid: str,
+    passphrase: Optional[Union[bytes, str]] = None,
+    protection: Optional[str] = None,
+    prot_params: Optional[ProtParams] = None,
+    key_params: Optional[DerObject] = DerNull(),  # noqa: B008
+    randfunc: Optional[Callable[[int], bytes]] = None,
+    *,
+    threads: int = 1,
+) -> bytes:
     """Wrap a private key into a PKCS#8 blob (clear or encrypted).
 
     Args:
@@ -71,7 +91,7 @@ def wrap(private_key, key_oid, passphrase=None, protection=None,
       protection (string):
         The identifier of the algorithm to use for securely wrapping the key.
         Refer to :ref:`the encryption parameters<enc_params>` .
-        The default value is ``'PBKDF2WithHMAC-SHA1AndDES-EDE3-CBC'``.
+        The default value is ``'PBKDF2WithHMAC-SHA256AndAES256-CBC'``.
 
       prot_params (dictionary):
         Parameters for the key derivation function (KDF).
@@ -88,9 +108,17 @@ def wrap(private_key, key_oid, passphrase=None, protection=None,
         If not specified, a new RNG will be instantiated
         from :mod:`Crypto.Random`.
 
+      threads (integer):
+        The maximum number of threads used to derive the wrapping key
+        with scrypt (default: 1, no extra threads; 0 for all CPU cores).
+        Only scrypt with a ``parallelization`` larger than 1 can use them.
+        See :func:`Crypto.Protocol.KDF.scrypt`.
+
     Returns:
       bytes: The PKCS#8-wrapped private key (possibly encrypted).
     """
+
+    _check_kdf_params(threads=threads)
 
     #
     #   PrivateKeyInfo ::= SEQUENCE {
@@ -105,11 +133,7 @@ def wrap(private_key, key_oid, passphrase=None, protection=None,
     else:
         algorithm = DerSequence([DerObjectId(key_oid), key_params])
 
-    pk_info = DerSequence([
-                0,
-                algorithm,
-                DerOctetString(private_key)
-            ])
+    pk_info = DerSequence([0, algorithm, DerOctetString(private_key)])
     pk_info_der = pk_info.encode()
 
     if passphrase is None:
@@ -121,12 +145,18 @@ def wrap(private_key, key_oid, passphrase=None, protection=None,
     # Encryption with PBES2
     passphrase = tobytes(passphrase)
     if protection is None:
-        protection = 'PBKDF2WithHMAC-SHA1AndDES-EDE3-CBC'
-    return PBES2.encrypt(pk_info_der, passphrase,
-                         protection, prot_params, randfunc)
+        protection = DEFAULT_PROTECTION
+    return PBES2.encrypt(pk_info_der, passphrase, protection, prot_params, randfunc, threads=threads)
 
 
-def unwrap(p8_private_key, passphrase=None, max_iteration_count=None):
+def unwrap(
+    p8_private_key: bytes,
+    passphrase: Optional[Union[bytes, str]] = None,
+    max_iteration_count: Optional[int] = None,
+    *,
+    threads: int = 1,
+    max_memory: Optional[int] = None,
+) -> tuple[str, bytes, Optional[bytes]]:
     """Unwrap a private key from a PKCS#8 blob (clear or encrypted).
 
     Args:
@@ -137,10 +167,28 @@ def unwrap(p8_private_key, passphrase=None, max_iteration_count=None):
       passphrase (byte string or string):
         The passphrase to use to decrypt the blob (if it is encrypted).
       max_iteration_count (integer):
-        The maximum value allowed for the PBKDF2/scrypt iteration count.
+        The maximum value allowed for the PBKDF1/PBKDF2 iteration count,
+        or for the scrypt cost *N·r·p/8* (that is, *N* for the usual *r=8* and *p=1*).
         An attacker could craft a malicious key blob that requires an
         extremely high number of iterations, tying up the CPU for hours.
-        The default value is None (enforcing the default limit of 50,000,000).
+        The default value is None: a limit for each KDF, which keeps
+        the key derivation to about one minute at most
+        (see :ref:`the limits for decryption<pkcs8_limits>`).
+        Set it to ``0`` to disable the check.
+      threads (integer):
+        The maximum number of threads used to derive the unwrapping key
+        with scrypt (default: 1, no extra threads; 0 for all CPU cores).
+        Only a blob protected with scrypt and a parallelization parameter
+        larger than 1 can use them.
+        See :func:`Crypto.Protocol.KDF.scrypt`.
+      max_memory (integer):
+        The maximum memory (in bytes) for the key derivation, as a limit on
+        the **total** of all threads together (not on each thread).
+        Only scrypt uses a significant amount: 128 · (*N* + 2) · *r* bytes for
+        **each** thread, plus 256 · *r* · *p* bytes for all the flows together.
+        If the requested threads do not fit, fewer are used (down to one);
+        if a single thread does not fit, :class:`Crypto.KdfMemoryLimitError` is raised.
+        The default value is None (a limit of 256 MiB).
         Set it to ``0`` to disable the check.
 
     Return:
@@ -151,17 +199,48 @@ def unwrap(p8_private_key, passphrase=None, max_iteration_count=None):
        #. the associated parameters (bytes, DER encoded) or ``None``
 
     Raises:
-      ValueError : if decoding fails
+      PassphraseRequiredError : (a ``ValueError``) if the blob is encrypted
+        and no passphrase has been provided
+      IncorrectPassphraseError : (a ``ValueError``) if the blob cannot be
+        decrypted with the passphrase (most likely, the passphrase is incorrect)
+      KdfIterationLimitError : (a ``ValueError``) if the iteration count
+        is above :data:`max_iteration_count`
+      KdfMemoryLimitError : (a ``ValueError``) if the key derivation needs
+        more memory than :data:`max_memory`
+      ValueError : if decoding fails for any other reason
     """
 
-    if passphrase is not None:
+    _check_kdf_params(max_iteration_count, threads, max_memory)
+
+    # EncryptedPrivateKeyInfo ::= SEQUENCE {
+    #     encryptionAlgorithm  AlgorithmIdentifier,
+    #     encryptedData        OCTET STRING
+    # }
+    #
+    # (a PrivateKeyInfo starts with an INTEGER instead)
+    pk_info = DerSequence().decode(p8_private_key, nr_elements=(2, 3, 4, 5))
+    encrypted = (
+        len(pk_info) == 2
+        and isinstance(pk_info[0], bytes)
+        and pk_info[0][:1] == b"\x30"
+        and isinstance(pk_info[1], bytes)
+        and pk_info[1][:1] == b"\x04"
+    )
+
+    if encrypted:
+        if passphrase is None:
+            raise PassphraseRequiredError(_PASSPHRASE_REQUIRED)
         passphrase = tobytes(passphrase)
 
         found = False
         try:
-            p8_private_key = PBES1.decrypt(p8_private_key, passphrase,
-                                           max_iteration_count=max_iteration_count)
+            p8_private_key = PBES1.decrypt(
+                p8_private_key, passphrase, max_iteration_count=max_iteration_count
+            )
             found = True
+        except (KdfLimitError, IncorrectPassphraseError):
+            # The key is well-formed, and these are the only reasons to reject it
+            raise
         except PbesError as e:
             error_str = "PBES1[%s]" % str(e)
         except ValueError:
@@ -169,9 +248,16 @@ def unwrap(p8_private_key, passphrase=None, max_iteration_count=None):
 
         if not found:
             try:
-                p8_private_key = PBES2.decrypt(p8_private_key, passphrase,
-                                               max_iteration_count=max_iteration_count)
+                p8_private_key = PBES2.decrypt(
+                    p8_private_key,
+                    passphrase,
+                    max_iteration_count=max_iteration_count,
+                    threads=threads,
+                    max_memory=max_memory,
+                )
                 found = True
+            except (KdfLimitError, IncorrectPassphraseError):
+                raise
             except PbesError as e:
                 error_str += ",PBES2[%s]" % str(e)
             except ValueError:
@@ -180,12 +266,15 @@ def unwrap(p8_private_key, passphrase=None, max_iteration_count=None):
         if not found:
             raise ValueError("Error decoding PKCS#8 (%s)" % error_str)
 
-    pk_info = DerSequence().decode(p8_private_key, nr_elements=(2, 3, 4, 5))
-    if len(pk_info) == 2 and not passphrase:
-        raise ValueError("Not a valid clear PKCS#8 structure "
-                         "(maybe it is encrypted?)")
+        # With an incorrect passphrase, the padding may still be correct by chance
+        try:
+            pk_info = DerSequence().decode(p8_private_key, nr_elements=(3, 4, 5))
+        except ValueError:
+            raise IncorrectPassphraseError(_INCORRECT_PASSPHRASE) from None
+    elif len(pk_info) == 2:
+        raise ValueError("Not a valid PKCS#8 structure")
 
-    # RFC5208, PKCS#8, version is v1(0)
+    # RFC 5958 (PKCS#8), version is v1(0)
     #
     #   PrivateKeyInfo ::= SEQUENCE {
     #       version                 Version,
@@ -223,7 +312,7 @@ def unwrap(p8_private_key, passphrase=None, max_iteration_count=None):
         try:
             DerNull().decode(algo[1])
             algo_params = None
-        except:
+        except Exception:
             algo_params = algo[1]
 
     # PrivateKey ::= OCTET STRING

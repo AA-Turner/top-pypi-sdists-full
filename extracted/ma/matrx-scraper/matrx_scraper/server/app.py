@@ -319,12 +319,22 @@ async def _run_stale_session_reaper() -> None:
     """Mark orphaned queued/running sessions failed, forever, on a cadence
     NOTHING else can block. Deliberately separate from the crash-resume loop:
     this sweep is one bounded UPDATE, while a resume runs a whole crawl."""
-    from matrx_scraper.web_crawl.lease_reaper import settle_lease_expired_sessions
+    from matrx_scraper.web_crawl import lease_reaper
     from matrx_scraper.web_crawl.persistence import WebCrawlRepository
 
     while True:
         try:
             reaped = await WebCrawlRepository.fail_stale_sessions()
+            # Runs whose lease went silent 5 min ago → crash-resume (or, if the
+            # session was deleted, settled) — not 30 min / 6 h later.
+            dead = await lease_reaper.fail_dead_lease_sessions()
+            if dead:
+                print(
+                    f"[scraper-server] {len(dead)} crawl session(s) with a dead run lease "
+                    f"handed to crash-resume / settled: {', '.join(dead)}",
+                    file=sys.stderr,
+                    flush=True,
+                )
             if reaped:
                 print(
                     f"[scraper-server] marked {reaped} orphaned crawl session(s) failed",
@@ -333,7 +343,7 @@ async def _run_stale_session_reaper() -> None:
                 )
             # Runs whose lease died long ago (soft-deleted rows included) →
             # partial / lease_expired. Same sweep, no schedule of its own.
-            expired = await settle_lease_expired_sessions()
+            expired = await lease_reaper.settle_lease_expired_sessions()
             if expired:
                 print(
                     f"[scraper-server] settled {len(expired)} crawl session(s) whose run "
@@ -365,11 +375,13 @@ async def _run_crash_resume_loop(service) -> None:
     guarantees the reap still happens on cadence while this sweep is inside a
     multi-hour resumed crawl.
     """
+    from matrx_scraper.web_crawl import lease_reaper
     from matrx_scraper.web_crawl.persistence import WebCrawlRepository
 
     while True:
         try:
             reaped = await WebCrawlRepository.fail_stale_sessions()
+            reaped += len(await lease_reaper.fail_dead_lease_sessions())
             if reaped:
                 print(
                     f"[scraper-server] marked {reaped} orphaned crawl session(s) failed",

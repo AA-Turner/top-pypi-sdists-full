@@ -22,10 +22,9 @@ from shrub.v3.shrub_service import ShrubService
 ##############
 
 ALL_VERSIONS = ["4.4", "5.0", "6.0", "7.0", "8.0", "9.0", "rapid", "latest"]
-CPYTHONS = ["3.10", "3.11", "3.12", "3.13", "3.14t", "3.14"]
-PYPYS = ["pypy3.11"]
-MIN_SUPPORT_VERSIONS = ["3.9", "pypy3.9", "pypy3.10"]
-ALL_PYTHONS = CPYTHONS + PYPYS
+CPYTHONS = ["3.11", "3.12", "3.13", "3.14t", "3.14", "3.15t", "3.15"]
+MIN_SUPPORT_VERSIONS = ["3.11"]
+ALL_PYTHONS = CPYTHONS
 MIN_MAX_PYTHON = [CPYTHONS[0], CPYTHONS[-1]]
 BATCHTIME_WEEK = 10080
 BATCHTIME_DAY = 1440
@@ -57,7 +56,7 @@ class Host:
 
 
 # Hosts with toolchains.
-HOSTS["rhel8"] = Host("rhel8", "rhel87-small", "RHEL8", dict())
+HOSTS["rhel8"] = Host("rhel8", "rhel8.10-small", "RHEL8", dict())
 HOSTS["win64"] = Host("win64", "windows-64-vsMulti-small", "Win64", dict())
 HOSTS["win-latest"] = Host("win-latest", "windows-2022-latest-small", "WinLatest", dict())
 HOSTS["win32"] = Host("win32", "windows-64-vsMulti-small", "Win32", dict())
@@ -93,7 +92,7 @@ def create_variant_generic(
     display_name: str,
     *,
     host: Host | str | None = None,
-    default_run_on="rhel87-small",
+    default_run_on="rhel8.10-small",
     expansions: dict | None = None,
     **kwargs: Any,
 ) -> BuildVariant:
@@ -178,11 +177,8 @@ def get_common_name(base: str, sep: str, **kwargs) -> str:
         display_name = f"{display_name}{sep}{version}"
     for key, value in kwargs.items():
         name = value
-        if key.lower() in ["python", "toolchain_version"]:
-            if not value.startswith("pypy"):
-                name = f"Python{value}"
-            else:
-                name = f"PyPy{value.replace('pypy', '')}"
+        if key.lower() in ["python", "uv_python"]:
+            name = f"Python{value}"
         elif key.lower() in DISPLAY_LOOKUP and value in DISPLAY_LOOKUP[key.lower()]:
             name = DISPLAY_LOOKUP[key.lower()][value]
         else:

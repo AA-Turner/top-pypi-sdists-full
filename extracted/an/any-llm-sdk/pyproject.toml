@@ -7,7 +7,7 @@ name = "any-llm-sdk"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-version = "1.34.0" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
+version = "1.36.0" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
 dependencies = [
   "pydantic>2,<3",
   "openai>=2.18.0,<4",
@@ -21,7 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 
 all = [
-  "any-llm-sdk[mistral,anthropic,huggingface,gemini,vertexai,vertexaianthropic,cohere,cerebras,fireworks,gmi,groq,bedrock,azure,azureanthropic,azureopenai,cascadia,watsonx,together,sambanova,ollama,moonshot,neosantara,nebius,xai,databricks,deepseek,inception,openai,otari,openrouter,portkey,qiniu,requesty,lmstudio,llama,voyage,perplexity,platform,llamafile,llamacpp,sagemaker,github,zai,minimax,mzai,vllm,dashscope,deepinfra,atlascloud,telnyx,edenai,kenari,meta]"
+  "any-llm-sdk[mistral,anthropic,huggingface,gemini,vertexai,vertexaianthropic,cohere,cerebras,fireworks,gmi,groq,bedrock,azure,azureanthropic,azureopenai,cascadia,watsonx,together,sambanova,ollama,moonshot,neosantara,nebius,xai,databricks,deepseek,inception,openai,otari,openrouter,portkey,qiniu,requesty,lmstudio,llama,voyage,perplexity,platform,llamafile,llamacpp,liner,sagemaker,github,zai,minimax,mzai,vllm,dashscope,deepinfra,atlascloud,telnyx,edenai,kenari,meta,typesafe]"
 ]
 
 platform = [
@@ -123,6 +123,7 @@ otari = [
 github = []
 inception = []
 kenari = []
+liner = []
 llama = []
 llamacpp = []
 llamafile = []
@@ -144,6 +145,10 @@ dashscope = []
 deepinfra = []
 edenai = []
 telnyx = []
+
+typesafe = [
+  "typesafe-sdk>=0.7.2,<0.8",
+]
 
 [project.urls]
 Documentation = "https://docs.mozilla.ai/any-llm/"

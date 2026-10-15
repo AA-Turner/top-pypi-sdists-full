@@ -669,6 +669,50 @@ def get_file_contents_at_ref(
     return response.text
 
 
+def is_commit_ancestor_of(
+    owner: str,
+    repo: str,
+    sha: str,
+    branch: str,
+    token: str | None = None,
+) -> bool:
+    """Whether commit `sha` is reachable from `branch` (or is its head).
+
+    Args:
+        owner: Repository owner (e.g., "airbytehq")
+        repo: Repository name (e.g., "airbyte")
+        sha: The commit to look for
+        branch: The branch that should contain it (e.g., "master")
+        token: GitHub API token (optional for public repos, but recommended
+            to avoid rate limiting)
+
+    Returns:
+        True if `branch` contains `sha`; False if it does not, or if GitHub
+        does not know the commit.
+
+    Raises:
+        requests.HTTPError: If API request fails (except 404).
+    """
+    # Compared this way round, the merge base of an ancestor is `sha` itself, so
+    # GitHub has no commit range or file diff to build; the other way round it
+    # diffs everything `branch` gained since `sha`, which in a monorepo can time
+    # out.
+    url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/compare/{branch}...{sha}"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    response = requests.get(url, headers=headers, params={"per_page": 1}, timeout=60)
+    if response.status_code == 404:
+        return False
+    response.raise_for_status()
+
+    return response.json().get("status") in ("behind", "identical")
+
+
 def get_pr_changed_files(
     owner: str,
     repo: str,

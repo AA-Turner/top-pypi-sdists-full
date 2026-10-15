@@ -23,6 +23,7 @@ from schemathesis.generation.meta import (
     FuzzingPhaseData,
     GenerationInfo,
     PhaseInfo,
+    StatefulPhaseData,
     TestPhase,
 )
 from schemathesis.generation.overrides import Override
@@ -124,6 +125,7 @@ def build_metadata(
     parameter_location=None,
     location=None,
     mutations=None,
+    phase=TestPhase.FUZZING,
 ):
     # When the test pins a type-mutation description, also populate the structured
     # Mutation record so the case carries what the engine produces for the same case.
@@ -163,8 +165,8 @@ def build_metadata(
             if value is not None
         },
         phase=PhaseInfo(
-            name=TestPhase.FUZZING,
-            data=FuzzingPhaseData(
+            name=phase,
+            data=(StatefulPhaseData if phase == TestPhase.STATEFUL else FuzzingPhaseData)(
                 description=description,
                 parameter=parameter,
                 parameter_location=parameter_location,
@@ -455,7 +457,7 @@ def test_negative_data_rejection_ignores_extras_next_to_allow_empty_value_string
     assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
 
-def _array_query_case(ctx, query, mutation):
+def _array_query_case(ctx, query, mutation, phase):
     schema = ctx.openapi.load_schema(
         {
             "/tags": {
@@ -481,20 +483,28 @@ def _array_query_case(ctx, query, mutation):
             parameter=mutation.parameter,
             parameter_location=ParameterLocation.QUERY,
             mutations=(mutation,),
+            phase=phase,
         ),
         query=query,
     )
 
 
-def test_negative_data_rejection_reports_negated_array_query_parameter(ctx, response_factory):
-    case = _array_query_case(ctx, {"tag": ["", ""]}, _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("maxItems",), "tag"))
+_PHASES = pytest.mark.parametrize("phase", [TestPhase.FUZZING, TestPhase.STATEFUL], ids=["fuzzing", "stateful"])
+
+
+@_PHASES
+def test_negative_data_rejection_reports_negated_array_query_parameter(ctx, response_factory, phase):
+    case = _array_query_case(
+        ctx, {"tag": ["", ""]}, _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("maxItems",), "tag"), phase
+    )
     assert has_only_additional_properties_in_non_body_parameters(case) is False
     with pytest.raises(AcceptedNegativeData):
         negative_data_rejection(check_context(), response_factory.requests(), case)
 
 
-def test_negative_data_rejection_ignores_extras_next_to_array_query_parameter(ctx, response_factory):
-    case = _array_query_case(ctx, {"tag": ["a"], "unknown": "junk"}, _ADDITIONAL_PROPERTIES_MUTATION)
+@_PHASES
+def test_negative_data_rejection_ignores_extras_next_to_array_query_parameter(ctx, response_factory, phase):
+    case = _array_query_case(ctx, {"tag": ["a"], "unknown": "junk"}, _ADDITIONAL_PROPERTIES_MUTATION, phase)
     assert has_only_additional_properties_in_non_body_parameters(case) is True
     assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
@@ -1510,6 +1520,18 @@ _NEGATED_NULLABLE_FLAG = _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("anyOf",), 
             "http://127.0.0.1/thumb?full_size=true&compressed=null",
             True,
         ),
+        (
+            "3.0.2",
+            [
+                {"in": "query", "name": "full_size", **_NULLABLE_FLAG},
+                {"in": "query", "name": "compressed", **_NULLABLE_FLAG},
+            ],
+            {"compressed": "null", "": "false"},
+            (_ADDITIONAL_PROPERTIES_MUTATION,),
+            "/thumb",
+            "http://127.0.0.1/thumb?compressed=null&=false",
+            True,
+        ),
     ],
     ids=[
         "openapi-30-nullable",
@@ -1522,10 +1544,12 @@ _NEGATED_NULLABLE_FLAG = _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("anyOf",), 
         "another-invalid-parameter",
         "other-path",
         "unsent-extra-parameter",
+        "sent-extra-parameter",
     ],
 )
+@pytest.mark.parametrize("phase", [TestPhase.FUZZING, TestPhase.STATEFUL], ids=["fuzzing", "stateful"])
 def test_negative_data_rejection_validates_null_text_for_nullable_query(
-    ctx, response_factory, version, parameters, query, mutations, path, url, accepted
+    ctx, response_factory, version, parameters, query, mutations, path, url, accepted, phase
 ):
     schema = ctx.openapi.load_schema(
         {"/thumb": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}},
@@ -1533,7 +1557,10 @@ def test_negative_data_rejection_validates_null_text_for_nullable_query(
     )
     case = schema["/thumb"]["GET"].Case(
         _meta=build_metadata(
-            query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE], mutations=mutations
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            mutations=mutations,
+            phase=phase,
         ),
         query=query,
     )
@@ -4179,16 +4206,20 @@ ALLOW_SCHEMA_PATHS = {
         ({"Allow": "GET, POST, HEAD, OPTIONS"}, "OPTIONS", None),
         ({"Allow": "get,post"}, "OPTIONS", None),
         ({"Allow": "GET ,   POST"}, "OPTIONS", None),
-        ({"Allow": "GET, HEAD, OPTIONS"}, "OPTIONS", "missing documented methods: POST"),
+        (
+            {"Allow": "GET, HEAD, OPTIONS"},
+            "OPTIONS",
+            "`Allow: GET, HEAD, OPTIONS` does not match the schema. Missing documented methods: POST",
+        ),
         (
             {"Allow": "GET, POST, DELETE"},
             "OPTIONS",
-            "undocumented methods advertised: DELETE",
+            "`Allow: GET, POST, DELETE` does not match the schema. Undocumented methods advertised: DELETE",
         ),
         (
             {"Allow": "GET, DELETE"},
             "OPTIONS",
-            "missing documented methods: POST; undocumented methods advertised: DELETE",
+            "Missing documented methods: POST. Undocumented methods advertised: DELETE",
         ),
         ({}, "OPTIONS", None),
         ({"Allow": ""}, "OPTIONS", None),
@@ -4226,7 +4257,7 @@ def test_allow_header_conformance_repeated_header(ctx, response_factory):
     assert allow_header_conformance(check_context(), Response.from_requests(raw, verify=True), case) is None
 
 
-def _negative_case(operation, location, parameter, mutation=None, **kwargs):
+def _negative_case(operation, location, parameter, mutation=None, phase=TestPhase.FUZZING, **kwargs):
     return operation.Case(
         _meta=build_metadata(
             generation_modes=[GenerationMode.NEGATIVE],
@@ -4234,6 +4265,7 @@ def _negative_case(operation, location, parameter, mutation=None, **kwargs):
             parameter_location=location,
             mutations=(mutation,) if mutation else (),
             description="Invalid component",
+            phase=phase,
             **{location.container_name: GenerationMode.NEGATIVE},
         ),
         **kwargs,
@@ -4294,8 +4326,9 @@ PAGE_SIZE = {"type": "integer", "minimum": 1, "maximum": 100}
         ),
     ],
 )
+@pytest.mark.parametrize("phase", [TestPhase.FUZZING, TestPhase.STATEFUL], ids=["fuzzing", "stateful"])
 def test_negative_data_rejection_single_parameter(
-    ctx, response_factory, location, parameter_schema, value, type_mutation, reported
+    ctx, response_factory, location, parameter_schema, value, type_mutation, reported, phase
 ):
     path = "/items/{value}" if location == ParameterLocation.PATH else "/items"
     parameter = {
@@ -4310,7 +4343,9 @@ def test_negative_data_rejection_single_parameter(
     mutation = (
         _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="value", location=location) if type_mutation else None
     )
-    case = _negative_case(operation, location, "value", mutation, **{location.container_name: {"value": value}})
+    case = _negative_case(
+        operation, location, "value", mutation, phase=phase, **{location.container_name: {"value": value}}
+    )
     response = response_factory.requests(status_code=200)
     if reported:
         with pytest.raises(AcceptedNegativeData):

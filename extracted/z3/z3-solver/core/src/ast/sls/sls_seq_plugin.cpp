@@ -159,9 +159,11 @@ namespace sls {
                 // set e to length of x or
                 // set x to a string of length e
 
-                if (r == 0 || sx.length() == 0)
+                if (r == 0 || sx.length() == 0) {
                     // create lemma: len(x) = 0 <=> x = ""
-                    ctx.add_constraint(m.mk_eq(m.mk_eq(e, a.mk_int(0)), m.mk_eq(x, seq.str.mk_string(""))));
+                    expr_ref len_zero(m.mk_eq(e, a.mk_int(0)), m);
+                    ctx.add_constraint(m.mk_eq(len_zero, m.mk_eq(x, seq.str.mk_string(""))));
+                }
 
                 if (ctx.rand(2) == 0 && update(e, rational(sx.length())))
                     return false;
@@ -496,6 +498,7 @@ namespace sls {
             case OP_SEQ_MAPI:
             case OP_SEQ_FOLDL:
             case OP_SEQ_FOLDLI:           
+            case OP_SEQ_POWER:
             case OP_RE_DERIVATIVE:
             case OP_STRING_ITOS:
             case OP_STRING_FROM_CODE:
@@ -1286,6 +1289,7 @@ namespace sls {
         case OP_SEQ_MAPI:
         case OP_SEQ_FOLDL:
         case OP_SEQ_FOLDLI:
+        case OP_SEQ_POWER:
 
         case OP_SEQ_TO_RE:
         case OP_RE_PLUS:            

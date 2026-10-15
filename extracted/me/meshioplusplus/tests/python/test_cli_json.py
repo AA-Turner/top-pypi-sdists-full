@@ -173,10 +173,21 @@ def files(tmp_path_factory):
             mio.Mesh(pts, [("quad", quads)], point_data={"u": pts[:, 0] + 10.0 * k}),
         )
     paths["seq"] = str(d / "seq_*.vtu")
+    # two quadratic tetrahedra with a point field, for tessellate
+    curved = mio.convert_cells(
+        mio.Mesh(parts.points, [("tetra", parts.cells[0].data)]), mode="elevate"
+    )
+    curved.point_data["u"] = curved.points[:, 0] + 2.0 * curved.points[:, 2]
+    paths["curved"] = str(d / "curved.vtu")
+    mio.write(paths["curved"], curved)
     mio.write(paths["grid"], grid)
     mio.write(paths["moved"], moved)
     mio.write(paths["tagged"], tagged)
     mio.write(paths["parts"], parts)
+    # NURBS models the repository already holds, for the iga verbs
+    meshes = os.path.join(ROOT, "tests", "python", "meshes")
+    paths["nurbs"] = os.path.join(meshes, "mfem", "nurbs", "pipe-nurbs.mesh")
+    paths["plate"] = os.path.join(meshes, "cad_json", "plate_with_hole.cad.json")
     paths["dir"] = str(d)
     return paths
 
@@ -195,6 +206,34 @@ CASES = [
         lambda f: ["check", f["grid"], "-r", "aspect_ratio <= 0.5 @ 10%", "--json"],
     ),
     ("stats", lambda f: ["stats", f["grid"], "--json"]),
+    (
+        "iga_evaluate_nurbs",
+        lambda f: [
+            "iga-evaluate",
+            f["nurbs"],
+            "-p",
+            "0.3,0.7,0.4",
+            "-p",
+            "1,0.5,1.5",
+            "--patch",
+            "1",
+            "--derivatives",
+            "1",
+        ],
+    ),
+    (
+        "iga_evaluate_face",
+        lambda f: [
+            "iga-evaluate",
+            f["plate"],
+            "-p",
+            "0.5,0.5",
+            "-p",
+            "2,2",
+            "--derivatives",
+            "1",
+        ],
+    ),
     ("diff_same", lambda f: ["diff", f["grid"], f["grid"], "--json"]),
     ("diff_moved", lambda f: ["diff", f["grid"], f["moved"], "--json"]),
     ("regions", lambda f: ["regions", f["tagged"], "--json"]),
@@ -245,6 +284,23 @@ WRITING = [
         lambda f, out: ["segment", f["grid"], out + ".vtu", "--json"],
     ),
     (
+        "tessellate",
+        lambda f, out: ["tessellate", f["curved"], out + ".vtu", "--json"],
+    ),
+    (
+        "tessellate_options",
+        lambda f, out: [
+            "tessellate",
+            f["curved"],
+            out + ".vtu",
+            "--levels",
+            "1",
+            "--no-fields",
+            "--record-stencil",
+            "--json",
+        ],
+    ),
+    (
         "fit_primitives",
         lambda f, out: [
             "fit-primitives",
@@ -252,6 +308,45 @@ WRITING = [
             out + ".vtu",
             "--patch-data",
             "",
+            "--json",
+        ],
+    ),
+    (
+        "iga_refine_nurbs",
+        lambda f, out: [
+            "iga-refine",
+            f["nurbs"],
+            out + ".mesh",
+            "-o",
+            "mfem",
+            "-s",
+            "2",
+            "-e",
+            "1",
+            "--json",
+        ],
+    ),
+    (
+        "iga_refine_face",
+        lambda f, out: [
+            "iga-refine",
+            f["plate"],
+            out + ".cad.json",
+            "-s",
+            "2,3",
+            "-e",
+            "0,1",
+            "--json",
+        ],
+    ),
+    (
+        "iga_sample_face",
+        lambda f, out: [
+            "iga-sample",
+            f["plate"],
+            out + ".vtu",
+            "-s",
+            "4",
             "--json",
         ],
     ),
@@ -407,3 +502,54 @@ def test_check_exit_codes(files, tmp_path):
         assert _native(["check", files["grid"], "-r", "aspect_ratio <= 0.5"])[0] == 1
         assert _native(["check", files["grid"], "-r", "bogus >= 1"])[0] == 2
         assert _native(["check", files["grid"], "--gate", str(gate)])[0] == 0
+
+
+@pytest.mark.parametrize(
+    "flags", [[], ["--no-freeform-split", "--no-fillets", "--no-threads"]]
+)
+def test_to_cad_json_agrees(tmp_path, flags):
+    from meshioplusplus._fit_cad import has_occt
+
+    if not has_occt():
+        pytest.skip("needs a core built with OpenCASCADE")
+    pts = np.array(
+        [[x, y, z] for z in (0.0, 1.0) for y in (0.0, 1.0) for x in (0.0, 1.0)]
+    )
+    quads = np.array(
+        [
+            [0, 2, 3, 1],
+            [4, 5, 7, 6],
+            [0, 1, 5, 4],
+            [2, 6, 7, 3],
+            [0, 4, 6, 2],
+            [1, 3, 7, 5],
+        ]
+    )
+    src = str(tmp_path / "cube.vtu")
+    mio.write(src, mio.Mesh(pts, [("quad", quads)]))
+    code_py, text_py = _python(
+        ["to-cad", src, str(tmp_path / "py.step"), *flags, "--json"]
+    )
+    doc_py = _strict(text_py)
+    assert code_py == 0
+    assert doc_py["num_plane"] == 6
+    for key in (
+        "num_split_patches",
+        "num_fillet",
+        "num_helical",
+        "num_variable_fillet",
+        "num_blend",
+        "num_rounded_thread",
+    ):
+        assert doc_py[key] == 0
+    if NATIVE is None:
+        pytest.skip("no native CLI binary built; checked the Python output only")
+    r = subprocess.run(
+        [NATIVE, "to-cad", src, str(tmp_path / "native.step"), *flags, "--json"],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0 and "MESHIOPLUSPLUS_WITH_OCCT" in r.stderr:
+        pytest.skip("the native CLI was built without OpenCASCADE")
+    assert r.returncode == code_py
+    _same(doc_py, _strict(r.stdout))

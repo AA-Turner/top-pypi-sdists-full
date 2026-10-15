@@ -1,0 +1,106 @@
+from policyengine_us.model_api import *
+from policyengine_us.variables.gov.simulation.behavioral_response_measurements import (
+    earnings_before_lsr,
+)
+
+
+class weekly_hours_worked(Variable):
+    value_type = float
+    entity = Person
+    label = "average weekly hours worked"
+    unit = "hour"
+    documentation = "Hours worked per week on average."
+    definition_period = YEAR
+    adds = [
+        "weekly_hours_worked_before_lsr",
+        "weekly_hours_worked_behavioural_response",
+    ]
+
+
+class weekly_hours_worked_before_lsr(Variable):
+    value_type = float
+    entity = Person
+    label = "average weekly hours worked (before labor supply responses)"
+    unit = "hour"
+    definition_period = YEAR
+    documentation = (
+        "Usual weekly hours worked, before labor supply responses. Datasets "
+        "populate this from survey data as usual hours in the weeks worked; "
+        "the SNAP ABAWD (20-hour) and general (30-hour) work-requirement "
+        "tests read it through snap_work_requirement_weekly_hours, which "
+        "averages it over weeks worked. The "
+        "default is 0, not a full-time 40, so a household or dataset that "
+        "fails to populate it reads as 'no hours' and fails the work-hours "
+        "test loudly, rather than silently clearing every hours-conditioned "
+        "work requirement — the failure mode where a missing or degenerate "
+        "hours column makes work-requirement reforms a no-op."
+    )
+    default_value = 0
+
+
+class weekly_hours_worked_behavioural_response_income_elasticity(Variable):
+    value_type = float
+    entity = Person
+    label = "behavioural response in weekly hours worked (income effect)"
+    unit = "hour"
+    definition_period = YEAR
+
+    def formula(person, period, parameters):
+        original = person("weekly_hours_worked_before_lsr", period)
+        lsr = person("labor_supply_behavioral_response", period)
+
+        if (lsr != 0).any():
+            income_effect = person("income_elasticity_lsr", period)
+        else:
+            income_effect = np.zeros_like(original)
+
+        original_earnings = earnings_before_lsr(person, period)
+
+        lsr_relative_change = np.divide(
+            income_effect,
+            original_earnings,
+            # Assign no LSR change to people with no original earnings to avoid dividing by zero.
+            out=np.zeros_like(income_effect, dtype=np.float32),
+            where=original_earnings != 0,
+        )
+
+        return original * lsr_relative_change
+
+
+class weekly_hours_worked_behavioural_response_substitution_elasticity(Variable):
+    value_type = float
+    entity = Person
+    label = "behavioural response in weekly hours worked (substitution effect)"
+    unit = "hour"
+    definition_period = YEAR
+
+    def formula(person, period, parameters):
+        original = person("weekly_hours_worked_before_lsr", period)
+        lsr = person("labor_supply_behavioral_response", period)
+        if (lsr != 0).any():
+            substitution_effect = person("substitution_elasticity_lsr", period)
+        else:
+            substitution_effect = np.zeros_like(original)
+        original_earnings = earnings_before_lsr(person, period)
+
+        lsr_relative_change = np.divide(
+            substitution_effect,
+            original_earnings,
+            # Assign no LSR change to people with no original earnings to avoid dividing by zero.
+            out=np.zeros_like(substitution_effect, dtype=np.float32),
+            where=original_earnings != 0,
+        )
+
+        return original * lsr_relative_change
+
+
+class weekly_hours_worked_behavioural_response(Variable):
+    value_type = float
+    entity = Person
+    label = "behavioural response in weekly hours worked"
+    unit = "hour"
+    definition_period = YEAR
+    adds = [
+        "weekly_hours_worked_behavioural_response_income_elasticity",
+        "weekly_hours_worked_behavioural_response_substitution_elasticity",
+    ]

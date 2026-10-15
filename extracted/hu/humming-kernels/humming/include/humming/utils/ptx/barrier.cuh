@@ -17,22 +17,22 @@ CUDA_INLINE void griddepcontrol_launch_dependents() {
 
 
 template <uint32_t kNumSyncThreads, uint32_t kNumThreads, uint32_t kBarrierId = 1>
-CUDA_INLINE uint32_t sync_part_threads() {
+CUDA_INLINE void sync_part_threads(uint32_t barrier_id = kBarrierId) {
   if constexpr (kNumSyncThreads == kNumThreads) {
     __syncthreads();
   } else {
     static_assert(kNumThreads >= kNumSyncThreads);
     static_assert(kNumSyncThreads > 0);
     asm volatile("bar.sync %0, %1;"
-                 :
-                 : "r"(kBarrierId), "r"(kNumSyncThreads)
-                 : "memory");
+        :
+        : "r"(barrier_id), "r"(kNumSyncThreads)
+        : "memory");
   }
 }
 
 template <uint32_t kNumSyncThreads = 0, uint32_t kNumThreads = 0>
-CUDA_INLINE void barrier_acquire(int *lock, int count) {
-  if (threadIdx.x == 0) {
+CUDA_INLINE void barrier_acquire(int *lock, int count, uint32_t thread_id = threadIdx.x, uint32_t barrier_id = 1) {
+  if (thread_id == 0) {
 #if HUMMING_DEBUG_KERNEL
     uint64_t start_clock = debug_kernel_timer_start();
 #endif
@@ -47,12 +47,12 @@ CUDA_INLINE void barrier_acquire(int *lock, int count) {
 #endif
     } while (state != count);
   }
-  sync_part_threads<kNumSyncThreads, kNumThreads>();
+  sync_part_threads<kNumSyncThreads, kNumThreads>(barrier_id);
 }
 
 template <uint32_t kNumSyncThreads = 0, uint32_t kNumThreads = 0>
-CUDA_INLINE void barrier_acquire2(int *lock, int count) {
-  if (threadIdx.x == 0) {
+CUDA_INLINE void barrier_acquire2(int *lock, int count, uint32_t thread_id = threadIdx.x, uint32_t barrier_id = 1) {
+  if (thread_id == 0) {
 #if HUMMING_DEBUG_KERNEL
     uint64_t start_clock = debug_kernel_timer_start();
 #endif
@@ -67,13 +67,13 @@ CUDA_INLINE void barrier_acquire2(int *lock, int count) {
 #endif
     } while (state > count);
   }
-  sync_part_threads<kNumSyncThreads, kNumThreads>();
+  sync_part_threads<kNumSyncThreads, kNumThreads>(barrier_id);
 }
 
 template <uint32_t kNumSyncThreads = 0, uint32_t kNumThreads = 0>
-CUDA_INLINE void barrier_release(int *lock, bool reset = false) {
-  sync_part_threads<kNumSyncThreads, kNumThreads>();
-  if (threadIdx.x == 0) {
+CUDA_INLINE void barrier_release(int *lock, bool reset = false, uint32_t thread_id = threadIdx.x, uint32_t barrier_id = 1) {
+  sync_part_threads<kNumSyncThreads, kNumThreads>(barrier_id);
+  if (thread_id == 0) {
     if (reset) {
       __stcg(&lock[0], 0);
     } else {
@@ -88,9 +88,9 @@ CUDA_INLINE void barrier_release(int *lock, bool reset = false) {
 }
 
 template <uint32_t kNumSyncThreads = 0, uint32_t kNumThreads = 0>
-CUDA_INLINE void barrier_release2(int *lock, int32_t val) {
-  sync_part_threads<kNumSyncThreads, kNumThreads>();
-  if (threadIdx.x == 0) {
+CUDA_INLINE void barrier_release2(int *lock, int32_t val, uint32_t thread_id = threadIdx.x, uint32_t barrier_id = 1) {
+  sync_part_threads<kNumSyncThreads, kNumThreads>(barrier_id);
+  if (thread_id == 0) {
     if (val < 0) {
       asm volatile("fence.acq_rel.gpu;\n" ::: "memory");
       __stcg(&lock[0], val);

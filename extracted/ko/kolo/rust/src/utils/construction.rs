@@ -74,7 +74,6 @@ impl UnderConstruction {
                 let instance = unsafe {
                     ffi::PyType_IsSubtype(class, found[start] as *mut ffi::PyTypeObject) != 0
                 };
-                // A returning `__new__` leaves the object to its `__init__`.
                 if instance && !(found[start + 1] != 0 && inherits_object_init(class)) {
                     return true;
                 }
@@ -126,8 +125,6 @@ pub(super) fn worth_checking(
         if ffi::PyType_HasFeature(class, ffi::Py_TPFLAGS_HEAPTYPE) == 0 {
             return false;
         }
-        // `lightweight_repr`, which is not the hot configuration, always
-        // takes the full look at the type.
         lightweight_repr
             || !(falls_through
                 && (*class).tp_repr.map(|slot| slot as usize)
@@ -150,7 +147,6 @@ pub(super) fn worth_checking(
 
 #[cfg(not(any(PyPy, GraalPy)))]
 extern "C" {
-    // As in the value serializer: borrowed, and only compared by address.
     fn _PyType_Lookup(
         type_: *mut ffi::PyTypeObject,
         name: *mut ffi::PyObject,
@@ -176,9 +172,6 @@ pub(super) fn may_run_user_code(
             return false;
         }
         let object_type = std::ptr::addr_of_mut!(ffi::PyBaseObject_Type);
-        // The builtin type the class is laid out as: anything but `object`
-        // may be one the hook serializes through methods (`isoformat`,
-        // iteration), which the reference checks.
         let mut base = class;
         while !base.is_null() && ffi::PyType_HasFeature(base, ffi::Py_TPFLAGS_HEAPTYPE) != 0 {
             base = (*base).tp_base;
@@ -186,9 +179,6 @@ pub(super) fn may_run_user_code(
         if base != object_type {
             return true;
         }
-        // A plain object is only ever `repr()`'d, and not at all with
-        // `lightweight_repr`; the hook's `isinstance()` checks before that
-        // read `obj.__class__`.
         let default_repr = lightweight_repr
             || (*class).tp_repr.map(|slot| slot as usize)
                 == (*object_type).tp_repr.map(|slot| slot as usize);
@@ -228,9 +218,7 @@ pub(super) fn placeholder_text<'py>(
     struct Entry {
         class: usize,
         version: u32,
-        // The version tag does not change with `__qualname__`, which the
-        // text holds: its address and hash, so that no reference to an
-        // object of the program is kept.
+        // Type version tags do not change when __qualname__ changes.
         qualname: usize,
         qualname_hash: isize,
         lightweight_repr: bool,
@@ -337,7 +325,6 @@ pub(super) fn find<'py>(
     py: Python<'py>,
     reference: impl FnOnce() -> PyResult<Bound<'py, PyAny>>,
 ) -> PyResult<UnderConstruction> {
-    // Once per event, and only for one with a value worth checking.
     if CHECK_OFF.load(Ordering::Relaxed) {
         return Ok(UnderConstruction(Vec::new()));
     }
@@ -469,7 +456,6 @@ mod native {
     const CODE_WORD: usize = 0;
     #[cfg(Py_3_12)]
     const PREVIOUS_WORD: usize = 1;
-    // `frame_obj`: the frame object, once something has asked for it.
     #[cfg(not(Py_3_12))]
     const FRAME_OBJECT_WORD: usize = 5;
     #[cfg(Py_3_12)]
@@ -480,7 +466,6 @@ mod native {
     const LOCALS_WORD: usize = 9;
     #[cfg(Py_3_14)]
     const LOCALS_WORD: usize = 10;
-    // `co_localsplusnames`, `co_localspluskinds`, `co_filename`, `co_name`.
     const NAMES_BEFORE_CO_NAME: usize = 3;
     const KINDS_BEFORE_CO_NAME: usize = 2;
     const CO_FAST_LOCAL: u8 = 0x20;
@@ -527,8 +512,6 @@ mod native {
             // Safety: validated against the reference in this process.
             VALID => Ok(unsafe { walk_frames(py, CO_NAME_WORD.load(Ordering::Relaxed)) }),
             UNKNOWN => {
-                // The probe's own frames are on the stack while it runs, so
-                // this event is left to the reference.
                 probe(py)?;
                 Ok(None)
             }
@@ -712,7 +695,6 @@ mod native {
             // references as handles, say) must not get as far as reading
             // one as an object: the innermost frame's code is known.
             let expected = ffi::PyFrame_GetCode(top as *mut ffi::PyFrameObject);
-            // The frame keeps its code alive.
             ffi::Py_DECREF(expected.cast());
             if frame.is_null() || slot_object(*frame.add(CODE_WORD)) != expected.cast() {
                 return None;
@@ -737,16 +719,9 @@ mod native {
                     if kind == Constructor::No {
                         known_code::remember(py, code);
                     }
-                    // Which instances of its class are a running
-                    // `__new__`'s arguments takes its bytecode to tell: the
-                    // reference decides, now, before the event serializes
-                    // anything that could change what it would find.
                     if kind == Constructor::New {
                         return None;
                     }
-                    // A frame can only have reached its `return` with a
-                    // callback on top of it: native (then it is innermost) or
-                    // Python, which got hold of its frame object.
                     let finished = kind == Constructor::Initializer && {
                         let object = if innermost {
                             top as *mut ffi::PyFrameObject
@@ -763,7 +738,6 @@ mod native {
                         }
                     }
                 }
-                // The innermost frame, from `PyEval_GetFrame`, runs code.
                 innermost = false;
                 frame = *frame.add(PREVIOUS_WORD) as *const usize;
             }
@@ -934,7 +908,6 @@ mod native {
                 return Ok(None);
             }
             let kind = *(ffi::PyBytes_AsString(kinds) as *const u8);
-            // The first slot of a frame without locals is a closure variable.
             if kind & CO_FAST_LOCAL == 0 {
                 return Ok(None);
             }
@@ -945,13 +918,11 @@ mod native {
             if kind & CO_FAST_CELL != 0
                 && ffi::Py_TYPE(object) == ptr::addr_of_mut!(ffi::PyCell_Type)
             {
-                // A new reference, or NULL for an empty cell.
                 let contents = ffi::PyCell_Get(object);
                 if contents.is_null() {
                     ffi::PyErr_Clear();
                     return Ok(None);
                 }
-                // The cell keeps its contents alive.
                 ffi::Py_DECREF(contents);
                 object = contents;
             }

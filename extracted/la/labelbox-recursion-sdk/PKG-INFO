@@ -1,203 +1,155 @@
-Metadata-Version: 2.5
+Metadata-Version: 2.3
 Name: labelbox-recursion-sdk
-Version: 0.0.131
-Summary: Python SDK for the Recursion Platform API
-Requires-Python: >=3.11
-Requires-Dist: attrs>=22.2
-Requires-Dist: httpx<0.29,>=0.23
-Requires-Dist: python-dateutil>=2.8
+Version: 0.1.0
+Summary: Typed Python SDK for the Recursion API
+Requires-Dist: httpx>=0.28.1,<0.29
+Requires-Dist: pydantic>=2.12,<3
+Requires-Dist: jsonschema>=4.23,<5
+Requires-Dist: rfc3339-validator>=0.1.4,<0.2
+Requires-Python: >=3.12
+Project-URL: Repository, https://github.com/Labelbox/recursion-platform/tree/main/packages/recursion-python-sdk
 Description-Content-Type: text/markdown
 
-# recursion-sdk (Python)
+# Recursion Python SDK
 
-The Recursion Python SDK, **generated from the same backend OpenAPI snapshot, and
-the same `@SdkRoute` opt-in set, as [`@labelbox/recursion-sdk`](../sdk-ts/README.md)**
-with [openapi-python-client](https://github.com/openapi-generators/openapi-python-client)
-— free, open source, and pinned by version. The only hand-written code is a thin
-auth constructor (`src/recursion/__init__.py`); everything under
-`src/recursion_sdk/` is generated and gitignored.
+Typed, synchronous and asynchronous request/response access to the Recursion
+API. The client and Pydantic models are generated from Recursion's committed
+public OpenAPI contract snapshots. Session-event streaming is excluded.
 
-**The two SDKs share a surface, not just a set of operations.** `@SdkRoute('synthesizers', 'create')`
-on a backend handler produces `rl.synthesizers.create(...)` in *both* clients,
-from that one declaration.
+The distribution is
+[`labelbox-recursion-sdk`](https://pypi.org/project/labelbox-recursion-sdk/),
+and the Python import is `recursion_sdk`. This implementation starts at version
+`0.1.0`; earlier releases contain the retired SDK and its different import/API.
+Build a wheel from this checkout to try the implementation before its first
+release. Versions remain below 1.0 while the public API evolves.
 
 ```python
-import asyncio
 import os
 
-from recursion import create_recursion_client
+from recursion_sdk import Recursion
 
-
-async def main() -> None:
-    rl = create_recursion_client(api_key=os.environ["LABELBOX_API_KEY"])
-    environment = await rl.environments.get(environment_id)
-    print(environment.name)
-
-
-asyncio.run(main())
+with Recursion(api_key=os.environ["RECURSION_API_KEY"]) as recursion:
+    result = recursion.managed_agents.list_sessions()
+    print(result.data, result.response.headers.get("etag"))
 ```
 
-## Surface
+`AsyncRecursion` exposes the same methods as coroutines and supports
+`async with`. The production base URL is `https://api.recursion.labelbox.com`.
+Set `organization_id` or `tenant_id` on the constructor when the API key
+requires those selectors. Operation-level selectors may repeat those values;
+they cannot change the constructor's scope.
 
-Namespaced exactly like the TypeScript SDK, because both are driven by the same
-`x-sdk-path`:
+Methods return `ApiResponse` with typed `data` and the original HTTPX
+`response`, including status and headers. A declared bodyless 304 has
+`data=None`. Declared API errors raise `RecursionAPIError`; malformed or
+undeclared responses raise `RecursionContractError`. HTTPX transport failures
+retain their HTTPX exception types. Request and response values are validated
+against the canonical schemas, including constraints beyond Pydantic's model
+annotations.
 
-```ts
-// @labelbox/recursion-sdk
-const job = await rl.synthesizers.create({
-  environmentId,
-  body: { name: 'Variant generator', systemPrompt: '…', runConfigVersionId },
-});
-```
+JSON methods accept generated models from `recursion_sdk.models`, with
+snake_case attributes and canonical JSON field aliases. Omitted model
+fields stay omitted; explicitly supplied `None` becomes JSON null where the
+contract permits it. Multipart methods accept `Upload` values, and binary
+download methods return bytes. The client has no automatic retries or
+pagination; callers retain control of mutation replay and iteration.
 
-```python
-# recursion-sdk
-body = CreateSynthesizerJobBodyDto(name="Variant generator", system_prompt="…", ...)
-job = await rl.synthesizers.create(environment_id, body=body)
-```
+## Development
 
-Path parameters are positional, the body and query parameters are keywords. Every
-call is `async`. Non-2xx responses raise `RecursionApiError`, carrying
-`.status_code`, `.parsed` (the typed error body, when the operation documents
-one) and `.content` — matching the TypeScript client's `throwOnError: true`.
-
-The namespace facade (`recursion_sdk/facade.py`) is **generated** from
-`x-sdk-path`, exactly as hey-api's `nesting()` callback drives the TypeScript
-side, so the two clients cannot drift into different namespacing. The generated
-per-endpoint modules underneath it (`recursion_sdk.api.<namespace>.<method>`)
-remain available directly, and expose `sync`/`asyncio` variants plus
-`*_detailed` forms that return the full response instead of raising.
-
-**Opt-in, declared at the source.** An operation is in this SDK iff its backend
-handler carries `@SdkRoute(...)`
-(`apps/horizon/api/src/common/sdk-route.decorator.ts`), read through the same
-`packages/sdk-ts/src/nesting.ts` the TypeScript SDK uses, so the two clients
-cannot cover different operations.
-
-### Notes from real use
-
-- ID fields deserialize to `uuid.UUID`, not `str`.
-- Path parameters are *annotated* `UUID` too. Passing a `str` works at runtime —
-  and the composed docs examples do — but a caller running mypy against the
-  published wheel will want `UUID(...)`.
-- Required fields are enforced at model construction, so a partial body fails
-  fast rather than at the server.
-- Documented Horizon failures, including proxied Managed Agents failures,
-  deserialize as the flat `{ code, message, details? }` envelope. If the server
-  returns an undocumented status, `RecursionApiError.parsed` is `None` and
-  `.content` carries the bytes.
-
-## Install
-
-Published to PyPI as **`labelbox-recursion-sdk`** (the import name stays
-`recursion`), so a consumer needs nothing from this repo:
+All Python tooling uses uv. Run these commands from the repository root through
+the worktree's devbox:
 
 ```sh
-pip install labelbox-recursion-sdk
+./devbox exec -- packages/recursion-python-sdk/tools/uv run --locked --project packages/recursion-python-sdk --group dev --script packages/recursion-python-sdk/tools/check.py
 ```
 
-`release-python-sdk.yml` publishes it through PyPI trusted publishing —
-automatically on a push to `main` that changes the wheel's inputs, and manually
-via `workflow_dispatch` for an explicit version or a dry run. The version is
-resolved from the highest `python-sdk-v*` git tag and recorded only as a new
-tag; the release never commits to the branch, which is why `pyproject.toml`
-carries a `0.0.0` placeholder. The `python-sdk-v*` tags are the record of what
-has shipped — `git tag --list 'python-sdk-v*' | sort -V | tail -1` — so no
-version is pinned here to go stale.
+The package's uv wrapper reuses uv on `PATH` or installs a checksum-verified,
+pinned copy under the worktree's `.local/` directory on a Linux devbox. Other
+hosts can use an existing uv installation. Nothing is installed globally.
 
-To install an unreleased working copy instead, build the wheel locally:
+The check command generates, checks formatting, runs strict typing and behavioral
+tests, verifies deterministic generation, builds wheel/sdist artifacts, and
+checks an isolated installation of the wheel with hashed runtime dependencies
+from `uv.lock`. Generated files under
+`src/recursion_sdk/_generated/` are ignored; change the public contract or
+generator inputs and rerun the check. `yarn check recursion:python-sdk` invokes
+the same command through the repository's check registry.
+
+Python dependencies and generated outputs belong to this independent package.
+Root Yarn installation, postinstall, JavaScript code generation, and ordinary
+application checks do not install or run Python tooling. Dedicated CI runs when
+this package or the canonical Recursion public contract changes.
+
+## Generation and ownership
+
+`datamodel-code-generator` compiles schemas into Pydantic v2 models. A small
+operation emitter produces typed methods and bundles the unmodified canonical
+contract. One shared HTTPX transport owns wire behavior and uses JSON Schema
+validation at its boundaries. No endpoint or request/response model is
+maintained by hand, and generation requires no JVM or hosted service.
+
+Generation uses the evaluations-enabled snapshot served by production, named
+`recursion-public-openapi.preview.generated.json`. Release qualification can
+select an exact earlier snapshot with `RECURSION_PYTHON_SDK_CONTRACT_PATH`.
+
+Build after generation, then add the wheel to your application's uv project:
 
 ```sh
-yarn generate python-sdk                       # pip venv, no Docker
-cd packages/sdk-python
-python3 -m build                               # or `uv build`, if you have it
-pip install dist/labelbox_recursion_sdk-*.whl
+uv build --project packages/recursion-python-sdk
+uv add --project /absolute/path/to/your-python-project /absolute/path/to/labelbox_recursion_sdk-0.0.0-py3-none-any.whl
 ```
 
-Requires Python 3.11+ (the generated client imports `typing.Self`).
+Published releases reuse the existing `labelbox-recursion-sdk` PyPI project.
+The source version `0.0.0` identifies local preview builds; the release process
+stamps the requested version into release artifacts. The TypeScript SDK release
+process is independent.
 
-**Tooling: pip + hatchling, no lockfile — matching `mcp_server`, the repo's only
-other Python package.** `uv` is not a repo dependency, and `yarn ci check python-sdk:all`
-deliberately uses stdlib `venv` + `pip` so the gate needs nothing beyond the
-interpreter. Both work locally; `uv` is just faster. There is no `uv.lock` or
-`requirements.txt` on purpose: this is a *library*, so it declares dependency
-ranges and lets the consuming application own the resolution.
+## Release
 
-## The committed call surface
-
-`python-surface.json` is the one generated artifact here that **is committed**.
-It records, per `operationId`, how the generated client is actually called: the
-facade call path, the positional path parameters in signature order, the keyword
-parameters, the request body's model class and whether that class is
-`from_dict`-constructible, every alternative of a union-typed body with the wire
-field names that discriminate them, and whether the operation's parsed response
-is a plain `list` (which has no `.to_dict()`).
-
-It exists because the docs pipeline *composes* Python examples:
-`yarn generate recipes` runs at every build, in jobs with no Python
-interpreter, so it cannot introspect the generated tree. Reading a committed map
-keeps recipe generation JavaScript-only.
-
-Composed, not yet displayed: the examples ship in the CLI manifest and are
-printed by `recursion recipes <id> --format py`, but the web docs panel still renders
-only the TypeScript, CLI, and cURL tabs. Adding the Python tab is a deliberate
-follow-up. Whoever does it must render a recipe's `setup` and `main` buckets as
-one block — the Python surface wraps both in a single `async def main():` so the
-concatenation a reader copies is runnable, which means `main` alone is an
-indented fragment.
-
-It is **read out of the generated signatures, never derived from the spec's
-parameter names** — the same rule `endpointModule` follows for module names. The
-generator's casing is not guessable: `jobV2Id` becomes `job_v2_id`, which a
-hand-written camelCase transform would plausibly render `job_v_2_id`, producing
-examples that agree with our guess instead of with the client. `yarn dx
-ci:python-sdk` fails if the committed map is untracked or if regeneration
-changes it.
-
-## Regenerating
+The manual [Python release workflow](../../.github/workflows/release-python-sdk.yml)
+builds and qualifies an explicit version. Its default run only uploads artifacts:
 
 ```sh
-# Regenerate the client from the committed spec snapshot (packages/sdk-ts/openapi.json).
-yarn generate python-sdk
-
-# Everything CI runs: regenerate, build the wheel, install it into a clean
-# virtualenv, and run the test suite against that installed distribution.
-yarn ci check python-sdk:all
+gh workflow run release-python-sdk.yml --ref main -f version=0.1.0
 ```
 
-Refreshing the snapshot itself is the TypeScript SDK's job
-(`yarn generate sdk --refresh-spec`); this package only ever reads it.
+The SDK code comes from the workflow's commit. By default, its API contract does
+too. When `main` contains API changes that have not reached production, set
+`PYTHON_SDK_CONTRACT_SOURCE_SHA` to a deployed commit's full SHA and select its
+contract explicitly:
 
-## The generator-private projection
+```sh
+gh workflow run release-python-sdk.yml --ref main -f version=0.1.0 -f contract-source-sha="$PYTHON_SDK_CONTRACT_SOURCE_SHA" -f publish=true
+```
 
-The committed snapshot is canonical **OpenAPI 3.1**. `yarn generate python-sdk`
-writes a **generator-private projection** (`openapi.generated.json`, gitignored)
-without changing dialect: it keeps only `@SdkRoute` operations, projects
-`x-sdk-path` into the generator's tags and operation IDs, and applies the few
-generator-specific structural repairs needed for complete output.
+The contract source must be a full commit SHA in the workflow commit's ancestry.
+The release extracts that commit's production contract without modifying any
+tracked snapshot. Generation, behavioral tests, and strict production
+verification all consume those exact bytes. Newer API changes on `main` can
+therefore coexist with a release for the deployed API. The artifact manifest
+records the SDK source commit, contract source commit, snapshot path, and hash.
 
-Those repairs add discriminators already implied by literal-tagged unions.
-Nullable optional fields retain both `None` and `Unset`, so generated patch
-models distinguish an explicit `null` from omission. Error bodies need no
-compatibility projection: Horizon, including its proxied Managed Agents routes,
-publishes the flat `{ code, message, details? }` envelope. The projection never
-touches the snapshot, the TypeScript SDK, or the backend; each repair is
-documented in `tools/dx/src/commands/python-sdk.ts` and pinned by
-`tools/dx/src/commands/python-sdk.test.ts`.
+For a local build without publishing, use an ignored artifact directory from a
+clean checkout:
 
-Generation then **fails on any generator diagnostic that is not explicitly
-allowlisted**, and on any opted-in operation missing from either the generated
-tree or the facade. The generator exits 0 while printing "Client was generated,
-but some pieces may be missing", so neither is implied by a successful run. The
-one allowlisted warning is an `application/x-yaml` *alternative* request encoding
-on a single Managed Agents operation; the `application/json` variant every other
-operation uses is generated normally. The allowlist is keyed by operation *and*
-signature, so the same warning elsewhere still fails.
+```sh
+yarn release python-sdk:prepare --version 0.1.0 --artifact-dir "$PWD/.agent/python-sdk-release"
+```
 
-## Not a Yarn workspace
+The local command also accepts `--contract-source-sha <full-commit-sha>` and
+`--verify-production true` for the same source selection and production check
+without uploading anything.
 
-This package has no `package.json`, is not in the Node dependency graph, and is
-never installed into backend images. Workspace registration is keyed on
-`package.json` discovery by `tools/dx/src/workspace-registration.test.ts`, so the
-root Yarn workspace, build waves, and Docker manifest-copy checks intentionally do
-not include it.
+The release command rejects published/older versions, temporarily stamps the
+package and lockfile, runs the full qualification, and restores the source
+metadata. The immutable candidate contains the wheel, source distribution,
+checksums, and its source commit.
+
+Passing `-f publish=true` to the workflow additionally verifies the source
+contract in production and publishes those exact archives with `uv publish`
+through PyPI trusted publishing. It retains the existing publisher identity:
+repository `Labelbox/recursion-platform`, workflow `release-python-sdk.yml`,
+environment `publish`, project `labelbox-recursion-sdk`. The final job verifies
+PyPI's archive hashes before recording `python-sdk-v<version>` at the source
+commit. Publication and Git tagging have separate credentials; release runs
+never commit version changes to the branch.

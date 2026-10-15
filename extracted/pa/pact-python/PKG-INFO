@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pact-python
-Version: 3.4.1
+Version: 4.0.0
 Summary: Tool for creating and verifying consumer-driven contracts using the Pact framework.
 Project-URL: changelog, https://github.com/pact-foundation/pact-python/blob/main/CHANGELOG.md
 Project-URL: documentation, https://pact-foundation.github.io/pact-python/
@@ -41,22 +41,16 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: pact-python-ffi~=0.5.0
 Requires-Dist: typing-extensions~=4.0; python_version < '3.13'
 Requires-Dist: yarl~=1.0
-Provides-Extra: compat-v2
-Requires-Dist: click~=8.0; extra == 'compat-v2'
-Requires-Dist: pact-python-cli~=2.5; extra == 'compat-v2'
-Requires-Dist: psutil~=7.0; extra == 'compat-v2'
-Requires-Dist: requests~=2.0; extra == 'compat-v2'
-Requires-Dist: six~=1.0; extra == 'compat-v2'
 Description-Content-Type: text/markdown
 
 # Pact Python

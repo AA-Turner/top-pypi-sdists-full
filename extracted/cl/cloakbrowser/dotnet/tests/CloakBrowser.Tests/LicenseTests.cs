@@ -232,6 +232,29 @@ public class LicenseTests : IDisposable
         Assert.Contains("could not be validated", ex.Message);
     }
 
+    [Fact]
+    public async Task EnsureBinaryAsync_does_not_block_the_caller_during_license_validation()
+    {
+        // Validation is a sync HTTP call; run inline it would hold the caller's thread
+        // (e.g. a UI thread) for the whole request.
+        using var gate = new ManualResetEventSlim();
+        License.ValidateLicenseOverride = _ =>
+        {
+            gate.Wait(TimeSpan.FromSeconds(2));
+            return new LicenseInfo(false, "solo", null);
+        };
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var task = Download.EnsureBinaryAsync("cb_slow");
+        var returnedAfter = sw.Elapsed;
+        var completedOnReturn = task.IsCompleted;
+        gate.Set();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => task);
+        Assert.False(completedOnReturn);
+        Assert.True(returnedAfter < TimeSpan.FromSeconds(1), $"caller blocked {returnedAfter}");
+    }
+
     // =======================================================================
     // GetProLatestVersion - rate limiting + marker
     // =======================================================================

@@ -41,7 +41,7 @@ class BreakdownClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RetrieveBreakdownResponse:
         """
-        Returns the top entities behind one high-level financial report bucket and an aggregate remainder.
+        Breaks one bucket of a financial report, such as payments received or card spend, into the customers, accounts, merchants, or campaigns that contributed most, with the rest summed as a remainder. Use it to explain a total from `GET /financial_reports`.
 
         Parameters
         ----------
@@ -84,7 +84,7 @@ class BreakdownClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -144,7 +144,7 @@ class AsyncBreakdownClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RetrieveBreakdownResponse:
         """
-        Returns the top entities behind one high-level financial report bucket and an aggregate remainder.
+        Breaks one bucket of a financial report, such as payments received or card spend, into the customers, accounts, merchants, or campaigns that contributed most, with the rest summed as a remainder. Use it to explain a total from `GET /financial_reports`.
 
         Parameters
         ----------
@@ -188,7 +188,7 @@ class AsyncBreakdownClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

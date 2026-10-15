@@ -1,0 +1,61 @@
+- name: Eligible person, large utility expenses
+  period: 2022
+  input:
+    pre_subsidy_electricity_expense: 1_000
+    ca_la_ez_save_eligible: true
+  output:
+    ca_la_ez_save: 98.04
+
+- name: Eligible person, program capped at utility expenses
+  period: 2022
+  input:
+    pre_subsidy_electricity_expense: 10
+    ca_la_ez_save_eligible: true
+  output:
+    ca_la_ez_save: 10
+
+- name: Monthly capped ez save amount
+  period: 2022-01
+  input:
+    pre_subsidy_electricity_expense: 
+      2022: 1_000
+    ca_la_ez_save_eligible: true
+  output:
+    ca_la_ez_save: 8.17
+
+- name: Monthly ez save amount with monthly expenses
+  period: 2022-01
+  input:
+    pre_subsidy_electricity_expense: 96
+    ca_la_ez_save_eligible: true
+  output:
+    ca_la_ez_save: 8
+
+- name: Income-eligible household paying its own utilities (default) receives the monthly discount
+  period: 2023-01
+  input:
+    in_la: true
+    ca_la_ez_save_countable_income:
+      2023: 36_620
+    household_size: 2
+    pre_subsidy_electricity_expense:
+      2023: 1_200
+  output:
+    ca_la_ez_save_eligible: true
+    ca_la_ez_save: 8.17
+
+- name: Same household with utilities included in rent receives no discount
+  period: 2023-01
+  input:
+    in_la: true
+    ca_la_ez_save_countable_income:
+      2023: 36_620
+    household_size: 2
+    pre_subsidy_electricity_expense:
+      2023: 1_200
+    tenant_pays_utilities: false
+  output:
+    # The model treats a household with utilities included in rent as not
+    # the LADWP customer of record.
+    ca_la_ez_save_eligible: false
+    ca_la_ez_save: 0

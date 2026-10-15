@@ -172,11 +172,12 @@ class PdfWrapper:
         """
         Merges PDF wrappers together, creating a new `PdfWrapper` containing the combined content.
 
-        This method allows you to combine PDF forms into a single form. It handles potential
-        naming conflicts between form fields by adding a unique suffix to the field names in the
-        form being merged, commits those queued renames before merging, and returns a new wrapper
-        configured with the left-hand wrapper's user parameters. Registered custom fonts from the
-        left-hand wrapper are carried into the result.
+        Field-name conflicts are resolved by adding a unique suffix to names in the right-hand
+        wrapper. Renames are committed only when queued, modifying that wrapper. The result uses
+        the left-hand wrapper's user parameters and inherits its registered custom fonts.
+
+        Collision-free merges work in full-name mode. A collision requiring a rename of a
+        full-name field still raises `NotImplementedError`.
 
         Args:
             other (PdfWrapper | Sequence[PdfWrapper]): The other `PdfWrapper` object or
@@ -203,7 +204,8 @@ class PdfWrapper:
             if k in other.widgets:
                 other.update_widget_key(k, f"{k}-{unique_suffix}")
 
-        other.commit_widget_key_updates()
+        if other._keys_to_update:
+            other.commit_widget_key_updates()
 
         # user params are based on the first object
         result = self.__class__(
@@ -386,12 +388,18 @@ class PdfWrapper:
         Returns sample data for the PDF form, providing example values for each form field.
 
         This sample data can be used for testing or demonstration purposes.
+        Fields without a usable sample value, including empty dropdowns and
+        radio groups, are omitted so the sample remains valid against the schema.
 
         Returns:
             dict: A dictionary containing sample data for the PDF form.
         """
 
-        return {key: value.sample_value for key, value in self.widgets.items()}
+        return {
+            key: sample
+            for key, widget in self.widgets.items()
+            if (sample := widget.sample_value) is not None
+        }
 
     @property
     def version(self) -> str | None:
@@ -660,6 +668,10 @@ class PdfWrapper:
         drawing those values as watermarks and copying the remaining widgets back onto
         the output. The wrapper's widget cache is intentionally left in place so
         subsequent style updates can still refer to the same middleware objects.
+        Supplied and retained values are prepared before any assignments or PDF
+        hooks are applied, so an invalid choice index leaves widget values,
+        pending hooks, and PDF state unchanged. Only supplied values are assigned.
+        Errors during later PDF processing are not rolled back by this preparation.
 
         Args:
             data (Dict[str, str | bool | int | BinaryIO | bytes]): A dictionary where keys
@@ -671,11 +683,21 @@ class PdfWrapper:
 
         Returns:
             PdfWrapper: The `PdfWrapper` object, allowing for method chaining.
+
+        Raises:
+            ValueError: If an integer dropdown or radio index is out of range.
         """
 
-        for key, value in data.items():
-            if key in self.widgets:
-                self.widgets[key].value = value
+        pending = [
+            (self.widgets[key], self.widgets[key].prepare_value(value))
+            for key, value in data.items()
+            if key in self.widgets
+        ]
+        for key, widget in self.widgets.items():
+            if key not in data:
+                widget.prepare_value(widget.value)
+        for widget, update in pending:
+            widget.apply_value(update)
 
         filled_stream, image_drawn_stream = fill(
             self._read(),

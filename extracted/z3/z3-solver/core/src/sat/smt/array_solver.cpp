@@ -84,8 +84,7 @@ namespace array {
         m_eq(*this),
         m_axioms(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq)
     {
-        m_constraint = alloc(sat::constraint_base);
-        m_constraint->initialize(m_constraint.get(), this);
+        m_array_hint = symbol("array");
     }
 
     sat::check_result solver::check() {
@@ -105,6 +104,15 @@ namespace array {
 
         if (!check_lambdas())
             return sat::check_result::CR_GIVEUP;
+
+        switch (check_const_arrays()) {
+        case l_false:
+            return sat::check_result::CR_CONTINUE;
+        case l_undef:
+            return sat::check_result::CR_GIVEUP;
+        default:
+            break;
+        }
 
         // validate_check();
         return sat::check_result::CR_DONE;
@@ -284,5 +292,33 @@ namespace array {
 
     bool solver::can_beta_reduce(expr* c) const {
         return a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c) || is_map_combinator(c);
+    }
+
+    bool solver::propagate_axiom(euf::enode* n1, euf::enode* n2) {
+        if (n1->get_root() == n2->get_root())
+            return false;
+        euf::th_proof_hint const* hint = nullptr;
+        if (ctx.use_drat()) {
+            // Record the derived equality in the hint so the log entry is
+            // self-contained and does not introduce a nullary "array" symbol.
+            euf::enode_pair eq(n1, n2);
+            hint = ctx.mk_smt_hint(m_array_hint, 0, nullptr, 1, &eq);
+        }
+        auto* jst = euf::th_explain::propagate(*this, euf::enode_pair_vector(), n1, n2, hint);
+        return ctx.propagate(n1, n2, jst->to_index());
+    }
+
+    bool solver::propagate_axiom(euf::enode_pair_vector const& eqs, euf::enode* n1, euf::enode* n2) {
+        if (n1->get_root() == n2->get_root())
+            return false;
+        euf::th_proof_hint const* hint = nullptr;
+        if (ctx.use_drat())
+            hint = ctx.mk_smt_hint(m_array_hint, eqs);
+        auto* jst = euf::th_explain::propagate(*this, eqs, n1, n2, hint);
+        return ctx.propagate(n1, n2, jst->to_index());
+    }
+
+    void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
+        ctx.get_th_antecedents(l, euf::th_explain::from_index(idx), r, probing);
     }
 }

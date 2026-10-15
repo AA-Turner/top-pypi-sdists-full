@@ -794,16 +794,23 @@ class EventManager:
             page_number = offset // page_size
             page_offset = offset % page_size
 
+            requested_categories = categories or _DEFAULT_CATEGORIES
             payload: Dict[str, Any] = {
                 "timestampFrom": from_ms,
                 "timestampTo": now_ms,
                 "severities": severities or _DEFAULT_SEVERITIES,
-                "categories": categories or _DEFAULT_CATEGORIES,
-                "type": "GENERAL",
+                "categories": requested_categories,
                 "pageNumber": page_number,
                 "pageSize": page_size,
                 "searchText": "",
             }
+            # ``type`` selects a log view, not a record type. The GENERAL view
+            # holds every category except AUDIT (admin activity), whose records
+            # exist only outside it, so asking for AUDIT under GENERAL returns
+            # nothing. Verified on Network 10.6: without ``type`` the default
+            # categories return the same records, and AUDIT is included.
+            if "AUDIT" not in requested_categories:
+                payload["type"] = "GENERAL"
 
             if event_type:
                 # ``keys`` is the controller's exact event-key filter. ``searchText``
@@ -1109,6 +1116,10 @@ class EventManager:
             {"category": "SOFTWARE_UPDATES", "description": "Firmware update events"},
             {"category": "UNIFI_ETHERNET_PORTS", "description": "Port events (STP, storms, errors)"},
             {"category": "VPN", "description": "VPN client and site-to-site events"},
+            {
+                "category": "AUDIT",
+                "description": "Admin activity: configuration changes and admin logins (not in the default set)",
+            },
         ]
 
     async def archive_alarm(self, alarm_id: str) -> bool:

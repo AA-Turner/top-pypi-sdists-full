@@ -52,7 +52,7 @@ from langchain_core.outputs import (
     ChatResult,
     Generation,
 )
-from langchain_core.runnables import Runnable
+from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
 from langchain_core.utils import get_pydantic_field_names
 from langchain_core.utils.function_calling import convert_to_openai_tool
@@ -82,6 +82,93 @@ _CallbackManager = Union[AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 logger = logging.getLogger(__name__)
 
 _MODEL_PROFILES = cast(ModelProfileRegistry, _PROFILES)
+_NEMOTRON_SUPER_VL_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b"
+_NEMOTRON_SUPER_VL_DEFAULT_MAX_TOKENS = 8192
+
+
+class _StructuredOutputFallbackRunnable(Runnable):
+    """Runnable that tries structured-output formats until one parses.
+
+    A parser result of None means the format did not produce a usable
+    structured object. For stream/astream, buffer each fallback attempt until
+    we know it ended with a non-None parsed object, so a failed attempt does not
+    leak a None chunk before a later format succeeds.
+    """
+
+    def __init__(self, chains: Sequence[Runnable]) -> None:
+        self.chains = chains
+
+    def invoke(
+        self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
+    ) -> Any:
+        last_exc: Optional[Exception] = None
+        for chain in self.chains:
+            try:
+                result = chain.invoke(input, config, **kwargs)
+                if result is not None:
+                    return result
+            except Exception as e:
+                last_exc = e
+        if last_exc is not None:
+            raise last_exc
+        return None
+
+    async def ainvoke(
+        self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
+    ) -> Any:
+        last_exc: Optional[Exception] = None
+        for chain in self.chains:
+            try:
+                result = await chain.ainvoke(input, config, **kwargs)
+                if result is not None:
+                    return result
+            except Exception as e:
+                last_exc = e
+        if last_exc is not None:
+            raise last_exc
+        return None
+
+    def stream(
+        self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
+    ) -> Iterator:
+        last_exc: Optional[Exception] = None
+        last_none_chunks: list[Any] = []
+        for chain in self.chains:
+            try:
+                chunks = list(chain.stream(input, config, **kwargs))
+                if chunks and chunks[-1] is not None:
+                    yield from chunks
+                    return
+                if chunks:
+                    last_none_chunks = chunks
+            except Exception as e:
+                last_exc = e
+        if last_exc is not None:
+            raise last_exc
+        yield from last_none_chunks
+
+    async def astream(
+        self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
+    ) -> AsyncIterator:
+        last_exc: Optional[Exception] = None
+        last_none_chunks: list[Any] = []
+        for chain in self.chains:
+            try:
+                chunks = []
+                async for chunk in chain.astream(input, config, **kwargs):
+                    chunks.append(chunk)
+                if chunks and chunks[-1] is not None:
+                    for chunk in chunks:
+                        yield chunk
+                    return
+                if chunks:
+                    last_none_chunks = chunks
+            except Exception as e:
+                last_exc = e
+        if last_exc is not None:
+            raise last_exc
+        for chunk in last_none_chunks:
+            yield chunk
 
 
 def _get_default_model_profile(model_name: str) -> ModelProfile:
@@ -382,6 +469,16 @@ class ChatNVIDIA(BaseChatModel):
         description="Default headers merged into all requests.",
     )
 
+    usage_telemetry_enabled: Optional[bool] = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description=(
+            "Enable content-free aggregate usage telemetry. Enabled by default "
+            "unless disabled."
+        ),
+    )
+
     model_kwargs: Dict[str, Any] = Field(
         default_factory=dict,
         description=(
@@ -441,6 +538,10 @@ class ChatNVIDIA(BaseChatModel):
             seed: A seed for deterministic results.
             stop: A string or list of strings specifying stop sequences.
             default_headers: Default headers merged into all requests.
+            usage_telemetry_enabled: Enable content-free hourly usage aggregates for
+                NVIDIA-hosted NIMs. Enabled by default unless disabled. The
+                `NVIDIA_USAGE_TELEMETRY_ENABLED` environment variable provides the
+                default when this argument is omitted.
             **kwargs: Additional parameters passed to the underlying client.
 
         The recommended way to provide the API key is through the `NVIDIA_API_KEY`
@@ -516,12 +617,25 @@ class ChatNVIDIA(BaseChatModel):
             cls="ChatNVIDIA",
             verify_ssl=verify_ssl,
             **({"timeout": timeout} if timeout is not None else {}),
+            **(
+                {"usage_telemetry_enabled": self.usage_telemetry_enabled}
+                if self.usage_telemetry_enabled is not None
+                else {}
+            ),
         )
         # todo: only store the model in one place
         # the model may be updated to a newer name during initialization
         self.model = self._client.mdl_name
         # same for base_url
         self.base_url = self._client.base_url
+
+        # Super VL reasoning can exhaust the generic 1,024-token default before
+        # producing a final answer. Preserve any caller-supplied token limit.
+        if (
+            self.model == _NEMOTRON_SUPER_VL_MODEL
+            and "max_tokens" not in self.model_fields_set
+        ):
+            self.max_tokens = _NEMOTRON_SUPER_VL_DEFAULT_MAX_TOKENS
 
         # set model profile after model name is finalized
         if self.profile is None and self.model:
@@ -1431,92 +1545,13 @@ class ChatNVIDIA(BaseChatModel):
         openai_parser = openai_output_parser or output_parser
         openai_compat_chain = openai_compat_llm | openai_parser
 
-        # For hosted NVIDIA API endpoint: try OpenAI format first,
-        #   then fall back to direct -> nvext
-        # For self-hosted NIMs: try direct -> nvext first,
-        #   then fall back to OpenAI format
-        # The fallback is mostly defensive. The primary format for each
-        # case is expected to succeed.
-        if self._client.is_hosted:
-            chains = [openai_compat_chain] + guided_chains
-        else:
-            chains = guided_chains + [openai_compat_chain]
+        # Try the OpenAI-compatible response_format first for both hosted
+        # endpoints and self-hosted NIMs. Recent NIMs support response_format,
+        # while legacy guided_json/nvext fields may be ignored by vLLM and
+        # return free-form text with HTTP 200.
+        chains = [openai_compat_chain] + guided_chains
 
-        from langchain_core.runnables import Runnable, RunnableConfig
-
-        class _FallbackRunnable(Runnable):
-            """Runnable that tries formats in order until one succeeds.
-
-            A result of None is treated as a failure (the output parser
-            could not construct the schema object), so the next format
-            is tried.
-            """
-
-            def invoke(
-                self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
-            ) -> Any:
-                last_exc: Optional[Exception] = None
-                for chain in chains:
-                    try:
-                        result = chain.invoke(input, config, **kwargs)
-                        if result is not None:
-                            return result
-                    except Exception as e:
-                        last_exc = e
-                if last_exc is not None:
-                    raise last_exc
-                return None
-
-            async def ainvoke(
-                self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
-            ) -> Any:
-                last_exc: Optional[Exception] = None
-                for chain in chains:
-                    try:
-                        result = await chain.ainvoke(input, config, **kwargs)
-                        if result is not None:
-                            return result
-                    except Exception as e:
-                        last_exc = e
-                if last_exc is not None:
-                    raise last_exc
-                return None
-
-            def stream(
-                self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
-            ) -> Iterator:
-                last_exc: Optional[Exception] = None
-                for chain in chains:
-                    try:
-                        last_chunk = None
-                        for chunk in chain.stream(input, config, **kwargs):
-                            last_chunk = chunk
-                            yield chunk
-                        if last_chunk is not None:
-                            return
-                    except Exception as e:
-                        last_exc = e
-                if last_exc is not None:
-                    raise last_exc
-
-            async def astream(
-                self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
-            ) -> AsyncIterator:
-                last_exc: Optional[Exception] = None
-                for chain in chains:
-                    try:
-                        last_chunk = None
-                        async for chunk in chain.astream(input, config, **kwargs):
-                            last_chunk = chunk
-                            yield chunk
-                        if last_chunk is not None:
-                            return
-                    except Exception as e:
-                        last_exc = e
-                if last_exc is not None:
-                    raise last_exc
-
-        return _FallbackRunnable()
+        return _StructuredOutputFallbackRunnable(chains)
 
     def with_thinking_mode(
         self,

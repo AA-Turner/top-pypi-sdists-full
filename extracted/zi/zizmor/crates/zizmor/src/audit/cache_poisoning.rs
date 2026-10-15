@@ -4,20 +4,21 @@ use github_actions_expressions::call::{Call, Function};
 use github_actions_expressions::literal::Literal;
 use github_actions_expressions::op::{BinExpr, BinOp, UnOp};
 use github_actions_expressions::{Expr, SpannedExpr};
-use github_actions_models::common::EnvValue;
 use github_actions_models::common::expr::LoE;
+use github_actions_models::common::{CacheMode, EnvValue};
 use github_actions_models::workflow::Trigger;
-use github_actions_models::workflow::event::{BareEvent, BranchFilters, OptionalBody};
+use github_actions_models::workflow::event::{BranchFilters, OptionalBody};
 
 use crate::audit::{Audit, AuditError, audit_meta};
 use crate::config::Config;
 use crate::finding::location::{Locatable as _, Routable as _};
-use crate::finding::{Confidence, Finding, Fix, FixDisposition, Severity};
+use crate::finding::{Confidence, Finding, Fix, FixDisposition, Persona, Severity};
 use crate::models::coordinate::{
     ActionCoordinate, ControlExpr, ControlFieldType, ControlOrigin, Toggle, Usage, VersionBound,
 };
 use crate::models::version::Version;
-use crate::models::workflow::{JobCommon as _, NormalJob, Step, Steps};
+use crate::models::workflow::cache_mode::{EffectiveCacheMode, HasEffectiveCacheMode as _};
+use crate::models::workflow::{JobCommon, NormalJob, ReusableWorkflowCallJob, Step, Steps};
 use crate::models::{StepBodyCommon, StepCommon};
 use crate::state::AuditState;
 use crate::utils::ExtractedExpr;
@@ -236,6 +237,12 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<CacheAwareAction>> = LazyLock::ne
                 ControlFieldType::Boolean,
                 true,
             ),
+        }
+        .into(),
+        // https://github.com/pnpm/setup/blob/main/action.yml
+        ActionCoordinate::Configurable {
+            uses_pattern: "pnpm/setup".parse().unwrap(),
+            control: ControlExpr::field(Toggle::OptIn, "cache", ControlFieldType::Boolean, false),
         }
         .into(),
         // https://github.com/DeterminateSystems/magic-nix-cache-action/blob/main/action.yml
@@ -495,39 +502,95 @@ audit_meta!(
 );
 
 impl CachePoisoning {
+    /// Produces a finding if the given job has an effective cache mode that allows
+    /// for cache writes *and* is called through a fundamentally dangerous trigger.
+    fn dangerous_trigger_writes_cache<'doc>(
+        &self,
+        job: &impl JobCommon<'doc>,
+    ) -> Result<Option<Finding<'doc>>, AuditError> {
+        let workflow = job.parent();
+
+        // Get our dangerous trigger's location, if we have one.
+        // TODO: Dedupe this with the dangerous-trigger audit?
+        // Doing so will be slightly annoying, since dangerous-trigger has
+        // extra logic like exceptions for `actions/labeler` that don't apply here.
+        let Some(trigger_location) = workflow
+            .pull_request_target()
+            .or_else(|| workflow.workflow_run())
+            .or_else(|| workflow.issue_comment())
+        else {
+            return Ok(None);
+        };
+
+        let EffectiveCacheMode {
+            mode: CacheMode::Write | CacheMode::WriteOnly,
+            location: Some(cache_mode_location),
+        } = job.effective_cache_mode()
+        else {
+            // NOTE: Technically we could have something weird here,
+            // like a trigger that has an implicit `cache-mode: write`
+            // that's also considered dangerous.
+            // As of October 2026 GitHub has made those categories
+            // fully disjoint, which is the secure default.
+            return Ok(None);
+        };
+
+        let fix = Fix {
+            title: "set `cache-mode: none` to disable dangerous cache writes".into(),
+            key: &job.parent().key,
+            disposition: FixDisposition::Safe,
+            patches: vec![Patch {
+                route: cache_mode_location.route.clone(),
+                operation: Op::Replace("none".into()),
+            }],
+        };
+
+        Ok(Some(
+            Self::finding()
+                .confidence(Confidence::High)
+                .severity(Severity::High)
+                .persona(Persona::Regular)
+                .add_location(
+                    job.location_with_grip()
+                        .annotated("this job can write to the cache"),
+                )
+                .add_location(
+                    trigger_location
+                        .annotated("trigger provides elevated access to external actors"),
+                )
+                .add_location(
+                    cache_mode_location
+                        .primary()
+                        .annotated("cache writes enabled here"),
+                )
+                .fix(fix)
+                .build(job.parent())?,
+        ))
+    }
+
     fn triggers_used_when_publishing_artifacts(&self, trigger: &Trigger) -> Vec<ReleaseTrigger> {
-        match trigger {
-            Trigger::BareEvent(BareEvent::Release) => {
-                vec![ReleaseTrigger::ReleaseEvent]
+        let events = &trigger.events;
+        let mut triggers = vec![];
+
+        if let OptionalBody::Body(body) = &events.push {
+            if body.tag_filters.is_some() {
+                triggers.push(ReleaseTrigger::TagPush);
             }
-            Trigger::BareEvents(events) if events.contains(&BareEvent::Release) => {
-                vec![ReleaseTrigger::ReleaseEvent]
+
+            if let Some(BranchFilters::Branches(branches)) = &body.branch_filters
+                && branches
+                    .iter()
+                    .any(|branch| branch.to_lowercase().contains("release"))
+            {
+                triggers.push(ReleaseTrigger::ReleaseBranchPush);
             }
-            Trigger::Events(events) => {
-                let mut triggers = vec![];
-
-                if let OptionalBody::Body(body) = &events.push {
-                    if body.tag_filters.is_some() {
-                        triggers.push(ReleaseTrigger::TagPush);
-                    }
-
-                    if let Some(BranchFilters::Branches(branches)) = &body.branch_filters
-                        && branches
-                            .iter()
-                            .any(|branch| branch.to_lowercase().contains("release"))
-                    {
-                        triggers.push(ReleaseTrigger::ReleaseBranchPush);
-                    }
-                }
-
-                if !matches!(events.release, OptionalBody::Missing) {
-                    triggers.push(ReleaseTrigger::ReleaseEvent);
-                }
-
-                triggers
-            }
-            _ => vec![],
         }
+
+        if events.release.is_present() {
+            triggers.push(ReleaseTrigger::ReleaseEvent);
+        }
+
+        triggers
     }
 
     fn detected_well_known_publisher_step(steps: Steps) -> Option<Step> {
@@ -753,6 +816,7 @@ impl CachePoisoning {
                 .add_location(
                     step.workflow()
                         .location()
+                        // TODO: This can be made more precise.
                         .with_keys(["on".into()])
                         .annotated("generally used when publishing artifacts generated at runtime"),
                 ),
@@ -802,6 +866,20 @@ impl Audit for CachePoisoning {
         let steps = job.steps();
         let trigger = &job.parent().on;
 
+        // TODO(ww): Clean this up; it's a little goofy that we check the
+        // effective cache mode in a slightly different way immediately below.
+        if let Some(finding) = self.dangerous_trigger_writes_cache(job)? {
+            findings.push(finding);
+        }
+
+        // If the job has all caching disabled via `cache-mode: none`,
+        // then no cache poisoning is possible.
+        let effective_cache_mode = job.effective_cache_mode();
+        if let CacheMode::None = effective_cache_mode.mode {
+            tracing::debug!("no cache poisoning is possible due to `cache-mode: none`");
+            return Ok(findings);
+        }
+
         let Some(scenario) = self.is_job_publishing_artifacts(trigger, steps) else {
             return Ok(findings);
         };
@@ -813,5 +891,17 @@ impl Audit for CachePoisoning {
         }
 
         Ok(findings)
+    }
+
+    async fn audit_reusable_job<'doc>(
+        &self,
+        job: &ReusableWorkflowCallJob<'doc>,
+        _config: &Config,
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
+        if let Some(finding) = self.dangerous_trigger_writes_cache(job)? {
+            Ok(vec![finding])
+        } else {
+            Ok(vec![])
+        }
     }
 }

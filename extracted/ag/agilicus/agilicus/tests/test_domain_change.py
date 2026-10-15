@@ -208,9 +208,9 @@ def test_cli_domain_change_requires_new_subdomain():
 # ---------------------------------------------------------------------------
 # IAF-2371 ergonomics: aliases, per-component output, 409 preflight
 # ---------------------------------------------------------------------------
-def _api_exception(status, body):
+def _api_exception(status, body, reason="Conflict"):
     """Build an ApiException carrying a JSON body (the 409 preflight shape)."""
-    exc = ApiException(status=status, reason="Conflict")
+    exc = ApiException(status=status, reason=reason)
     exc.body = body
     return exc
 
@@ -309,6 +309,72 @@ def test_domain_change_json_error(monkeypatch):
     payload = json.loads(result.stderr)
     assert payload["error"] == "preflight_failed"
     assert payload["components"][0]["component"] == "dns"
+
+
+def test_domain_change_403_reports_the_policy_body(monkeypatch):
+    """A denied request surfaces ``roleMatched`` from the authz body.
+
+    The policy layer answers the creator-only endpoint with a JSON body; the
+    HTTP reason ("Forbidden") alone told the operator nothing, so the body
+    must be part of the message the CLI renders.
+    """
+    body = json.dumps(
+        {
+            "tokenValid": True,
+            "roleMatched": False,
+            "tokenLookedUp": True,
+            "status": "The provided token does not have the required role.",
+        }
+    )
+    _patch_client(
+        monkeypatch, FakeApiClient(error=_api_exception(403, body, reason="Forbidden"))
+    )
+
+    with pytest.raises(domain_change_module.DomainChangeError) as info:
+        domain_change_module.get_domain_change(object(), "org-1", "new")
+
+    message = str(info.value)
+    assert "403" in message
+    assert "Forbidden" in message
+    assert '"roleMatched": false' in message
+
+
+def test_domain_change_403_cli_prints_the_policy_body(monkeypatch):
+    body = json.dumps({"tokenValid": True, "roleMatched": False})
+    monkeypatch.setattr(
+        domain_change_main.domain_change,
+        "plan_domain_change",
+        lambda ctx, **kwargs: (_ for _ in ()).throw(
+            _api_exception(403, body, reason="Forbidden")
+        ),
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        domain_change_main.cli_command_domain_change,
+        ["--org-id", "o", "--subdomain", "new", "--issuer", "https://auth.new"],
+        obj={"output_format": "console"},
+    )
+    assert result.exit_code != 0
+    assert "403" in result.stderr
+    assert "roleMatched" in result.stderr
+
+
+def test_describe_accepts_a_dict_body_and_stays_one_bounded_line():
+    exc = ApiException(status=403, reason="Forbidden")
+    exc.body = {"roleMatched": False, "extra": "x" * 500}
+
+    message = domain_change_module._describe(exc)
+
+    assert "roleMatched" in message
+    assert len(message) == domain_change_module._DESCRIBE_MAX
+    assert "\n" not in message
+
+
+def test_describe_does_not_repeat_a_body_equal_to_the_reason():
+    exc = ApiException(status=403, reason="Forbidden")
+    exc.body = "Forbidden"
+
+    assert domain_change_module._describe(exc) == "403 Forbidden"
 
 
 def test_cli_domain_change_prints_component_table(monkeypatch):

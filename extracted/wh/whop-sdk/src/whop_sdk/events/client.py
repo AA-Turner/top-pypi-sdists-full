@@ -64,7 +64,7 @@ class EventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ListEventsResponseDataItem, ListEventsResponse]:
         """
-        Lists identity-linked events, most recent first by default. Pass identifier for one person's journey, or omit it to list events for an account within an explicit time range. Pass direction=asc to read a journey forwards from where it starts. Events are shaped like the POST /events intake: attribution in context, identity in user.
+        Lists identity-linked events, most recent first by default. Pass `identifier` for one person's journey, or omit it to list an account's events within a time range. Events have the same shape as the `POST /events` intake: attribution in `context`, identity in `user`.
 
         Parameters
         ----------
@@ -138,7 +138,7 @@ class EventsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -198,7 +198,7 @@ class EventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateEventsResponse:
         """
-        Tracks a conversion or engagement event for an account.
+        Tracks a conversion or engagement event for an account, such as a lead or a sign-up, so it can be attributed to the ads and links that drove it. Send server-side events with an API key that has `event:create`; the browser pixel calls this without authentication.
 
         Parameters
         ----------
@@ -277,7 +277,7 @@ class EventsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -321,7 +321,7 @@ class EventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[PulseEventsResponseDataItem, PulseEventsResponse]:
         """
-        Returns a fully anonymized feed of recent platform-wide money movement, most recent first: purchases, affiliate commissions, card and ad spend, app revenue, off-platform sales, wallet deposits, card loads, claimed drops, transfers between accounts, and referral bonuses. Items carry only a `type`, the underlying event name, a USD amount, a coarse location under `user`, and a timestamp coarsened to the start of the minute; missing fields are omitted, not nulled. The payload is identical for every caller; no auth is required.
+        Returns a fully anonymized feed of recent money movement across Whop, most recent first, such as purchases, card spend, and transfers between accounts. Each item carries only its `type`, a USD amount, a coarse location, and a timestamp coarsened to the minute. The payload is identical for every caller and requires no authentication.
 
         Parameters
         ----------
@@ -350,7 +350,7 @@ class EventsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -373,7 +373,7 @@ class EventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PixelValidation:
         """
-        Checks whether the Whop pixel is installed for an account. Recent pixel events count as proof on their own, so an account that has sent data lately comes back installed without a `url`. Pass a `url` and events from that page settle it; conversion events are also read across the hostname because they commonly fire on a later confirmation page. If the requested page hasn't sent any events lately, it is fetched and read for the pixel and conversion events wired on it. `installed` is only true when the pixel was actually seen — in the account's events or in the page. `affiliate_tracking_detected` reports an affiliate tracking SDK found on the page. Supported platforms: Everflow.
+        Checks whether the Whop pixel is installed for an account, or on one page when you pass a `url`. Use it before launching an ad to confirm its destination is tracked, or in a setup flow to tell a merchant whether their install is live.
 
         Parameters
         ----------
@@ -381,7 +381,7 @@ class EventsClient:
             Account to check. Defaults to the authenticated account.
 
         url : typing.Optional[str]
-            A page to read for the pixel, e.g. an ad destination. Omit it to check the account from its events alone.
+            A page to check for the pixel, such as an ad destination. Events from that page settle the answer; if it hasn't sent any lately, it is fetched and its source read for the pixel and the conversion events wired on it. Omit it to check the account from its events alone.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -396,7 +396,7 @@ class EventsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -446,7 +446,7 @@ class AsyncEventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ListEventsResponseDataItem, ListEventsResponse]:
         """
-        Lists identity-linked events, most recent first by default. Pass identifier for one person's journey, or omit it to list events for an account within an explicit time range. Pass direction=asc to read a journey forwards from where it starts. Events are shaped like the POST /events intake: attribution in context, identity in user.
+        Lists identity-linked events, most recent first by default. Pass `identifier` for one person's journey, or omit it to list an account's events within a time range. Events have the same shape as the `POST /events` intake: attribution in `context`, identity in `user`.
 
         Parameters
         ----------
@@ -522,7 +522,7 @@ class AsyncEventsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -589,7 +589,7 @@ class AsyncEventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateEventsResponse:
         """
-        Tracks a conversion or engagement event for an account.
+        Tracks a conversion or engagement event for an account, such as a lead or a sign-up, so it can be attributed to the ads and links that drove it. Send server-side events with an API key that has `event:create`; the browser pixel calls this without authentication.
 
         Parameters
         ----------
@@ -670,7 +670,7 @@ class AsyncEventsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -720,7 +720,7 @@ class AsyncEventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[PulseEventsResponseDataItem, PulseEventsResponse]:
         """
-        Returns a fully anonymized feed of recent platform-wide money movement, most recent first: purchases, affiliate commissions, card and ad spend, app revenue, off-platform sales, wallet deposits, card loads, claimed drops, transfers between accounts, and referral bonuses. Items carry only a `type`, the underlying event name, a USD amount, a coarse location under `user`, and a timestamp coarsened to the start of the minute; missing fields are omitted, not nulled. The payload is identical for every caller; no auth is required.
+        Returns a fully anonymized feed of recent money movement across Whop, most recent first, such as purchases, card spend, and transfers between accounts. Each item carries only its `type`, a USD amount, a coarse location, and a timestamp coarsened to the minute. The payload is identical for every caller and requires no authentication.
 
         Parameters
         ----------
@@ -751,7 +751,7 @@ class AsyncEventsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -781,7 +781,7 @@ class AsyncEventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PixelValidation:
         """
-        Checks whether the Whop pixel is installed for an account. Recent pixel events count as proof on their own, so an account that has sent data lately comes back installed without a `url`. Pass a `url` and events from that page settle it; conversion events are also read across the hostname because they commonly fire on a later confirmation page. If the requested page hasn't sent any events lately, it is fetched and read for the pixel and conversion events wired on it. `installed` is only true when the pixel was actually seen — in the account's events or in the page. `affiliate_tracking_detected` reports an affiliate tracking SDK found on the page. Supported platforms: Everflow.
+        Checks whether the Whop pixel is installed for an account, or on one page when you pass a `url`. Use it before launching an ad to confirm its destination is tracked, or in a setup flow to tell a merchant whether their install is live.
 
         Parameters
         ----------
@@ -789,7 +789,7 @@ class AsyncEventsClient:
             Account to check. Defaults to the authenticated account.
 
         url : typing.Optional[str]
-            A page to read for the pixel, e.g. an ad destination. Omit it to check the account from its events alone.
+            A page to check for the pixel, such as an ad destination. Events from that page settle the answer; if it hasn't sent any lately, it is fetched and its source read for the pixel and the conversion events wired on it. Omit it to check the account from its events alone.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -806,7 +806,7 @@ class AsyncEventsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

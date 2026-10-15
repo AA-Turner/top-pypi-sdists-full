@@ -13,22 +13,16 @@ def pretty_byte_size(size_bytes):
     """
     size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
 
-    # Start with bytes
     ratio = float(size_bytes)
     index = 0
 
-    # Keep dividing by 1024 until we get a value < 100 (2 digits max)
-    # or we run out of units
     while ratio >= 100 and index < len(size_name) - 1:
         ratio /= 1024
         index += 1
 
-    # Format with one decimal place, no padding
     if ratio >= 10:
-        # For 10-99.9, show no decimal to keep it short
         return f"{ratio:.0f} {size_name[index]}"
     else:
-        # For 0.1-9.9, show one decimal place
         return f"{ratio:.1f} {size_name[index]}"
 
 
@@ -85,7 +79,6 @@ def maybe_isort(rendered):
     try:
         import ruff  # noqa: F401
     except ImportError:
-        # Fallback to isort if Ruff is not available
         try:
             from isort.api import sort_code_string
         except ImportError:
@@ -98,7 +91,7 @@ def maybe_isort(rendered):
 
     subprocess.run(
         [sys.executable, "-m", "ruff", "check", name, "--select", "I", "--fix"],
-        check=False,  # Don't fail if there are unfixable issues
+        check=False,
     )
     with open(name) as f:
         rendered = f.read()
@@ -145,10 +138,8 @@ def extract_http_trace_name(frames_by_thread, current_thread_id):
     for frame in unpacked_frames:
         if frame.get("type") == "django_request":
             if request_frame is None:
-                # first frame wins
                 request_frame = frame
         elif frame.get("type") == "django_response":
-            # last frame wins
             response_frame = frame
 
     if request_frame and response_frame:
@@ -174,7 +165,6 @@ def extract_test_trace_name(frames_by_thread, current_thread_id):
     if not frames_from_current_thread:
         return None
 
-    # Look at first and last few frames to be safe
     first_three = frames_from_current_thread[:3]
     last_three = frames_from_current_thread[-3:]
 
@@ -190,13 +180,10 @@ def extract_test_trace_name(frames_by_thread, current_thread_id):
     for frame in unpacked_frames:
         if frame.get("type") == "start_test":
             if start_frame is None:
-                # first frame wins
                 start_frame = frame
         elif frame.get("type") == "end_test":
-            # last frame wins
             end_frame = frame
 
-    # We want both start and end frames to be present to ensure we have a complete test
     if start_frame and end_frame:
         test_name = start_frame.get("test_name")
         test_class = start_frame.get("test_class")

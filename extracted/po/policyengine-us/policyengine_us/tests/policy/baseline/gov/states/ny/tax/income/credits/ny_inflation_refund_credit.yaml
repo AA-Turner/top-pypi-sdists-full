@@ -1,0 +1,139 @@
+- name: NY 2023 inflation refund - joint filer under $150k gets $400
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 100_000
+    filing_status: JOINT
+  output:
+    ny_inflation_refund_credit: 400
+
+- name: NY 2023 inflation refund - joint filer between $150k-$300k gets $300
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 200_000
+    filing_status: JOINT
+  output:
+    ny_inflation_refund_credit: 300
+
+- name: NY 2023 inflation refund - joint filer over $300k gets $0
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 350_000
+    filing_status: JOINT
+  output:
+    ny_inflation_refund_credit: 0
+
+- name: NY 2023 inflation refund - surviving spouse under $150k gets $400
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 100_000
+    filing_status: SURVIVING_SPOUSE
+  output:
+    ny_inflation_refund_credit: 400
+
+- name: NY 2023 inflation refund - single filer under $75k gets $200
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 50_000
+    filing_status: SINGLE
+  output:
+    ny_inflation_refund_credit: 200
+
+- name: NY 2023 inflation refund - single filer between $75k-$150k gets $150
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 100_000
+    filing_status: SINGLE
+  output:
+    ny_inflation_refund_credit: 150
+
+- name: NY 2023 inflation refund - single filer over $150k gets $0
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 175_000
+    filing_status: SINGLE
+  output:
+    ny_inflation_refund_credit: 0
+
+- name: NY 2023 inflation refund - head of household under $75k gets $200
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 60_000
+    filing_status: HEAD_OF_HOUSEHOLD
+  output:
+    ny_inflation_refund_credit: 200
+
+- name: NY 2023 inflation refund - married filing separate between $75k-$150k gets $150
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 100_000
+    filing_status: SEPARATE
+  output:
+    ny_inflation_refund_credit: 150
+
+- name: NY 2023 inflation refund - not available outside of NY
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: CA
+    ny_agi: 50_000
+    filing_status: SINGLE
+  output:
+    ny_inflation_refund_credit: 0
+
+- name: NY 2024 inflation refund - not available after eligibility year
+  period: 2024
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 50_000
+    filing_status: SINGLE
+  output:
+    ny_inflation_refund_credit: 0
+
+- name: NY 2025 inflation refund - payment year does not change tax-year assignment
+  period: 2025
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 50_000
+    filing_status: SINGLE
+  output:
+    ny_inflation_refund_credit: 0
+
+- name: NY 2026 inflation refund - not available after payment year
+  period: 2026
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 50_000
+    filing_status: SINGLE
+  output:
+    ny_inflation_refund_credit: 0
+
+- name: NY 2023 inflation refund - single filer with zero AGI should get credit
+  period: 2023
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    ny_agi: 0
+    filing_status: SINGLE
+  output:
+    ny_inflation_refund_credit: 200

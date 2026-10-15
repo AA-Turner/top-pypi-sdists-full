@@ -1,11 +1,14 @@
 import logging
-import re
 import time
 from functools import wraps
 
 from scrapy import Request, signals
 from scrapy.utils.asyncgen import as_async_generator
 
+from ..utils.request_meta import (
+    response_size_bytes_for_request,
+    status_code_from_exception,
+)
 from ..utils.fingerprint import get_request_fingerprint
 from ..utils.parent import get_parent_url, set_parent_url
 
@@ -154,7 +157,7 @@ class ErrorMiddleware:
     def process_exception(self, request, exception, spider):
         start_time = request.meta.get("start_time", time.time())
         elapsed_seconds = time.time() - start_time
-        status_code = self._extract_status_code(exception)
+        status_code = status_code_from_exception(exception)
 
         self.collector.add_request(
             {
@@ -163,22 +166,12 @@ class ErrorMiddleware:
                 "method": request.method,
                 "status_code": status_code,
                 "response_time_secs": round(elapsed_seconds, 2),
+                "response_size_bytes": response_size_bytes_for_request(
+                    request, exception
+                ),
                 "fingerprint": get_request_fingerprint(request),
                 "error": f"{exception.__class__.__name__}: {str(exception)}",
                 "success": False,
             }
         )
         return None
-
-    def _extract_status_code(self, exception):
-        status_match = re.search(r"\[(\d{3})]", str(exception))
-        if status_match:
-            return int(status_match.group(1))
-
-        if hasattr(exception, "status"):
-            return exception.status
-
-        if hasattr(exception, "response") and hasattr(exception.response, "status"):
-            return exception.response.status
-
-        return 0

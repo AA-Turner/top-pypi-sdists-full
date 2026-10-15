@@ -23,6 +23,9 @@ class ViewKind(StrEnum):
     GROUP = "group"
     SESSION = "session"
     TEAM_NOTE = "team-note"
+    DATASET = "dataset"
+    SOURCE = "source"
+    CHECKPOINT = "checkpoint"
 
 
 class View(StrEnum):
@@ -68,6 +71,8 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.VERSIONS,
         }
     ),
+    ViewKind.CHECKPOINT: frozenset({View.CARD, View.LINEAGE, View.RECORD, View.VERSIONS}),
+    ViewKind.DATASET: frozenset({View.CARD, View.LINEAGE, View.RECORD, View.VERSIONS}),
     ViewKind.EXPERIMENT: frozenset(
         {
             View.ARTIFACTS,
@@ -122,6 +127,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
         }
     ),
     ViewKind.SESSION: frozenset({View.CARD, View.RECORD, View.TRANSCRIPT}),
+    ViewKind.SOURCE: frozenset({View.CARD, View.LINEAGE, View.RECORD}),
     ViewKind.SUB_NOTE: frozenset({View.CARD}),
     ViewKind.TEAM_NOTE: frozenset({View.CARD, View.RECORD}),
     ViewKind.TRIAL: frozenset({View.CARD, View.RECORD, View.TRAJECTORY}),
@@ -153,6 +159,6 @@ VIEW_PURPOSE: dict[View, str] = {
     View.TRAJECTORY: "the spans themselves -- ask a TRIAL for one rollout's subtree",
     View.TRANSCRIPT: "a captured session's text; view_options.grep or view_options.start_line",
     View.TRIALS: "the run's authored trials, newest step first",
-    View.VERSIONS: "an artifact's versions in the shared registry; the reuse check",
+    View.VERSIONS: "an artifact's or dataset's versions (a checkpoint: its run's saves); the reuse check",
     View.VIEWS: "saved metric views on this entity",
 }

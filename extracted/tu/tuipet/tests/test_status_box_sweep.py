@@ -69,7 +69,7 @@ def test_eggguide_card():
     from tuipet.eggguidescreen import EggGuidePanel
     app = _app()
     txt = _card(app, EggGuidePanel())
-    assert "Digitama" in txt and "Hatches" in txt
+    assert "Digitama" in txt and "Egg      " in txt
 
 
 def test_digicore_card():
@@ -347,16 +347,16 @@ def test_the_shop_eggs_tab_buys_through_the_single_source():
     from tuipet import persistence, shop
     from tuipet.shopscreen import ShopPanel
     app = _app()
-    app.pet.bits = 5000
+    app.pet.bits = 15000
     pan = ShopPanel(app.pet, town_id=1, start_tab="Eggs")
     rows = pan._rows()
     idx = next(e["egg_idx"] for e in rows if not e["owned"])
     pan.cursor = next(i for i, e in enumerate(rows) if e["egg_idx"] == idx)
     pan.key("enter")
     assert idx in persistence.get_eggs_owned()
-    assert app.pet.bits == 5000 - shop.egg_price(idx)
+    assert app.pet.bits == 15000 - shop.egg_price(idx)
     pan.key("enter")                             # again: refuses, no double bill
-    assert app.pet.bits == 5000 - shop.egg_price(idx)
+    assert app.pet.bits == 15000 - shop.egg_price(idx)
     assert pan.text()                            # and the tab renders
 
 
@@ -389,12 +389,11 @@ def test_the_road_wears_its_own_card():
     gate_txt = _card(app, road)
     assert "Gate" in gate_txt and road.adv.boss_name[:8] in gate_txt
     road._at_gate = False
-    # a TOWN visit is still ON the run: the unregistered TownPanel must not
-    # drop the card back to bare vitals (painter_for walks .sub, then falls
-    # back to the host) -- but its SHOP tab still wins, two layers deep
+    # menus audit 2026-10-14: the town hub now owns its card; its shop still
+    # wins two layers deep, rather than leaving the hub on the road ledger.
     from tuipet.townscreen import TownPanel
     road.sub = TownPanel(app.pet, town_id=0)
-    assert "road" in _card(app, road)
+    assert "Town" in _card(app, road)
 
     # the box budget, worst case (26x16): longest name, 3-digit energy, a
     # 5-digit purse, 99s across the ledger and a held transport
@@ -438,7 +437,9 @@ def test_the_road_card_names_the_wound_line_and_the_gate_verdict():
     plain = lambda t: re.sub(r"\[/?[^\[\]]*\]", "", t)
     app.pet._set_energy(BATTLE_MIN_ENERGY + 5)
     txt = plain(_card(app, road))
-    assert f"Energy {BATTLE_MIN_ENERGY + 5}" in txt and "wounds easy" not in txt
+    from tuipet.arena import bar
+    live = plain(bar(app.pet.energy_pct(), 11))           # a bar (menus call #13 = A)
+    assert f"Energy {live}" in txt and "wounds easy" not in txt
     app.pet._set_energy(BATTLE_MIN_ENERGY - 1)
     assert "wounds easy" in plain(_card(app, road))    # the line, named
 

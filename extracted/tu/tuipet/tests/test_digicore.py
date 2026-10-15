@@ -1,3 +1,4 @@
+import pytest
 """Digicore vs DVPet setupDigicore / getDigicoreBackground / EvolSilhouette."""
 from tuipet.pet import Pet
 from tuipet import data
@@ -277,7 +278,7 @@ def test_every_digicore_page_speaks_the_menu_language():
     assert "SPACE" in strip and "ESC" in strip
     first = pan.text().plain
     assert "DIGICORE  CORE" in first and chr(0x25CF) in first    # title + dots
-    assert "SPACE gaze" in first                                 # in-page footer
+    assert "SPACE gaze" not in first        # keys ride the strip only (menus call #12 = A)
     lines = first.split("\n")
     assert len(lines) <= 12 and all(len(l) <= 40 for l in lines)
     for _ in range(len(pan.pages) - 1):
@@ -322,7 +323,7 @@ def test_the_core_gaze_looms_over_the_core_background():
         dc.render_scene = real
     assert cap and all(b is not None for b in cap)   # every gaze frame carries it
     assert msgs == ["the core stirs…", "the core opens…",
-                    "A shape looms in the core…"]  # the message box narrates
+                    "One possible future looms…"]  # the message box narrates
 
 
 def test_evolves_page_windows_instead_of_overflowing():
@@ -359,7 +360,7 @@ def test_egg_gaze_shows_the_egg_and_teases_the_hatchling():
     assert pan._pet_rows(-1), "the egg sprite must render (not an empty core)"
     assert theme.SIL_SCENE in str(pan.text().markup), "no sprite ink on the LCD"
     pan.teaser_t = 20                                  # beat three: the tease
-    assert "A shape looms" in pan.strip(), pan.strip()
+    assert "One possible future" in pan.strip(), pan.strip()
 
 
 def test_egg_data_pages_leak_no_sentinels_and_labels_never_collide():
@@ -379,7 +380,8 @@ def test_egg_data_pages_leak_no_sentinels_and_labels_never_collide():
     t = pan.text().plain
     assert "Digitama" in t and "—" in t
     pan.i = next(i for i, (t2, _r) in enumerate(pan.pages) if t2 == "TROPHIES")
-    assert "This pet  none yet" in pan.text().plain or "This pet none yet" in pan.text().plain
+    # DigiCore audit 2026-10-14: trophies are inherited, even by an egg.
+    assert "Wins     0 across generations" in pan.text().plain
 
 
 def test_hidden_evolutions_mask_until_first_reached():
@@ -463,7 +465,7 @@ def test_the_data_model_is_modular_and_live():
     assert "Helper" in labels
     assert not {"Toilet", "Potty", "Futon", "Trained"} & labels
     # the power page carries the live gate-drivers
-    assert {"Form", "Level", "KO6"} <= labels
+    assert {"Attack", "Level", "KO6"} <= labels
 
 
 def test_the_meter_and_the_core_page_agree_on_line_pets():
@@ -602,6 +604,7 @@ def _armed_pet():
     return p
 
 
+@pytest.mark.usefixtures("care_ok")
 def test_the_gaze_teases_the_armed_steer_not_the_line():
     from tuipet import digicore, lines
     p = _armed_pet()
@@ -612,6 +615,7 @@ def test_the_gaze_teases_the_armed_steer_not_the_line():
     assert digicore.next_evolution(p) in line_next
 
 
+@pytest.mark.usefixtures("care_ok")
 def test_the_evolves_chart_tops_with_the_armed_row():
     from tuipet import digicore
     p = _armed_pet()
@@ -623,6 +627,7 @@ def test_the_evolves_chart_tops_with_the_armed_row():
     assert len(rows) > 1
 
 
+@pytest.mark.usefixtures("care_ok")
 def test_the_armed_row_wears_its_own_tag_and_sheet():
     from tuipet.digicorescreen import DigiCorePanel
     p = _armed_pet()
@@ -642,7 +647,8 @@ def test_the_core_number_wears_its_own_unit():
     and an age-count on a final form — the value now says which."""
     p = _pet(stage_seconds=0.0)                    # growing: a countdown
     pan = DigiCorePanel(p)
-    assert "to evolve" in pan.text().plain
+    # DigiCore audit 2026-10-14: the clock promises a window, not a form.
+    assert "until evolution" in pan.text().plain
     p2 = _pet()                                    # past growth: the age count
     p2.stage_seconds = p2.STAGE_DURATION["Rookie"] + 1
     p2.age_seconds = 5 * 86400.0

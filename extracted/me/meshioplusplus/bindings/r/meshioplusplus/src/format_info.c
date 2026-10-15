@@ -455,3 +455,336 @@ SEXP R_mio_nurbs_info(SEXP x) {
     UNPROTECT(6);
     return out;
 }
+
+/* The isogeometric layer (v16.43.0): refine, sample and evaluate the NURBS
+ * model in a handle without going through its sampling. */
+static void iga_int3(SEXP x, const char *what, int32_t out[3]) {
+    SEXP v = PROTECT(Rf_coerceVector(x, INTSXP));
+    const R_xlen_t n = Rf_xlength(v);
+    if (n < 1 || n > 3) Rf_error("'%s' must be one integer or one per direction (at most 3)", what);
+    for (int d = 0; d < 3; ++d) {
+        const int e = INTEGER(v)[d < n ? d : n - 1];
+        if (e == NA_INTEGER) Rf_error("'%s' must not contain NA", what);
+        out[d] = (int32_t)e;
+    }
+    UNPROTECT(1);
+}
+
+static mio_iga_opts iga_opts(SEXP subdivisions, SEXP elevate, SEXP sample_subdivisions,
+                             SEXP trim_samples, SEXP edges, SEXP trim) {
+    mio_iga_opts opts;
+    mio_iga_opts_init(&opts);
+    iga_int3(subdivisions, "subdivisions", opts.subdivisions);
+    iga_int3(elevate, "elevate", opts.elevate);
+    opts.sample_subdivisions = (int32_t)mio_r_int(sample_subdivisions, "sample_subdivisions");
+    opts.trim_samples = (int32_t)mio_r_int(trim_samples, "trim_samples");
+    opts.edges = mio_r_bool(edges, "edges") ? 1 : 0;
+    opts.trim = mio_r_bool(trim, "trim") ? 1 : 0;
+    return opts;
+}
+
+static SEXP iga_mesh_and_info(mio_mesh *mesh, mio_format_info *info, const char *what) {
+    if (mesh == NULL) mio_r_fail(what);
+    SEXP values[2];
+    values[0] = PROTECT(mio_r_wrap_mesh(mesh));
+    values[1] = info != NULL ? wrap_info(info) : R_NilValue;
+    PROTECT(values[1]);
+    const char *names[2] = {"mesh", "info"};
+    SEXP out = mio_r_named_list(2, names, values);
+    UNPROTECT(2);
+    return out;
+}
+
+SEXP R_mio_iga_refine(SEXP x, SEXP subdivisions, SEXP elevate, SEXP sample_subdivisions,
+                      SEXP trim_samples, SEXP edges, SEXP trim) {
+    const mio_format_info *info = info_of(x, 0);
+    const mio_iga_opts opts =
+        iga_opts(subdivisions, elevate, sample_subdivisions, trim_samples, edges, trim);
+    mio_format_info *refined = NULL;
+    mio_mesh *mesh = mio_iga_refine(info, &opts, &refined);
+    return iga_mesh_and_info(mesh, refined, "iga_refine");
+}
+
+SEXP R_mio_iga_sample(SEXP x, SEXP sample_subdivisions, SEXP trim_samples, SEXP edges,
+                      SEXP trim) {
+    const mio_format_info *info = info_of(x, 0);
+    SEXP one = PROTECT(Rf_ScalarInteger(1));
+    SEXP zero = PROTECT(Rf_ScalarInteger(0));
+    const mio_iga_opts opts = iga_opts(one, zero, sample_subdivisions, trim_samples, edges, trim);
+    UNPROTECT(2);
+    mio_format_info *mapped = NULL;
+    mio_mesh *mesh = mio_iga_sample(info, &opts, &mapped);
+    return iga_mesh_and_info(mesh, mapped, "iga_sample");
+}
+
+/* One array of an evaluation as an R array with its dimensions reversed (the
+ * C layout (N, d, sdim) is R's (sdim, d, N)); R_NilValue when it is absent. */
+static SEXP iga_array(const mio_iga_evaluation *ev, int32_t which, int64_t index, int as_logical) {
+    const void *data = NULL;
+    mio_dtype dtype = MIO_FLOAT64;
+    int32_t ndim = 0;
+    int64_t shape[MIO_MAX_NDIM] = {0};
+    if (mio_iga_evaluation_array(ev, which, index, &data, &dtype, &ndim, shape) != MIO_OK)
+        return R_NilValue;
+    R_xlen_t n = 1;
+    for (int32_t k = 0; k < ndim; ++k) n *= (R_xlen_t)shape[k];
+    SEXP flat = PROTECT(mio_r_copy_as_real(data, dtype, n));
+    SEXP out = flat;
+    if (as_logical) {
+        out = PROTECT(Rf_coerceVector(flat, LGLSXP));
+        UNPROTECT(2);
+        return out;
+    }
+    if (ndim >= 2) {
+        SEXP dims = PROTECT(Rf_allocVector(INTSXP, ndim));
+        for (int32_t k = 0; k < ndim; ++k) INTEGER(dims)[k] = (int)shape[ndim - 1 - k];
+        Rf_setAttrib(flat, R_DimSymbol, dims);
+        UNPROTECT(1);
+    }
+    UNPROTECT(1);
+    return out;
+}
+
+SEXP R_mio_iga_evaluate(SEXP x, SEXP patch, SEXP params, SEXP derivatives, SEXP trim_samples) {
+    const mio_format_info *info = info_of(x, 0);
+    if (!Rf_isMatrix(params)) Rf_error("'params' must be a (d, N) matrix, one column per point");
+    SEXP p = PROTECT(Rf_coerceVector(params, REALSXP));
+    const int64_t n = (int64_t)Rf_ncols(params);
+    mio_iga_evaluation *ev =
+        mio_iga_evaluate(info, (int64_t)mio_r_int(patch, "patch") - 1, REAL(p), n,
+                         (int32_t)mio_r_int(derivatives, "derivatives"),
+                         (int32_t)mio_r_int(trim_samples, "trim_samples"));
+    UNPROTECT(1);
+    if (ev == NULL) mio_r_fail("iga_evaluate");
+    const int64_t nf = mio_iga_evaluation_num_fields(ev);
+    SEXP v[5];
+    v[0] = PROTECT(iga_array(ev, MIO_IGA_POINTS, 0, 0));
+    v[1] = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)nf));
+    for (int64_t k = 0; k < nf; ++k) SET_VECTOR_ELT(v[1], k, iga_array(ev, MIO_IGA_FIELD, k, 0));
+    v[2] = PROTECT(iga_array(ev, MIO_IGA_DERIVATIVES, 0, 0));
+    v[3] = PROTECT(iga_array(ev, MIO_IGA_NORMALS, 0, 0));
+    v[4] = PROTECT(iga_array(ev, MIO_IGA_INSIDE, 0, 1));
+    mio_iga_evaluation_free(ev);
+    const char *names[5] = {"points", "fields", "derivatives", "normals", "inside"};
+    SEXP out = mio_r_named_list(5, names, v);
+    UNPROTECT(5);
+    return out;
+}
+
+/* The B-rep side channel of a Kratos CAD JSON (or OpenCASCADE STEP/IGES)
+ * handle, copied: patches, faces with their loops and trims, edges and
+ * vertices with their topology, the brep groups and the file's other members.
+ * Nested lists come from the C API's flat sections (each owner names its first
+ * item and count). Indices (a face's patch, a brep's lists) come back 1-based;
+ * ids, trim indices and flags as the file spelled them. */
+typedef struct {
+    const mio_format_info *info;
+    int32_t section;
+    int64_t index;
+    int32_t field;
+} brep_ctx;
+
+static int64_t brep_get_string(void *ctx, char *buf, int64_t buflen) {
+    brep_ctx *c = (brep_ctx *)ctx;
+    return mio_brep_info_string(c->info, c->section, c->index, c->field, buf, buflen);
+}
+
+static SEXP brep_str(const mio_format_info *info, int32_t section, int64_t i, int32_t field) {
+    brep_ctx c = {info, section, i, field};
+    return mio_r_getstring(brep_get_string, &c, "brep_info");
+}
+
+static int64_t brep_ival(const mio_format_info *info, int32_t section, int64_t i, int32_t field) {
+    int64_t v = 0;
+    mio_r_check(mio_brep_info_int(info, section, i, field, &v), "brep_info");
+    return v;
+}
+
+static SEXP brep_num(const mio_format_info *info, int32_t section, int64_t i, int32_t field) {
+    return Rf_ScalarReal((double)brep_ival(info, section, i, field));
+}
+
+static SEXP brep_flag(const mio_format_info *info, int32_t section, int64_t i, int32_t field) {
+    return Rf_ScalarLogical(brep_ival(info, section, i, field) != 0);
+}
+
+static SEXP brep_array(const mio_format_info *info, int32_t section, int64_t i, int32_t field,
+                       double shift) {
+    const void *data = NULL;
+    mio_dtype dtype = MIO_FLOAT64;
+    int32_t ndim = 0;
+    int64_t shape[MIO_MAX_NDIM] = {0};
+    mio_r_check(mio_brep_info_array(info, section, i, field, &data, &dtype, &ndim, shape),
+                "brep_info");
+    return array_to_r(data, dtype, ndim, shape, 0, shift);
+}
+
+static SEXP brep_curve(const mio_format_info *info, int32_t section, int64_t i) {
+    SEXP f[9];
+    f[0] = PROTECT(brep_num(info, section, i, 10));
+    f[1] = PROTECT(brep_array(info, section, i, 12, 0.0));
+    f[2] = PROTECT(brep_flag(info, section, i, 12));
+    f[3] = PROTECT(brep_flag(info, section, i, 11));
+    f[4] = PROTECT(brep_array(info, section, i, 10, 0.0));
+    f[5] = PROTECT(brep_array(info, section, i, 11, 0.0));
+    f[6] = PROTECT(brep_array(info, section, i, 13, 0.0));
+    f[7] = PROTECT(brep_array(info, section, i, 14, 0.0));
+    f[8] = PROTECT(brep_str(info, section, i, 10));
+    const char *names[9] = {"degree", "knots",   "reduced_knots", "rational",    "control_points",
+                            "weights", "ids",    "active_range",  "extra"};
+    SEXP out = mio_r_named_list(9, names, f);
+    UNPROTECT(9);
+    return out;
+}
+
+static SEXP brep_trim(const mio_format_info *info, int64_t t) {
+    SEXP f[4];
+    f[0] = PROTECT(brep_num(info, MIO_BREP_TRIMS, t, 2));
+    f[1] = PROTECT(brep_flag(info, MIO_BREP_TRIMS, t, 3));
+    f[2] = PROTECT(brep_curve(info, MIO_BREP_TRIMS, t));
+    f[3] = PROTECT(brep_str(info, MIO_BREP_TRIMS, t, 0));
+    const char *names[4] = {"trim_index", "direction", "curve", "extra"};
+    SEXP out = mio_r_named_list(4, names, f);
+    UNPROTECT(4);
+    return out;
+}
+
+static SEXP brep_refs(const mio_format_info *info, int64_t first, int64_t count) {
+    SEXP out = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)count));
+    for (int64_t k = 0; k < count; ++k) {
+        const int64_t r = first + k;
+        SEXP f[6];
+        f[0] = PROTECT(brep_num(info, MIO_BREP_REFS, r, 0));
+        f[1] = PROTECT(brep_str(info, MIO_BREP_REFS, r, 0));
+        f[2] = PROTECT(brep_num(info, MIO_BREP_REFS, r, 1));
+        f[3] = PROTECT(brep_num(info, MIO_BREP_REFS, r, 2));
+        f[4] = PROTECT(brep_array(info, MIO_BREP_REFS, r, 0, 0.0));
+        f[5] = PROTECT(brep_str(info, MIO_BREP_REFS, r, 1));
+        const char *names[6] = {"id",                 "name", "trim_index",
+                                "relative_direction", "local_coordinates", "extra"};
+        SET_VECTOR_ELT(out, k, mio_r_named_list(6, names, f));
+        UNPROTECT(6);
+    }
+    UNPROTECT(1);
+    return out;
+}
+
+static int64_t brep_count(const mio_format_info *info, int32_t section) {
+    const int64_t n = mio_brep_info_count(info, section);
+    if (n < 0) mio_r_fail("brep_info");
+    return n;
+}
+
+SEXP R_mio_brep_info(SEXP x) {
+    const mio_format_info *info = info_of(x, 0);
+    SEXP v[6];
+    const int64_t np = brep_count(info, MIO_BREP_PATCHES);
+    v[0] = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)np));
+    for (int64_t p = 0; p < np; ++p) {
+        SEXP f[4];
+        f[0] = PROTECT(Rf_allocVector(REALSXP, 2));
+        REAL(f[0])[0] = (double)brep_ival(info, MIO_BREP_PATCHES, p, 0);
+        REAL(f[0])[1] = (double)brep_ival(info, MIO_BREP_PATCHES, p, 1);
+        f[1] = PROTECT(Rf_allocVector(VECSXP, 2));
+        SET_VECTOR_ELT(f[1], 0, brep_array(info, MIO_BREP_PATCHES, p, 2, 0.0));
+        SET_VECTOR_ELT(f[1], 1, brep_array(info, MIO_BREP_PATCHES, p, 3, 0.0));
+        f[2] = PROTECT(brep_array(info, MIO_BREP_PATCHES, p, 0, 0.0));
+        f[3] = PROTECT(brep_array(info, MIO_BREP_PATCHES, p, 1, 0.0));
+        const char *names[4] = {"degrees", "knots", "control_points", "weights"};
+        SET_VECTOR_ELT(v[0], p, mio_r_named_list(4, names, f));
+        UNPROTECT(4);
+    }
+    const int64_t nb = brep_count(info, MIO_BREP_BREPS);
+    v[1] = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)nb));
+    for (int64_t b = 0; b < nb; ++b) {
+        SEXP f[6];
+        f[0] = PROTECT(brep_num(info, MIO_BREP_BREPS, b, 0));
+        f[1] = PROTECT(brep_str(info, MIO_BREP_BREPS, b, 0));
+        f[2] = PROTECT(brep_array(info, MIO_BREP_BREPS, b, 0, 1.0));
+        f[3] = PROTECT(brep_array(info, MIO_BREP_BREPS, b, 1, 1.0));
+        f[4] = PROTECT(brep_array(info, MIO_BREP_BREPS, b, 2, 1.0));
+        f[5] = PROTECT(brep_str(info, MIO_BREP_BREPS, b, 1));
+        const char *names[6] = {"id", "name", "faces", "edges", "vertices", "extra"};
+        SET_VECTOR_ELT(v[1], b, mio_r_named_list(6, names, f));
+        UNPROTECT(6);
+    }
+    const int64_t nf = brep_count(info, MIO_BREP_FACES);
+    v[2] = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)nf));
+    for (int64_t fi = 0; fi < nf; ++fi) {
+        const int64_t first_loop = brep_ival(info, MIO_BREP_FACES, fi, 6);
+        const int64_t loops = brep_ival(info, MIO_BREP_FACES, fi, 7);
+        const int64_t first_trim = brep_ival(info, MIO_BREP_FACES, fi, 8);
+        const int64_t trims = brep_ival(info, MIO_BREP_FACES, fi, 9);
+        SEXP f[12];
+        f[0] = PROTECT(brep_num(info, MIO_BREP_FACES, fi, 0));
+        f[1] = PROTECT(brep_str(info, MIO_BREP_FACES, fi, 0));
+        f[2] = PROTECT(Rf_ScalarReal((double)brep_ival(info, MIO_BREP_FACES, fi, 1) + 1.0));
+        f[3] = PROTECT(brep_flag(info, MIO_BREP_FACES, fi, 2));
+        f[4] = PROTECT(brep_flag(info, MIO_BREP_FACES, fi, 3));
+        f[5] = PROTECT(brep_flag(info, MIO_BREP_FACES, fi, 4));
+        f[6] = PROTECT(brep_flag(info, MIO_BREP_FACES, fi, 5));
+        f[7] = PROTECT(brep_array(info, MIO_BREP_FACES, fi, 0, 0.0));
+        f[8] = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)loops));
+        for (int64_t l = 0; l < loops; ++l) {
+            const int64_t li = first_loop + l;
+            const int64_t t0 = brep_ival(info, MIO_BREP_LOOPS, li, 1);
+            const int64_t tn = brep_ival(info, MIO_BREP_LOOPS, li, 2);
+            SEXP lf[3];
+            lf[0] = PROTECT(brep_str(info, MIO_BREP_LOOPS, li, 0));
+            lf[1] = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)tn));
+            for (int64_t t = 0; t < tn; ++t) SET_VECTOR_ELT(lf[1], t, brep_trim(info, t0 + t));
+            lf[2] = PROTECT(brep_str(info, MIO_BREP_LOOPS, li, 1));
+            const char *lnames[3] = {"type", "trims", "extra"};
+            SET_VECTOR_ELT(f[8], l, mio_r_named_list(3, lnames, lf));
+            UNPROTECT(3);
+        }
+        int64_t embedded = 0;
+        for (int64_t t = 0; t < trims; ++t)
+            if (brep_ival(info, MIO_BREP_TRIMS, first_trim + t, 1) < 0) ++embedded;
+        f[9] = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)embedded));
+        for (int64_t t = 0, k = 0; t < trims; ++t)
+            if (brep_ival(info, MIO_BREP_TRIMS, first_trim + t, 1) < 0)
+                SET_VECTOR_ELT(f[9], k++, brep_trim(info, first_trim + t));
+        f[10] = PROTECT(brep_str(info, MIO_BREP_FACES, fi, 2));
+        f[11] = PROTECT(brep_str(info, MIO_BREP_FACES, fi, 1));
+        const char *names[12] = {"id",           "name",          "patch",
+                                 "swapped_normal", "trimmed",     "rational",
+                                 "reduced_knots", "control_point_ids", "loops",
+                                 "embedded_edges", "surface_extra", "extra"};
+        SET_VECTOR_ELT(v[2], fi, mio_r_named_list(12, names, f));
+        UNPROTECT(12);
+    }
+    const int64_t ne = brep_count(info, MIO_BREP_EDGES);
+    v[3] = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)ne));
+    for (int64_t e = 0; e < ne; ++e) {
+        SEXP f[5];
+        f[0] = PROTECT(brep_num(info, MIO_BREP_EDGES, e, 0));
+        f[1] = PROTECT(brep_str(info, MIO_BREP_EDGES, e, 0));
+        f[2] = PROTECT(brep_ival(info, MIO_BREP_EDGES, e, 1) ? brep_curve(info, MIO_BREP_EDGES, e)
+                                                             : R_NilValue);
+        f[3] = PROTECT(brep_refs(info, brep_ival(info, MIO_BREP_EDGES, e, 2),
+                                 brep_ival(info, MIO_BREP_EDGES, e, 3)));
+        f[4] = PROTECT(brep_str(info, MIO_BREP_EDGES, e, 1));
+        const char *names[5] = {"id", "name", "curve", "topology", "extra"};
+        SET_VECTOR_ELT(v[3], e, mio_r_named_list(5, names, f));
+        UNPROTECT(5);
+    }
+    const int64_t nv = brep_count(info, MIO_BREP_VERTICES);
+    v[4] = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t)nv));
+    for (int64_t k = 0; k < nv; ++k) {
+        SEXP f[4];
+        f[0] = PROTECT(brep_num(info, MIO_BREP_VERTICES, k, 0));
+        f[1] = PROTECT(brep_str(info, MIO_BREP_VERTICES, k, 0));
+        f[2] = PROTECT(brep_refs(info, brep_ival(info, MIO_BREP_VERTICES, k, 1),
+                                 brep_ival(info, MIO_BREP_VERTICES, k, 2)));
+        f[3] = PROTECT(brep_str(info, MIO_BREP_VERTICES, k, 1));
+        const char *names[4] = {"id", "name", "topology", "extra"};
+        SET_VECTOR_ELT(v[4], k, mio_r_named_list(4, names, f));
+        UNPROTECT(4);
+    }
+    v[5] = PROTECT(brep_str(info, MIO_BREP_FILE, 0, 0));
+    const char *names[6] = {"patches", "breps", "faces", "edges", "vertices", "extra"};
+    SEXP out = mio_r_named_list(6, names, v);
+    UNPROTECT(6);
+    return out;
+}

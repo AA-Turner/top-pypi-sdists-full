@@ -26,7 +26,7 @@ class PaymentMethodDomain(UniversalBaseModel):
 
     id: str = pydantic.Field()
     """
-    Payment method domain ID, prefixed `pmd_`.
+    Payment method domain ID: the ID of the account's domain for the hostname, prefixed `dom_`, or `pmd_` for some older domains.
     """
 
     provider: PaymentMethodDomainProvider = pydantic.Field()

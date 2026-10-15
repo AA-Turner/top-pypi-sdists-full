@@ -1,0 +1,165 @@
+- name: OR dependent exemption credit reform - basic with modified amount
+  period: 2025
+  absolute_error_margin: 0.5
+  reforms: policyengine_us.reforms.states.oregon.dependent_exemption_credit.or_dependent_exemption_credit_reform.or_dependent_exemption_credit_reform
+  input:
+    gov.contrib.states.or.dependent_exemption_credit.in_effect: true
+    gov.contrib.states.or.dependent_exemption_credit.amount: 300
+    people:
+      parent:
+        age: 40
+        employment_income: 50_000
+      child1:
+        age: 10
+        is_tax_unit_dependent: true
+      child2:
+        age: 14
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [parent, child1, child2]
+        filing_status: SINGLE
+    households:
+      household:
+        members: [parent, child1, child2]
+        state_name: OR
+  output:
+    # Regular exemptions (head only, no age limit so dependents handled by dependent credit):
+    #   - 1 head: ~$256.18 (baseline amount, uprated for 2025)
+    # Dependent exemption credit:
+    #   - 2 eligible dependents (child1, child2): $300 * 2 = $600
+    # Total: ~$256.18 + $600 = ~$856.18
+    or_exemption_credit: 856.179
+
+- name: OR dependent exemption credit reform - age limit enabled, only young children qualify
+  period: 2025
+  absolute_error_margin: 0.5
+  reforms: policyengine_us.reforms.states.oregon.dependent_exemption_credit.or_dependent_exemption_credit_reform.or_dependent_exemption_credit_reform
+  input:
+    gov.contrib.states.or.dependent_exemption_credit.in_effect: true
+    gov.contrib.states.or.dependent_exemption_credit.amount: 256
+    gov.contrib.states.or.dependent_exemption_credit.age_limit.in_effect: true
+    gov.contrib.states.or.dependent_exemption_credit.age_limit.threshold: 13
+    people:
+      parent:
+        age: 40
+        employment_income: 50_000
+      child1:
+        age: 10
+        is_tax_unit_dependent: true
+      child2:
+        age: 16
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [parent, child1, child2]
+        filing_status: SINGLE
+    households:
+      household:
+        members: [parent, child1, child2]
+        state_name: OR
+  output:
+    # Regular exemptions (head + older dependents):
+    #   - 1 head: ~$256.18 (baseline, uprated)
+    #   - 1 older dependent (child2, age 16, over age limit 13): ~$256.18
+    # Dependent exemption credit:
+    #   - 1 eligible dependent (child1, age 10, under age limit 13): $256
+    # Total: ~$512.36 + $256 = ~$768.36
+    or_exemption_credit: 768.358
+
+- name: OR dependent exemption credit reform - age limit disabled, all dependents qualify
+  period: 2025
+  absolute_error_margin: 0.5
+  reforms: policyengine_us.reforms.states.oregon.dependent_exemption_credit.or_dependent_exemption_credit_reform.or_dependent_exemption_credit_reform
+  input:
+    gov.contrib.states.or.dependent_exemption_credit.in_effect: true
+    gov.contrib.states.or.dependent_exemption_credit.amount: 256
+    gov.contrib.states.or.dependent_exemption_credit.age_limit.in_effect: false
+    people:
+      parent:
+        age: 40
+        employment_income: 50_000
+      child1:
+        age: 10
+        is_tax_unit_dependent: true
+      child2:
+        age: 22
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [parent, child1, child2]
+        filing_status: SINGLE
+    households:
+      household:
+        members: [parent, child1, child2]
+        state_name: OR
+  output:
+    # Regular exemptions (head only, no age limit):
+    #   - 1 head: ~$256.18 (baseline, uprated)
+    # Dependent exemption credit (all dependents):
+    #   - 2 eligible dependents: $256 * 2 = $512
+    # Total: ~$256.18 + $512 = ~$768.18
+    or_exemption_credit: 768.179
+
+- name: OR dependent exemption credit reform - income below limit (cliff cutoff)
+  period: 2025
+  absolute_error_margin: 0.5
+  reforms: policyengine_us.reforms.states.oregon.dependent_exemption_credit.or_dependent_exemption_credit_reform.or_dependent_exemption_credit_reform
+  input:
+    gov.contrib.states.or.dependent_exemption_credit.in_effect: true
+    gov.contrib.states.or.dependent_exemption_credit.amount: 256
+    gov.contrib.states.or.dependent_exemption_credit.income_limit.SINGLE: 100_000
+    people:
+      parent:
+        age: 40
+        employment_income: 99_000
+      child:
+        age: 10
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [parent, child]
+        filing_status: SINGLE
+    households:
+      household:
+        members: [parent, child]
+        state_name: OR
+  output:
+    # AGI $99,000 < $100,000 limit - qualifies
+    # Regular exemptions: 1 head = ~$256.18 (baseline, uprated)
+    # Dependent credit: 1 child = $256
+    # Total: ~$512.18
+    or_dependent_exemption_credit: 256
+    or_exemption_credit: 512.179
+
+- name: OR dependent exemption credit reform - income above limit (cliff cutoff)
+  period: 2025
+  absolute_error_margin: 0.5
+  reforms: policyengine_us.reforms.states.oregon.dependent_exemption_credit.or_dependent_exemption_credit_reform.or_dependent_exemption_credit_reform
+  input:
+    gov.contrib.states.or.dependent_exemption_credit.in_effect: true
+    gov.contrib.states.or.dependent_exemption_credit.amount: 256
+    gov.contrib.states.or.dependent_exemption_credit.income_limit.SINGLE: 100_000
+    people:
+      parent:
+        age: 40
+        employment_income: 101_000
+      child:
+        age: 10
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [parent, child]
+        filing_status: SINGLE
+    households:
+      household:
+        members: [parent, child]
+        state_name: OR
+  output:
+    # AGI $101,000 > $100,000 limit - does not qualify
+    # Regular exemptions: 0 (also over limit)
+    # Dependent credit: $0 (over limit)
+    # Total: $0
+    or_dependent_exemption_credit: 0
+    or_exemption_credit: 0
+

@@ -1,0 +1,11 @@
+description: Under the Winship proposal, tax filers with combined adjusted gross income at or above this amount cannot claim the individual-income earned income tax credit.
+values:
+  2023-01-01: 0
+
+metadata:
+  label: Individual-income EITC AGI limit
+  unit: currency-USD
+  period: year
+  reference:
+    - title: Reforming the EITC to Reduce Single Parenthood and Ease Work-Family Balance
+      href: https://ifstudies.org/blog/reforming-the-eitc-to-reduce-single-parenthood-and-ease-work-family-balance

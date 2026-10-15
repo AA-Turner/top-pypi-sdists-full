@@ -6,6 +6,7 @@ Tier-5 split (2026-07-17): the constants + pure helpers live in petbase
 from __future__ import annotations
 import math  # noqa: F401
 import random  # noqa: F401
+import time
 from dataclasses import dataclass, field as _dcf
 from . import data  # noqa: F401
 from . import shop  # noqa: F401
@@ -47,6 +48,8 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
     care_mistakes: int = 0
     dna_owned: dict = _dcf(default_factory=lambda: {f: 0 for f in data.DNA_FIELDS})    # banked
     dna_applied: dict = _dcf(default_factory=lambda: {f: 0 for f in data.DNA_FIELDS})  # charged
+    born_at: float = 0.0
+    trophies_at_birth: int = 0      # the inherited cup count (eggs call #31: per-life cups)            # wall-clock birth (saves call #27: an erased pet stays erased)
     dna_wager_pending: int = 0      # a paid mash in flight -- settled spoiled on relaunch (S2)
     food_ranks: dict = _dcf(default_factory=lambda: {c: 0 for c in data.FOOD_CATEGORIES})
     # the ATTRIBUTE taste ledger (taste/rank audit 2026-07-06): drills warm the
@@ -180,6 +183,17 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
     _str_call_t: float = 0.0        # effort-call answer window / post-mistake postpone
     _ac_pay: float = 0.0            # the assistant's hourly retainer accumulator
     _dp_t: float = 0.0              # sleep DP-refill accumulator
+    # care audit 2026-10-14: reload must preserve partial care progress.
+    _sleep_min: float = 0.0
+    _nap_e: float = 0.0
+    _nap_cycle: float = 0.0
+    _to_nap_t: float = 0.0
+    _ac_cool: float = 0.0
+    _obed_t: float = 0.0
+    _lit_obed_hit: bool = False
+    _interest_t: float = 0.0
+    _mood_rec_t: float = 0.0
+    _rank_t: float = 0.0
     _exercise_day: int = -1         # daily exercise counter's day stamp
     # the FIFTH that escaped it (item sweep 2026-07-24): the bedtime grace
     # clock -- a disturb's postpone AND the whole effect of a 300b Caffeine
@@ -263,6 +277,14 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
     # DVPet's 375b town steak vs the 2000b catalog would otherwise be a
     # money printer through the demand resale)
     town_bought: dict = _dcf(default_factory=dict)
+    # shop/loot audit 2026-10-14: attribute power BOUGHT this generation
+    # ({"vaccine": n, ...}, capped at the counter), the stage a Grow Capsule
+    # was already used in ("<num>:<stage>", one per stage), and the
+    # once-per-generation items already spent (Cold Compress, Miracle Drink)
+    bought_power: dict = _dcf(default_factory=dict)
+    grow_used: str = ""
+    once_used: list = _dcf(default_factory=list)
+    duel_paid: dict = _dcf(default_factory=dict)   # {opponent: [paid duel times]} (3/hour)
     # the day's claimed REPLAY boss bounties {"day": ordinal, "<zi>": 1} --
     # a conquered zone's boss pays its veteran bounty once per real day
     # (anti-printer, adventure audit 2026-07-25: the road was the one
@@ -302,7 +324,8 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
         if egg_type is None:
             egg_type = random.randrange(egg_mod.count())
         pet = cls(num=-1, name="Digitama", stage="Egg",
-                  egg_type=egg_type, generation=generation)
+                  egg_type=egg_type, generation=generation,
+                  born_at=time.time())
         if generation == 1:
             # the tamer's pocket money (gameplay polish #23, 2026-07-22): a
             # first-generation pet started at 0 bits with every faucet
@@ -322,10 +345,14 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
             pet.bits = est["bits"]
             pet.inventory = est["inventory"]
             pet.trophies = est["trophies"]
+            pet.trophies_at_birth = int(est["trophies"] or 0)
             pet.trophies_won = est["trophies_won"]   # beaten qualifiers persist (seasonBeat)
+            # egg audit 2026-10-14: retirement cannot refill today's egg ration.
+            pet.town_bought = est["town_bought"]
             bank = {f: int(v) for f, v in (est.get("dna_owned") or {}).items()}
             if bank:                                 # the DNA bank rides the estate
                 pet.dna_owned = {f: bank.get(f, 0) for f in data.DNA_FIELDS}
+                pet.settle_dud_dna()                 # legacy dud DNA -> bits
         # a fresh game dawns at 8:00 -- world_seconds 0 is MIDNIGHT, inside every
         # bedtime window, and a hatchling born asleep is a rotten first minute
         pet.world_seconds = 8 * 60.0
@@ -347,6 +374,10 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
         croot, lid = lines_mod.canonical_root(target)
         if croot is not None:
             target = croot
+        bound = egg_mod.hatch_line(self.egg_type)
+        line = lines_mod.load_lines().get(bound) if bound else None
+        if line is not None and line["root"] == target:
+            lid = bound                       # the egg names its chart (shared baby)
         self.evolve_to(target)
         self.line_id = lid                    # binds the pet to its line for life
         self.hatching = False
@@ -561,7 +592,10 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
             # no Death form takes it: it lives on -- the continuous death checks
             # need the fatal counters off the trigger line (a mechanical floor;
             # DVPet's checks are edge events so canon never faces this)
-            self.care_mistakes = min(self.care_mistakes, 19)
+            # care audit 2026-10-14: rescue must clear the applicable cap.
+            cap = (4 if self.stage in ("Ultimate", "Mega")
+                   and self.stage_seconds >= self.LATE_STAGE_WINDOW else 19)
+            self.care_mistakes = min(self.care_mistakes, cap)
             self.injuries = min(self.injuries, 19)
         self._set_anim("happy", 2.0)                  # the rescue ends in a cheer
         return old if targets else None
@@ -587,7 +621,10 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
         if self.dead or self.stage == "Egg":
             return False
         if self.asleep:
-            return bool(self.lights)             # lightsCall: it wants the dark
+            # lightsCall: it wants the dark -- and a sick or HURT sleeper calls
+            # too (care call #16 = A, 2026-10-15): the death rolls run all
+            # night, and the pill / H heal both work on a sleeper (it wakes)
+            return bool(self.lights) or bool(self.sick) or self.is_injured()
         return (self.hunger == 0 or self.strength == 0 or self.sick
                 or self.injured or self.poop >= 3 or self.energy <= 0)
 
@@ -626,16 +663,16 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
         return data.load_requirements().get(self.num, {}).get("base_weight", 20)
 
     def _evolve_after(self):
-        """Seconds in this stage before the evolution check may run.  Mega
-        never auto-evolves (9e9) -- EXCEPT the Godzilla line's VI -> VI+ road
-        (Godzilla 1994 -> Burning Godzilla, dmgz chart): a Mega with a next
-        form on THAT chart gets the Stage VI window, the Ultimate's 2880 s
-        (the manual: Stage VI evolves within 48 hours).  Other lines'
-        Mega -> Mega rows are untouched."""
+        """Seconds before a timed chart check; terminal and door-only Megas
+        stay untimed. Declared VI -> VI+ care roads use the late window."""
         dur = self.STAGE_DURATION.get(self.stage, 9e9)
-        if self.stage == "Mega" and getattr(self, "line_id", "") == "godzilla":
-            line = lines_mod.load_lines().get("godzilla") or {}
-            if line.get("children", {}).get(self.num):
+        if self.stage == "Mega" and lines_mod.active(self):
+            # evolution audit 2026-10-14: DMX VI also has a 48-hour road
+            # (humulos.com/digimon/dmx/manual/); pure jogress stays a door.
+            line = lines_mod.load_lines()[self.line_id]
+            rows = line["children"].get(self.num, [])
+            if any(all(k != "jogress" for k, _, _ in alt)
+                   for row in rows for alt in row["rule"]):
                 return self.LATE_STAGE_WINDOW
         return dur
 
@@ -783,7 +820,10 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
         # per stage, so re-checking the rule each tick can't re-flip it
         self.stage_roll = random.randrange(100)
         self.injuries = 0
-        self.inj_length = self.fatigue_length = 0.0
+        # care audit 2026-10-14: a carried wound retains its natural cure.
+        if not self.injured:
+            self.inj_length = 0.0
+        self.fatigue_length = 0.0
         self.levels_fought = []
         self.reset_dna()                # DNA.resetDNA: charged DNA clears each evolution
         self.food_eaten = {c: 0 for c in data.FOOD_CATEGORIES}   # MajorFood resets per stage
@@ -856,6 +896,12 @@ class Pet(CareMixin, DnaMixin, BattleMixin, BodyMixin):
                 self._set_anim("refuse", 1.0)             # Jeering
                 return None, "The mode is out of reach."
             self._swap_form(targets[0])
+        # evolution audit 2026-10-14: adopt a claimed mode landing, but
+        # retain the old chart through an off-chart mode so reversion
+        # keeps an existing save's road (active() still uses the corpus).
+        old_line = self.line_id
+        if not lines_mod.adopt_line(self, prev=old):
+            self.line_id = old_line
         self._set_energy(self.energy + MODE_CHANGE_ENERGY)
         self._set_anim("happy", 2.5)                      # State.Evolving
         return old, f"MODE CHANGE — {self.name}!"

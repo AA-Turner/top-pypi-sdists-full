@@ -1,9 +1,3 @@
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/z3_version.h")
-  message(FATAL_ERROR "\"${CMAKE_CURRENT_SOURCE_DIR}/z3_version.h\""
-          ${z3_polluted_tree_msg}
-  )
-endif()
-
 set(Z3_FULL_VERSION "\"${Z3_FULL_VERSION_STR}\"")
 configure_file(z3_version.h.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/z3_version.h)
 
@@ -62,15 +56,4 @@ z3_add_component(util
     warning.cpp
     z3_exception.cpp
     zstring.cpp
-  EXTRA_REGISTER_MODULE_HEADERS
-    env_params.h
-  MEMORY_INIT_FINALIZER_HEADERS
-    debug.h
-    gparams.h
-    scoped_timer.h
-    prime_generator.h
-    rational.h
-    rlimit.h
-    symbol.h
-    trace.h
 )

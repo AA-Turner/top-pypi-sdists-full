@@ -84,11 +84,7 @@ _type_flags = _TYPE["__flags__"].__get__ if _CPYTHON else None
 _type_qualname = _TYPE["__qualname__"].__get__
 _OBJECT_INIT = object.__dict__["__init__"]
 _OBJECT_REPR = object.__dict__["__repr__"]
-# The type slots `msgpack_encode_hook` runs for a value, by the id of the first
-# of these types in its class's MRO (a class has one of them at most,
-# `datetime` coming before `date`); `repr()` for any other value. None where
-# the hook looks a method up on the instance (`obj.isoformat()`), which an
-# instance attribute or `__getattribute__` can answer.
+# Match hook slots by first relevant MRO type; instance method lookup can override class slots.
 _HOOK_SLOTS = {
     id(tuple): ("__iter__", "__len__"),
     id(set): ("__iter__", "__len__"),
@@ -101,15 +97,11 @@ _HOOK_SLOTS = {
     id(Decimal): ("__str__",),
 }
 _REPR_ONLY = ("__repr__",)
-# The hook's `isinstance()` checks read `obj.__class__`.
 _HOOK_LOOKUPS = ("__getattribute__", "__class__")
 
 
-# On CPython 3.12 and older, `frame.f_locals` copies every local into a dict
-# the frame keeps, so a local the constructor then drops would stay alive. 3.12
-# can read one variable instead; 3.13's `f_locals` is a view that copies
-# nothing. Older releases have no other way, and Kolo's own capture reads
-# `f_locals` of every frame it records there anyway.
+# On CPython <= 3.12 `frame.f_locals` copies every local into a dict the frame keeps,
+# so a dropped local would stay alive; 3.12 can read one variable natively instead.
 def _load_native_frame_local():
     if not _CPYTHON or sys.version_info[:2] != (3, 12):
         return None
@@ -130,7 +122,6 @@ def _local(frame, name):
     try:
         return frame.f_locals[name]
     except KeyError:
-        # Unbound: deleted, or a cell that is empty.
         return _MISSING
 
 
@@ -179,8 +170,6 @@ def _rebound_names(code):
     import dis
 
     names: set = set()
-    # (code, the variables of the outermost code it shares); None for the
-    # outermost code itself, whose every store counts.
     pending: list = [(code, None)]
     while pending:
         current, shared = pending.pop()
@@ -194,15 +183,12 @@ def _rebound_names(code):
                 if type(argval) is not tuple:
                     names.add(argval)
                 elif opname == "STORE_FAST_LOAD_FAST":
-                    # (stored, loaded)
                     names.add(argval[0])
                 else:
                     names.update(argval)
         cells = current.co_cellvars if shared is None else shared
         for const in current.co_consts:
             if isinstance(const, types.CodeType):
-                # A nested function reaches an outer variable only as one of
-                # its free variables.
                 reached = frozenset(cells).intersection(const.co_freevars)
                 if reached:
                     pending.append((const, reached))
@@ -248,7 +234,6 @@ def objects_under_construction(frame=None):
         try:
             frame = sys._getframe(1)
         except ValueError:
-            # Called from native code with no Python frame beneath it.
             return [0]
     objects = []
     classes: list = []
@@ -257,7 +242,6 @@ def objects_under_construction(frame=None):
         name = code.co_name
         if name == "__new__" or name in _INIT_NAMES:
             first = _first_local(frame, code)
-            # `def __init__(*args, **kwargs)`: the object is `args[0]`.
             starred = type(first) is tuple
             if starred:
                 first = first[0] if first else _MISSING
@@ -267,7 +251,6 @@ def objects_under_construction(frame=None):
                 if not _returning(frame, code):
                     objects.append(id(first))
             elif _inherited(first, "__init__") is not _MISSING:
-                # `first` is a class.
                 arguments = _new_arguments(frame, code, starred)
                 classes.append(id(first))
                 classes.append(1 if _returning(frame, code) else 0)
@@ -293,7 +276,6 @@ def is_under_construction(found, obj):
         if obj_id not in found[start + 3 : end]:
             if mro is None:
                 mro = [id(klass) for klass in _type_mro(cls)]
-            # A returning `__new__` leaves the object to its `__init__`.
             if found[start] in mro and not (
                 found[start + 1] and _inherited(cls, "__init__") is _OBJECT_INIT
             ):
@@ -318,9 +300,7 @@ def _all_builtin(mro, names):
             found = _type_dict(klass).get(name, _MISSING)
             if found is not _MISSING:
                 if _CPYTHON:
-                    # Also `__repr__ = object.__repr__` in a class of the
-                    # program: the type slot is `object`'s then. Not any
-                    # builtin's method (`object.__str__` calls `repr()`).
+                    # Treat explicit object.__repr__ as builtin, but do not generalize to other builtin methods.
                     builtin = not _type_flags(klass) & _TPFLAGS_HEAPTYPE or (
                         name == "__repr__" and found is _OBJECT_REPR
                     )
@@ -375,7 +355,6 @@ def method_under_construction_repr(method):
         return None
     function = method.__func__
     name = "?"
-    # Any other callable could answer these lookups with its own code.
     if type(function) is types.FunctionType:
         name = _exact_str(function.__qualname__)
     return f"<bound method {name} of {bound_self}>"
@@ -384,7 +363,6 @@ def method_under_construction_repr(method):
 def placeholder(found, obj, lightweight=False):
     """The placeholder to record for `obj`, or None to serialize it as usual."""
     if type(obj) is types.MethodType:
-        # `lightweight_repr` does not `repr()` a method.
         if not lightweight and is_under_construction(found, obj.__self__):
             return method_under_construction_repr(obj)
         return None
@@ -393,16 +371,9 @@ def placeholder(found, obj, lightweight=False):
     return None
 
 
-# The rest checks the native stack walk against `objects_under_construction`
-# on the running interpreter, once, before the native encoder relies on it:
-# one constructor of every shape the walk reads, each comparing the two on
-# its own stack.
-
-
 def _compare(native, results):
     expected = objects_under_construction()
     found = native()
-    # None: the native walk leaves this stack to `objects_under_construction`.
     results.append(None if found is None else found == expected)
 
 
@@ -459,7 +430,6 @@ def _probe_unbound(native, results):
 
 
 def _probe_no_locals(native, results):
-    # The first slot of this frame is a closure variable, not a local.
     def __init__():
         _compare(native, results)
 
@@ -467,7 +437,6 @@ def _probe_no_locals(native, results):
 
 
 def _probe_empty_frame():
-    # No slots at all.
     def __init__():
         _compare(*_PROBE_ARGUMENTS)
 
@@ -475,7 +444,6 @@ def _probe_empty_frame():
 
 
 def _probe_computed_name():
-    # A code object built by hand need not have an interned name.
     def template(self):
         _compare(*_PROBE_ARGUMENTS)
 

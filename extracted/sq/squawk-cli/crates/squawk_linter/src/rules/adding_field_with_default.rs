@@ -4,7 +4,7 @@ use rustc_hash::FxHashSet;
 
 use squawk_syntax::ast;
 use squawk_syntax::ast::AstNode;
-use squawk_syntax::{Parse, SourceFile, SyntaxKind};
+use squawk_syntax::{Parse, SourceFile};
 
 use crate::{Linter, Rule, Version, Violation};
 
@@ -36,7 +36,7 @@ fn is_non_volatile_or_const(expr: &ast::Expr) -> bool {
                 let no_args = arglist.args().count() == 0;
 
                 // TODO: what about FieldExpr? like, pg_catalog.uuid()
-                let Some(ast::Expr::NameRef(name_ref)) = call_expr.expr() else {
+                let Some(name_ref) = call_expr.expr().and_then(|expr| expr.as_name_ref()) else {
                     return false;
                 };
 
@@ -61,12 +61,7 @@ fn is_non_volatile_or_const(expr: &ast::Expr) -> bool {
             .is_some_and(|expr| is_non_volatile_or_const(&expr)),
         // current_timestamp is the same as calling now()
         ast::Expr::NameRef(name_ref) => {
-            if let Some(child) = name_ref.syntax().first_child_or_token() {
-                if child.kind() == SyntaxKind::CURRENT_TIMESTAMP_KW {
-                    return true;
-                }
-            }
-            false
+            name_ref.sql_value_function() == Some(ast::SqlValueFunction::CurrentTimestamp)
         }
         _ => false,
     }
@@ -103,7 +98,7 @@ pub(crate) fn adding_field_with_default(ctx: &mut Linter, parse: &Parse<SourceFi
                                         expr.syntax(),
                                     )
                                     .help(help),
-                                )
+                                );
                             }
                             ast::Constraint::GeneratedConstraint(generated) => {
                                 ctx.report(

@@ -32,7 +32,6 @@ from .threads import kolo_worker_thread
 
 logger = logging.getLogger("kolo")
 
-# Directory name for file-based trace storage (inside .internal/)
 RAW_TRACES_DIR = "raw"
 _WRITEV_BATCH_BYTES = 8 * 1024 * 1024
 
@@ -47,15 +46,8 @@ else:
         else 0
     )
 
-# WAL mode is persistent for a database file, so paying for
-# ``PRAGMA journal_mode=wal`` on every short-lived metadata connection only
-# adds locking and filesystem work. Cache the file identity rather than just
-# the path so deleting and recreating a database at the same location still
-# configures the replacement file correctly. On POSIX, retaining a bounded
-# number of file descriptors prevents an unlinked database's inode from being
-# reused while its identity is cached. Windows deliberately skips this cache:
-# neither inode nor creation-time comparisons are a universal replacement for
-# a retained file identity there.
+# WAL mode persists per file: set it once per file identity (not path, so a recreated db gets it).
+# POSIX keeps fds so an unlinked inode isn't reused; Windows skips this cache.
 _WAL_IDENTITY_CACHE_SIZE = 32
 _WalDatabaseIdentity = Tuple[int, int, BinaryIO]
 _wal_database_identities: dict[str, _WalDatabaseIdentity] = {}
@@ -171,19 +163,17 @@ def extract_trace_name_fast(msgpack_bytes: bytes) -> str | None:
 
     unpacker = msgpack.Unpacker(BytesIO(msgpack_bytes), raw=False)
 
-    # Read map header
     num_items = unpacker.read_map_header()
 
     for _ in range(num_items):
         key = unpacker.unpack()
         if key == "trace_name":
             value = unpacker.unpack()
-            # Return only if it's actually set (not None or empty)
             if value:
                 return value
             return None
         else:
-            unpacker.skip()  # Skip without deserializing
+            unpacker.skip()
 
     return None
 
@@ -248,8 +238,6 @@ def db_connection(db_path, timeout=60, keep=False):
             kept.release(keep=succeeded)
         return
     connection = sqlite3.connect(str(db_path), isolation_level=None, timeout=timeout)
-    # Only while a connection is kept for this database does anything depend
-    # on whether this one changes the schema (which changes no rows).
     schema_version = None
     try:
         _ensure_wal_mode(connection, db_path)
@@ -259,8 +247,6 @@ def db_connection(db_path, timeout=60, keep=False):
             yield connection
     finally:
         if connection.total_changes or (
-            # A connection kept since this block began cannot be compared:
-            # treat the schema as changed.
             _has_kept_connection(db_path)
             if schema_version is None
             else _schema_version(connection) != schema_version
@@ -271,49 +257,7 @@ def db_connection(db_path, timeout=60, keep=False):
         connection.close()
 
 
-# A trace save ends with one row inserted into the metadata database. On a
-# connection opened for it, that row costs opening the file, reading the
-# schema, creating the write-ahead log and its shared-memory file, and, on
-# close, checkpointing and deleting them again: several hundred microseconds
-# per trace for a few of work. A process therefore keeps the connection it
-# last wrote a store's metadata through for the sessions that follow closely,
-# and reuses it while the database file is exactly as that connection left
-# it.
-#
-# What a kept connection must not change, and how:
-#
-# - It is closed once it has not been used for a moment
-#   (``_KEPT_CONNECTION_IDLE_SECONDS``). A process that is not in a run of
-#   sessions holds no connection, and its store is as it always was: no log
-#   files, nothing for another process's close to wait behind.
-# - The file a path names can be deleted, replaced or rewritten at any time.
-#   A kept connection is only reused while the path still names the same
-#   file (device and inode), and that file either has the size, mtime and
-#   ctime recorded after the connection's own last write, or was changed by
-#   another SQLite connection committing to it (``pragma data_version``
-#   moves), which SQLite's own locking makes safe. Anything else closes it
-#   and opens the path afresh, as every save used to.
-# - A database's last connection checkpoints and removes the write-ahead log
-#   when it closes, so the file itself holds every row and its mtime moves.
-#   Every write through a kept connection is followed by a checkpoint that
-#   also empties the log; if another connection keeps it from finishing, the
-#   kept connection is closed, so the close of whichever is last finishes
-#   it. Kept connections are also closed when threading shuts down and at
-#   interpreter exit.
-# - A connection must never be used in a forked child. Kept connections are
-#   closed before a fork; one that a save on another thread is using at that
-#   moment is inherited, and the child forgets it without ever using it.
-# - Windows cannot delete or replace a file that is open, so nothing is kept
-#   there.
-#
-# The databaseIsUnmoved check that stops a connection to a deleted file from
-# removing the log of the file that replaced it needs SQLite 3.8.3.
-#
-# Closing them when threading shuts down, which is what a multiprocessing
-# child gets instead of exit handlers, needs ``threading._register_atexit``
-# (Python 3.9).
-#
-# KOLO_KEEP_DB_CONNECTION=0 turns all of it off.
+# Reuse only the same file; checkpoint writes and close kept connections when idle, at exit or after fork.
 _KEEP_CONNECTIONS = (
     os.environ.get("KOLO_KEEP_DB_CONNECTION") != "0"
     and os.name != "nt"
@@ -379,21 +323,16 @@ class _KeptConnection:
 
     def __init__(self, path: str) -> None:
         self.path = path
-        # The process this entry and its connection belong to.
         self.pid = os.getpid()
         # Reentrant, like the registry lock: a signal handler or a finalizer
         # that saves a trace can run on a thread that is already saving one.
         self.lock = threading.RLock()
         self.connection: sqlite3.Connection | None = None
         self.timeout_ms: int | None = None
-        # Device and inode of the file the connection has open.
         self.identity: Tuple[int, int] | None = None
         self.fingerprint: _DatabaseFingerprint | None = None
         self.data_version: object = None
-        # The data version this connection last brought the schema up to
-        # date at. None: not since it was opened.
         self.schema_data_version: object = None
-        # Set once the registry has dropped this entry: its user closes it.
         self.dropped = False
         self.users = 0
         self.last_used = time.monotonic()
@@ -404,7 +343,6 @@ class _KeptConnection:
         if self.pid != os.getpid():
             self._forget_after_fork()
         if self.connection is not None and self.users > 1:
-            # Reentered on the thread that is already using it.
             return self.connection
         if self.connection is not None and not self._file_as_left():
             self.close()
@@ -426,18 +364,14 @@ class _KeptConnection:
             self.pid = os.getpid()
             self.timeout_ms = timeout_ms
             self.fingerprint = None
-            # The path named one file before and after the connection opened
-            # it, so that is the file it has open (an open file's inode is
-            # not reused). Otherwise (the file was created or replaced
-            # meanwhile) nothing ties the connection to a file, and it is
-            # closed after this use.
+            # Only if the path named the same file before and after opening is that the open file
+            # (an open file's inode is not reused); otherwise close after this use.
             self.identity = (
                 (before[0], before[1])
                 if before is not None and after is not None and before[:2] == after[:2]
                 else None
             )
         elif self.timeout_ms != timeout_ms:
-            # What sqlite3.connect does with its timeout.
             self.connection.execute(f"pragma busy_timeout = {timeout_ms}")
             self.timeout_ms = timeout_ms
         return self.connection
@@ -486,10 +420,7 @@ class _KeptConnection:
     def wrote(self) -> None:
         """Record the file as this connection's write leaves it. Call with
         the lock held."""
-        # Read once: a finalizer or signal handler that forks, or writes to
-        # the store with a connection of its own, can run on this thread and
-        # close this one meanwhile. The next statement then fails as a
-        # closed connection's does, with a sqlite3.Error.
+        # Read once: a finalizer or signal handler on this thread can close this connection meanwhile.
         connection = self.connection
         if connection is None:  # pragma: no cover - closed before this
             return
@@ -549,8 +480,6 @@ class _KeptConnection:
                     if wrote or self.fingerprint is None:
                         self.wrote()
                 except sqlite3.Error:  # pragma: no cover - failing storage
-                    # The caller's statements are committed; only this
-                    # connection is not kept.
                     self.close()
                 except BaseException:  # pragma: no cover - an interrupt
                     self.close()
@@ -560,10 +489,8 @@ class _KeptConnection:
                     self.close()
             elif not self.users:
                 if keep and wrote and self.connection is not None:
-                    # Dropped from the registry while in use (a fork, or a
-                    # plain write to the store): another connection may be
-                    # kept for the store by now, and then this close is not
-                    # the last one. Checkpoint what was written first.
+                    # Dropped while in use: another connection may be kept now, so this close may not be the last.
+                    # Checkpoint what was written first.
                     _checkpoint(self.connection)
                 self.close()
         finally:
@@ -583,14 +510,12 @@ class _KeptConnection:
 _kept_connections: dict[str, _KeptConnection] = {}
 _kept_connections_lock = threading.RLock()
 _kept_connections_pid = os.getpid()
-# The thread that closes connections left idle, while any are kept.
 _kept_connections_closer: threading.Thread | None = None
 _kept_connections_closer_token: object = None
 # Held by that thread while it closes connections it has already taken out of
 # the registry, so that shutdown can wait for those closes too.
 _kept_connections_closing = threading.Lock()
 _kept_connections_atexit_registered = False
-# Set once interpreter exit has closed the kept connections.
 _kept_connections_closed = False
 # Connections inherited over a fork. They belong to the parent: the child
 # does not use them, and keeps them alive rather than close them.
@@ -613,7 +538,6 @@ def _acquire_kept_connection(db_path, timeout) -> _KeptConnection | None:
         return None
     path = os.path.abspath(os.fspath(db_path))
     if _kept_connections_pid != os.getpid():
-        # Forked without Python's fork hooks running.
         _forget_kept_connections_after_fork()  # pragma: no cover
     dropped = []
     with _kept_connections_lock:
@@ -641,7 +565,6 @@ def _acquire_kept_connection(db_path, timeout) -> _KeptConnection | None:
             try:
                 closer.start()
             except RuntimeError:  # pragma: no cover - interpreter shutting down
-                # Nothing would close an idle connection.
                 return None
             _kept_connections_closer = closer
             _kept_connections_closer_token = token
@@ -649,7 +572,6 @@ def _acquire_kept_connection(db_path, timeout) -> _KeptConnection | None:
         if entry is None:
             entry = _KeptConnection(path)
         entry.last_used = time.monotonic()
-        # Most recently used last.
         _kept_connections[path] = entry
         # Checked once it is back in the registry, where the fork hooks see
         # it: a fork on this thread (from a signal handler or a finalizer)
@@ -689,8 +611,7 @@ def _acquire_kept_connection(db_path, timeout) -> _KeptConnection | None:
                     oldest.close()
             finally:
                 oldest.lock.release()
-    # A save that finds the connection busy opens its own, as every save
-    # used to: it must not wait out another save's busy timeout.
+    # A save that finds the connection busy opens its own: it must not wait out another's busy timeout.
     if not entry.lock.acquire(blocking=False):
         return None
     if entry.dropped:
@@ -725,9 +646,7 @@ def _close_idle_kept_connections(token: object) -> None:
                     # One in use (waiting out a busy timeout) stays, so that
                     # no second connection is kept beside it.
                     if entry.last_used <= cutoff and not entry.users:
-                        # ``pop`` rather than ``del``: a finalizer that saves
-                        # a trace or forks can run on this thread, and drop
-                        # or replace the entry first.
+                        # `pop`, not `del`: a finalizer on this thread may already have dropped or replaced the entry.
                         replaced = _kept_connections.pop(path, None)
                         entry.dropped = True
                         idle.append(entry)
@@ -740,8 +659,6 @@ def _close_idle_kept_connections(token: object) -> None:
                 if finished:
                     _kept_connections_closer = None
             for entry in idle:
-                # One in use (waiting out a busy timeout) is closed by its
-                # user.
                 if entry.lock.acquire(blocking=False):
                     try:
                         if not entry.users:
@@ -757,16 +674,12 @@ def _forget_kept_connection(db_path) -> None:
         return
     path = os.path.abspath(os.fspath(db_path))
     if _kept_connections_pid != os.getpid():
-        # Forked without Python's fork hooks running: the registry and its
-        # lock are the parent's.
         _forget_kept_connections_after_fork()  # pragma: no cover
     with _kept_connections_lock:
         entry = _kept_connections.pop(path, None)
         if entry is None:
             return
         entry.dropped = True
-    # In use (by a save on another thread, when the failed one had opened
-    # its own connection): its user closes it.
     if entry.lock.acquire(blocking=False):
         try:
             if not entry.users:
@@ -802,14 +715,9 @@ def _close_kept_connections_before_fork() -> None:
 
 
 def _close_kept_connections_at_exit() -> None:
-    # Closing a database's last connection removes its log files, as every
-    # save's own connection used to. Saves after this point (workers still
-    # saving, other exit handlers) open their own connection again.
     global _kept_connections_closed
 
     if _kept_connections_pid != os.getpid():
-        # Forked without Python's fork hooks running: the registry and its
-        # lock are the parent's.
         _forget_kept_connections_after_fork()  # pragma: no cover
     with _kept_connections_lock:
         _kept_connections_closed = True
@@ -863,7 +771,6 @@ def get_db_last_modified() -> datetime | None:
 def get_raw_traces_directory(db_path: Path | None = None) -> Path:
     """Get the path to the raw directory where trace files are stored."""
     if db_path is not None:
-        # db_path is .kolo/.internal/db.sqlite3, parent is .kolo/.internal/
         return db_path.parent / RAW_TRACES_DIR
     from ._paths import INTERNAL_DIR, create_kolo_directory
 
@@ -918,13 +825,10 @@ def save_trace_to_file(
     """Save trace msgpack data to a file in the .internal/raw/ directory."""
     trace_path = get_trace_file_path(trace_id, db_path)
 
-    # Ensure the directory exists
     trace_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Write the msgpack data
     trace_path.write_bytes(msgpack_data)
 
-    # Set the file's modification time if created_at is provided
     if created_at is not None:
         timestamp = created_at.timestamp()
         os.utime(trace_path, (timestamp, timestamp))
@@ -1088,7 +992,6 @@ def load_trace_from_file(
 
     try:
         msgpack_data = trace_path.read_bytes()
-        # Get the file's modification time as the created_at timestamp
         stat = trace_path.stat()
         created_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
         # Format to millisecond precision to match database timestamp format
@@ -1128,14 +1031,11 @@ def _load_trace_data_for_row(
     Tries file-based storage first, falls back to database.
     Returns (msgpack_data, created_at) or None if data is missing.
     """
-    # Try loading from file first
     file_result = load_trace_from_file(trace_id, db_path)
     if file_result is not None:
         msgpack_data, file_created_at = file_result
-        # Use DB created_at if available, else file timestamp
         return msgpack_data, db_created_at or file_created_at
 
-    # Fall back to database
     if db_msgpack is not None and db_created_at is not None:
         return db_msgpack, db_created_at
 
@@ -1158,12 +1058,7 @@ def create_traces_table(connection) -> None:
         idx_traces_created_at
         ON traces (created_at);
         """
-    # Partial index over only the traces that still hold inline blobs (i.e. are
-    # pending migration to file storage). Once a trace is migrated its msgpack
-    # and data columns are NULLed, so it drops out of this index, keeping it
-    # tiny. This lets migration_pending() answer "is anything pending?" in O(1)
-    # instead of scanning the whole traces table. Picked up by existing stores
-    # on their next setup_db() via CREATE INDEX IF NOT EXISTS.
+    # Partial index over traces still holding inline blobs, so migration_pending() is O(1).
     create_pending_migration_index_query = """
         CREATE INDEX IF NOT EXISTS
         idx_traces_pending_migration
@@ -1181,7 +1076,6 @@ def migrate_db(connection) -> None:
     try:
         connection.execute("ALTER TABLE traces ADD COLUMN is_pinned INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
-        # Column already exists
         pass
 
     try:
@@ -1189,7 +1083,6 @@ def migrate_db(connection) -> None:
             "ALTER TABLE traces ADD COLUMN auto_generated_name TEXT NULL"
         )
     except sqlite3.OperationalError:
-        # Column already exists
         pass
 
 
@@ -1234,7 +1127,6 @@ def save_trace(
     if db_path is None:
         db_path = get_db_path()
 
-    # Save the trace data to a file
     try:
         save_trace_to_file(
             trace_id, msgpack_data, created_at=created_at, db_path=db_path
@@ -1294,8 +1186,6 @@ def _save_trace_metadata(
     created_at: datetime | None,
     timeout: int,
 ) -> None:
-    # Save metadata to the database (without msgpack data). If created_at is
-    # omitted, retain SQLite's INSERT-time default for legacy ordering.
     ignore = " OR IGNORE" if ignore_errors else ""
 
     if created_at is not None:
@@ -1303,8 +1193,6 @@ def _save_trace_metadata(
         insert_sql = f"INSERT{ignore} INTO traces(id, created_at) VALUES(?, ?)"
         params: tuple = (trace_id, created_at_str)
     else:
-        # Let database use its default timestamp (SQLite's NOW at INSERT time)
-        # This matches the legacy save_trace_in_sqlite behavior
         insert_sql = f"INSERT{ignore} INTO traces(id) VALUES(?)"
         params = (trace_id,)
 
@@ -1316,13 +1204,9 @@ def _save_trace_metadata(
             failed = True
             logger.warning(f"Failed to save trace metadata to database: {e}")
             if not ignore_errors:
-                # Clean up the file we just created to avoid orphans
                 delete_trace_file(trace_id, db_path)  # pragma: no cover
                 raise  # pragma: no cover
     if failed:
-        # A connection a statement failed on is not kept: like every save's
-        # own connection used to, the next one starts from the file as it
-        # then is.
         _forget_kept_connection(db_path)
 
 
@@ -1367,11 +1251,9 @@ def trace_exists(trace_id: str, db_path: Path | None = None) -> bool:
     if db_path is None:
         db_path = get_db_path()
 
-    # Check if file exists
     if _existing_trace_file_path(trace_id, db_path) is not None:
         return True
 
-    # Check if database record exists
     with db_connection(db_path) as connection:
         cursor = connection.execute("SELECT 1 FROM traces WHERE id = ?", (trace_id,))
         return cursor.fetchone() is not None
@@ -1383,12 +1265,10 @@ def load_trace_from_db(db_path: Path, trace_id: str) -> Tuple[bytes, str]:
 
     Returns (msgpack_bytes, created_at_string).
     """
-    # Try loading from file first
     file_result = load_trace_from_file(trace_id, db_path)
     if file_result is not None:
         return file_result
 
-    # Fall back to database
     fetch_sql = "SELECT msgpack, created_at FROM traces WHERE id = ?"
 
     with db_connection(db_path) as connection:
@@ -1400,7 +1280,6 @@ def load_trace_from_db(db_path: Path, trace_id: str) -> Tuple[bytes, str]:
 
     msgpack_data, created_at = row
     if msgpack_data is None:
-        # Trace metadata exists but data is missing (should not happen normally)
         raise TraceNotFoundError(trace_id)
 
     return msgpack_data, created_at
@@ -1414,13 +1293,11 @@ def load_trace_with_size_from_db(
 
     Returns (id, created_at, size, msgpack_bytes).
     """
-    # Try loading from file first
     file_result = load_trace_from_file(trace_id, db_path)
     if file_result is not None:
         msgpack_data, created_at = file_result
         return trace_id, created_at, len(msgpack_data), msgpack_data
 
-    # Fall back to database
     fetch_sql = """
         SELECT id, created_at, LENGTH(msgpack), msgpack
         FROM traces WHERE id = ?
@@ -1435,7 +1312,6 @@ def load_trace_with_size_from_db(
 
     _id, _created_at, _size, msgpack_data = row
     if msgpack_data is None:
-        # Trace metadata exists but data is missing
         raise TraceNotFoundError(trace_id)
 
     return row
@@ -1463,7 +1339,6 @@ def list_traces_with_data_from_db(
     Checks files first for trace data, falls back to database.
     Returns tuples of (id, created_at, size, msgpack, auto_generated_name).
     """
-    # Get metadata from database (includes both file-based and db-based traces)
     list_sql = """
     SELECT id, created_at, msgpack, auto_generated_name
     FROM traces ORDER BY created_at DESC LIMIT ?
@@ -1479,14 +1354,21 @@ def list_traces_with_data_from_db(
 
             trace_id, db_created_at, db_msgpack, auto_generated_name = row
 
-            loaded = _load_trace_data_for_row(
-                trace_id, db_msgpack, db_created_at, db_path
-            )
+            try:
+                loaded = _load_trace_data_for_row(
+                    trace_id, db_msgpack, db_created_at, db_path
+                )
+            except Exception as e:
+                logger.warning(f"Could not load trace {trace_id}: {e}")
+                continue
             if loaded is None:
                 logger.warning(f"Trace {trace_id} has no data in file or database")
                 continue
 
             msgpack_data, created_at = loaded
+            if not isinstance(msgpack_data, (bytes, bytearray, memoryview)):
+                logger.warning(f"Trace {trace_id} has data of the wrong type")
+                continue
             result = (
                 trace_id,
                 created_at,
@@ -1529,9 +1411,13 @@ def get_pinned_traces(
 
             trace_id, db_created_at, db_msgpack, auto_generated_name = row
 
-            loaded = _load_trace_data_for_row(
-                trace_id, db_msgpack, db_created_at, db_path
-            )
+            try:
+                loaded = _load_trace_data_for_row(
+                    trace_id, db_msgpack, db_created_at, db_path
+                )
+            except Exception as e:
+                logger.warning(f"Could not load pinned trace {trace_id}: {e}")
+                continue
             if loaded is None:
                 logger.warning(
                     f"Pinned trace {trace_id} has no data in file or database"
@@ -1539,6 +1425,9 @@ def get_pinned_traces(
                 continue
 
             msgpack_data, created_at = loaded
+            if not isinstance(msgpack_data, (bytes, bytearray, memoryview)):
+                logger.warning(f"Trace {trace_id} has data of the wrong type")
+                continue
             yield (
                 trace_id,
                 created_at,
@@ -1559,11 +1448,9 @@ def update_auto_generated_name(db_path: Path, trace_id: str, auto_name: str) -> 
 
 def delete_traces_by_id(db_path: Path, trace_ids: Tuple[str, ...]):
     """Delete traces by ID from both files and database."""
-    # Delete trace files
     for trace_id in trace_ids:
         delete_trace_file(trace_id, db_path)
 
-    # Delete from database
     params = ", ".join("?" * len(trace_ids))
     delete_sql = f"DELETE FROM traces WHERE id in ({params})"
 
@@ -1581,18 +1468,15 @@ def delete_traces_before(db_path: Path, before: datetime):
     if cutoff.endswith("000"):
         cutoff = cutoff[:-3]
 
-    # First, get the IDs of traces to delete so we can delete their files
     select_sql = "SELECT id FROM traces WHERE created_at < ?"
 
     with db_connection(db_path) as connection:
         cursor = connection.execute(select_sql, (cutoff,))
         trace_ids = [row[0] for row in cursor.fetchall()]
 
-    # Delete trace files
     for trace_id in trace_ids:
         delete_trace_file(trace_id, db_path)
 
-    # Also delete any orphaned files (files without DB entries)
     raw_traces_dir = get_raw_traces_directory(db_path)
     if raw_traces_dir.exists():
         before_timestamp = before.timestamp()
@@ -1607,7 +1491,6 @@ def delete_traces_before(db_path: Path, before: datetime):
             except Exception as e:  # pragma: no cover
                 logger.warning(f"Failed to delete old trace file {trace_file}: {e}")
 
-    # Delete from database
     delete_sql = "DELETE FROM traces WHERE (created_at < ?)"
 
     with db_connection(db_path) as connection:
@@ -1650,10 +1533,8 @@ def pin_trace(db_path: Path, trace_id: str) -> bool:
                 "ALTER TABLE traces ADD COLUMN is_pinned INTEGER DEFAULT 0"
             )
         except sqlite3.OperationalError:
-            # Column already exists
             pass
 
-        # Try to update existing record
         cursor = connection.execute(
             "UPDATE traces SET is_pinned = 1 WHERE id = ?",
             (trace_id,),
@@ -1662,11 +1543,9 @@ def pin_trace(db_path: Path, trace_id: str) -> bool:
         if cursor.rowcount > 0:
             return True
 
-        # If no record exists, check if the trace exists as a file
         file_result = load_trace_from_file(trace_id, db_path)
         if file_result is not None:
             _, created_at_str = file_result
-            # Create a metadata record for the file-based trace
             connection.execute(
                 "INSERT OR IGNORE INTO traces (id, created_at, is_pinned) VALUES (?, ?, 1)",
                 (trace_id, created_at_str),
@@ -1695,18 +1574,13 @@ def _migrate_one(
 ) -> bool:
     """Write one trace's inline db data to file storage. Returns success."""
     try:
-        # Determine the data to save
         if msgpack_data is not None:
-            # Use msgpack data directly (newer format)
             data_to_save = msgpack_data
         elif json_data is not None:
-            # Convert JSON to msgpack (legacy format)
             data_to_save = dump_msgpack(json.loads(json_data))
         else:  # pragma: no cover
-            # No data to migrate (shouldn't happen due to WHERE clause)
             return False
 
-        # Parse created_at timestamp
         try:
             created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S.%f")
             created_at = created_at.replace(tzinfo=timezone.utc)
@@ -1756,8 +1630,6 @@ def migrate_traces_to_files(
     total_migrated = 0
 
     while True:
-        # Get a batch of traces that haven't been migrated yet
-        # Priority: msgpack first (binary data), then JSON data column (legacy)
         with db_connection(db_path) as connection:
             cursor = connection.execute(
                 """
@@ -1791,8 +1663,6 @@ def migrate_traces_to_files(
                         tuple(successful_ids),
                     )
 
-        # If no traces were migrated in this batch, stop to avoid infinite loop
-        # This can happen if all saves fail (e.g., disk full, permissions)
         if not successful_ids:
             if batch:
                 logger.warning(
@@ -1802,7 +1672,6 @@ def migrate_traces_to_files(
 
         total_migrated += len(successful_ids)
 
-        # Get count of remaining traces (both msgpack and JSON)
         with db_connection(db_path) as connection:
             cursor = connection.execute(
                 "SELECT COUNT(*) FROM traces WHERE msgpack IS NOT NULL OR data IS NOT NULL"
@@ -1872,7 +1741,6 @@ def get_migration_status(
         )
         db_traces = cursor.fetchone()[0]
 
-        # Count JSON-only traces (legacy format)
         cursor = connection.execute(
             "SELECT COUNT(*) FROM traces WHERE data IS NOT NULL AND msgpack IS NULL"
         )
@@ -1881,11 +1749,8 @@ def get_migration_status(
         cursor = connection.execute("SELECT COUNT(*) FROM traces")
         total_traces = cursor.fetchone()[0]
 
-    # Count files in .internal/raw/ directory. This globs the whole raw/ dir
-    # (potentially >1M entries), so it is opt-in via include_file_count and must
-    # never run on the auto-emit hot path. Use a generator (sum) rather than
-    # len(list(...)) so we never materialize a Path per file.
-    file_traces = -1  # sentinel: not computed
+    # Globs all of raw/ (possibly >1M entries): opt-in, never on the auto-emit hot path.
+    file_traces = -1
     if include_file_count:
         raw_traces_dir = get_raw_traces_directory(db_path)
         file_traces = 0

@@ -1,0 +1,163 @@
+- name: 2013 filer
+  period: 2013
+  input:
+    charitable_cash_donations: 300
+    charitable_non_cash_donations: 500
+    positive_agi: 1_000
+    charitable_deduction_for_non_itemizers: 0
+  output: # min(min(500, 1000 * 0.5) + 300, 1000 * 0.5)
+    charitable_deduction: 500
+
+- name: 2018 filer
+  period: 2018
+  input:
+    charitable_cash_donations: 500
+    charitable_non_cash_donations: 200
+    positive_agi: 1_000
+  output: # min(min(200, 1000 * 0.5) + 500, 1000 * 0.6)
+    charitable_deduction: 600
+
+- name: 2020 filer
+  period: 2020
+  input:
+    charitable_cash_donations: 500
+    charitable_non_cash_donations: 200
+    positive_agi: 1_000
+    charitable_deduction_for_non_itemizers: 0
+  output: # min(min(200, 1000 * 0.5) + 500, 1000 * 1)
+    charitable_deduction: 700
+
+- name: 2021 filer
+  period: 2021
+  input:
+    charitable_cash_donations: 500
+    charitable_non_cash_donations: 200
+    positive_agi: 1_000
+    charitable_deduction_for_non_itemizers: 300
+  output: # min(min(200, 1000 * 0.5) + (500 - 300), 1000 * 0.6)
+    charitable_deduction: 600
+
+- name: 2021 filer 2
+  period: 2021
+  input:
+    charitable_cash_donations: 500
+    charitable_non_cash_donations: 200
+    positive_agi: 1_000
+    charitable_deduction_for_non_itemizers: 600
+  output: # min(min(200, 1000 * 0.5) + max(500 - 600, 0), 1000 * 0.6)
+    charitable_deduction: 600
+
+- name: No AGI
+  period: 2026
+  input:
+    charitable_cash_donations: 10_000
+    charitable_non_cash_donations: 30_000
+    positive_agi: 0
+  output:
+    charitable_deduction: 0
+
+- name: Charitable deduction with a 0.5% floor
+  period: 2026
+  input:
+    charitable_cash_donations: 10_000
+    charitable_non_cash_donations: 30_000
+    positive_agi: 200_000
+  output:
+    charitable_deduction: 39_000
+
+- name: Contributions below floor
+  period: 2026
+  input:
+    charitable_cash_donations: 500
+    charitable_non_cash_donations: 300
+    positive_agi: 200_000
+  output:
+    charitable_deduction: 0
+
+- name: Non cash donations are capped at 50% of AGI and cash donation increase the cap to 60%, partial cap
+  period: 2026
+  input:
+    charitable_cash_donations: 600
+    charitable_non_cash_donations: 12_000
+    positive_agi: 20_000
+  output:
+    charitable_deduction: 10_600
+
+- name: Non cash donations are capped at 50% of AGI and cash donation increase the cap to 60%, full cap
+  period: 2026
+  input:
+    charitable_cash_donations: 3_000
+    charitable_non_cash_donations: 12_000
+    positive_agi: 20_000
+  output:
+    charitable_deduction: 12_000
+
+- name: Non-cash to non-50% limit orgs capped at 30% of AGI
+  period: 2024
+  input:
+    charitable_cash_donations: 0
+    charitable_non_cash_donations: 500
+    charitable_non_cash_donations_non_50_pct_orgs: 500
+    positive_agi: 1_000
+  output:
+    # 50% org non-cash = 0
+    # non-50% org: min(500, 0.3 * 1000) = 300
+    # min(0 + 300, 0.6 * 1000) = 300
+    charitable_deduction: 300
+
+- name: Mix of 50% and non-50% org non-cash donations
+  period: 2024
+  input:
+    charitable_cash_donations: 0
+    charitable_non_cash_donations: 600
+    charitable_non_cash_donations_non_50_pct_orgs: 200
+    positive_agi: 1_000
+  output:
+    # 50% org: min(400, 500) = 400
+    # non-50% org: min(200, 300) = 200
+    # min(400 + 200, 600) = 600
+    charitable_deduction: 600
+
+- name: Overall ceiling binds with mixed org types
+  period: 2024
+  input:
+    charitable_cash_donations: 0
+    charitable_non_cash_donations: 800
+    charitable_non_cash_donations_non_50_pct_orgs: 400
+    positive_agi: 1_000
+  output:
+    # 50% org: min(400, 500) = 400
+    # non-50% org: min(400, 300) = 300
+    # min(400 + 300, 600) = 600
+    charitable_deduction: 600
+
+- name: Non-50% org only hits 30% cap
+  period: 2024
+  input:
+    charitable_cash_donations: 0
+    charitable_non_cash_donations: 400
+    charitable_non_cash_donations_non_50_pct_orgs: 400
+    positive_agi: 1_000
+  output:
+    # non-50% org: min(400, 300) = 300
+    # min(300, 600) = 300
+    charitable_deduction: 300
+
+- name: Non-50% org with floor and cash
+  period: 2026
+  input:
+    charitable_cash_donations: 5_000
+    charitable_non_cash_donations: 20_000
+    charitable_non_cash_donations_non_50_pct_orgs: 5_000
+    positive_agi: 100_000
+  output:
+    # floor = 0.005 * 100000 = 500
+    # 50% org non-cash = 15000, reduced = max(15000 - 500, 0) = 14500
+    # capped 50% = min(14500, 50000) = 14500
+    # remaining_floor_after_50 = max(500 - 15000, 0) = 0
+    # non-50% non-cash = 5000, reduced = max(5000 - 0, 0) = 5000
+    # capped 30% = min(5000, 30000) = 5000
+    # remaining_floor = max(0 - 5000, 0) = 0
+    # cash = max(5000 - 0, 0) = 5000
+    # min(14500 + 5000 + 5000, 60000) = 24500
+    charitable_deduction: 24_500

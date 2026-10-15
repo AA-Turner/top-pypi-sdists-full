@@ -1,0 +1,99 @@
+[project]
+name = "policyengine-us"
+version = "2.42.13"
+description = "US federal and state tax-benefit microsimulation model."
+readme = "README.md"
+authors = [
+    { name = "PolicyEngine", email = "hello@policyengine.org" }
+]
+requires-python = ">=3.11,<3.15"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Operating System :: POSIX",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    "microdf-python>=1.0.0",
+    # pandas 3 copy-on-write enables the shallow-copy fast path in dataset
+    # extension and is available on every supported Python version.
+    "pandas>=3.0",
+    "policyengine-core>=3.32.27",
+    "spm-calculator>=1.0.0,<=1.0.0.post1",
+    "tables>=3.9",
+    "tqdm>=4.67.1",
+]
+
+[project.scripts]
+policyengine-us = "policyengine_us:main"
+
+[build-system]
+# Exact build requirements also constrain the isolated backend environment
+# created by python -m build; the runtime uv.lock does not pin that environment.
+requires = [
+    "hatchling==1.32.0",
+    "packaging==26.3",
+    "pathspec==1.1.1",
+    "pluggy==1.6.0",
+    "tomlkit==0.15.1",
+    "trove-classifiers==2026.6.1.19",
+]
+build-backend = "hatchling.build"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.9.0",
+    "coverage>=7.9.2",
+    "furo>=2024.8.6",
+    "jupyter-book>=1.0.4.post1",
+    "setuptools>=80.9.0",
+    "build>=1.2.2.post1",
+    "towncrier>=24.8.0",
+    "hypothesis>=6.100.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["policyengine_us"]
+
+
+[tool.towncrier]
+package = "policyengine_us"
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+title_format = "## [{version}] - {project_date}"
+issue_format = ""
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E402", "E501", "E712", "E713", "E721", "E722", "E741", "F401", "F402", "F403", "F405", "F541", "F811", "F821", "F841"]

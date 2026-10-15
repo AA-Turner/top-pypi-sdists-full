@@ -1,21 +1,20 @@
 Metadata-Version: 2.4
 Name: django-celery-email-reboot
-Version: 4.2.1
+Version: 4.3.0
 Summary: An async Django email backend using celery (forked from django-celery-email)
-Home-page: https://github.com/Panevo/django-celery-email
-Author: Karlo Krakan
-Author-email: karlo.krakan@panevo.com
-License: BSD
-Platform: any
+Author-email: "Panevo Services Ltd." <info@panevo.com>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/panevo/django-celery-email-reboot
+Project-URL: Changelog, https://github.com/panevo/django-celery-email-reboot/blob/master/CHANGELOGS.md
+Project-URL: Issues, https://github.com/panevo/django-celery-email-reboot/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -25,33 +24,19 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: POSIX
 Classifier: Topic :: Communications
 Classifier: Topic :: Communications :: Email
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10,<3.15
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: celery<5.7,>=5.2; python_version >= "3.10" and python_version <= "3.11"
-Requires-Dist: celery<5.7,>=5.3; python_version >= "3.12"
-Requires-Dist: Django<5.1,>=4.0; python_version == "3.10"
-Requires-Dist: Django<5.3,>=4.1; python_version == "3.11"
-Requires-Dist: Django<6.1,>=4.2; python_version >= "3.12"
+Requires-Dist: celery<6,>=5.2; python_version < "3.12"
+Requires-Dist: celery<6,>=5.3; python_version >= "3.12"
+Requires-Dist: Django>=4.2
 Requires-Dist: django-appconf
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: platform
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 ===========================================================================
 django-celery-email-reboot - A Celery-backed Django Email Backend
@@ -62,7 +47,7 @@ django-celery-email-reboot - A Celery-backed Django Email Backend
 
 A `Django`_ email backend that uses a `Celery`_ queue for out-of-band sending of the messages.
 
-This is a fork of `django_celery_email`_. As this package has gone unmaintained for some time, we have decided to maintain the package in order to maintain compatibility with future Django versions, starting with Django 4.x and 5.x.
+This is a fork of `django_celery_email`_. As this package has gone unmaintained for some time, we have decided to maintain the package in order to maintain compatibility with future Django versions, starting with Django 4.x, 5.x and 6.x.
 
 This new package is available in pypi under the name `django-celery-email-reboot`: https://pypi.org/project/django-celery-email-reboot/
 
@@ -74,17 +59,9 @@ This new package is available in pypi under the name `django-celery-email-reboot
 
     This version requires the following versions:
 
-    * Python >= 3.10, < 3.15
-    * Celery:
-
-      * >= 5.2, < 5.7 for Python 3.10 and 3.11
-      * >= 5.3, < 5.7 for Python 3.12, 3.13 and 3.14
-
-    * Django:
-
-      * >= 4.0, < 5.1 for Python 3.10
-      * >= 4.1, < 5.3 for Python 3.11
-      * >= 4.2, < 5.3 for Python 3.12, 3.13 and 3.14
+    * Python >= 3.10
+    * Celery >= 5.2, < 6 (>= 5.3 on Python 3.12 and newer)
+    * Django >= 4.2 (tested with 4.2, 5.0, 5.1, 5.2, 6.0 and 6.1)
 
 Using django-celery-email-reboot
 ==================================
@@ -92,6 +69,15 @@ Using django-celery-email-reboot
 Install from Pypi using::
 
     pip install django-celery-email-reboot
+
+If you are switching from the original ``django-celery-email``, uninstall it first. Both packages
+install the same ``djcelery_email`` module, so uninstalling ``django-celery-email`` afterwards also
+deletes the files of this package::
+
+    pip uninstall django-celery-email
+    pip install django-celery-email-reboot
+
+If both packages are installed, a system check warning (``djcelery_email.W001``) is shown.
 
 To enable ``django-celery-email-reboot`` for your project you need to add ``djcelery_email`` to
 ``INSTALLED_APPS``::
@@ -109,6 +95,32 @@ may set it in ``CELERY_EMAIL_BACKEND`` just like you would normally have set
 procedure will most likely be to get your email working using only Django, then
 change ``EMAIL_BACKEND`` to ``CELERY_EMAIL_BACKEND``, and then add the new
 ``EMAIL_BACKEND`` setting from above.
+
+Using ``MAILERS`` (Django 6.1+)
+-------------------------------
+
+Django 6.1 replaces the ``EMAIL_BACKEND`` setting with ``MAILERS``. To use
+``django-celery-email-reboot`` with ``MAILERS``, set ``CeleryEmailBackend`` as the ``BACKEND`` of a
+mailer and set the ``using`` option to the alias of the mailer that should send the email::
+
+    MAILERS = {
+        "default": {
+            "BACKEND": "djcelery_email.backends.CeleryEmailBackend",
+            "OPTIONS": {
+                "using": "smtp",
+            },
+        },
+        "smtp": {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": {
+                "host": "smtp.example.com",
+            },
+        },
+    }
+
+When ``MAILERS`` is used, the ``CELERY_EMAIL_BACKEND`` setting is ignored. The email is sent from the
+Celery worker through the mailer set in ``using``, so the workers need the same ``MAILERS`` setting.
+The other ``CELERY_EMAIL_*`` settings described below still apply.
 
 Mass email are sent in chunks of size ``CELERY_EMAIL_CHUNK_SIZE`` (defaults to 10).
 

@@ -224,6 +224,16 @@ MAX_PATHS = 10_000
 #: a hard size limit; one over it would fail the whole batch it rides in.
 MAX_PATH_BYTES = 2048
 FULL_HASH_MAX_BYTES = 1 << 30
+#: Below this, a `.probe.config` `hash` path is sent with its path and size
+#: only (F30): no sha256, fingerprint or rows. The server's 64-byte floor
+#: (`MIN_MATCH_BYTES`) is a MATCH floor; this one keeps the hash off the wire.
+HASH_LEVEL_MIN_BYTES = 64
+#: Row counts from the hashing read (C9, R27): newline-terminated records,
+#: a final unterminated line counted; csv/tsv without their header line.
+ROW_COUNTED_SUFFIXES = (".jsonl", ".ndjson", ".csv", ".tsv", ".txt")
+_HEADED_SUFFIXES = (".csv", ".tsv")
+#: `num_rows` read from the footer, only when pyarrow is already imported.
+PARQUET_SUFFIX = ".parquet"
 RUN_HASH_BUDGET_BYTES = 10 * (1 << 30)
 EDGE_BYTES = 4 << 20
 BATCH_ROWS = 2000
@@ -544,16 +554,40 @@ def _ignored(rules: Any, path: str) -> bool:
     return rules is not None and rules.ignored(path, follow=True)
 
 
+def _config_verdict(path: str, *, resolve: bool = True) -> Any:
+    """A researcher's `.probe.config` verdict on ``path`` (`probe_config.Verdict`)."""
+    from . import exclusions as _exclusions
+
+    return _exclusions.excluded(path, is_dir=False, hot=True, resolve=resolve)
+
+
+def _not_recorded(verdict: Any) -> bool:
+    """`read` and `off` record nothing; `hash` records the identity (C9)."""
+    return bool(verdict.excluded) and not verdict.identity_only
+
+
 def _config_excluded(path: str, *, resolve: bool = True) -> bool:
-    """Excluded by a researcher's `.probe.config` (paths Probe never records).
-    Judged once per path where a read or write is recorded (the recorder's own
-    stat happened; this adds only `lstat`s of `.probe.config` files, cached per
+    """Excluded by a researcher's `.probe.config` (paths Probe never records:
+    `read` and `off`; a `hash` path IS recorded, identity only). Judged once
+    per path where a read or write is recorded (the recorder's own stat
+    happened; this adds only `lstat`s of `.probe.config` files, cached per
     folder for a second), and again where reads are hashed and sent (a `probe
     exec` child's spool is collected by its launcher). Never noted, counted or
     hashed."""
-    from . import exclusions as _exclusions
+    return _not_recorded(_config_verdict(path, resolve=resolve))
 
-    return _exclusions.excluded(path, is_dir=False, hot=True, resolve=resolve).excluded
+
+def _hash_level(path: str) -> bool:
+    """Is ``path`` at `.probe.config` `hash`: recorded by identity only, and
+    below `HASH_LEVEL_MIN_BYTES` with no hash at all (F30)?"""
+    return bool(_config_verdict(path).identity_only)
+
+
+def _below_floor(path: str, size: Any) -> bool:
+    """A `hash`-level file too small to send a hash of (F30): its path and size
+    go, never its sha256, fingerprint or rows. A hash of a tiny file names its
+    content to anyone who can guess it."""
+    return isinstance(size, int) and size < HASH_LEVEL_MIN_BYTES and _hash_level(path)
 
 
 def _sendable(path: str) -> bool:
@@ -929,6 +963,17 @@ def _resolved(path: str) -> str:
     return os.path.realpath(candidate) if os.path.islink(candidate) else candidate
 
 
+def _write_config_excluded(path: str, real: str) -> bool:
+    """`.probe.config` on a write, as opened AND as resolved: the stricter of
+    the two decides (a `hash` link to a `read` file is `off`)."""
+    verdict = _config_verdict(path, resolve=False)
+    if real != path and not verdict.hidden:
+        from . import probe_config as _pc
+
+        verdict = _pc.stricter(verdict, _config_verdict(real, resolve=False))
+    return _not_recorded(verdict)
+
+
 def _write_skip(target: "_RunReads", path: str) -> bool:
     """Whether a write-open of ``path`` is never noted: :func:`excluded`, the
     run's ``.probeignore``, a cache -- as opened AND as resolved, so a link
@@ -942,8 +987,7 @@ def _write_skip(target: "_RunReads", path: str) -> bool:
         or write_excluded(path)
         or _ignored(target.ignore, path)
         or (real != path and (excluded(real) or write_excluded(real)))
-        or _config_excluded(path, resolve=False)
-        or (real != path and _config_excluded(real, resolve=False))
+        or _write_config_excluded(path, real)
     ):
         if len(target.write_skipped) < MAX_PATHS:
             target.write_skipped.add(path)
@@ -1537,11 +1581,11 @@ def _ensure_hasher() -> None:
         _hasher.start()
 
 
-def _keep(result: tuple[str | None, str | None], ident: tuple, own: dict) -> None:
+def _keep(result: tuple[str | None, str | None, int | None], ident: tuple, own: dict) -> None:
     """File the answer where it belongs: a full hash, a fingerprint of a file
     too big to hash, or "moved/unreadable" is the FILE's answer and shared; a
     fingerprint taken only for budget is the run's own."""
-    sha, fp = result
+    sha, fp, _rows = result
     if fp is not None and sha is None and ident[2] <= FULL_HASH_MAX_BYTES:
         own[ident] = result
     else:
@@ -1671,6 +1715,12 @@ def _hash_loop(work: "queue.Queue | None" = None) -> None:
 class _HashCache:
     """Per-machine sha256 cache keyed on (device, inode, size, mtime, ctime).
 
+    Table ``h3`` carries each file's row count beside its hash (F38): a dataset
+    hashed once on a machine must still get its ``rows``. An answer only in the
+    older ``h2`` table (a release before row counts) is read too
+    (:meth:`get_old`); for a file whose rows are countable it is re-hashed once
+    inside the budget, then lives in ``h3``.
+
     ``batch=N`` holds up to N answers and writes them in ONE transaction
     (:meth:`flush`): a close hashing 2,000 small outputs spent 2.8 s of its
     4.4 s committing them one by one (a sync to disk each)."""
@@ -1688,10 +1738,28 @@ class _HashCache:
                     "CREATE TABLE IF NOT EXISTS h2 (d INTEGER, i INTEGER, s INTEGER, "
                     "m INTEGER, c INTEGER, sha TEXT, fp TEXT, PRIMARY KEY (d, i, s, m, c))"
                 )
+                self._db.execute(
+                    "CREATE TABLE IF NOT EXISTS h3 (d INTEGER, i INTEGER, s INTEGER, "
+                    "m INTEGER, c INTEGER, sha TEXT, fp TEXT, rows INTEGER, PRIMARY KEY (d, i, s, m, c))"
+                )
         except (OSError, sqlite3.Error):
             self._db = None
 
-    def get(self, ident: tuple) -> tuple[str | None, str | None] | None:
+    def get(self, ident: tuple) -> tuple[str | None, str | None, int | None] | None:
+        """``(sha, fp, rows)`` from ``h3``, else None."""
+        if self._db is None:
+            return None
+        try:
+            with internal():
+                row = self._db.execute(
+                    "SELECT sha, fp, rows FROM h3 WHERE d=? AND i=? AND s=? AND m=? AND c=?", ident
+                ).fetchone()
+        except sqlite3.Error:
+            return None
+        return (row[0], row[1], row[2]) if row else None
+
+    def get_old(self, ident: tuple) -> tuple[str | None, str | None] | None:
+        """``(sha, fp)`` from ``h2``, the table before row counts, else None."""
         if self._db is None:
             return None
         try:
@@ -1703,10 +1771,10 @@ class _HashCache:
             return None
         return (row[0], row[1]) if row else None
 
-    def put(self, ident: tuple, sha: str | None, fp: str | None) -> None:
+    def put(self, ident: tuple, sha: str | None, fp: str | None, rows: int | None = None) -> None:
         if self._db is None:
             return
-        self._pending.append((*ident, sha, fp))
+        self._pending.append((*ident, sha, fp, rows))
         if len(self._pending) > self._batch:
             self.flush()
 
@@ -1717,8 +1785,8 @@ class _HashCache:
         try:
             with internal(), self._db:
                 self._db.executemany(
-                    "INSERT OR REPLACE INTO h2 (d, i, s, m, c, sha, fp) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT OR REPLACE INTO h3 (d, i, s, m, c, sha, fp, rows) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     rows,
                 )
         except sqlite3.Error:
@@ -1739,6 +1807,37 @@ def _give_back(budget: list[int], unread: int) -> None:
         budget[0] += max(unread, 0)
 
 
+def _counted(path: str) -> bool:
+    """Rows of this file are counted in its hashing read (line records)."""
+    return path.lower().endswith(ROW_COUNTED_SUFFIXES)
+
+
+def _parquet_rows(path: str) -> int | None:
+    """``num_rows`` from a Parquet file's footer, ONLY when pyarrow is already
+    imported (never an import: R27), else None. A small extra read."""
+    if not path.lower().endswith(PARQUET_SUFFIX) or "pyarrow" not in sys.modules:
+        return None
+    try:
+        import pyarrow.parquet as pq  # already loaded with pyarrow, or cheap beside it
+
+        with internal():
+            rows = pq.read_metadata(path).num_rows
+    except Exception:  # noqa: BLE001 -- a count is a bonus, never a failure
+        return None
+    return rows if isinstance(rows, int) and not isinstance(rows, bool) and rows >= 0 else None
+
+
+def _rows_of(path: str, newlines: int, last: bytes, size: int) -> int | None:
+    """A counted file's rows from its full read: newline-terminated records,
+    a final unterminated line too, and for csv/tsv without the header line."""
+    if not _counted(path):
+        return None
+    rows = newlines + (1 if size > 0 and last != b"\n" else 0)
+    if path.lower().endswith(_HEADED_SUFFIXES):
+        rows = max(rows - 1, 0)
+    return rows
+
+
 def hash_file(
     path: str,
     ident: tuple,
@@ -1747,11 +1846,16 @@ def hash_file(
     budget: list[int],
     deadline: float | None = None,
     fingerprint: bool = True,
-) -> tuple[str | None, str | None] | None:
-    """``(sha256, fingerprint)`` for a file, ``(None, None)`` when it is no
-    longer the one observed (unstable) or cannot be read, or None when it was
-    NOT HASHED: the I/O ``budget`` cannot pay even for a fingerprint, or
+) -> tuple[str | None, str | None, int | None] | None:
+    """``(sha256, fingerprint, rows)`` for a file, ``(None, None, None)`` when it
+    is no longer the one observed (unstable) or cannot be read, or None when it
+    was NOT HASHED: the I/O ``budget`` cannot pay even for a fingerprint, or
     ``deadline`` (a ``time.monotonic()`` instant) has passed.
+
+    ``rows`` is counted in the SAME read as the hash (no second pass, R27) for
+    `ROW_COUNTED_SUFFIXES`; a Parquet file's comes from its footer when pyarrow
+    is already imported; anything fingerprinted (over 1 GiB, or for budget) has
+    none but a Parquet footer's.
 
     Every byte read is charged to ``budget`` -- a one-element list, shared by
     everything one run hashes: a full hash its size, a fingerprint the edges
@@ -1764,31 +1868,58 @@ def hash_file(
         try:
             before = _ident(os.stat(path))
         except OSError:
-            return (None, None)
+            return (None, None, None)
         if before != ident:
-            return (None, None)
+            return (None, None, None)
+        old: tuple[str | None, str | None] | None = None
         if cache is not None:
             hit = cache.get(ident)
             if hit is not None and (fingerprint or hit[0] is not None):
+                if hit[2] is None:
+                    rows = _parquet_rows(path)
+                    if rows is not None:
+                        cache.put(ident, hit[0], hit[1], rows)
+                        return (hit[0], hit[1], rows)
                 return hit
+            old = cache.get_old(ident)
+            if old is not None and (fingerprint or old[0] is not None):
+                if old[0] is None or not _counted(path):
+                    # Nothing a re-read would add: moved to h3 as it is.
+                    answer = (old[0], old[1], _parquet_rows(path))
+                    cache.put(ident, *answer)
+                    return answer
+                # Hashed before row counts existed: re-hashed ONCE, inside the
+                # budget, for its rows (F38); the old answer when it cannot pay.
         size = ident[2]
         sha: str | None = None
         fp: str | None = None
+        rows: int | None = None
         full = size <= FULL_HASH_MAX_BYTES and _take(budget, size)
+        if not full and old is not None:
+            return (old[0], old[1], None)
         if not full and not (fingerprint and _take(budget, min(size, 2 * EDGE_BYTES))):
             return None
         try:
             if full:
                 digest = hashlib.sha256()
                 done = 0
+                newlines = 0
+                last = b""
+                count = _counted(path)
                 with open(path, "rb") as handle:
                     for chunk in iter(lambda: handle.read(_CHUNK), b""):
                         digest.update(chunk)
+                        if count:
+                            newlines += chunk.count(b"\n")
+                            last = chunk[-1:]
                         done += len(chunk)
                         if done < size and deadline is not None and time.monotonic() >= deadline:
                             _give_back(budget, size - done)
-                            return None
+                            # Re-reading an h2 answer for its rows: the hash it
+                            # holds still stands (review of #2791).
+                            return (old[0], old[1], None) if old is not None else None
                 sha = digest.hexdigest()
+                rows = _rows_of(path, newlines, last, done) if count else _parquet_rows(path)
             else:
                 digest = hashlib.sha256()
                 with open(path, "rb") as handle:
@@ -1797,17 +1928,57 @@ def hash_file(
                         handle.seek(size - EDGE_BYTES)
                     digest.update(handle.read(EDGE_BYTES))
                 fp = f"{size}:{ident[3]}:{digest.hexdigest()}"
+                rows = _parquet_rows(path)
             after = _ident(os.stat(path))
         except OSError:
-            return (None, None)
+            return (None, None, None)
         if after != ident:
-            return (None, None)
+            return (None, None, None)
         # A fingerprint taken only because THIS run's budget ran out is not
         # the file's answer: cached, it would stand in for the full hash a
         # later run has the budget for.
         if cache is not None and (sha is not None or size > FULL_HASH_MAX_BYTES):
-            cache.put(ident, sha, fp)
-        return (sha, fp)
+            cache.put(ident, sha, fp, rows)
+        return (sha, fp, rows)
+
+
+def file_identity(
+    path: str,
+    *,
+    budget: list[int],
+    cache: _HashCache | None = None,
+    deadline: float | None = None,
+    hash_level: bool = False,
+) -> dict | None:
+    """A file's identity with the recorder's own hasher (F39: one hasher):
+    ``{"content_hash", "fingerprint", "size_bytes", "rows"}``, or None when
+    ``path`` is not a regular file or cannot be read.
+
+    ``content_hash`` is the sha256 when the file is at most 1 GiB and the
+    ``budget`` pays for it; past either, ``fingerprint`` (size, mtime, first
+    and last 4 MiB) when the budget pays for that; neither when it cannot (or
+    ``deadline`` passed). ``rows`` as :func:`hash_file`. ``hash_level=True``
+    (a `.probe.config` `hash` path) applies `HASH_LEVEL_MIN_BYTES`: below it,
+    path and size only (F30). Never raises."""
+    try:
+        with internal():
+            st = os.stat(path)
+        if not _stat_is_file(st):
+            return None
+        ident = _ident(st)
+        out: dict = {"content_hash": None, "fingerprint": None, "size_bytes": st.st_size, "rows": None}
+        if hash_level and st.st_size < HASH_LEVEL_MIN_BYTES:
+            return out
+        result = hash_file(path, ident, cache=cache, budget=budget, deadline=deadline)
+        if result is None:
+            return out
+        sha, fp, rows = result
+        if sha is None and fp is None:
+            return None  # it moved while it was read, or cannot be read
+        out.update(content_hash=sha, fingerprint=fp, rows=rows)
+        return out
+    except Exception:  # noqa: BLE001 -- an identity is evidence, never a failure
+        return None
 
 
 def _token_id(client: Any) -> str | None:
@@ -2397,6 +2568,8 @@ def _typed_row(
     stable: bool,
     seen_at: Any,
     observation_id: str | None = None,
+    *,
+    rows: Any = None,
 ) -> dict | None:
     """One read row, sanitized BY TYPE instead of by a generic walk (plan (k)),
     or None when its timestamp is not one this module wrote.
@@ -2431,6 +2604,9 @@ def _typed_row(
         "stable": bool(stable),
         "first_seen_at": seen_at,
     }
+    if _row_count(rows) is not None:
+        # C9: nullable `rows` on run_inputs; a server before it ignores it.
+        row["rows"] = rows
     # With an id the server keys on the host as well, and bounds it in bytes:
     # a host past that sends the row as before, keyed on (path, hash).
     if (
@@ -2462,6 +2638,8 @@ def _typed_output_row(
     written_at: Any,
     modified_at: Any,
     observation_id: Any,
+    *,
+    rows: Any = None,
 ) -> dict | None:
     """One write row in the contract's shape and key order (``POST
     /v1/runs/{id}/outputs``), sanitized by type like :func:`_typed_row`: only
@@ -2474,7 +2652,7 @@ def _typed_output_row(
         return None
     from . import redaction
 
-    return {
+    row = {
         "path": redaction.scrub_string(path),
         "host": host,
         "content_hash": sha if isinstance(sha, str) and _HEX64.fullmatch(sha) else "",
@@ -2484,6 +2662,14 @@ def _typed_output_row(
         "last_modified_at": modified_at,
         "observation_id": observation_id,
     }
+    if _row_count(rows) is not None:
+        row["rows"] = rows  # C9: nullable `rows` on run_outputs
+    return row
+
+
+def _row_count(rows: Any) -> int | None:
+    """A row count fit to send: a non-negative int, else None (the key is left out)."""
+    return rows if isinstance(rows, int) and not isinstance(rows, bool) and rows >= 0 else None
 
 
 def _changed(ident: tuple, note: dict) -> bool:
@@ -2630,6 +2816,7 @@ def collect_all(
             and not excluded(key[0])
             and not _ignored(rules, key[0])
             and not _config_excluded(key[0])
+            and not _below_floor(key[0], key[1][2])
         ]
         # Writes that are outputs (changed, and -- recovered -- still the
         # writer's), hashed after the reads; the rest are never read.
@@ -2645,7 +2832,11 @@ def collect_all(
                 verdict[path] = "unverified"  # may be another run's bytes by now
             else:
                 verdict[path] = "output"
-                if finals[path] not in _hash_results and finals[path] not in own:
+                if (
+                    finals[path] not in _hash_results
+                    and finals[path] not in own
+                    and not _below_floor(path, finals[path][2])
+                ):
                     wanted.append((path, finals[path]))
         spent = state.hashed_bytes if state is not None else 0
         budget = [max(RUN_HASH_BUDGET_BYTES - spent, 0)]
@@ -2677,8 +2868,14 @@ def collect_all(
             result = own.get(ident) or _hash_results.get(ident)
             observation = _read_observation(run_id, host, path, ident)
             why = None
-            if result is not None:
-                sha, fp = result
+            rows_n: int | None = None
+            if _below_floor(path, obs.get("s")):
+                # `hash` and under 64 bytes: path and size only (F30), by
+                # design -- neither unhashed nor late.
+                sha = fp = None
+                stable = True
+            elif result is not None:
+                sha, fp, rows_n = result
                 stable = sha is not None or fp is not None
             else:
                 sha = fp = None
@@ -2686,7 +2883,7 @@ def collect_all(
                 unhashed += 1
                 why = cut.get(ident, CUT_DEADLINE)
                 read_cut[why] += 1
-            row = _typed_row(path, sha, fp, obs.get("s"), host, stable, obs.get("t"), observation)
+            row = _typed_row(path, sha, fp, obs.get("s"), host, stable, obs.get("t"), observation, rows=rows_n)
             if row is None:
                 malformed += 1
                 continue
@@ -2714,7 +2911,10 @@ def collect_all(
             else:
                 ident = finals[path]
                 result = own.get(ident) or _hash_results.get(ident)
-                if result is None:
+                rows_n = None
+                if _below_floor(path, ident[2]):
+                    sha = fp = None  # `hash` and under 64 bytes (F30)
+                elif result is None:
                     sha = fp = None
                     w_unhashed += 1
                     why = cut.get(ident, CUT_DEADLINE)
@@ -2722,11 +2922,11 @@ def collect_all(
                     if why == CUT_DEADLINE:
                         late.append({"w": path, "i": list(ident), "t": note.get("t"), "o": note.get("o")})
                 else:
-                    sha, fp = result
+                    sha, fp, rows_n = result
                     if sha is None and fp is None:
                         w_unstable += 1  # it changed while it was hashed
                 row = _typed_output_row(
-                    path, sha, fp, ident[2], host, note.get("t"), _iso_from_ns(ident[3]), note.get("o")
+                    path, sha, fp, ident[2], host, note.get("t"), _iso_from_ns(ident[3]), note.get("o"), rows=rows_n
                 )
             if row is None:
                 w_malformed += 1
@@ -2941,7 +3141,7 @@ def _resend_late(run_id: str, target: Any, *, reads: bool, writes: bool) -> int:
                     continue
                 todo.append((path, ident))
                 kept.append((entry, ident))
-            own: dict[tuple, tuple[str | None, str | None]] = {}
+            own: dict[tuple, tuple[str | None, str | None, int | None]] = {}
             _hash_within(todo, [RUN_HASH_BUDGET_BYTES], time.monotonic() + FINISH_WAIT_S, own)
             from . import redaction
 
@@ -2952,7 +3152,9 @@ def _resend_late(run_id: str, target: Any, *, reads: bool, writes: bool) -> int:
                 result = own.get(ident) or _hash_results.get(ident)
                 if result is None or (result[0] is None and result[1] is None):
                     continue  # still unhashed, or no longer those bytes
-                sha, fp = result
+                if _below_floor(entry.get("p", entry.get("w")), ident[2]):
+                    continue  # `hash` and under 64 bytes: never a hash (F30)
+                sha, fp, rows_n = result
                 if "p" in entry and sha is None:
                     # A read's row is replaced only by a HASH: the server takes
                     # a report without one under a known id as a retry (it
@@ -2960,12 +3162,15 @@ def _resend_late(run_id: str, target: Any, *, reads: bool, writes: bool) -> int:
                     # fingerprint alone would not reach the row.
                     continue
                 if "p" in entry:
-                    row = _typed_row(entry["p"], sha, fp, ident[2], host, True, entry.get("t"), entry.get("o"))
+                    row = _typed_row(
+                        entry["p"], sha, fp, ident[2], host, True, entry.get("t"), entry.get("o"), rows=rows_n
+                    )
                     if row is not None and "observation_id" in row:
                         in_rows.append(row)
                 else:
                     row = _typed_output_row(
-                        entry["w"], sha, fp, ident[2], host, entry.get("t"), _iso_from_ns(ident[3]), entry.get("o")
+                        entry["w"], sha, fp, ident[2], host, entry.get("t"), _iso_from_ns(ident[3]), entry.get("o"),
+                        rows=rows_n,
                     )
                     if row is not None:
                         out_rows.append(row)
@@ -2984,6 +3189,208 @@ def _resend_late(run_id: str, target: Any, *, reads: bool, writes: bool) -> int:
                 if not _active and not _collecting:
                     _hash_results.clear()
     return sent
+
+
+# -- files a step NAMES (`probe exec --input/--output`, F39) --------------------
+#: The read hook lives only in Python children (`sitecustomize`), so a shell
+#: step (`head -n 500 > dev.jsonl`, `cat a b | shuf > train.jsonl`, `jq`)
+#: records nothing by itself. `probe exec --input PATH --output PATH` names its
+#: files; they are hashed with the recorder's own hasher (one budget, rows,
+#: the 64-byte `hash` floor) when the step starts and when it exits, and sent
+#: as the run's reads and writes, so the existing hash matching draws the
+#: arrows. Off/read paths are skipped as the recorder skips them.
+
+
+def expand_named(patterns: "list[str] | tuple[str, ...]", base: str | None = None) -> list[str]:
+    """Absolute regular-file paths for ``patterns``: globs (``**`` spans
+    folders) taken from ``base`` (else the working directory), a folder means
+    every file under it. Sorted, without repeats, at most MAX_PATHS."""
+    import glob as _glob
+
+    root = os.path.abspath(base or os.getcwd())
+    found: dict[str, None] = {}
+    for pattern in patterns or ():
+        if not isinstance(pattern, str) or not pattern:
+            continue
+        expanded = os.path.expanduser(pattern)
+        full = expanded if os.path.isabs(expanded) else os.path.join(root, expanded)
+        hits = sorted(_glob.glob(full, recursive=True)) if _glob.has_magic(full) else [full]
+        for hit in hits:
+            hit = os.path.normpath(hit)
+            if os.path.isdir(hit):
+                for folder, dirs, files in os.walk(hit):
+                    dirs.sort()
+                    for name in sorted(files):
+                        found.setdefault(os.path.join(folder, name), None)
+                        if len(found) >= MAX_PATHS:
+                            return sorted(found)
+            elif os.path.isfile(hit):
+                found.setdefault(hit, None)
+            if len(found) >= MAX_PATHS:
+                return sorted(found)
+    return sorted(found)
+
+
+def _named_recordable(path: str) -> bool:
+    """A named file the recorder would record: not one it never records
+    (:func:`excluded`), not `read`/`off` in a `.probe.config`, storable."""
+    return not excluded(path) and not _config_excluded(path) and _sendable(path)
+
+
+def _named_hash(paths: list[tuple[str, tuple]], wait_s: float) -> dict[tuple, tuple]:
+    """Hash ``paths`` with one run budget, on the close's guarded worker
+    (a stalled mount costs a hash, never the step). The answers by identity."""
+    global _collecting
+    own: dict[tuple, tuple] = {}
+    with _lock:
+        _collecting += 1
+    try:
+        todo = [(path, ident) for path, ident in paths if not _below_floor(path, ident[2])]
+        _hash_within(todo, [RUN_HASH_BUDGET_BYTES], time.monotonic() + max(wait_s, 0.0), own)
+        return {ident: own.get(ident) or _hash_results.get(ident) for _path, ident in paths}
+    finally:
+        with _lock:
+            _collecting -= 1
+            if not _active and not _collecting:
+                _hash_results.clear()
+
+
+class NamedFiles:
+    """One `probe exec` step's named files: :meth:`start` before the command
+    runs (sends the inputs, remembers what the outputs were), :meth:`finish`
+    when it exits (sends the outputs it changed or created). Never raises."""
+
+    def __init__(
+        self,
+        client: Any,
+        run_id: str,
+        *,
+        inputs: "list[str] | tuple[str, ...]" = (),
+        outputs: "list[str] | tuple[str, ...]" = (),
+        base: str | None = None,
+        wait_s: float = FINISH_WAIT_S,
+    ) -> None:
+        self.client = client
+        self.run_id = run_id
+        self.inputs = [p for p in (inputs or ()) if isinstance(p, str) and p]
+        self.outputs = [p for p in (outputs or ()) if isinstance(p, str) and p]
+        self.base = base
+        self.wait_s = wait_s
+        self.started_at = _now_iso()
+        self.before: dict[str, tuple | None] = {}
+        self.sent_inputs = 0
+        self.sent_outputs = 0
+
+    def start(self) -> int:
+        """Hash and send the named inputs; note the named outputs' identity now.
+        Returns how many input rows were sent."""
+        try:
+            self.started_at = _now_iso()
+            for path in expand_named(self.outputs, self.base):
+                try:
+                    self.before[path] = _ident(os.stat(path))
+                except OSError:
+                    self.before[path] = None
+            if self.inputs:
+                self.sent_inputs = self._send_inputs(expand_named(self.inputs, self.base))
+        except Exception:  # noqa: BLE001 -- lineage evidence never stops a step
+            pass
+        return self.sent_inputs
+
+    def finish(self) -> int:
+        """Hash and send the named outputs the step created or changed.
+        Returns how many output rows were sent."""
+        try:
+            if self.outputs:
+                self.sent_outputs = self._send_outputs(expand_named(self.outputs, self.base))
+        except Exception:  # noqa: BLE001
+            pass
+        return self.sent_outputs
+
+    def _stat_all(self, paths: list[str]) -> list[tuple[str, tuple]]:
+        out = []
+        for path in paths:
+            if not _named_recordable(path):
+                continue
+            try:
+                st = os.stat(path)
+            except OSError:
+                continue
+            if _stat_is_file(st):
+                out.append((path, _ident(st)))
+        return out
+
+    def _send_inputs(self, paths: list[str]) -> int:
+        if _server_takes_reads(self.client) is not True:
+            return 0
+        observations = _server_takes(self.client, OBSERVATIONS_FEATURE) is True
+        stated = self._stat_all(paths)
+        if not stated:
+            return 0
+        answers = _named_hash(stated, self.wait_s)
+        from . import redaction
+
+        host = redaction.scrub_string(socket.gethostname())
+        rows: list[dict] = []
+        for path, ident in stated:
+            sha = fp = rows_n = None
+            stable = True
+            result = answers.get(ident)
+            if result is not None and not _below_floor(path, ident[2]):
+                sha, fp, rows_n = result
+                stable = sha is not None or fp is not None
+            row = _typed_row(
+                path, sha, fp, ident[2], host, stable, self.started_at,
+                _read_observation(self.run_id, host, path, ident) if observations else None, rows=rows_n,
+            )
+            if row is not None:
+                rows.append(row)
+        if rows:
+            # No coverage: the step's close sends the run's own (one would REPLACE it).
+            _journal_rows(self.client, self.run_id, "inputs", rows, None)
+            self._wake()
+        return len(rows)
+
+    def _wake(self) -> None:
+        """Wake delivery for what was just journaled (best effort)."""
+        try:
+            wake = getattr(self.client, "_after_enqueue", None)
+            if callable(wake):
+                wake()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _send_outputs(self, paths: list[str]) -> int:
+        if _server_takes(self.client, OUTPUTS_FEATURE) is not True:
+            return 0
+        stated = [
+            (path, ident) for path, ident in self._stat_all(paths)
+            if self.before.get(path) is None or list(self.before[path]) != list(ident)
+        ]
+        if not stated:
+            return 0
+        answers = _named_hash(stated, self.wait_s)
+        from . import redaction
+
+        host = redaction.scrub_string(socket.gethostname())
+        rows: list[dict] = []
+        for path, ident in stated:
+            sha = fp = rows_n = None
+            result = answers.get(ident)
+            if result is not None and not _below_floor(path, ident[2]):
+                sha, fp, rows_n = result
+            observation = hashlib.sha256(
+                "\0".join((self.run_id, host, path, "named-output", self.started_at)).encode("utf-8", "surrogatepass")
+            ).hexdigest()[:32]
+            row = _typed_output_row(
+                path, sha, fp, ident[2], host, self.started_at, _iso_from_ns(ident[3]), observation, rows=rows_n
+            )
+            if row is not None:
+                rows.append(row)
+        if rows:
+            _journal_rows(self.client, self.run_id, "outputs", rows, None)
+            self._wake()
+        return len(rows)
 
 
 def discard(run_id: str) -> None:
@@ -3101,6 +3508,30 @@ def reference_budget(run_id: str) -> list[int]:
             while len(_reference_budgets) > MAX_REFERENCE_BUDGETS:
                 del _reference_budgets[next(iter(_reference_budgets))]
         return left
+
+
+def run_hash_budget(run_id: str) -> list[int]:
+    """What ``run_id``'s ONE I/O budget has left, for hashing something else
+    of the run (`Run.log_dataset`, data-catalog R8). While this process
+    records the run's reads, a copy of what the recorder has left: charge the
+    spend back with :func:`charge_run_hash`. Otherwise the budget output
+    capture's references share (:func:`reference_budget`), spent in place."""
+    with _lock:
+        state = _active.get(run_id)
+        if state is not None:
+            return [max(RUN_HASH_BUDGET_BYTES - int(getattr(state, "hashed_bytes", 0)), 0)]
+    return reference_budget(run_id)
+
+
+def charge_run_hash(run_id: str, spent: int) -> None:
+    """Count ``spent`` bytes (hashed from :func:`run_hash_budget`) against the
+    run's recorder, so its reads and its datasets share one 10 GB."""
+    if spent <= 0:
+        return
+    with _lock:
+        state = _active.get(run_id)
+        if state is not None:
+            state.hashed_bytes += spent
 
 
 def reference_hash(

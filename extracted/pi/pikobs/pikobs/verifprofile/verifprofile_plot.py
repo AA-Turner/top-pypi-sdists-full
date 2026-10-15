@@ -700,6 +700,8 @@ def verifprofile_plot(task: Dict[str, Any]) -> Optional[str]:
     out_dir = os.path.join(task['pathwork'], family)
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(out_dir, figure_name(task))
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, task.get('selector'))
     save_figure(fig, out_file, svg=task.get('svg', False), dpi=DPI)
     if as_rows:            # the channel under the mouse, in the viewer
         write_hover(fig, out_file, ax1, [(yi, f"{v:g}") for yi, v in zip(y, lev)],
@@ -851,6 +853,8 @@ def verifprofile_overlay(task: Dict[str, Any]) -> Optional[str]:
     out_dir = os.path.join(task['pathwork'], family)
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(out_dir, overlay_name(task))
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, task.get('selector'))
     save_figure(fig, out_file, svg=task.get('svg', False), dpi=DPI)
     plt.close(fig)
     return out_file

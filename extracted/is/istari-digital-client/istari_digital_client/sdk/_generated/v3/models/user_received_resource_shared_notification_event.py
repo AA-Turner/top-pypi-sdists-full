@@ -33,13 +33,14 @@ class UserReceivedResourceSharedNotificationEvent(BaseModel):
     created_at: Optional[datetime] = None
     receiving_connection_id: StrictStr
     receiving_connection_label: StrictStr
+    receiving_connection_tenant_id: Optional[StrictStr] = None
     resource_id: StrictStr
     resource_type: ResourceTypeDto
     occurred_at: datetime
     display_name: Optional[StrictStr] = None
     file_extension: Optional[StrictStr]
     file_size: Optional[StrictInt]
-    __properties: ClassVar[List[str]] = ["event_id", "event_type", "created_at", "receiving_connection_id", "receiving_connection_label", "resource_id", "resource_type", "occurred_at", "display_name", "file_extension", "file_size"]
+    __properties: ClassVar[List[str]] = ["event_id", "event_type", "created_at", "receiving_connection_id", "receiving_connection_label", "receiving_connection_tenant_id", "resource_id", "resource_type", "occurred_at", "display_name", "file_extension", "file_size"]
 
     @field_validator('event_type')
     def event_type_validate_enum(cls, value):
@@ -90,6 +91,11 @@ class UserReceivedResourceSharedNotificationEvent(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if receiving_connection_tenant_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.receiving_connection_tenant_id is None and "receiving_connection_tenant_id" in self.model_fields_set:
+            _dict['receiving_connection_tenant_id'] = None
+
         # set to None if display_name (nullable) is None
         # and model_fields_set contains the field
         if self.display_name is None and "display_name" in self.model_fields_set:
@@ -122,6 +128,7 @@ class UserReceivedResourceSharedNotificationEvent(BaseModel):
             "created_at": obj.get("created_at"),
             "receiving_connection_id": obj.get("receiving_connection_id"),
             "receiving_connection_label": obj.get("receiving_connection_label"),
+            "receiving_connection_tenant_id": obj.get("receiving_connection_tenant_id"),
             "resource_id": obj.get("resource_id"),
             "resource_type": obj.get("resource_type"),
             "occurred_at": obj.get("occurred_at"),

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from cx_Freeze._compat import ABI_THREAD, IS_ARM_64, IS_MINGW, IS_WINDOWS
+from cx_Freeze._compat import IS_ARM_64, IS_CONDA, IS_MINGW, IS_WINDOWS
 
 if TYPE_CHECKING:
     from tests.conftest import TempPackage
@@ -31,7 +31,6 @@ pyproject.toml
     version = "0.1.2.3"
     dependencies = [
         "streamlit>=1.51",
-        "anyio<4.15.1",
     ]
 
     [[tool.cxfreeze.executables]]
@@ -46,9 +45,10 @@ pyproject.toml
 
 
 @pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 15),
+    IS_CONDA and sys.version_info[:2] >= (3, 15),
     raises=ModuleNotFoundError,
-    reason="streamlit does not support Python 3.15 yet",
+    reason="conda-forge does not support pyarrow on Python 3.15+"
+    " (streamlit dependency)",
     strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.xfail(
@@ -56,10 +56,6 @@ pyproject.toml
     raises=ModuleNotFoundError,
     reason="streamlit not supported in mingw",
     strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
-)
-@pytest.mark.skipif(
-    ABI_THREAD == "t",
-    reason="streamlit does not support Python 3.14t/3.15t",
 )
 @pytest.mark.xfail(
     IS_WINDOWS and IS_ARM_64,

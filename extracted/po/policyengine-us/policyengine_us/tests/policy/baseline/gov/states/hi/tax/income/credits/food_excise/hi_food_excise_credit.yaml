@@ -1,0 +1,936 @@
+- name: SINGLE, dsi=false, under 5_000, 3 exemption, 1 minor child (received more than half), 1 child over 18
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 3
+        is_child: true
+        child_support_received: 400
+        social_security_survivors: 100
+        tanf_person: 401
+      person2:
+        age: 39
+        is_child: false
+      person3:
+        age: 19
+        is_child: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        adjusted_gross_income: 4_000
+        filing_status: SINGLE
+        exemptions_count: 3
+    households:
+      household: 
+        members: [person1, person2, person3]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 330
+
+- name: SINGLE, dsi=false, under 5_000, 3 exemption, 1 minor child (not received more than half), 1 child over 18
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 3
+        is_child: true
+        child_support_received: 1_000
+        social_security_survivors: 100
+        tanf_person: 400
+      person2:
+        age: 39
+        is_child: false
+      person3:
+        age: 19
+        is_child: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        adjusted_gross_income: 4_000
+        filing_status: SINGLE
+        exemptions_count: 3
+    households:
+      household: 
+        members: [person1, person2, person3]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 330
+
+- name: SINGLE, dsi=true, under 5_000, 2 exemption, 1 minor child (received more than half)
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 3
+        is_child: true
+        child_support_received: 400
+        social_security_survivors: 100
+        tanf_person: 401
+      person2:
+        age: 39
+        is_child: false
+        claimed_as_dependent_on_another_return: true
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+        tanf: 600 
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 4_000
+        filing_status: SINGLE
+        exemptions_count: 2
+    households:
+      household: 
+        members: [person1, person2]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 0
+
+- name: SINGLE, dsi=false, over 30_000, 3 exemption, 1 minor child (received more than half), 1 child over 18
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 3
+        is_child: true
+        child_support_received: 400
+        social_security_survivors: 100
+        tanf_person: 401
+      person2:
+        age: 39
+        is_child: false
+      person3:
+        age: 19
+        is_child: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        adjusted_gross_income: 35_000
+        filing_status: SINGLE
+        exemptions_count: 3
+    households:
+      household: 
+        members: [person1, person2, person3]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 110
+
+- name: JOINT, dsi=false, over 30_000 under 40_000, 3 exemption, 1 minor child (received more than half), 1 child over 18
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 3
+        is_child: true
+        child_support_received: 400
+        social_security_survivors: 100
+        tanf_person: 401
+      person2:
+        age: 39
+        is_child: false
+      person3:
+        age: 19
+        is_child: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        adjusted_gross_income: 35_000
+        filing_status: JOINT
+        exemptions_count: 3
+    households:
+      household: 
+        members: [person1, person2, person3]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 200
+
+- name: JOINT, dsi=false, over 50_000, 3 exemption, 1 minor child (received more than half), 1 child over 18
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 3
+        is_child: true
+        child_support_received: 500
+        social_security_survivors: 100
+        tanf_person: 401
+      person2:
+        age: 39
+        is_child: false
+      person3:
+        age: 19
+        is_child: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        adjusted_gross_income: 55_000
+        filing_status: JOINT
+        exemptions_count: 3
+    households:
+      household: 
+        members: [person1, person2, person3]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 110
+
+- name: JOINT, dsi=false, over 5_000 under 10_000, 2 exemption, 1 minor child (received more than half)
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 30
+        is_child: false
+      person2:
+        age: 17
+        is_child: true
+        child_support_received: 500
+        social_security_survivors: 100
+        tanf_person: 401
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 6_000
+        filing_status: SINGLE
+    households:
+      household: 
+        members: [person1, person2]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 210
+
+- name: JOINT, dsi=false, over 5_000 under 10_000, 2 exemption, 1 minor child (not received more than half)
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 30
+        is_child: false
+      person2:
+        age: 17
+        is_child: true
+        child_support_received: 1_000
+        social_security_survivors: 100
+        tanf_person: 400
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 6_000
+        filing_status: SINGLE
+    households:
+      household:
+        members: [person1, person2]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 200
+
+- name: JOINT filing with negative AGI should receive credit
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 40
+        short_term_capital_gains: -12_679.877
+        is_tax_unit_head: true
+      person2:
+        age: 40
+        short_term_capital_gains: -12_679.877
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: HI
+  output:
+    adjusted_gross_income: -3_000
+    exemptions_count: 2
+    hi_food_excise_credit: 440
+    hi_income_tax: -440
+
+- name: 2027 joint return where only one spouse can be claimed (the claimable spouse is the head)
+  period: 2027
+  input:
+    people:
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b]
+        filing_status: JOINT
+        adjusted_gross_income: 10_000
+    households:
+      household:
+        members: [person_a, person_b]
+        state_code: HI
+  output:
+    # Form N-311 counts only the spouse who cannot be claimed: 1 x $220.
+    hi_food_excise_credit: 220
+
+- name: 2027 joint return where only one spouse can be claimed (the claimable spouse is the spouse)
+  period: 2027
+  input:
+    people:
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a]
+        filing_status: JOINT
+        adjusted_gross_income: 10_000
+    households:
+      household:
+        members: [person_b, person_a]
+        state_code: HI
+  output:
+    # Form N-311 counts only the spouse who cannot be claimed: 1 x $220.
+    hi_food_excise_credit: 220
+
+- name: 2027 joint return where both spouses can be claimed
+  period: 2027
+  input:
+    people:
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b]
+        filing_status: JOINT
+        adjusted_gross_income: 10_000
+    households:
+      household:
+        members: [person_a, person_b]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 0
+
+- name: 2022 joint return with a publicly supported minor where only one spouse can be claimed (the claimable spouse is the head)
+  period: 2022
+  input:
+    people:
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4_000
+    households:
+      household:
+        members: [person_a, person_b, child_1]
+        state_code: HI
+  output:
+    # The spouse who cannot be claimed: $110; HRS 235-55.85(c) lets the minor
+    # receiving public support count for this credit: $110.
+    hi_food_excise_credit: 220
+
+- name: 2022 joint return with a publicly supported minor where only one spouse can be claimed (the claimable spouse is the spouse)
+  period: 2022
+  input:
+    people:
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4_000
+    households:
+      household:
+        members: [person_b, person_a, child_1]
+        state_code: HI
+  output:
+    # The spouse who cannot be claimed: $110; HRS 235-55.85(c) lets the minor
+    # receiving public support count for this credit: $110.
+    hi_food_excise_credit: 220
+
+- name: 2025 joint return with a publicly supported minor where only one spouse can be claimed (the claimable spouse is the head)
+  period: 2025
+  input:
+    people:
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4_000
+    households:
+      household:
+        members: [person_a, person_b, child_1]
+        state_code: HI
+  output:
+    # From 2023 the minor counts as a qualified exemption: 2 x $220.
+    hi_food_excise_credit: 440
+
+- name: 2025 joint return with a publicly supported minor where only one spouse can be claimed (the claimable spouse is the spouse)
+  period: 2025
+  input:
+    people:
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4_000
+    households:
+      household:
+        members: [person_b, person_a, child_1]
+        state_code: HI
+  output:
+    # From 2023 the minor counts as a qualified exemption: 2 x $220.
+    hi_food_excise_credit: 440
+
+- name: 2022 joint return where one spouse and the publicly supported minor can be claimed elsewhere (the claimable spouse is the head)
+  period: 2022
+  input:
+    people:
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+        claimed_as_dependent_on_another_return: true
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4_000
+    households:
+      household:
+        members: [person_a, person_b, child_1]
+        state_code: HI
+  output:
+    # Form N-311 line 3 lists only minors who cannot be claimed by another taxpayer,
+    # so only the spouse who cannot be claimed counts: $110.
+    hi_food_excise_credit: 110
+
+- name: 2022 joint return where one spouse and the publicly supported minor can be claimed elsewhere (the claimable spouse is the spouse)
+  period: 2022
+  input:
+    people:
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+        claimed_as_dependent_on_another_return: true
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4_000
+    households:
+      household:
+        members: [person_b, person_a, child_1]
+        state_code: HI
+  output:
+    # Form N-311 line 3 lists only minors who cannot be claimed by another taxpayer,
+    # so only the spouse who cannot be claimed counts: $110.
+    hi_food_excise_credit: 110
+
+- name: 2025 joint return where one spouse and the publicly supported minor can be claimed elsewhere (the claimable spouse is the head)
+  period: 2025
+  input:
+    people:
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+        claimed_as_dependent_on_another_return: true
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4_000
+    households:
+      household:
+        members: [person_a, person_b, child_1]
+        state_code: HI
+  output:
+    # Only the spouse who cannot be claimed counts: 1 x $220.
+    hi_food_excise_credit: 220
+
+- name: 2025 joint return where one spouse and the publicly supported minor can be claimed elsewhere (the claimable spouse is the spouse)
+  period: 2025
+  input:
+    people:
+      person_b:
+        age: 20
+        claimed_as_dependent_on_another_return: false
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 20
+        claimed_as_dependent_on_another_return: true
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+        claimed_as_dependent_on_another_return: true
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4_000
+    households:
+      household:
+        members: [person_b, person_a, child_1]
+        state_code: HI
+  output:
+    # Only the spouse who cannot be claimed counts: 1 x $220.
+    hi_food_excise_credit: 220
+
+# N-311 (2022 and 2025), PDF p.1 lines 2-3, excludes externally claimable
+# persons from both ordinary qualified persons and publicly supported minors.
+# At $4,000 AGI, 2022 lines 7-10 give 2 x $110; 2025 lines 7-9 give 2 x $220.
+- name: 2022 independent joint filers exclude externally claimable publicly supported child when person_a is head
+  period: 2022
+  input:
+    people:
+      person_a:
+        age: 40
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: false
+        dependent_claimant_filing_exception: false
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 45
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+        claimable_as_dependent_on_another_return: true
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4000
+    households:
+      household:
+        members: [person_a, person_b, child_1]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 220
+    hi_food_excise_exemption_amount: 220
+    hi_food_excise_credit_minor_child_count: 0
+
+- name: 2022 independent joint filers exclude externally claimable publicly supported child when person_b is head
+  period: 2022
+  input:
+    people:
+      person_b:
+        age: 45
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 40
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: false
+        dependent_claimant_filing_exception: false
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+        claimable_as_dependent_on_another_return: true
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4000
+    households:
+      household:
+        members: [person_b, person_a, child_1]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 220
+    hi_food_excise_exemption_amount: 220
+    hi_food_excise_credit_minor_child_count: 0
+
+- name: 2025 independent joint filers exclude externally claimable publicly supported child when person_a is head
+  period: 2025
+  input:
+    people:
+      person_a:
+        age: 40
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: false
+        dependent_claimant_filing_exception: false
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 45
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+        claimable_as_dependent_on_another_return: true
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4000
+    households:
+      household:
+        members: [person_a, person_b, child_1]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 440
+    hi_food_excise_exemption_amount: 440
+    hi_food_excise_credit_minor_child_count: 0
+
+- name: 2025 independent joint filers exclude externally claimable publicly supported child when person_b is head
+  period: 2025
+  input:
+    people:
+      person_b:
+        age: 45
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 40
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: false
+        dependent_claimant_filing_exception: false
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+        claimable_as_dependent_on_another_return: true
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4000
+    households:
+      household:
+        members: [person_b, person_a, child_1]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 440
+    hi_food_excise_exemption_amount: 440
+    hi_food_excise_credit_minor_child_count: 0
+
+- name: 2022 joint return filing exception restores own ordinary dependent but excludes claimable head
+  period: 2022
+  input:
+    people:
+      person_a:
+        age: 26
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: true
+        dependent_claimant_filing_exception: true
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 30
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: false
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4000
+    households:
+      household:
+        members: [person_a, person_b, child_1]
+        state_code: HI
+  output:
+    hi_food_excise_credit_minor_child_count: 0
+    hi_food_excise_credit: 220
+    hi_food_excise_exemption_amount: 220
+
+- name: 2022 joint return filing exception restores own ordinary dependent but excludes claimable spouse
+  period: 2022
+  input:
+    people:
+      person_b:
+        age: 30
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 26
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: true
+        dependent_claimant_filing_exception: true
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: false
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4000
+    households:
+      household:
+        members: [person_b, person_a, child_1]
+        state_code: HI
+  output:
+    hi_food_excise_credit_minor_child_count: 0
+    hi_food_excise_credit: 220
+    hi_food_excise_exemption_amount: 220
+
+- name: 2025 joint return filing exception restores own ordinary dependent but excludes claimable head
+  period: 2025
+  input:
+    people:
+      person_a:
+        age: 26
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: true
+        dependent_claimant_filing_exception: true
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_b:
+        age: 30
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: false
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4000
+    households:
+      household:
+        members: [person_a, person_b, child_1]
+        state_code: HI
+  output:
+    hi_food_excise_credit_minor_child_count: 0
+    hi_food_excise_credit: 440
+    hi_food_excise_exemption_amount: 440
+
+- name: 2025 joint return filing exception restores own ordinary dependent but excludes claimable spouse
+  period: 2025
+  input:
+    people:
+      person_b:
+        age: 30
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 26
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: true
+        dependent_claimant_filing_exception: true
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+      child_1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: false
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a, child_1]
+        filing_status: JOINT
+        adjusted_gross_income: 4000
+    households:
+      household:
+        members: [person_b, person_a, child_1]
+        state_code: HI
+  output:
+    hi_food_excise_credit_minor_child_count: 0
+    hi_food_excise_credit: 440
+    hi_food_excise_exemption_amount: 440
+
+# A publicly supported minor filer belongs to N-311 line 2, not line 3.
+# At $16,000 AGI in 2022, 2 ordinary persons x $70 = $140.
+- name: 2022 publicly supported minor filer is only an ordinary qualified person when labelled head
+  period: 2022
+  input:
+    people:
+      person_a:
+        age: 17
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: false
+        dependent_claimant_filing_exception: false
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        hi_food_excise_credit_child_receiving_public_support: true
+      person_b:
+        age: 20
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person_a, person_b]
+        filing_status: JOINT
+        adjusted_gross_income: 16000
+    households:
+      household:
+        members: [person_a, person_b]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 140
+    hi_food_excise_credit_minor_child_count: 0
+
+- name: 2022 publicly supported minor filer is only an ordinary qualified person when labelled spouse
+  period: 2022
+  input:
+    people:
+      person_b:
+        age: 20
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+      person_a:
+        age: 17
+        claimed_as_dependent_on_another_return: false
+        claimable_as_dependent_on_another_return: false
+        dependent_claimant_filing_exception: false
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+        hi_food_excise_credit_child_receiving_public_support: true
+    tax_units:
+      tax_unit:
+        members: [person_b, person_a]
+        filing_status: JOINT
+        adjusted_gross_income: 16000
+    households:
+      household:
+        members: [person_b, person_a]
+        state_code: HI
+  output:
+    hi_food_excise_credit: 140
+    hi_food_excise_credit_minor_child_count: 0

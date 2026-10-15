@@ -36,6 +36,18 @@ namespace nla {
         m_core->add_divisibility(r, x, y, d);
     }
 
+    void solver::add_transcendental(nlsat::transcendental_op_kind op, lpvar arg, lpvar val) {
+        m_core->add_transcendental(op, arg, val);
+    }
+
+    void solver::add_pi(lpvar val) {
+        m_core->add_pi(val);
+    }
+
+    void solver::add_atan2(lpvar y, lpvar x, lpvar val) {
+        m_core->add_atan2(y, x, val);
+    }
+
     void solver::set_relevant(std::function<bool(lpvar)>& is_relevant) {
         m_core->set_relevant(is_relevant);
     }
@@ -48,7 +60,9 @@ namespace nla {
         return m_core->is_monic_var(v);
     }
     
-    bool solver::need_check() { return m_core->has_relevant_monomial(); }
+    bool solver::need_check() {
+        return m_core->has_relevant_monomial() || !m_core->get_transcendentals().empty();
+    }
     
     lbool solver::check(unsigned level) {
         return m_core->check(level);

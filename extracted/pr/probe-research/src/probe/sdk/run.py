@@ -23,7 +23,7 @@ import contextvars
 import errno
 import functools
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import math
 import os
@@ -87,6 +87,7 @@ from ..models import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from .catalog import DatasetRef
     from .client import Client
 
 
@@ -3001,20 +3002,30 @@ class Run:
         wins. The kinds are ``checkpoint``, ``dataset``, ``evaluation``, ``code``
         and ``other``; the server files any other word as ``other`` (a synonym
         such as ``benchmark`` as its kind) and keeps the word in
-        ``meta.kind_label`` (``artifact_kinds``)."""
+        ``meta.kind_label`` (``artifact_kinds``).
+
+        A path a ``.probe.config`` excludes records nothing, except at ``hash``:
+        there a reference (``reference=True``, or a ``uri`` alone) is recorded
+        by identity only -- location, size and, for a path, its sha256 or
+        fingerprint in ``meta`` (`catalog.identity_meta`) -- and an upload is
+        refused."""
         from . import probe_config as _pc_uri
 
         local = path if path is not None else _pc_uri.local_path_of(uri)
+        identity_only = False
         if local is not None:
             # A researcher's `.probe.config` excludes the file (or folder): nothing
-            # is recorded about it, named explicitly or not.
+            # is recorded about it, named explicitly or not -- but at `hash` its
+            # identity is what the level allows, so a reference still records.
             from . import exclusions as _exclusions
             from . import probe_config as _probe_config
 
             verdict = _exclusions.excluded(local)
             if verdict.excluded:
-                _exclusions.warn(_exclusions.say(_probe_config.ARTIFACT_EXCLUDED, local, verdict))
-                return None
+                if not (verdict.identity_only and (reference or path is None)):
+                    _exclusions.warn(_exclusions.say(_probe_config.ARTIFACT_EXCLUDED, local, verdict))
+                    return None
+                identity_only = True
         self._progress.bump()  # 2.8: a checkpoint or output upload is work done
         # Before anything branches on it: every branch below stores `name`, and the
         # preview route reads its extension. `log_artifact("ckpt", path="ckpt-4000.pt")`
@@ -3053,6 +3064,14 @@ class Run:
                 size_bytes = fields.get("size_bytes")
             for key, value in fields["meta"].items():
                 meta.setdefault(key, value)
+            if identity_only:
+                # In `meta`, never `content_hash`: the row stays a hashless
+                # reference, which the server refreshes in place (a checkpoint's
+                # best / deleted flags).
+                from .catalog import identity_meta
+
+                for key, value in identity_meta(path, self.id).items():
+                    meta.setdefault(key, value)
             is_reference = True
         elif path is not None and uri is None:
             # A REFUSAL by the credential gate -- over the 64 MiB inspection
@@ -3318,6 +3337,82 @@ class Run:
         run under that scope can see it (``to="experiment"`` or ``"project"``). Sugar over
         ``Client.move_artifact``; the target scope is derived from this run's chain."""
         return self._client.move_artifact(artifact_id, level=to)
+
+    # -- the data catalog (plan data-catalog C5; `probe.sdk.catalog`) --------
+    # What this run used and made, as the team's datasets, sources and
+    # checkpoints. Each warns once and returns quietly on an old server, a
+    # network error or a refusal: none raises into the job.
+
+    def use_dataset(self, ref: Any, *, role: str = "train", share: float | None = None) -> None:
+        """Record that this run used a dataset version or a source (``ref``: a
+        ``str`` such as ``"dataset:c4-clean@3"``, or what ``probe.source`` /
+        :meth:`log_dataset` returned) for ``role``: ``train``, ``validation``,
+        ``test``, ``eval``, ``init``, ``tokenizer`` or ``other``. A bare
+        ``dataset:<name>`` is pinned to the version that is current now.
+        ``share``: its weight in a training mix (see :meth:`use_mixture`)."""
+        from . import catalog
+
+        catalog.use(self, ref, role=role, share=share, what="use_dataset")
+
+    def use_mixture(self, parts: Mapping[Any, float], *, role: str = "train") -> None:
+        """Record what this run trained on as a mixture, ``{ref: share}`` with
+        shares summing to 1: one request that replaces the run's shares for
+        ``role``, so separate calls cannot drift past 1."""
+        from . import catalog
+
+        catalog.use_mixture(self, parts, role=role)
+
+    def use_checkpoint(self, ref: str, *, role: str = "init") -> None:
+        """Record the weights this run started from: ``checkpoint:<id>`` or
+        ``checkpoint:<run>@best|latest|step<N>`` (role ``init``)."""
+        from . import catalog
+
+        catalog.use(self, ref, role=role, what="use_checkpoint")
+
+    def log_dataset(
+        self,
+        path_or_uri: str | os.PathLike,
+        name: str,
+        *,
+        register: bool = True,
+        publish: bool = False,
+        upload: bool = False,
+        sources: Iterable[Any] = (),
+        note: str | None = None,
+        stats: Mapping[str, Any] | None = None,
+        hash: str = "budget",  # noqa: A002 - the plan's name
+        composition: Mapping[Any, Any] | None = None,
+        preview: bool = True,
+        description: str | None = None,
+    ) -> DatasetRef:
+        """Record a dataset this run produced -- a file, a folder or a remote
+        uri -- as the next version of the team dataset ``name`` (``register``),
+        and return a :class:`~probe.sdk.catalog.DatasetRef` (``.ref`` is
+        ``dataset:<name>@<n>``).
+
+        Bytes stay where they are by default: a folder is identified by its
+        manifest (each file's path, size and sha256, hashed within the run's I/O
+        budget; past it a file is fingerprinted and the version is ``partial``;
+        ``hash="full"`` hashes everything), a remote uri by itself
+        (``pointer``). ``upload=True`` stores the file or folder in Probe
+        instead (uploads before it returns). ``sources``: what it was derived
+        from; ``note`` / ``stats``: what changed and why; ``composition``:
+        ``{dataset ref: rows}`` (shares computed) or ``{ref: share}`` for a
+        dataset built from others. ``publish=True`` is needed from a
+        read-restricted project. ``register=False`` records the run's file only
+        and returns its ``artifact:<id>``. A dataset kept outside Probe gets a
+        100-record preview sample uploaded (``preview=False`` turns it off).
+
+        Waits at most 10 s for Probe; past that the ref comes back
+        ``pending=True`` and fills in when the registration lands
+        (``DatasetRef.wait()``). Never raises."""
+        from . import catalog
+
+        return catalog.log_dataset(
+            self, path_or_uri, name, register=register, publish=publish, upload=upload, sources=sources,
+            note=note, stats=stats, hash=hash, composition=composition, preview=preview,
+            description=description,
+        )
 
     def _maybe_multipart(
         self,

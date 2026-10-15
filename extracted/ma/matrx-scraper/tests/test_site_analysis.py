@@ -282,16 +282,32 @@ def _doc(**overrides) -> SitemapDocFacts:
     return SitemapDocFacts(**base)
 
 
-def test_sitemap_health_unreachable_document_is_the_worst_band():
+@pytest.mark.parametrize("status", [404, 410])
+def test_sitemap_health_unreachable_document_is_the_worst_band(status):
+    # Rule: only a permanent failure (404/410) is "cannot be read".
     outcome = _check_sitemap_health(
         evidence(
             sitemap_sync_ran=True,
-            sitemaps=[_doc(status_code=503)],
+            sitemaps=[_doc(status_code=status)],
             sitemap_entries_total=10,
         )
     )
     assert_db_valid(outcome)
     assert outcome.score == SITEMAP_UNREACHABLE_SCORE
+
+
+@pytest.mark.parametrize("status", [503, 429, 403])
+def test_sitemap_health_transient_failure_is_not_the_worst_band(status):
+    # Rule: 5xx and bot-wall statuses are "could not check", not dead.
+    outcome = _check_sitemap_health(
+        evidence(
+            sitemap_sync_ran=True,
+            sitemaps=[_doc(status_code=status)],
+            sitemap_entries_total=10,
+        )
+    )
+    assert_db_valid(outcome)
+    assert outcome.score != SITEMAP_UNREACHABLE_SCORE
 
 
 def test_sitemap_health_fetch_error_counts_as_unreachable():
@@ -540,6 +556,24 @@ def test_host_temporary_redirect_lands_in_the_soft_band():
 
 
 def test_host_redirect_chain_lands_in_the_soft_band():
+    # Rule: a chain over HOST_MAX_REDIRECT_HOPS (2) hops is soft-band, even all-301.
+    outcome = _check_host_protocol_consistency(
+        evidence(
+            probe=probe(
+                variants=[
+                    resolves("https://example.com/"),
+                    redirects_to(
+                        "http://www.example.com/", "https://example.com/", status=301, hops=3
+                    ),
+                ]
+            )
+        )
+    )
+    assert outcome.score == HOST_SOFT_REDIRECT_SCORE
+
+
+def test_host_two_hop_permanent_chain_is_clean():
+    # Rule: a 2-hop chain of permanent (301) redirects is consolidation working.
     outcome = _check_host_protocol_consistency(
         evidence(
             probe=probe(
@@ -552,7 +586,9 @@ def test_host_redirect_chain_lands_in_the_soft_band():
             )
         )
     )
-    assert outcome.score == HOST_SOFT_REDIRECT_SCORE
+    assert_db_valid(outcome)
+    assert outcome.score != HOST_SOFT_REDIRECT_SCORE
+    assert outcome.status == "pass"
 
 
 def test_host_trailing_slash_duplicate_is_scored_the_third_family():

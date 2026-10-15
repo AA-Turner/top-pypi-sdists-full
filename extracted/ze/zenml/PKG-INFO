@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zenml
-Version: 0.97.0
+Version: 0.98.0
 Summary: ZenML: MLOps for Reliable AI: from Classical AI to Agents.
 Keywords: machine learning,production,pipeline,mlops,devops,ai,agents,agentic workflows
 Author: ZenML GmbH
@@ -134,7 +134,7 @@ Requires-Dist: zenml[local,native-schedules] ; extra == 'server'
 Requires-Dist: fastapi>=0.138.0,<0.139.0 ; extra == 'server'
 Requires-Dist: uvicorn[standard]>=0.17.5 ; extra == 'server'
 Requires-Dist: python-multipart~=0.0.9 ; extra == 'server'
-Requires-Dist: pyjwt[crypto]>=2.13.0,<2.14.0 ; extra == 'server'
+Requires-Dist: pyjwt[crypto]>=2.15.1,<2.16.0 ; extra == 'server'
 Requires-Dist: jinja2 ; extra == 'server'
 Requires-Dist: ipinfo>=4.4.3 ; extra == 'server'
 Requires-Dist: secure~=1.0.1 ; extra == 'server'

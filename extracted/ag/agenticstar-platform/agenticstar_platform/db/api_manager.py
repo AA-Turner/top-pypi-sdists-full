@@ -6,9 +6,13 @@ API経由でデータベースアクセスを行うPostgreSQLManager実装（CLI
 from __future__ import annotations
 
 import asyncio
+import email.utils
 import logging
+import math
 import random
-from typing import Any, Callable, Dict, List, Optional
+import re
+import time
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 import httpx
 
@@ -26,7 +30,65 @@ logger = logging.getLogger(__name__)
 # a typical kube-proxy / endpoint update window without leaving the user waiting too long
 # on a genuinely down upstream.
 _CONNECT_RETRY_MAX_ATTEMPTS = 5
-_CONNECT_RETRY_BASE_SEC = 1.0  # 1, 2, 4, 8, 16 (± 20% jitter)
+_CONNECT_RETRY_BASE_SEC = 1.0  # waits 1, 2, 4, 8 s (± 20% jitter) between the 5 attempts
+
+# 3.1.0: the proxy (cli-api) answers 503 *before* the request is processed while a replica is being recycled and
+# when it cannot check the calling Pod yet, so resending those is safe. Only these exact JSON `detail` values are
+# resent (a 503 from anything else on the way, which may come after the query ran, is not), within the same attempt
+# budget, waiting at least Retry-After (capped). Any other 503 / 5xx is returned as before.
+_RESENDABLE_503_DETAILS = frozenset({
+    "cli-api is draining for memory recycle, retry on another replica",  # memory guard (src/api/memory_guard.py)
+    "caller binding unavailable (retryable)",  # caller binding (src/api/caller_binding.py)
+})
+_DRAIN_RETRY_AFTER_CAP_SEC = 10.0
+
+# 3.1.0: idle connections are dropped after 4 s. The proxy (uvicorn) closes idle keep-alive connections after
+# 5 s; reusing one at that moment fails with "Server disconnected without sending a response" after the request
+# was sent, which cannot be retried safely. The pool sizes are httpx's defaults, stated because passing
+# `httpx.Limits(...)` replaces them (an explicit Limits without them would mean "no limit").
+_HTTP_LIMITS = httpx.Limits(max_connections=100, max_keepalive_connections=20, keepalive_expiry=4.0)
+
+# 3.1.0 headers_provider: a header name must be an RFC 9110 token and a value visible ASCII (inner spaces allowed,
+# no leading / trailing space), so h11 / httpx can always send it. Headers the client itself owns cannot be set.
+# fullmatch で使う (`$` は末尾の改行を許すので使わない)
+_HEADER_NAME_RE = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+")
+_HEADER_VALUE_RE = re.compile(r"[\x21-\x7e](?:[\x20-\x7e]*[\x21-\x7e])?")
+_RESERVED_HEADERS = frozenset({"authorization", "host", "content-length", "content-type", "transfer-encoding",
+                               "connection", "te", "upgrade", "trailer", "expect"})
+
+
+def _backoff_sec(attempt: int) -> float:
+    base = _CONNECT_RETRY_BASE_SEC * (2 ** (attempt - 1))
+    jitter = base * 0.2 * (random.random() * 2 - 1)
+    return max(0.1, base + jitter)
+
+
+def _retry_after_sec(value: Optional[str]) -> float:
+    """Retry-After (delta-seconds or HTTP-date) → seconds, 0 when missing or unusable."""
+    if not value:
+        return 0.0
+    try:
+        sec = float(value)
+    except ValueError:
+        try:
+            sec = email.utils.parsedate_to_datetime(value).timestamp() - time.time()
+        except (TypeError, ValueError, IndexError, OverflowError):
+            return 0.0
+    return sec if math.isfinite(sec) and sec > 0 else 0.0
+
+
+def _drain_wait_sec(response: httpx.Response) -> Optional[float]:
+    """Seconds to wait before resending if this is one of the proxy's resendable 503 answers, else None."""
+    if response.status_code != 503:
+        return None
+    try:
+        body = response.json()
+    except Exception:  # noqa: BLE001 - a non-JSON body is not the proxy's answer
+        return None
+    detail = body.get("detail") if isinstance(body, dict) else None
+    if not isinstance(detail, str) or detail not in _RESENDABLE_503_DETAILS:
+        return None
+    return min(_retry_after_sec(response.headers.get("retry-after")), _DRAIN_RETRY_AFTER_CAP_SEC)
 
 
 
@@ -44,17 +106,22 @@ class ApiPostgreSQLManager:
         config: PostgreSQLConfig,
         *,
         token_provider: Callable[[], Optional[str]],
+        headers_provider: Optional[Callable[[], Optional[Mapping[str, str]]]] = None,
     ):
         """
         Args:
             config: PostgreSQL設定（api_url必須）
             token_provider: 認証トークンを取得する関数（必須、都度呼び出し）
+            headers_provider: 3.1.0. 要求ごとに足すヘッダ (mapping) を返す関数（任意、都度呼び出し）。呼び出し元を
+                識別するヘッダ (例: 実行の ID) を proxy に渡す用途。送れるものだけ足す (名前は token、値は前後に空白の
+                無い可視 ASCII)。Authorization・Host 等 client が持つヘッダは上書きできない。例外は「足さない」
 
         Raises:
             ValueError: api_url未設定時
         """
         self.config = config
         self._token_provider = token_provider
+        self._headers_provider = headers_provider
 
         # API URL取得・検証
         if config.api_url:
@@ -111,7 +178,7 @@ class ApiPostgreSQLManager:
             return self._http_client
         async with self._http_client_lock:
             if self._http_client is None or self._http_client.is_closed:
-                self._http_client = httpx.AsyncClient(timeout=timeout)
+                self._http_client = httpx.AsyncClient(timeout=timeout, limits=_HTTP_LIMITS)
             return self._http_client
 
     async def execute_query(
@@ -165,6 +232,27 @@ class ApiPostgreSQLManager:
             return result["data"]
         return []
 
+    def _extra_headers(self) -> Dict[str, str]:
+        """headers_provider の値のうち送れるものだけ (名前は token、値は前後に空白の無い可視 ASCII。Authorization・
+        Host・Content-Type 等 client が持つヘッダは除く)。送れない値と provider の失敗は「足さない」。"""
+        if self._headers_provider is None:
+            return {}
+        try:
+            extra = self._headers_provider() or {}
+            out: Dict[str, str] = {}
+            for k, v in dict(extra).items():
+                if not isinstance(k, str) or not _HEADER_NAME_RE.fullmatch(k) or k.lower() in _RESERVED_HEADERS:
+                    continue
+                if v is None or not isinstance(v, (str, int)) or isinstance(v, bool):
+                    continue
+                value = str(v)
+                if _HEADER_VALUE_RE.fullmatch(value):
+                    out[k] = value
+            return out
+        except Exception as e:  # noqa: BLE001 - extra headers must never fail the query
+            logger.debug(f"[ApiPostgreSQLManager] headers_provider failed: {type(e).__name__}")
+            return {}
+
     async def _api_request(
         self,
         operation: str,
@@ -173,10 +261,10 @@ class ApiPostgreSQLManager:
     ) -> Dict[str, Any]:
         """API共通リクエスト処理。
 
-        TCP 接続確立失敗 (httpx.ConnectError) のみ retry する。
-        ConnectError は SYN が通らなかった = サーバ側に request が届いていない
+        TCP 接続確立失敗 (httpx.ConnectError) と、proxy が処理の前に返す退避の 503 (本文 `draining`、3.1.0)
+        だけ retry する。ConnectError は SYN が通らなかった = サーバ側に request が届いていない
         ことが保証されるので、INSERT/UPDATE 等の non-idempotent な query でも
-        retry 安全。
+        retry 安全。退避の 503 も処理の前に返るので同じ。
 
         ReadError / WriteError は request が既に流れた後の失敗で、サーバ側に
         部分的に処理されている可能性があるため retry しない (二重書込防止)。
@@ -192,7 +280,7 @@ class ApiPostgreSQLManager:
                 "error_code": "AUTH_ERROR",
             }
 
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {**self._extra_headers(), "Authorization": f"Bearer {token}"}
         params = tuple(params)  # 1 回で確定する (iterator を 2 度なぞって params と param_types がずれないように)
         serialized_params = [_serialize_param(p) for p in params]
         # 3.0.15: どの文字列が date / datetime 由来かを params と同じ並びで添える (wire_types 参照)
@@ -225,6 +313,18 @@ class ApiPostgreSQLManager:
                             "error_code": "UNAUTHORIZED",
                         }
 
+                    drain_wait = _drain_wait_sec(response)
+                    if drain_wait is not None and attempt < _CONNECT_RETRY_MAX_ATTEMPTS:
+                        # 処理の前に返る退避の 503。別の replica に届くよう待って送り直す (最後の試行では下の
+                        # 4xx/5xx の扱いで今までどおり API_ERROR を返す)
+                        wait_sec = max(drain_wait, _backoff_sec(attempt))
+                        logger.warning(
+                            f"[ApiPostgreSQLManager] proxy is draining (503) "
+                            f"(attempt {attempt}/{_CONNECT_RETRY_MAX_ATTEMPTS}), retrying in {wait_sec:.1f}s"
+                        )
+                        await asyncio.sleep(wait_sec)
+                        continue
+
                     if response.status_code >= 400:
                         error_text = response.text
                         logger.error(
@@ -244,9 +344,7 @@ class ApiPostgreSQLManager:
                 last_connect_error = e
                 if attempt >= _CONNECT_RETRY_MAX_ATTEMPTS:
                     break
-                base = _CONNECT_RETRY_BASE_SEC * (2 ** (attempt - 1))
-                jitter = base * 0.2 * (random.random() * 2 - 1)
-                wait_sec = max(0.1, base + jitter)
+                wait_sec = _backoff_sec(attempt)
                 logger.warning(
                     f"[ApiPostgreSQLManager] ConnectError "
                     f"(attempt {attempt}/{_CONNECT_RETRY_MAX_ATTEMPTS}), "
@@ -263,9 +361,7 @@ class ApiPostgreSQLManager:
                     last_connect_error = e  # type: ignore[assignment]
                     if attempt >= _CONNECT_RETRY_MAX_ATTEMPTS:
                         break
-                    base = _CONNECT_RETRY_BASE_SEC * (2 ** (attempt - 1))
-                    jitter = base * 0.2 * (random.random() * 2 - 1)
-                    wait_sec = max(0.1, base + jitter)
+                    wait_sec = _backoff_sec(attempt)
                     logger.warning(
                         f"[ApiPostgreSQLManager] ConnectTimeout "
                         f"(attempt {attempt}/{_CONNECT_RETRY_MAX_ATTEMPTS}), "

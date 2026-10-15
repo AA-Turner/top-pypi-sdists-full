@@ -1,0 +1,116 @@
+- name: Texas gross per-capita CHIP is non-zero for an eligible person.
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    is_chip_eligible: true
+    state_code: TX
+  output:
+    per_capita_chip_gross: 1_464.19
+
+- name: Missouri gross per-capita CHIP exceeds the net figure by the state's premium offset per enrollee.
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    is_chip_eligible: true
+    state_code: MO
+  output:
+    per_capita_chip_gross: 2_911.85
+
+- name: Texas ineligible person has zero gross CHIP value.
+  period: 2024
+  input:
+    is_chip_eligible: false
+    state_code: TX
+  output:
+    per_capita_chip_gross: 0
+
+- name: Case 4, Florida gross per-capita CHIP adds FY2024 cost-sharing offsets to FY2024 net spending.
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    is_chip_eligible: true
+    state_code: FL
+  output:
+    per_capita_chip_gross: 3_196.23
+
+- name: Case 5, New York gross per-capita CHIP uses separate CHIP spending, enrollment, and offsets.
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    is_chip_eligible: true
+    state_code: NY
+  output:
+    per_capita_chip_gross: 1_822.46
+
+- name: Case 6, Maryland gross CHIP returns zero without separate CHIP child enrollment.
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    is_chip_eligible: true
+    state_code: MD
+  output:
+    per_capita_chip_gross: 0
+
+- name: Case 7, Kansas gross CHIP uses separate CHIP spending, enrollment, and offsets.
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    is_chip_eligible: true
+    state_code: KS
+  output:
+    per_capita_chip_gross: 1_962.06
+
+- name: Case 8, Oklahoma negative 2023 gross separate CHIP spending does not reduce benefits.
+  period: 2023
+  input:
+    is_chip_eligible: true
+    state_code: OK
+  output:
+    per_capita_chip_gross: 0
+
+- name: Case 9, Oklahoma negative 2024 gross separate CHIP spending does not reduce benefits.
+  period: 2024
+  input:
+    is_chip_eligible: true
+    state_code: OK
+  output:
+    per_capita_chip_gross: 0
+
+- name: Case 10, California CCHIP retains the pooled gross value before 2026.
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    state_code: CA
+    is_chip_eligible: true
+    chip_category: CHILD_CCHIP
+  output:
+    per_capita_chip_gross: 13_119.89
+
+- name: Case 11, California gross CCHIP value uses the child estimate while pregnancy values stay pooled.
+  period: 2026
+  absolute_error_margin: 0.01
+  input:
+    state_code: [CA, CA, CA, CA, CA]
+    is_chip_eligible: [true, true, true, true, false]
+    chip_category: [CHILD_CCHIP, PREGNANT_FCEP, PREGNANT_STANDARD, CHILD, NONE]
+  output:
+    per_capita_chip_gross: [4_128, 13_119.89, 13_119.89, 13_119.89, 0]
+
+- name: Case 12, California gross CCHIP value uses the FY2026-27 estimate in model year 2027.
+  period: 2027
+  input:
+    state_code: CA
+    is_chip_eligible: true
+    chip_category: CHILD_CCHIP
+  output:
+    per_capita_chip_gross: 4_637
+
+- name: Case 13, Missouri retains its gross value including cost-sharing offsets in 2026.
+  period: 2026
+  absolute_error_margin: 0.01
+  input:
+    state_code: MO
+    is_chip_eligible: true
+    chip_category: CHILD
+  output:
+    per_capita_chip_gross: 2_911.85

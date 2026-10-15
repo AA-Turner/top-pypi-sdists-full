@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polyleven
-Version: 0.11.0
+Version: 0.12.0
 Summary: A fast C-implemented library for Levenshtein distance
 Maintainer-email: Fujimoto Seiji <fujimoto@ceptord.net>
 Project-URL: github, https://github.com/fujimotos/polyleven

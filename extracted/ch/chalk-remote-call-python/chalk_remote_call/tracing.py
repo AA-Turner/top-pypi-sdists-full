@@ -3,8 +3,10 @@ from __future__ import annotations
 import atexit
 import contextlib
 import importlib
+import logging
 import os
-from collections.abc import Iterator, Mapping, Sequence
+import threading
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any, cast
 
 _TRACER_NAME = "chalk_remote_call"
@@ -30,6 +32,77 @@ _otel_modules: tuple[Any, Any, Any] | object | None = None
 _always_off_tracer: Any | object | None = None
 _runtime_tracing_configured = False
 _runtime_tracer_provider: Any | None = None
+_runtime_span_flusher: _BackgroundSpanFlusher | None = None
+# Bounds each background flush so a stalled collector cannot wedge the flush thread.
+_SPAN_FLUSH_TIMEOUT_MILLIS = 5000
+
+_logger = logging.getLogger(__name__)
+
+
+class _BackgroundSpanFlusher:
+    """Runs a tracer provider's ``force_flush`` on one daemon thread, off the request path.
+
+    Function pods outlive invocations, so without a flush an invocation's ended spans wait
+    for the batch processor's schedule delay before export. Requests coalesce: every request
+    made before a flush starts is satisfied by that flush, while a request made after a flush
+    starts schedules another, because spans ended after the flush began may have missed it.
+    """
+
+    def __init__(self, flush: Callable[[int], object], timeout_millis: int) -> None:
+        super().__init__()
+        self._flush = flush
+        self._timeout_millis = timeout_millis
+        self._cond = threading.Condition()
+        # Monotonic counters: requests made, the request count covered by the latest flush to
+        # start, and the request count covered by the latest flush to finish.
+        self._requested = 0
+        self._started = 0
+        self._completed = 0
+        self._thread: threading.Thread | None = None
+
+    def request(self) -> None:
+        with self._cond:
+            self._requested += 1
+            # is_alive (rather than None) also restarts the worker in a forked child.
+            if self._thread is None or not self._thread.is_alive():
+                self._thread = threading.Thread(
+                    target=self._run,
+                    name="chalk-remote-call-span-flush",
+                    daemon=True,
+                )
+                self._thread.start()
+            self._cond.notify_all()
+
+    def wait_until_idle(self, timeout: float) -> bool:
+        """Block until every request made so far is covered by a finished flush."""
+        with self._cond:
+            return self._cond.wait_for(lambda: self._completed >= self._requested, timeout)
+
+    def _run(self) -> None:
+        while True:
+            with self._cond:
+                self._cond.wait_for(lambda: self._started < self._requested)
+                target = self._requested
+                self._started = target
+            try:
+                if self._flush(self._timeout_millis) is False:
+                    _logger.debug("Span flush did not finish within %d ms", self._timeout_millis)
+            except Exception:
+                _logger.warning("Span flush failed", exc_info=True)
+            with self._cond:
+                self._completed = target
+                self._cond.notify_all()
+
+
+def _request_span_flush() -> None:
+    flusher = _runtime_span_flusher
+    if flusher is None:
+        return
+    try:
+        flusher.request()
+    except Exception:
+        # Flushing is best effort; it must never fail the invocation it follows.
+        _logger.debug("Could not schedule span flush", exc_info=True)
 
 
 def _raw_metadata(context_metadata: Any) -> Mapping[str, Any] | None:
@@ -106,7 +179,7 @@ def _runtime_resource_attributes() -> dict[str, str]:
 
 
 def _configure_runtime_tracing(sample_rate: float) -> None:
-    global _runtime_tracing_configured, _runtime_tracer_provider
+    global _runtime_tracing_configured, _runtime_tracer_provider, _runtime_span_flusher
     if _runtime_tracing_configured:
         return
 
@@ -130,6 +203,7 @@ def _configure_runtime_tracing(sample_rate: float) -> None:
                 otlp_exporter = importlib.import_module("opentelemetry.exporter.otlp.proto.grpc.trace_exporter")
                 sdk_export = importlib.import_module("opentelemetry.sdk.trace.export")
                 provider.add_span_processor(sdk_export.BatchSpanProcessor(otlp_exporter.OTLPSpanExporter()))
+                _runtime_span_flusher = _BackgroundSpanFlusher(provider.force_flush, _SPAN_FLUSH_TIMEOUT_MILLIS)
             except Exception:
                 pass
 
@@ -341,23 +415,31 @@ def remote_function_invocation_span(
     if parent_context is not None:
         span_kwargs["context"] = parent_context
 
-    with tracer.start_as_current_span("chalkcompute.remote_function.invoke", **span_kwargs) as span:
-        span.set_attribute("chalk.remote_function.name", function_name)
-        if coalesced_count is not None:
-            span.set_attribute(
-                "chalk.remote_function.coalesced_count",
-                coalesced_count,
-            )
-        if parent_context is not None and not span.get_span_context().is_valid:
-            token = otel_context.attach(parent_context)
+    # The always-off tracer exports nothing, so only runtime-provider spans need a flush.
+    flush_after = policy != _TRACE_POLICY_ALWAYS_OFF
+    try:
+        with tracer.start_as_current_span("chalkcompute.remote_function.invoke", **span_kwargs) as span:
+            span.set_attribute("chalk.remote_function.name", function_name)
+            if coalesced_count is not None:
+                span.set_attribute(
+                    "chalk.remote_function.coalesced_count",
+                    coalesced_count,
+                )
+            if parent_context is not None and not span.get_span_context().is_valid:
+                token = otel_context.attach(parent_context)
+                try:
+                    yield
+                finally:
+                    otel_context.detach(token)
+                return
             try:
                 yield
-            finally:
-                otel_context.detach(token)
-            return
-        try:
-            yield
-        except Exception as exc:
-            span.record_exception(exc)
-            span.set_status(Status(StatusCode.ERROR, str(exc)))
-            raise
+            except Exception as exc:
+                span.record_exception(exc)
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                raise
+    finally:
+        # Runs after the invocation span (and any span the handler opened inside it) has
+        # ended, so the flush it schedules covers this invocation's spans.
+        if flush_after:
+            _request_span_flush()

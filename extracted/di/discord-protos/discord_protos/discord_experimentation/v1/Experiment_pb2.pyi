@@ -174,6 +174,7 @@ class Experiment(_message.Message):
         SURFACE_AV_WORKER: Experiment._Surface.ValueType  # 6
         SURFACE_SEO: Experiment._Surface.ValueType  # 7
         SURFACE_MARKETING: Experiment._Surface.ValueType  # 8
+        SURFACE_DESIGN_DOCS: Experiment._Surface.ValueType  # 9
 
     class Surface(_Surface, metaclass=_SurfaceEnumTypeWrapper): ...
     SURFACE_UNSPECIFIED: Experiment.Surface.ValueType  # 0
@@ -185,6 +186,7 @@ class Experiment(_message.Message):
     SURFACE_AV_WORKER: Experiment.Surface.ValueType  # 6
     SURFACE_SEO: Experiment.Surface.ValueType  # 7
     SURFACE_MARKETING: Experiment.Surface.ValueType  # 8
+    SURFACE_DESIGN_DOCS: Experiment.Surface.ValueType  # 9
 
     class _ExposureTracking:
         ValueType = _typing.NewType("ValueType", _builtins.int)
@@ -1501,12 +1503,10 @@ class Experiment(_message.Message):
         TYPE_FIELD_NUMBER: _builtins.int
         FILTERS_FIELD_NUMBER: _builtins.int
         OVERRIDE_FIELD_NUMBER: _builtins.int
-        IS_SUNSET_RULE_FIELD_NUMBER: _builtins.int
         SUBTYPE_FIELD_NUMBER: _builtins.int
         HASH_FIELD_NUMBER: _builtins.int
         TITLE_FIELD_NUMBER: _builtins.int
         type: Global___Experiment.Type.ValueType
-        is_sunset_rule: _builtins.bool
         subtype: Global___Experiment.Subtype.ValueType
         hash: _builtins.str
         @_builtins.property
@@ -1521,14 +1521,13 @@ class Experiment(_message.Message):
             type: Global___Experiment.Type.ValueType = ...,
             filters: _abc.Iterable[Global___Experiment.Filter] | None = ...,
             override: Global___Experiment.Override | None = ...,
-            is_sunset_rule: _builtins.bool = ...,
             subtype: Global___Experiment.Subtype.ValueType = ...,
             hash: _builtins.str = ...,
             title: _wrappers_pb2.StringValue | None = ...,
         ) -> None: ...
         _HasFieldArgType: _TypeAlias = _typing.Literal["_override", b"_override", "_title", b"_title", "override", b"override", "title", b"title"]  # noqa: Y015
         def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["_override", b"_override", "_title", b"_title", "filters", b"filters", "hash", b"hash", "is_sunset_rule", b"is_sunset_rule", "override", b"override", "subtype", b"subtype", "title", b"title", "type", b"type"]  # noqa: Y015
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_override", b"_override", "_title", b"_title", "filters", b"filters", "hash", b"hash", "override", b"override", "subtype", b"subtype", "title", b"title", "type", b"type"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         _WhichOneofReturnType__override: _TypeAlias = _typing.Literal["override"]  # noqa: Y015
         _WhichOneofArgType__override: _TypeAlias = _typing.Literal["_override", b"_override"]  # noqa: Y015

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import collections
+import contextlib
 import functools
 import socket
 import ssl
@@ -304,16 +305,29 @@ async def _async_create_connection(address: _Address, options: PoolOptions) -> s
         raise OSError("getaddrinfo failed")
 
 
-async def _async_configured_socket(
-    address: _Address, options: PoolOptions
+def _close_late_socket(future: asyncio.Future[Any]) -> None:
+    """Close a socket produced after its awaiting task was cancelled."""
+    if not future.cancelled() and future.exception() is None:
+        # The callback may have returned a non-socket; close best effort.
+        close = getattr(future.result(), "close", None)
+        if callable(close):
+            with contextlib.suppress(Exception):
+                close()
+
+
+async def _async_wrap_socket_tls(
+    sock: socket.socket, address: _Address, options: PoolOptions
 ) -> Union[socket.socket, _sslConn]:
-    """Given (host, port) and PoolOptions, return a raw configured socket.
+    """Given a connected socket, (host, port), and PoolOptions, apply TLS.
+
+    The handshake, SNI, and certificate/hostname verification all target
+    ``address``, which may differ from the peer ``sock`` is connected to, e.g.
+    when ``sock`` tunnels through an HTTP proxy.
 
     Can raise socket.error, ConnectionFailure, or _CertificateError.
 
-    Sets socket's SSL and timeout options.
+    Sets the socket's SSL and timeout options.
     """
-    sock = await _async_create_connection(address, options)
     ssl_context = options._ssl_context
 
     if ssl_context is None:
@@ -326,13 +340,19 @@ async def _async_configured_socket(
         # to use SSLContext.check_hostname.
         if _has_sni(False):
             loop = asyncio.get_running_loop()
-            ssl_sock = await loop.run_in_executor(
-                None,
-                functools.partial(ssl_context.wrap_socket, sock, server_hostname=host),  # type: ignore[assignment, misc, unused-ignore]
-            )
+            wrap = functools.partial(ssl_context.wrap_socket, sock, server_hostname=host)  # type: ignore[assignment, misc, unused-ignore]
         else:
             loop = asyncio.get_running_loop()
-            ssl_sock = await loop.run_in_executor(None, ssl_context.wrap_socket, sock)  # type: ignore[assignment, misc, unused-ignore]
+            wrap = functools.partial(ssl_context.wrap_socket, sock)  # type: ignore[assignment, misc, unused-ignore]
+        # Shield the executor future: wrap_socket hands the fd to a new
+        # SSLSocket, so cancellation must not orphan the result it produces.
+        future = loop.run_in_executor(None, wrap)
+        try:
+            ssl_sock = await asyncio.shield(future)
+        except asyncio.CancelledError:
+            future.add_done_callback(_close_late_socket)
+            sock.close()
+            raise
     except _CertificateError:
         sock.close()
         # Raise _CertificateError directly like we do after match_hostname
@@ -360,6 +380,19 @@ async def _async_configured_socket(
     return ssl_sock
 
 
+async def _async_configured_socket(
+    address: _Address, options: PoolOptions
+) -> Union[socket.socket, _sslConn]:
+    """Given (host, port) and PoolOptions, return a raw configured socket.
+
+    Can raise socket.error, ConnectionFailure, or _CertificateError.
+
+    Sets socket's SSL and timeout options.
+    """
+    sock = await _async_create_connection(address, options)
+    return await _async_wrap_socket_tls(sock, address, options)
+
+
 async def _configured_protocol_interface(
     address: _Address,
     options: PoolOptions,
@@ -384,11 +417,11 @@ async def _configured_protocol_interface(
 
     host = address[0]
     # asyncio does not support TLS session resumption natively (cpython#79152,
-    # closed without a fix).  On Python 3.11+ SSLProtocol.__init__ calls
-    # wrap_bio() synchronously before the first event-loop yield, so setting
-    # sslobject_class is race-free.  Session injection is skipped on older
-    # Python versions.  (The async path always uses stdlib ssl, never PyOpenSSL.)
-    if ssl_session_cache is not None and sys.version_info >= (3, 11):
+    # closed without a fix).  SSLProtocol.__init__ calls wrap_bio()
+    # synchronously before the first event-loop yield, so setting
+    # sslobject_class is race-free.  (The async path always uses stdlib ssl,
+    # never PyOpenSSL.)
+    if ssl_session_cache is not None:
         session = ssl_session_cache[0]
         if session is not None:
             _session = session
@@ -510,14 +543,19 @@ def _create_connection(address: _Address, options: PoolOptions) -> socket.socket
         raise OSError("getaddrinfo failed")
 
 
-def _configured_socket(address: _Address, options: PoolOptions) -> Union[socket.socket, _sslConn]:
-    """Given (host, port) and PoolOptions, return a raw configured socket.
+def _wrap_socket_tls(
+    sock: socket.socket, address: _Address, options: PoolOptions
+) -> Union[socket.socket, _sslConn]:
+    """Given a connected socket, (host, port), and PoolOptions, apply TLS.
+
+    The handshake, SNI, and certificate/hostname verification all target
+    ``address``, which may differ from the peer ``sock`` is connected to, e.g.
+    when ``sock`` tunnels through an HTTP proxy.
 
     Can raise socket.error, ConnectionFailure, or _CertificateError.
 
-    Sets socket's SSL and timeout options.
+    Sets the socket's SSL and timeout options.
     """
-    sock = _create_connection(address, options)
     ssl_context = options._ssl_context
 
     if ssl_context is None:
@@ -557,6 +595,17 @@ def _configured_socket(address: _Address, options: PoolOptions) -> Union[socket.
 
     ssl_sock.settimeout(options.socket_timeout)
     return ssl_sock
+
+
+def _configured_socket(address: _Address, options: PoolOptions) -> Union[socket.socket, _sslConn]:
+    """Given (host, port) and PoolOptions, return a raw configured socket.
+
+    Can raise socket.error, ConnectionFailure, or _CertificateError.
+
+    Sets socket's SSL and timeout options.
+    """
+    sock = _create_connection(address, options)
+    return _wrap_socket_tls(sock, address, options)
 
 
 def _configured_socket_interface(

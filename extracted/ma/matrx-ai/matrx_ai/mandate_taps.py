@@ -52,8 +52,62 @@ class LiveRunObserver(Protocol):
     ) -> None: ...
 
 
+class MandateReplay(Protocol):
+    """The host's TEST-MODE answer source for a mandate step (aidream: ``services/runtime/ai_test_mode.py``).
+
+    Unlike a tap, this one CAN answer instead of the real run — so it is the opposite of silent: the
+    host decides everything (who, when, which mode), and an answer it returns must carry its own loud
+    ``ai_test_replay`` stamp. ``lookup`` returns an ``AiExecutionResult``-shaped dict or None (= run
+    for real); ``store`` is offered the real result afterwards. Not installed (every package test,
+    every host that never opts in) → both are skipped and the step is exactly the real one.
+    """
+
+    async def lookup(
+        self, door: str, mandate_key: str, run_id: str | None, fingerprint: dict[str, Any]
+    ) -> dict[str, Any] | None: ...
+
+    async def store(
+        self, door: str, mandate_key: str, run_id: str | None, fingerprint: dict[str, Any],
+        result: dict[str, Any],
+    ) -> None: ...
+
+
 _DOOR_TAP: DoorTap | None = None
 _OBSERVER: LiveRunObserver | None = None
+_REPLAY: MandateReplay | None = None
+
+
+def set_mandate_replay(replay: MandateReplay | None) -> None:
+    """Install (or clear) the host's test-mode answer source. Called once at host startup."""
+    global _REPLAY
+    _REPLAY = replay
+
+
+async def replay_lookup(
+    door: str, mandate_key: str, run_id: str | None, fingerprint: dict[str, Any]
+) -> dict[str, Any] | None:
+    """The host's test-mode answer for this exact step, or None. A broken seam is a miss — the real
+    run follows — never a failed step."""
+    replay = _REPLAY
+    if replay is None:
+        return None
+    try:
+        return await replay.lookup(door, mandate_key, run_id, fingerprint)
+    except Exception:  # noqa: BLE001 — a broken test seam is a miss, never a failed run
+        logger.exception("[mandate replay] lookup failed for %s %s — the real run follows", door, mandate_key)
+        return None
+
+
+async def replay_store(
+    door: str, mandate_key: str, run_id: str | None, fingerprint: dict[str, Any], result: dict[str, Any]
+) -> None:
+    replay = _REPLAY
+    if replay is None:
+        return
+    try:
+        await replay.store(door, mandate_key, run_id, fingerprint, result)
+    except Exception:  # noqa: BLE001 — the real result is already in hand; never lose it
+        logger.exception("[mandate replay] store failed for %s %s — result not saved", door, mandate_key)
 
 
 def set_mandate_door_tap(tap: DoorTap | None) -> None:
@@ -140,11 +194,15 @@ __all__ = [
     "DoorTap",
     "DoorTapHandle",
     "LiveRunObserver",
+    "MandateReplay",
     "get_live_run_observer",
     "get_mandate_door_tap",
     "observe_first_send",
     "observe_tool_results",
+    "replay_lookup",
+    "replay_store",
     "set_live_run_observer",
+    "set_mandate_replay",
     "set_mandate_door_tap",
     "tapped_door",
 ]

@@ -83,6 +83,9 @@ from .. import (
     grid,
     hausdorff_distance,
     hessian,
+    iga_evaluate,
+    iga_refine,
+    iga_sample,
     interpolate,
     isosurface,
     match_periodic_nodes,
@@ -432,8 +435,36 @@ def _store(mesh, output_path, output_format=None, **write_kwargs):
     return resolved
 
 
-def _mesh_summary(mesh):
+def _brep_summary(brep):
+    """What a B-rep side channel (``mesh.info["brep"]``: Kratos CAD JSON, STEP,
+    IGES, fit_cad) holds, by count."""
+    faces = brep.get("faces", [])
     return {
+        "faces": len(faces),
+        "trimmed_faces": sum(1 for f in faces if f.get("trimmed")),
+        "rational_faces": sum(1 for f in faces if f.get("rational")),
+        "loops": sum(len(f.get("loops", [])) for f in faces),
+        "edges": len(brep.get("edges", [])),
+        "vertices": len(brep.get("vertices", [])),
+    }
+
+
+def _nurbs_summary(nurbs):
+    """What a NURBS side channel (``mesh.info["nurbs"]``: MFEM NURBS meshes)
+    holds, by count."""
+    patches = nurbs.get("patches", [])
+    topo = nurbs.get("topology") or {}
+    return {
+        "patches": len(patches),
+        "dimension": int(topo["dimension"]) if topo else None,
+        "degrees": sorted({int(d) for p in patches for d in p["degrees"]}),
+        "control_points": int(sum(len(p["weights"]) for p in patches)),
+        "fields": list(nurbs.get("field_names", [])),
+    }
+
+
+def _mesh_summary(mesh):
+    out = {
         "num_points": int(len(mesh.points)),
         "num_cells": int(sum(len(b) for b in mesh.cells)),
         "cell_blocks": [{"type": b.type, "num_cells": int(len(b))} for b in mesh.cells],
@@ -442,6 +473,12 @@ def _mesh_summary(mesh):
         "field_data": sorted(mesh.field_data),
         "num_regions": len(mesh.regions),
     }
+    info = getattr(mesh, "info", None)
+    if isinstance(info, dict) and info.get("brep"):
+        out["brep"] = _brep_summary(info["brep"])
+    if isinstance(info, dict) and info.get("nurbs"):
+        out["nurbs"] = _nurbs_summary(info["nurbs"])
+    return out
 
 
 def _result(output_path, mesh, **extra):
@@ -1974,6 +2011,105 @@ def tool_fit_primitives(
     )
 
 
+def tool_iga_refine(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    subdivisions=1,
+    elevate=0,
+    sample_subdivisions=0,
+    model="auto",
+    trim_samples=16,
+    edges=True,
+    trim=True,
+):
+    """Refine every patch of a NURBS model exactly: degree elevation (elevate),
+    then knot insertion splitting each knot span in subdivisions parts. The
+    geometry, fields and a trimmed face's trimming loops do not change; the
+    refined model is written (an MFEM NURBS mesh or CAD JSON keeps its patches,
+    any other format gets the sampled cells)."""
+    mesh = _load(input_path, input_format)
+    out = iga_refine(
+        mesh,
+        subdivisions=subdivisions,
+        elevate=elevate,
+        sample_subdivisions=sample_subdivisions,
+        model=model,
+        trim_samples=trim_samples,
+        edges=edges,
+        trim=trim,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_iga_sample(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    subdivisions=0,
+    model="auto",
+    trim_samples=16,
+    edges=True,
+    trim=True,
+):
+    """Sample a NURBS model (MFEM NURBS mesh, CAD JSON, STEP, IGES) into
+    Lagrange cells, subdivisions cells per knot span and direction (0 is
+    automatic), the exact rational geometry at each cell's lattice."""
+    mesh = _load(input_path, input_format)
+    out = iga_sample(
+        mesh,
+        subdivisions=subdivisions,
+        model=model,
+        trim_samples=trim_samples,
+        edges=edges,
+        trim=trim,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+_IGA_MAX_POINTS = 10000
+
+
+def tool_iga_evaluate(
+    input_path,
+    params,
+    input_format=None,
+    patch=0,
+    derivatives=0,
+    model="auto",
+    trim_samples=16,
+):
+    """Evaluate a patch of a NURBS model (a face of a B-rep) at parametric
+    coordinates params (a list of [u], [u, v] or [u, v, w]): points, with
+    derivatives=1 the first derivatives and surface normals, the NURBS fields,
+    and for a B-rep face whether each point lies inside its trimming loops."""
+    points = np.asarray(params, dtype=np.float64)
+    if points.ndim == 1:
+        points = points[:, None]
+    if len(points) > _IGA_MAX_POINTS:
+        raise ValueError(
+            f"iga_evaluate: {len(points)} points; at most {_IGA_MAX_POINTS} per call"
+        )
+    mesh = _load(input_path, input_format)
+    res = iga_evaluate(
+        mesh,
+        points,
+        patch=patch,
+        derivatives=derivatives,
+        model=model,
+        trim_samples=trim_samples,
+    )
+    return _json_safe(
+        {
+            "num_points": int(len(points)),
+            **{k: v for k, v in res.items() if k != "fields"},
+            "fields": list(res["fields"]),
+        }
+    )
+
+
 def tool_fit_cad(
     input_path,
     output_path,
@@ -1987,10 +2123,19 @@ def tool_fit_cad(
     types=None,
     mesh_deflection=None,
     max_demotion_rounds=8,
+    freeform=True,
+    freeform_degree=3,
+    freeform_max_control=64,
+    cad_json_output_path=None,
+    freeform_split=True,
+    fillets=True,
+    threads=True,
 ):
     """Turn the fitted patches of a closed skin into a CAD solid with analytic
-    faces, written to output_path as STEP (needs a core built with
-    OpenCASCADE). A skin without segment:patch / fit:patch_* is segmented
+    faces (and, for what no primitive explains, rolling-ball fillet, thread
+    flank and freeform B-spline ones), written to output_path as STEP (needs a
+    core built with OpenCASCADE), and to cad_json_output_path as Kratos CAD
+    JSON. A skin without segment:patch / fit:patch_* is segmented
     (curvature_tolerance, min_patch_cells) and fitted (fit_tolerance) first."""
     from .._fit_cad import has_occt
 
@@ -2020,10 +2165,21 @@ def tool_fit_cad(
         types=list(types) if types is not None else None,
         mesh_deflection=mesh_deflection,
         max_demotion_rounds=max_demotion_rounds,
+        freeform=freeform,
+        freeform_degree=freeform_degree,
+        freeform_max_control=freeform_max_control,
+        freeform_split=freeform_split,
+        fillets=fillets,
+        threads=threads,
         return_report=True,
     )
     _cache_invalidate(step_path)
     extra = {"step_path": step_path, "occt_available": True, **report}
+    if cad_json_output_path:
+        cad_path = _resolve(cad_json_output_path, for_write=True)
+        write(cad_path, out, file_format="cad_json")
+        _cache_invalidate(cad_path)
+        extra["cad_json_path"] = cad_path
     if mesh_output_path:
         return _result(_store(out, mesh_output_path), out, **extra)
     return _json_safe({"output_path": step_path, **_mesh_summary(out), **extra})
@@ -2541,6 +2697,8 @@ def tool_tessellate(
         _store(tess.mesh, output_path, output_format),
         tess.mesh,
         levels=int(levels),
+        num_source_points=tess.schema["num_source_points"],
+        num_source_cells=tess.schema["num_source_cells"],
         num_curved_source_cells=tess.schema["num_curved_source_cells"],
         num_pass_through_source_cells=tess.schema["num_pass_through_source_cells"],
         watertight=tess.schema["watertight"],
@@ -4464,6 +4622,18 @@ TOOL_REGISTRY = OrderedDict(
         (
             "fit_cad",
             {"fn": tool_fit_cad, "wraps": ("fit_cad",), "gated": "occt"},
+        ),
+        (
+            "iga_refine",
+            {"fn": tool_iga_refine, "wraps": ("iga_refine",), "gated": None},
+        ),
+        (
+            "iga_sample",
+            {"fn": tool_iga_sample, "wraps": ("iga_sample",), "gated": None},
+        ),
+        (
+            "iga_evaluate",
+            {"fn": tool_iga_evaluate, "wraps": ("iga_evaluate",), "gated": None},
         ),
         (
             "region_adjacency",

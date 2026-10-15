@@ -28,6 +28,7 @@ z3_add_component(ast
     expr_map.cpp
     expr_stat.cpp
     expr_substitution.cpp
+    ff_decl_plugin.cpp
     finite_set_decl_plugin.cpp
     for_each_ast.cpp
     for_each_expr.cpp
@@ -55,6 +56,18 @@ z3_add_component(ast
   COMPONENT_DEPENDENCIES
     polynomial
     util # Unnecessary? polynomial already depends on util
-  PYG_FILES
-    pp_params.pyg
 )
+
+add_subdirectory(converters)
+add_subdirectory(euf)
+add_subdirectory(ff)
+add_subdirectory(fpa)
+add_subdirectory(macros)
+add_subdirectory(normal_forms)
+add_subdirectory(pattern)
+add_subdirectory(proofs)
+add_subdirectory(rewriter)
+add_subdirectory(seq)
+add_subdirectory(simplifiers)
+add_subdirectory(sls)
+add_subdirectory(substitution)

@@ -465,6 +465,7 @@ def plan_figures(
                     "special_label": special_label(family, special),
                     "stn_sql": sel.sql(),
                     "stn_label": sel.display,
+                    "selector": sel,
                     "stn_tag": sel.tag,
                     "member_word": word,
                     "cycles": cycles,
@@ -473,7 +474,7 @@ def plan_figures(
                     "dateend": dateend,
                     "svg": svg,
                     "alert_pct": alert_pct,
-                    "pooled": sel.kind in ("join", "prefix", "like", "codtyp_group"),
+                    "pooled": sel.kind in ("join", "prefix", "like", "codtyp_group", "list"),
                 }
                 for name, _ in all_runs:
                     figs.append(
@@ -572,6 +573,9 @@ def members_text(spec, db, limit: int = 6) -> str:
     should say what it pooled, not just that it pooled something."""
     label = str(spec["stn_label"])
     if not spec.get("pooled"):
+        return label
+    # a prefix, a pattern or a list names its stations under the figure
+    if getattr(spec.get("selector"), "kind", "") in ("prefix", "like", "list"):
         return label
     try:
         top, rest = read_by_station(spec, db, top=limit)
@@ -1048,6 +1052,8 @@ def _save_run(spec, fig, alerts):
     """Write the figure; returns its path and the alerts."""
 
     out = _out(spec, spec["name"])
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, spec.get('selector'))
     save_figure(fig, out, svg=spec.get("svg", False), dpi=DPI)
     plt.close(fig)
     return out, alerts
@@ -1557,6 +1563,8 @@ def _save_all(spec, ctl, fn, fig):
             else f"all_vs_{ctl}" + (f"_match{spec['match_mode']}"
                                      if spec.get("match_mode") in ("off", "no") else ""))
     out = _out(spec, what + ("" if fn == "omp" else f"_{fn}"))
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, spec.get('selector'))
     save_figure(fig, out, svg=spec.get("svg", False), dpi=DPI)
     plt.close(fig)
     return out, []

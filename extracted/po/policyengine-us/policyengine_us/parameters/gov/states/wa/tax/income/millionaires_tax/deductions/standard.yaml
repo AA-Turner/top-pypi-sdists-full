@@ -1,0 +1,17 @@
+description: Washington deducts this amount as the standard deduction under the millionaires tax.
+
+values:
+  2028-01-01: 1_000_000
+metadata:
+  unit: currency-USD
+  period: year
+  label: Washington millionaires tax standard deduction
+  # Sec. 316 adjusts this amount each odd-numbered October, beginning in 2029,
+  # for the following tax year. This biennial schedule is applied
+  # programmatically in uprating_extensions.py because generic parameter
+  # uprating would incorrectly change the amount every year.
+  reference:
+    - title: ESSB 6346, Sec. 314 - One million dollar standard deduction
+      href: https://lawfilesext.leg.wa.gov/biennium/2025-26/Pdf/Bills/Senate%20Passed%20Legislature/6346-S.PL.pdf#page=14
+    - title: ESSB 6346, Sec. 316(1) - Index for inflation
+      href: https://lawfilesext.leg.wa.gov/biennium/2025-26/Pdf/Bills/Senate%20Passed%20Legislature/6346-S.PL.pdf#page=14

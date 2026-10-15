@@ -1,0 +1,79 @@
+- name: Unit of 1 receives $393/month standard
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 1
+  output:
+    mo_tanf_standard_of_need: 393
+
+- name: Unit of 2 receives $678/month standard
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 2
+  output:
+    mo_tanf_standard_of_need: 678
+
+- name: Unit of 3 receives $846/month standard
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 3
+  output:
+    mo_tanf_standard_of_need: 846
+
+- name: Unit of 4 receives $990/month standard
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 4
+  output:
+    mo_tanf_standard_of_need: 990
+
+- name: Unit of 5 receives $1123/month standard
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 5
+  output:
+    mo_tanf_standard_of_need: 1_123
+
+- name: Unit of 6 receives $1247/month standard
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 6
+  output:
+    mo_tanf_standard_of_need: 1_247
+
+- name: Unit of 10 receives $1722/month standard
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 10
+  output:
+    mo_tanf_standard_of_need: 1_722
+
+- name: Unit of 12 receives $1956/month standard
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 12
+  output:
+    mo_tanf_standard_of_need: 1_956
+
+- name: Unit of 13 adds $116/month per additional person
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 13
+  output:
+    mo_tanf_standard_of_need: 2_072  # 1956 + 116
+
+- name: Empty unit uses the size-1 amount (such units are not eligible)
+  period: 2024-01
+  input:
+    state_code: MO
+    mo_tanf_assistance_unit_size: 0
+  output:
+    mo_tanf_standard_of_need: 393

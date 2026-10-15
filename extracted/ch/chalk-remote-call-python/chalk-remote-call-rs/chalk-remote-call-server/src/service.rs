@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 #[cfg(target_os = "linux")]
-use chalk_metrics::metrics::tags::Mode;
+use crate::metrics::CallMetrics;
 #[cfg(target_os = "linux")]
-use chalk_metrics::PublishingMetricsPipeline;
+use crate::metrics::Mode;
 use chalk_remote_call_proto::chalk::runtime::v1::remote_call_service_server::RemoteCallService;
 use chalk_remote_call_proto::chalk::runtime::v1::{CallFunctionRequest, CallFunctionResponse};
 use tokio_stream::wrappers::ReceiverStream;
@@ -26,7 +26,7 @@ pub struct RemoteCallServiceImpl {
     pub coalescing_queue: Option<Arc<CoalescingQueue>>,
     // Linux-gated metrics pipeline
     #[cfg(target_os = "linux")]
-    pub metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    pub metrics: Option<Arc<CallMetrics>>,
 }
 
 #[tonic::async_trait]
@@ -100,7 +100,7 @@ impl RemoteCallService for RemoteCallServiceImpl {
         // Single-request path.
         let handler = self.python_handler.clone();
         #[cfg(target_os = "linux")]
-        let metrics_pipeline = self.metrics_pipeline.clone();
+        let metrics = self.metrics.clone();
         tokio::spawn(async move {
             #[cfg(target_os = "linux")]
             let started = Instant::now();
@@ -112,7 +112,7 @@ impl RemoteCallService for RemoteCallServiceImpl {
             {
                 Ok(()) => {
                     #[cfg(target_os = "linux")]
-                    if let Some(p) = &metrics_pipeline {
+                    if let Some(p) = &metrics {
                         crate::metrics::record_completed_call(
                             p,
                             &function_name,
@@ -124,7 +124,7 @@ impl RemoteCallService for RemoteCallServiceImpl {
                 }
                 Err(e) => {
                     #[cfg(target_os = "linux")]
-                    if let Some(p) = &metrics_pipeline {
+                    if let Some(p) = &metrics {
                         crate::metrics::record_completed_call(
                             p,
                             &function_name,

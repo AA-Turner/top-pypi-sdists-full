@@ -45,6 +45,19 @@ namespace euf {
         if (!m_config.m_enabled)
             return;
 
+        SASSERT(m_pr_dep.empty());
+        m_egraph.push();
+        auto reset_egraph = on_scope_exit([&]() {
+            m_find.reset();
+            m_args.reset();
+            m_todo.reset();
+            m_node2level.reset();
+            m_level2node.reset();
+            m_egraph.pop(1);
+            m_pr_dep.reset();
+            m_th_var = 0;
+        });
+
         m_fmls.freeze_suffix();
 
         for (extract_eq* ex : m_extract_plugins)
@@ -72,7 +85,7 @@ namespace euf {
 
     void fold_unfold::extract_subst(bool fuf, dep_eq_vector const& eqs) {
         m_find.reset();
-        for (auto const& [orig, v, t, d] : eqs) {
+        for (auto const& [orig, v, t, d, eq_pr] : eqs) {
             auto a = mk_enode(v);
             auto b = mk_enode(t);
             // verbose_stream() << mk_bounded_pp(v, m) << " == " << mk_bounded_pp(t, m) << "\n";
@@ -173,7 +186,6 @@ namespace euf {
         unsigned sz = m_pr_dep.size();
         SASSERT(!m.proofs_enabled() || pr);
         m_pr_dep.push_back({proof_ref(pr, m), d});
-        m_trail.push(push_back_vector(m_pr_dep));
         return sz;
     }
 

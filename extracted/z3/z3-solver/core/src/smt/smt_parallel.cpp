@@ -28,6 +28,7 @@ Author:
 #include "solver/parallel_params.hpp"
 
 #include <cmath>
+#include <tuple>
 #include <mutex>
 #include <condition_variable>
 
@@ -225,7 +226,10 @@ namespace smt {
         }
     }
 
-    lbool parallel::backbones_worker::probe_literal(bool_var v, expr *e, bool is_retry) {
+    lbool parallel::backbones_worker::probe_literal(bool_var v, expr *_e, bool is_retry) {
+        // Keep an owning reference: callers may pass a freshly created literal
+        // whose only reference is the assumption slot popped below.
+        expr_ref e(_e, m);
         asms.push_back(e);
         auto terminal_result = b.check(asms, *ctx);
         asms.pop_back();
@@ -282,8 +286,13 @@ namespace smt {
                     ++m_stats.m_bb_retries;
                 else
                     ++m_stats.m_fallback_singleton_checks;
+
+                // The retry call below passes the same vector for both arguments.
+                // Erasing from bb_candidate_lits while iterating chunk_lits would
+                // then invalidate the loop bounds, so iterate over a snapshot.
+                expr_ref_vector chunk(chunk_lits);
                 
-                for (expr* lit : chunk_lits) {
+                for (expr* lit : chunk) {
                     if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch)) {
                         ctx->get_fparams().m_max_conflicts = old_max_conflicts;
                         return;
@@ -658,7 +667,12 @@ namespace smt {
                 return;
             }
 
-            expr* lit = unknown.back();
+            // Hold an owning reference: popping `unknown` can drop the last
+            // reference to the literal (the solver only keeps internalized
+            // assumptions alive until its assumption scope is popped, and
+            // `not_lit` does not reference `lit` when `lit` is a negation).
+            // `lit` is still used after the check below.
+            expr_ref lit(unknown.back(), m);
             unknown.pop_back();
             expr_ref not_lit(mk_not(m, lit), m);
 
@@ -800,7 +814,7 @@ namespace smt {
                 if (m_config.m_max_cube_depth <= cube.size())
                     goto check_cube_start;
 
-                auto atom = get_split_atom();
+                auto atom = get_split_atom(cube);
                 if (!atom)
                     goto check_cube_start;
                 b.try_split(m_l2g, id, lease, atom, m_config.m_threads_max_conflicts);
@@ -1576,7 +1590,7 @@ namespace smt {
         };
 
         auto rank_of = [&](bb_candidate const& c) {
-            return c.age * std::log2(2.0 + c.hits);
+            return std::tuple(c.age * std::log2(2.0 + c.hits), c.lit->get_id());
         };
 
         for (auto const& c : bb_candidates) {
@@ -1702,16 +1716,26 @@ namespace smt {
         return r;
     }
 
-    expr_ref parallel::worker::get_split_atom() {
+    expr_ref parallel::worker::get_split_atom(expr_ref_vector const& cube) {
         expr_ref result(m);
         double score = 0;
         unsigned n = 0;
+        expr_fast_mark1 cube_atoms;
+        for (expr* lit : cube) {
+            expr* atom = lit;
+            m.is_not(lit, atom);
+            cube_atoms.mark(atom);
+        }
         ctx->pop_to_search_lvl();
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
             if (ctx->get_assignment(v) != l_undef)
                 continue;
             expr *e = ctx->bool_var2expr(v);
             if (!e)
+                continue;
+
+            // A cube literal may be assumed through a proxy, leaving its atom unassigned.
+            if (cube_atoms.is_marked(e))
                 continue;
 
             // don't split on a backbone or its negation

@@ -16,11 +16,17 @@ Abstract:
 #include "ast/reg_decl_plugins.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include "smt/smt_solver.h"
 #include "smt/tactic/smt_tactic_core.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
+#include "tactic/smtlogics/qfbv_tactic.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 #include <iostream>
+#include <sstream>
 
 // Regression test for GitHub issue #9985:
 //
@@ -136,11 +142,100 @@ static void tst_psmt_worker() {
         std::cout << "psmt UNKNOWN (no deadlock): " << r << "\n";
     }
 
+    // Exercise native smt.threads, which uses smt_parallel rather than the psmt tactic.
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream input(R"(
+(declare-fun g (Real) Real)
+(declare-fun f ((_ FloatingPoint 8 24)) (_ FloatingPoint 8 24))
+(declare-fun y () (_ FloatingPoint 8 24))
+(declare-fun x () (_ FloatingPoint 8 24))
+(assert (forall ((q Real)) (! (> (g q) 0.0) :pattern ((g q)))))
+(assert (forall ((q Real)) (! (>= (g q) (+ 1.0 q)) :pattern ((g q)))))
+(assert (=> (not (fp.isNaN (fp.sub roundNearestTiesToEven x y)))
+            (fp.geq (f (fp.sub roundNearestTiesToEven x y)) (_ +zero 8 24))))
+(assert (not (fp.geq (f (fp.sub roundNearestTiesToEven x y)) (_ +zero 8 24))))
+)");
+        VERIFY(parse_smt2_commands(cmd, input));
+        params_ref parallel_params;
+        parallel_params.set_uint("threads", 2);
+        parallel_params.set_uint("random_seed", 66);
+        ref<solver> s = mk_smt_solver(m, parallel_params, symbol::null);
+        for (expr* a : cmd.assertions())
+            s->assert_expr(a);
+
+        cancel_eh<reslimit> eh(m.limit());
+        scoped_timer timer(10000, &eh);
+        s->check_sat(0, nullptr);
+        statistics st;
+        s->collect_statistics(st);
+        bool split = false;
+        for (unsigned i = 0; i < st.size(); ++i) {
+            if (std::string(st.get_key(i)) == "parallel-max-cube-size") {
+                split = st.get_uint_value(i) > 0;
+                break;
+            }
+        }
+        ENSURE(split);
+    }
+
     std::cout << "psmt tests passed\n";
+}
+
+// Regression test for GitHub issue #11158:
+//
+// (check-sat-using qfbv) on a quantified array formula does not match the
+// QF_BV probes, so qfbv falls back to the smt tactic, which with
+// parallel.enable=true becomes the parallel (cube-and-conquer) solver.  That
+// configuration spawns CDCL workers, a core-minimizer worker and backbone
+// workers, and used to crash intermittently.
+//
+// The formula below is the one from the issue.  It is UNSAT; the test mainly
+// guards against crashes, hangs, and unsoundness in that fallback path, so a
+// resource-limited l_undef is tolerated but l_true is not.
+static void tst_parallel_qfbv() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream input(R"(
+(declare-fun a (Int Int) Int)
+(declare-fun b ((Array Int (Array Int Int))) (Array Int (Array Int Int)))
+(declare-fun c (Int Int Int) (Array Int (Array Int Int)))
+(assert (forall ((d Int) (e Int))
+    (= (<= d e) (= (select (select (c 0 (a e e) e) d) e) e))))
+(assert (forall ((f Int) (g Int) (h (Array Int (Array Int Int))) (i Int))
+    (let ((j (b h)))
+    (= (or (<= f i) (<= g i)) (= 0 (select (j g) f))))))
+)");
+    VERIFY(parse_smt2_commands(cmd, input));
+
+    for (unsigned seed = 0; seed < 6; ++seed) {
+        params_ref p;
+        p.set_bool("enable", true);
+        p.set_uint("random_seed", seed);
+        p.set_uint("num_bb_threads", seed % 3);
+        tactic_ref t = mk_qfbv_tactic(m, p);
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        cancel_eh<reslimit> eh(m.limit());
+        scoped_timer timer(60000, &eh);
+        lbool r = check_sat(*t, g, md, labels, pr, core, reason_unknown);
+        m.limit().reset_cancel();
+        ENSURE(r != l_true);
+        std::cout << "psmt qfbv fallback (seed=" << seed << "): " << r << "\n";
+    }
 }
 
 void tst_psmt() {
     tst_psmt_worker();
+    tst_parallel_qfbv();
 }
 
 #else

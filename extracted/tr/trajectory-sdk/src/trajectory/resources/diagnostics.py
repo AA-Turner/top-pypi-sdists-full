@@ -40,8 +40,8 @@ class Diagnostics(APIResource):
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> IngestBenchmarkResponse:
     """Register one task as a private benchmark and return its ingestion result. Call
-    buildBenchmarkImages, poll listBenchmarkImages until ready, then call
-    startTaskDiagnostics with the returned bench_id.
+    buildBenchmarkImages, poll every page of listBenchmarkImages until each image is ready,
+    then call startTaskDiagnostics with the returned bench_id.
 
     Args:
       extra_headers: Send extra headers
@@ -78,7 +78,6 @@ class Diagnostics(APIResource):
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
       "Qwen/Qwen3.5-397B-A17B",
-      "Qwen/Qwen3.6-27B",
       "Qwen/Qwen3.6-35B-A3B",
       "Qwen/Qwen3.8-27B",
       "qwen/qwen3-235b-a22b",
@@ -141,7 +140,6 @@ class Diagnostics(APIResource):
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
       "Qwen/Qwen3.5-397B-A17B",
-      "Qwen/Qwen3.6-27B",
       "Qwen/Qwen3.6-35B-A3B",
       "Qwen/Qwen3.8-27B",
       "qwen/qwen3-235b-a22b",

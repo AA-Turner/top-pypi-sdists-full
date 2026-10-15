@@ -185,6 +185,9 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
     OVERLAP_SIMPLE and OVERLAP_COMPOUND bits are set to 1.  See
     https://docs.microsoft.com/en-us/typography/opentype/spec/glyf
     """
+    if "fvar" not in varfont:
+        raise ValueError("Missing required table fvar")
+
     if not inplace:
         # make a copy to leave input varfont unmodified
         stream = BytesIO()
@@ -304,7 +307,12 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
         variations = table.FeatureVariations
         for record in variations.FeatureVariationRecord:
             applies = True
-            for condition in record.ConditionSet.ConditionTable:
+            conditions = (
+                record.ConditionSet.ConditionTable
+                if record.ConditionSet is not None
+                else []
+            )
+            for condition in conditions:
                 if condition.Format == 1:
                     axisIdx = condition.AxisIndex
                     axisTag = fvar.axes[axisIdx].axisTag
@@ -319,11 +327,12 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
                     break
 
             if applies:
-                assert record.FeatureTableSubstitution.Version == 0x00010000
-                for rec in record.FeatureTableSubstitution.SubstitutionRecord:
-                    table.FeatureList.FeatureRecord[rec.FeatureIndex].Feature = (
-                        rec.Feature
-                    )
+                if record.FeatureTableSubstitution is not None:
+                    assert record.FeatureTableSubstitution.Version == 0x00010000
+                    for rec in record.FeatureTableSubstitution.SubstitutionRecord:
+                        table.FeatureList.FeatureRecord[rec.FeatureIndex].Feature = (
+                            rec.Feature
+                        )
                 break
         del table.FeatureVariations
 

@@ -747,7 +747,9 @@ class Formatter:
 
     def pp_sort(self, s):
         if isinstance(s, z3.ArraySortRef):
-            return seq1("Array", (self.pp_sort(s.domain()), self.pp_sort(s.range())))
+            arity = Z3_get_array_arity(s.ctx_ref(), s.ast)
+            domains = [self.pp_sort(s.domain_n(i)) for i in range(arity)]
+            return seq1("Array", domains + [self.pp_sort(s.range())])
         elif isinstance(s, z3.BitVecSortRef):
             return seq1("BitVec", (to_format(s.size()), ))
         elif isinstance(s, z3.FPSortRef):
@@ -760,6 +762,8 @@ class Formatter:
             return seq1("Seq", (self.pp_sort(s.basis()), ))
         elif isinstance(s, z3.CharSortRef):
             return to_format("Char")
+        elif isinstance(s, z3.FiniteFieldSortRef):
+            return seq1("FiniteField", (to_format(s.size()), ))
         elif isinstance(s, z3.FiniteSetSortRef):
             return seq1("FiniteSet", (self.pp_sort(s.element_sort()), ))
         else:
@@ -767,6 +771,8 @@ class Formatter:
 
     def pp_const(self, a):
         k = a.decl().kind()
+        if k == Z3_OP_FF_NUM:
+            return to_format(a.as_long())
         if k == Z3_OP_RE_EMPTY_SET:
             return self.pp_set("Empty", a)
         elif k == Z3_OP_SEQ_EMPTY:

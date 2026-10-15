@@ -174,7 +174,11 @@ class PlaneFacts(msgspec.Struct, frozen=True, kw_only=True):
     #: components given back to make torch room since the process began, and their bytes
     paged_out: int = 0
     paged_out_bytes: int = 0
-    #: The decode mode and CFG layout each stage chose, e.g. {"vae.decode": "chunked 32 host"}
+    #: times this process's own tensors moved to host memory for an op since it began, and
+    #: their bytes (`spill`)
+    spilled: int = 0
+    spilled_bytes: int = 0
+    #: What memory made the call do, e.g. {"bands": "12 ops, 805306368 B of results in host memory"}
     modes: dict[str, str] = {}
 
 
@@ -182,7 +186,9 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
     handler_ms: float = 0.0
     device_lease_ms: float = 0.0
     d2h_wait_ms: float = 0.0
+    #: torch's high-water marks over the attempt: live tensors, and the segments it reserved
     peak_vram_bytes: int = 0
+    peak_reserved_bytes: int = 0
     activation_peak_bytes: int = 0
     activation_peaks: dict[str, int] = {}
     allocated_at_start_bytes: int = -1

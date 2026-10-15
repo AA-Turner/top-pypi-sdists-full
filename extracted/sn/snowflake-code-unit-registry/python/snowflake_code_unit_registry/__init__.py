@@ -49,7 +49,7 @@ from snowflake_code_unit_registry.types import CodeUnit
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-__version__ = "0.8.83"
+__version__ = "0.9.0"
 __all__ = [
     "CodeUnitRegistry",
     "ScaiLogger",
@@ -116,6 +116,7 @@ class ErrorCode(IntEnum):
     SCHEMA_MIGRATION_ERROR = 1021
     REGISTRY_SCHEMA_MIGRATION_REQUIRED = 1022
     FILE_IO_ERROR = 1023
+    STORAGE_ERROR = 1024
 
 
 def list_error_codes() -> list[tuple[str, int]]:

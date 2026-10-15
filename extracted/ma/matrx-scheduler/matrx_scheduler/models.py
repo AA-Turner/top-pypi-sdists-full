@@ -59,7 +59,7 @@ class SchTask(BaseModel):
     id: str
     user_id: str
     organization_id: str
-    kind: str  # 'agent' for v0
+    kind: str  # 'agent' | 'tool' | 'ping' | 'device_op' (a computer's own op; never run here)
     title: str
     description: str | None = None
     queue: str = "default"
@@ -75,13 +75,16 @@ class SchTask(BaseModel):
     created_by: str | None = None
     #: ``created_via`` (``person`` | ``agent``) is stamped at creation by the API route.
     metadata: dict[str, Any] = Field(default_factory=dict)
+    #: The computer (``public.app_instances.id``) that runs this task (surfaces == ['desktop']);
+    #: the server scanner never claims these — Matrx 2's schedule host does.
+    target_device_id: str | None = None
 
     @field_validator("metadata", mode="before")
     @classmethod
     def _coerce_task_metadata(cls, value: Any) -> Any:
         return _coerce_json_object(value, empty={})
 
-    @field_validator("created_by", mode="before")
+    @field_validator("created_by", "target_device_id", mode="before")
     @classmethod
     def _uuid_text(cls, value: Any) -> Any:
         return str(value) if value is not None and not isinstance(value, str) else value

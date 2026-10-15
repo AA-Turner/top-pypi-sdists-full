@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 
+from ._tool_invocation import tool_output_identity
 from .agent import Agent
 from .agent_output import AgentOutputSchemaBase
 from .exceptions import (
@@ -21,6 +22,7 @@ from .exceptions import (
     _await_data_redacted_error_boundary,
     _detach_data_redacted_error_traceback,
     _is_error_data_redacted,
+    _raise_data_redacted_error,
     _should_drain_stream_events_before_raising,
 )
 from .guardrail import InputGuardrailResult, OutputGuardrailResult
@@ -29,6 +31,7 @@ from .items import (
     ModelResponse,
     RunItem,
     ToolApprovalItem,
+    ToolCallOutputItem,
     TResponseInputItem,
 )
 from .logger import log_tool_action_warning, logger
@@ -46,7 +49,7 @@ from .run_internal.run_steps import (
     ProcessedResponse,
     QueueCompleteSentinel,
 )
-from .run_state import RunState
+from .run_state import RunState, _PendingSessionWrite
 from .stream_events import StreamEvent
 from .tool_guardrails import ToolInputGuardrailResult, ToolOutputGuardrailResult
 from .tracing import Trace
@@ -150,12 +153,20 @@ def _populate_state_from_result(
         state._pending_input = copy.deepcopy(source_state._pending_input)
         state._pending_session_write = copy.deepcopy(source_state._pending_session_write)
         state._current_step = source_state._current_step
+        if isinstance(source_state._current_step, NextStepInterruption):
+            # Failure diagnostics may expose accepted outputs still awaiting their
+            # normal resume write. Keep the checkpoint's publication boundary so
+            # recovery does not mistake those outputs for already persisted work.
+            state._session_items = list(source_state._session_items)
         # A streamed result exists before its terminal append does, so a checkpoint taken from a
         # failed stream has to keep the fail-closed marker or it would look resumable.
         state._terminal_unrecoverable = source_state._terminal_unrecoverable
     else:
         state._generated_prompt_cache_key = getattr(result, "_generated_prompt_cache_key", None)
         state._pending_input = copy.deepcopy(getattr(result, "_pending_input_for_state", []))
+        state._pending_session_write = copy.deepcopy(
+            getattr(result, "_pending_session_write", None)
+        )
         state._current_step = getattr(result, "_current_step_for_state", None)
     state._reasoning_item_id_policy = getattr(result, "_reasoning_item_id_policy", None)
 
@@ -289,6 +300,52 @@ def _input_items_for_result(
     if not isinstance(model_input_items, list):
         return session_items
 
+    if isinstance(result, RunResultStreaming):
+        # Execution checkpoints can contain accepted outputs that final guardrails
+        # have not released. Keep them private in every public history view.
+        from .run_internal.blocked_output import (
+            _current_response_boundary,
+            _identity_sequence_start,
+        )
+
+        processed = result._last_processed_response
+        if processed is None and isinstance(result._state, RunState):
+            processed = result._state._last_processed_response
+        if processed is not None:
+            legacy_public_outputs: set[tuple[str, str]] = set()
+            start = _identity_sequence_start(model_input_items, processed.new_items)
+            if start is None and isinstance(result._state, RunState):
+                # Legacy first-turn checkpoints have no shared processed-item identities.
+                # Prove their boundary against this result's captured history, since the
+                # caller can resume the source RunState before inspecting an earlier result.
+                boundary_state = copy.copy(result._state)
+                boundary_state._generated_items = model_input_items
+                boundary_state._session_items = result.new_items
+                boundary_state._current_turn = result.current_turn
+                boundary = _current_response_boundary((), processed, boundary_state)
+                start = boundary.generated_start
+                if start is None and boundary_state._terminal_unrecoverable:
+                    return session_items
+                if start is not None and boundary.session_start is not None:
+                    public_start = boundary.session_start + len(boundary.processed_items)
+                    legacy_public_outputs = {
+                        identity
+                        for item in result.new_items[public_start:]
+                        if isinstance(item, ToolCallOutputItem)
+                        and (identity := tool_output_identity(item.raw_item)) is not None
+                    }
+            if start is not None:
+                output_start = start + len(processed.new_items)
+                public_items = {id(item) for item in result.new_items}
+                model_input_items = [
+                    item
+                    for index, item in enumerate(model_input_items)
+                    if index < output_start
+                    or not isinstance(item, ToolCallOutputItem)
+                    or id(item) in public_items
+                    or tool_output_identity(item.raw_item) in legacy_public_outputs
+                ]
+
     # When the runner marks a divergence, generated_items already reflect the continuation input
     # chosen for the next local run after applying handoff/input filtering.
     return run_items_to_input_items(model_input_items, reasoning_item_id_policy)
@@ -367,6 +424,10 @@ class RunResultBase(abc.ABC):
         default_factory=list, init=False, repr=False
     )
     """Pending input preserved when a non-streaming result is converted back to RunState."""
+    _pending_session_write: _PendingSessionWrite | None = field(
+        default=None, init=False, repr=False
+    )
+    """Held pending Session write preserved when a non-streaming result becomes a RunState."""
     _current_step_for_state: Any = field(default=None, init=False, repr=False)
     """Current step preserved when a non-streaming result is converted back to RunState."""
 
@@ -648,6 +709,8 @@ class RunResultStreaming(RunResultBase):
     _triggered_input_guardrail_result: InputGuardrailResult | None = field(default=None, repr=False)
     _output_guardrails_task: asyncio.Task[Any] | None = field(default=None, repr=False)
     _stored_exception: BaseException | None = field(default=None, repr=False)
+    _tool_error_selected: bool = field(default=False, init=False, repr=False)
+    """A selected tool error owns failure reporting while its input verdict settles."""
     _cancel_mode: Literal["none", "immediate", "after_turn"] = field(default="none", repr=False)
     _last_processed_response: ProcessedResponse | None = field(default=None, repr=False)
     """The last processed model response. This is needed for resuming from interruptions."""
@@ -1082,6 +1145,7 @@ class RunResultStreaming(RunResultBase):
                 self = cast(Any, None)
                 registered_consumer_task = None
                 item = cast(Any, None)
+                _raise_data_redacted_error(stored_exception)
             raise stored_exception
 
     def _create_error_details(self) -> RunErrorDetails | None:
@@ -1119,7 +1183,7 @@ class RunResultStreaming(RunResultBase):
         # Fetch all the completed guardrail results from the queue and raise if needed
         while not self._input_guardrail_queue.empty():
             guardrail_result = self._input_guardrail_queue.get_nowait()
-            if guardrail_result.output.tripwire_triggered:
+            if guardrail_result.output.tripwire_triggered and not self._tool_error_selected:
                 tripwire_exc = InputGuardrailTripwireTriggered(guardrail_result)
                 tripwire_exc.run_data = self._create_error_details()
                 self._stored_exception = tripwire_exc
@@ -1137,7 +1201,11 @@ class RunResultStreaming(RunResultBase):
                         run_impl_exc.run_data = self._create_error_details()
                     self._stored_exception = run_impl_exc
 
-        if self._input_guardrails_task and self._input_guardrails_task.done():
+        if (
+            not self._tool_error_selected
+            and self._input_guardrails_task
+            and self._input_guardrails_task.done()
+        ):
             if not self._input_guardrails_task.cancelled():
                 in_guard_exc = self._input_guardrails_task.exception()
                 if isinstance(in_guard_exc, Exception):
@@ -1250,5 +1318,20 @@ class RunResultStreaming(RunResultBase):
             previous_response_id=self._previous_response_id,
             auto_previous_response_id=self._auto_previous_response_id,
         )
+        if (
+            isinstance(self._state, RunState)
+            and self._last_processed_response is not None
+            and self._state._last_processed_response is self._last_processed_response
+        ):
+            # The checkpoint retains records withheld from the public result until guardrails pass.
+            error = self.run_loop_exception
+            if error is not None and _is_error_data_redacted(error):
+                state._tool_input_guardrail_results = list(
+                    self._state._tool_input_guardrail_results
+                )
+            if self._last_processed_response.tool_output_guardrail_result_start is not None:
+                state._tool_output_guardrail_results = list(
+                    self._state._tool_output_guardrail_results
+                )
         _copy_pending_nested_agent_tool_states(state, self)
         return state

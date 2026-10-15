@@ -1047,6 +1047,8 @@ def _save(fig, task, metric, name1, name2, ax=None, hover=None):
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, task.get('selector'))
     save_figure(fig, path, svg=task.get("svg", False), dpi=DPI)
     if ax is not None and hover:
         write_hover(fig, path, ax, hover, word="channel", dpi=DPI)

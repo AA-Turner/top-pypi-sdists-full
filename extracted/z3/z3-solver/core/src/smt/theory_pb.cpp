@@ -19,6 +19,7 @@ Notes:
 --*/
 
 #include <typeinfo>
+#include <numeric>
 #include "smt/theory_pb.h"
 #include "smt/smt_context.h"
 #include "smt/smt_kernel.h"
@@ -1627,9 +1628,11 @@ namespace smt {
             result = m.mk_or(args);
             break;
         }
-        case b_justification::BIN_CLAUSE:
-            result = m.mk_or(literal2expr(conseq), literal2expr(~js.get_literal()));
+        case b_justification::BIN_CLAUSE: {
+            app_ref consequent = literal2expr(conseq);
+            result = m.mk_or(consequent, literal2expr(~js.get_literal()));
             break;
+        }
         case b_justification::AXIOM:
             break;
         case b_justification::JUSTIFICATION: {
@@ -1786,7 +1789,7 @@ namespace smt {
                 g = static_cast<unsigned>(coeff);
             }
             else {
-                g = u_gcd(g, static_cast<unsigned>(coeff));
+                g = std::gcd(g, static_cast<unsigned>(coeff));
             }
         }
         if (g >= 2) {

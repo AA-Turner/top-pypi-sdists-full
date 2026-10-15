@@ -67,6 +67,11 @@ impl Filter {
         }
     }
 
+    /// The parsed WHERE expression (for filter pushdown).
+    pub(crate) fn expr(&self) -> &Expr {
+        &self.expr
+    }
+
     /// Evaluate the filter against a JSON value.
     /// Returns true if the value matches the filter expression.
     pub fn matches(&self, value: &JsonValue) -> bool {

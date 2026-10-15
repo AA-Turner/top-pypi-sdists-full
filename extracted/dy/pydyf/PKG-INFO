@@ -1,11 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pydyf
-Version: 0.12.1
+Version: 0.13.0
 Summary: A low-level PDF generator.
 Keywords: pdf,generator
 Author-email: CourtBouillon <contact@courtbouillon.org>
 Maintainer-email: CourtBouillon <contact@courtbouillon.org>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -14,19 +14,20 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 License-File: LICENSE
 Requires-Dist: sphinx ; extra == "doc"
 Requires-Dist: furo ; extra == "doc"
 Requires-Dist: pytest ; extra == "test"
+Requires-Dist: pytest-cov ; extra == "test"
 Requires-Dist: ruff ; extra == "test"
-Requires-Dist: pillow ; extra == "test"
+Requires-Dist: pillow >=12.1.0 ; extra == "test"
 Project-URL: Changelog, https://github.com/CourtBouillon/pydyf/releases
 Project-URL: Code, https://github.com/CourtBouillon/pydyf
 Project-URL: Documentation, https://doc.courtbouillon.org/pydyf/
@@ -35,12 +36,12 @@ Project-URL: Homepage, https://www.courtbouillon.org/pydyf
 Project-URL: Issues, https://github.com/CourtBouillon/pydyf/issues
 Provides-Extra: doc
 Provides-Extra: test
+Import-Name: pydyf
 
-pydyf is a low-level PDF generator written in Python and based on PDF
-specification 1.7.
+pydyf is a low-level PDF generator written in Python.
 
 * Free software: BSD license
-* For Python 3.10+, tested on CPython and PyPy
+* For Python 3.11+, tested on CPython and PyPy
 * Documentation: https://doc.courtbouillon.org/pydyf
 * Changelog: https://github.com/CourtBouillon/pydyf/releases
 * Code, issues, tests: https://github.com/CourtBouillon/pydyf

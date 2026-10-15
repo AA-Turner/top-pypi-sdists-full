@@ -466,6 +466,7 @@ class CanvasPaperEdgeType(StrEnum):
 
     informed_by = 'informed_by'
     discovered_via = 'discovered_via'
+    relates_to = 'relates_to'
     cites = 'cites'
 
 
@@ -1641,6 +1642,11 @@ class ExportPoint(BaseModel):
     wall_clock: AwareDatetime = Field(..., title='Wall Clock')
 
 
+class FeedbackAccepted(BaseModel):
+    duplicate: bool = Field(..., title='Duplicate')
+    id: UUID = Field(..., title='Id')
+
+
 class Key(StrEnum):
     entity_types = 'entity_types'
     statuses = 'statuses'
@@ -2256,6 +2262,7 @@ class LineageRelation(StrEnum):
     discovered_via = 'discovered_via'
     supersedes = 'supersedes'
     informed_by = 'informed_by'
+    relates_to = 'relates_to'
 
 
 class LineageRunRef(BaseModel):
@@ -3170,6 +3177,27 @@ class PaperProvenance(StrEnum):
     provider_citation = 'provider_citation'
     human = 'human'
     inferred = 'inferred'
+
+
+class PaperRelatesToIn(BaseModel):
+    """
+    How this paper relates to an EARLIER one in the project (0357),
+    answered at add time (`paper add --relates-to`).
+
+      relates_to omitted                     -> nothing stored.
+      relates_to: {"paper": null}            -> nothing stored either: the
+                                                agent answered "none" (the
+                                                project's first paper).
+      relates_to: {"paper": "<id>", "reason": "...", "provenance": "..."}
+                                             -> a `relates_to` link.
+
+    Unlike `lineage.via`, "none" writes nothing: `papers.lineage_state` is the
+    answer to "how was this paper found" and belongs to `via` alone.
+    """
+
+    paper: UUID | None = Field(None, title='Paper')
+    provenance: PaperProvenance | None = None
+    reason: Reason | None = Field(None, title='Reason')
 
 
 class Authors2(RootModel[str]):
@@ -4367,11 +4395,12 @@ class ReferenceDirection(StrEnum):
 
 class Relation(StrEnum):
     """
-    Closed: these two and nothing else.
+    Closed: these three and nothing else.
     """
 
     cites = 'cites'
     discovered_via = 'discovered_via'
+    relates_to = 'relates_to'
 
 
 class Relayout(StrEnum):
@@ -6832,12 +6861,15 @@ class CanvasPaper(BaseModel):
 
 class CanvasPaperEdge(BaseModel):
     """
-    A paper link whose two ends are both served: paper -> paper for `cites`
-    and `discovered_via`, project or experiment -> paper for `informed_by`.
+    A paper link whose two ends are both served: paper -> paper for `cites`,
+    `discovered_via` and `relates_to`, project or experiment -> paper for
+    `informed_by`.
     """
 
+    created_at: AwareDatetime | None = Field(None, title='Created At')
     edge_id: UUID | None = Field(None, title='Edge Id')
     provenance: str | None = Field(None, title='Provenance')
+    reason: str | None = Field(None, title='Reason')
     source: CanvasRef
     target: CanvasRef
     type: CanvasPaperEdgeType
@@ -7553,6 +7585,7 @@ class GitHubRepositoriesOut(BaseModel):
 
 
 class GraphEdge(BaseModel):
+    created_at: AwareDatetime | None = Field(None, title='Created At')
     edge_id: UUID | None = Field(None, title='Edge Id')
     evidence: list[Evidence] | None = Field(None, title='Evidence')
     provenance: str | None = Field(None, title='Provenance')
@@ -8848,6 +8881,7 @@ class WorkspaceOut(BaseModel):
     )
     customer_id: str = Field(..., title='Customer Id')
     id: UUID = Field(..., title='Id')
+    is_default: bool | None = Field(False, title='Is Default')
     kind: WorkspaceKind
     name: str = Field(..., title='Name')
     owner_user_id: str | None = Field(None, title='Owner User Id')
@@ -9196,6 +9230,7 @@ class PaperCreate(BaseModel):
     authors: Authors | None = Field(None, title='Authors')
     discrepancies_md: DiscrepanciesMd | None = Field(None, title='Discrepancies Md')
     lineage: PaperLineageIn | None = None
+    relates_to: PaperRelatesToIn | None = None
     repo_url: RepoUrl | None = Field(None, title='Repo Url')
     source_url: str = Field(
         ...,

@@ -121,7 +121,6 @@ fn write_frame_with_serializer_inner(
         Arg::Argument(arg) => (arg, "arg"),
         Arg::Exception(exception) => (exception, "exception"),
     };
-    // Only exits are ever recorded without their values.
     if matches!(event, Event::Return | Event::Unwind | Event::Yield) && super::values_omitted() {
         return write_frame_without_values(
             buf,
@@ -136,10 +135,6 @@ fn write_frame_with_serializer_inner(
         );
     }
 
-    // Keep the established error propagation for the five fallible PyFrame
-    // reads below. Their failure arms are not injectable on an exact CPython
-    // frame, while the observable path, qualname, and rollback branches are
-    // covered directly.
     let (path, cached_path, mut qualname, cached_qualname, code_id, native_eligibility) =
         match cached_code_metadata {
             Some((relative_path, co_qualname, native_eligibility, code_lines)) => {
@@ -250,8 +245,6 @@ fn write_frame_with_serializer_inner(
     write_user_code_call_site(buf, user_code_call_site.as_ref());
 
     if encoder.used_default_hook() {
-        // Diagnostics only: remember code whose values needed the msgpack
-        // default hook (formerly routed to the Python serializer).
         if let Some((true, native_eligibility)) = native_eligibility {
             // The diagnostic cache getter pairs this one-time transition with
             // Acquire. The ordinary hot-path eligibility probe remains Relaxed.
@@ -519,8 +512,6 @@ fn get_locals<'py>(
         return Ok(py.None().into_bound(py));
     }
 
-    // Python 3.13+: snapshot optimized frames' fast locals directly instead
-    // of copying a FrameLocalsProxy. The snapshot is a fresh dict we own.
     let (locals, owned) = match fast_locals_dict(frame)? {
         Some(dict) => (dict, true),
         None => {
@@ -531,7 +522,6 @@ fn get_locals<'py>(
             match locals.cast::<PyDict>() {
                 Ok(dict) => (dict.clone(), false),
                 Err(_) => {
-                    // Convert to dict by calling dict() constructor on the proxy
                     let dict_type = py.get_type::<PyDict>();
                     (dict_type.call1((&locals,))?.cast_into::<PyDict>()?, true)
                 }
@@ -586,9 +576,7 @@ fn hide_implicit_iterable<'py>(
     let Some(value) = locals.get_item(key)? else {
         return Ok((locals, owned));
     };
-    // Only the compiler's implicit argument: a ".0" key in the namespace
-    // given to exec(), or a parameter of a function built from an AST, is the
-    // program's own.
+    // Hide only the compiler's implicit .0 argument; user-created .0 names are program data.
     let code = frame.getattr(intern!(py, "f_code"))?;
     let varnames = code
         .getattr(intern!(py, "co_varnames"))?

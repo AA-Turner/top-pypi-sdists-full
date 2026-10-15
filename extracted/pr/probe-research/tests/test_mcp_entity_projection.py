@@ -522,6 +522,21 @@ def test_a_long_source_name_is_cut_and_says_so():
     assert card["forked_from"]["name_truncated"] is True
 
 
+def test_an_experiment_card_shows_its_conclusion_under_the_question():
+    card = _experiment_card(conclusion="Yes: 0.71 vs 0.66 real-dev F1", conclusion_source="agent")
+    assert card["question"] == "Does lr 3e-4 help?"
+    assert card["conclusion"] == "Yes: 0.71 vs 0.66 real-dev F1"
+    # Whose answer it is, so a reader never takes the AI summary's for a person's.
+    assert card["conclusion_source"] == "agent"
+    long = _experiment_card(conclusion="c" * 2000)
+    assert len(long["conclusion"]) < 2000
+    assert long["conclusion_truncated"] is True
+    assert "conclusion" not in _experiment_card()
+    # The server sends the keys as null until someone records one: no noise.
+    unset = _experiment_card(conclusion=None, conclusion_source=None)
+    assert not {"conclusion", "conclusion_source"} & unset.keys()
+
+
 def test_a_run_card_never_carries_fork_facts():
     entity = {"id": "one", "name": "r", "forked_from": dict(_SOURCE), "fork_count": 3}
     card = ResearchReadService(EntitySource(EntityType.RUN, entity)).get_entity("run:one")

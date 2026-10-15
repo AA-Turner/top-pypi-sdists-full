@@ -1,0 +1,125 @@
+- name: Higher rate applied to all gains
+  period: 2024
+  input:
+    long_term_capital_gains: 1_000
+    mt_taxable_income_joint: 1_000
+    mt_capital_gains_tax_applicable_threshold_joint: 0
+    filing_status: SINGLE
+    state_code: MT
+  output:
+    mt_capital_gains_tax_joint: 41 
+
+- name: Lower rate applies only
+  period: 2024
+  input:
+    long_term_capital_gains: 1_000
+    mt_taxable_income_joint: 1_000
+    mt_capital_gains_tax_applicable_threshold_joint: 2_000
+    filing_status: SEPARATE
+    state_code: MT
+  output:
+    mt_capital_gains_tax_joint: 30 
+
+
+- name: Lower and higher rate applies
+  period: 2024
+  input:
+    long_term_capital_gains: 3_000
+    mt_taxable_income_joint: 3_000
+    mt_capital_gains_tax_applicable_threshold_joint: 2_000
+    filing_status: SEPARATE
+    state_code: MT
+  output:
+    mt_capital_gains_tax_joint: 101 
+
+- name: No tax in 2023
+  period: 2023
+  input:
+    long_term_capital_gains: 3_000
+    mt_taxable_income_joint: 3_000
+    mt_capital_gains_tax_applicable_threshold_joint: 2_000
+    filing_status: JOINT
+    state_code: MT
+  output:
+    mt_capital_gains_tax_joint: 0 
+
+- name: Taxable income below LTCG and below higher rate threshold
+  period: 2024
+  input:
+    long_term_capital_gains: 3_000
+    mt_taxable_income_joint: 1_000
+    mt_capital_gains_tax_applicable_threshold_joint: 2_000
+    filing_status: JOINT
+    state_code: MT
+  output:
+    mt_capital_gains_tax_joint: 30
+
+- name: Taxable income below LTCG and above higher rate threshold
+  period: 2024
+  input:
+    long_term_capital_gains: 10_000
+    mt_taxable_income_joint: 3_000
+    mt_capital_gains_tax_applicable_threshold_joint: 2_000
+    filing_status: JOINT
+    state_code: MT
+  output:
+    mt_capital_gains_tax_joint: 101
+
+- name: Taxable above above LTCG and above higher rate threshold
+  period: 2024
+  input:
+    long_term_capital_gains: 10_000
+    mt_taxable_income_joint: 12_000
+    mt_capital_gains_tax_applicable_threshold_joint: 2_000
+    filing_status: JOINT
+    state_code: MT
+  output:
+    mt_capital_gains_tax_joint: 388
+
+- name: No CG tax when net capital gains are negative
+  # LTCG=50K but STCG=-80K → net=-30K → no preferential treatment
+  period: 2024
+  input:
+    long_term_capital_gains: 50_000
+    short_term_capital_gains: -80_000
+    mt_taxable_income_joint: 100_000
+    filing_status: JOINT
+    state_code: MT
+  output:
+    mt_capital_gains_tax_joint: 0
+
+- name: CG tax applies when net capital gains are positive despite STCG losses
+  # Form 2 line 2 uses the positive net LTCG amount, not gross LTCG
+  period: 2024
+  input:
+    long_term_capital_gains: 50_000
+    short_term_capital_gains: -20_000
+    mt_taxable_income_joint: 100_000
+    mt_capital_gains_tax_applicable_threshold_joint: 41_000
+    filing_status: JOINT
+    state_code: MT
+  output:
+    # lesser_of_cg_and_taxable = min(30K, 100K) = 30K
+    # all 30K is below the 41K remaining threshold: 30K * 0.03 = 900
+    mt_capital_gains_tax_joint: 900
+
+- name: Case 10, ordinary income is not subtracted twice.
+  period: 2025
+  absolute_error_margin: 2
+  input:
+    people:
+      person1:
+        age: 40
+        taxable_interest_income: 25_340.57
+        short_term_capital_gains: 1_717.07
+        long_term_capital_gains: 12_595.03
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    households:
+      household:
+        members: [person1]
+        state_code: MT
+  output:
+    mt_capital_gains_tax_joint: 409

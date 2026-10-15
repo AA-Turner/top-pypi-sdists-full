@@ -5,7 +5,9 @@ from __future__ import annotations
 import contextlib
 import importlib
 import re
+import types
 
+import pytest
 from typer.main import get_command
 from typer.testing import CliRunner
 
@@ -92,6 +94,8 @@ def test_paper_add_accepts_source_and_legacy_url_alias(monkeypatch) -> None:
                     # the body entirely -- so the server sees no `lineage` key
                     # and the paper stays UNKNOWN rather than claiming a root.
                     "lineage": None,
+                    # 0357: likewise dropped by the SDK when not answered.
+                    "relates_to": None,
                 },
             )
         ]
@@ -263,6 +267,131 @@ def test_omitting_via_records_nothing(monkeypatch) -> None:
     )
     assert result.exit_code == 0, result.output
     assert client.calls[0][1]["lineage"] is None
+
+
+# -- --relates-to: the earlier paper it connects to (0357) --------------------
+
+
+def test_relates_to_none_sends_a_null_paper(monkeypatch) -> None:
+    client = _install(monkeypatch)
+    result = CliRunner().invoke(
+        cli_main.app,
+        ["paper", "add", "review", "A", "--source", "./a.pdf", "--relates-to", "none"],
+    )
+    assert result.exit_code == 0, result.output
+    assert client.calls[0][1]["relates_to"] == {"paper": None}
+
+
+def test_relates_to_a_paper_sends_the_link_inferred_by_default(monkeypatch) -> None:
+    client = _install(monkeypatch)
+    result = CliRunner().invoke(
+        cli_main.app,
+        [
+            "paper", "add", "review", "B", "--source", "./b.pdf",
+            "--relates-to", "paper-9",
+            "--relates-reason", "B pre-trains the encoder A introduced.",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert client.calls[0][1]["relates_to"] == {
+        "paper": "paper-9",
+        "reason": "B pre-trains the encoder A introduced.",
+        "provenance": "inferred",
+    }
+
+
+def test_relates_provenance_passes_through(monkeypatch) -> None:
+    client = _install(monkeypatch)
+    result = CliRunner().invoke(
+        cli_main.app,
+        [
+            "paper", "add", "review", "B", "--source", "./b.pdf",
+            "--relates-to", "paper-9",
+            "--relates-reason", "The researcher said they answer the same question.",
+            "--relates-provenance", "human",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert client.calls[0][1]["relates_to"]["provenance"] == "human"
+
+
+@pytest.mark.parametrize("reason", [None, "", "   "])
+def test_relates_to_a_paper_without_a_reason_is_refused(monkeypatch, reason) -> None:
+    """Refused before the write, naming the flag; the server refuses it too."""
+    client = _install(monkeypatch)
+    args = ["paper", "add", "review", "B", "--source", "./b.pdf", "--relates-to", "paper-9"]
+    if reason is not None:
+        args += ["--relates-reason", reason]
+    result = CliRunner().invoke(cli_main.app, args)
+    assert result.exit_code == 2
+    assert "--relates-reason" in _squashed(result.output)
+    assert client.calls == []
+
+
+def test_relates_reason_without_relates_to_is_refused(monkeypatch) -> None:
+    client = _install(monkeypatch)
+    result = CliRunner().invoke(
+        cli_main.app,
+        ["paper", "add", "review", "B", "--source", "./b.pdf", "--relates-reason", "why"],
+    )
+    assert result.exit_code == 2
+    assert "--relates-to" in _squashed(result.output)
+    assert client.calls == []
+
+
+def test_omitting_relates_to_sends_nothing(monkeypatch) -> None:
+    client = _install(monkeypatch)
+    result = CliRunner().invoke(
+        cli_main.app, ["paper", "add", "review", "A", "--source", "./a.pdf"]
+    )
+    assert result.exit_code == 0, result.output
+    assert client.calls[0][1]["relates_to"] is None
+
+
+def test_the_sdk_sends_relates_to_on_the_create(monkeypatch) -> None:
+    """`add_paper(relates_to=...)` rides the create body as given; omitted, the
+    key is absent (an old server ignores it either way)."""
+    from probe.sdk.client import Client
+
+    bodies: list[dict] = []
+    client = Client(base_url="http://test", token="t")
+    stub = types.SimpleNamespace(post=lambda path, body: bodies.append(body) or {"id": "p1"})
+    monkeypatch.setattr(client, "transport", stub)
+    link = {"paper": "paper-9", "reason": "why", "provenance": "inferred"}
+    client.add_paper("proj", title="T", source_url="./a.pdf", relates_to=link)
+    client.add_paper("proj", title="T", source_url="./a.pdf")
+    assert bodies[0]["relates_to"] == link
+    assert "relates_to" not in bodies[1]
+
+
+def test_edge_add_takes_relates_to_through_the_generated_model(monkeypatch) -> None:
+    """`probe edge add --relation relates_to` reaches the SDK's generated
+    `EdgeCreate`, whose relation enum must know the word."""
+    from probe.sdk.client import Client
+
+    sent: list[dict] = []
+    client = Client(base_url="http://test", token="t")
+    monkeypatch.setattr(
+        client, "write", lambda method, path, body, strict=None: sent.append(body) or {"id": "e1"}
+    )
+    monkeypatch.setattr(cli_main, "_client", lambda: contextlib.nullcontext(client))
+    result = CliRunner().invoke(
+        cli_main.app,
+        [
+            "edge", "add",
+            "--source", "paper:11111111-1111-4111-8111-111111111111",
+            "--relation", "relates_to",
+            "--target", "paper:22222222-2222-4222-8222-222222222222",
+            "--provenance", "inferred",
+            "--reason", "Both study reward hacking in code agents.",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert sent[0]["relation"] == "relates_to"
+    assert sent[0]["reason"] == "Both study reward hacking in code agents."
+    assert "relates_to" in _squashed(
+        CliRunner().invoke(cli_main.app, ["edge", "add", "--help"]).output
+    )
 
 
 def test_edge_add_refuses_a_paper_edge_without_provenance(monkeypatch) -> None:

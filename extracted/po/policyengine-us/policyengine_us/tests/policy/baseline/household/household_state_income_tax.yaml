@@ -1,0 +1,6 @@
+- name: Household state income tax without switch
+  period: 2022
+  input:
+    dc_income_tax_before_refundable_credits: 100
+  output:
+    household_state_income_tax: 100

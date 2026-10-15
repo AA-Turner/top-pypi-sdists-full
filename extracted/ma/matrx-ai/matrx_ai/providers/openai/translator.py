@@ -76,6 +76,15 @@ class OpenAITranslator(BaseTranslator):
                 rich.print(converted)
             messages.extend(converted)
 
+        # TAIL CHANNEL (config/live_plan.py): a developer item after the newest
+        # function_call_output — the platform's voice, not the person's, at the
+        # end of the context. Automatic prefix caching is unaffected.
+        tail_text = self.get_tail_context_text(config)
+        if tail_text:
+            messages.append(
+                {"role": "developer", "content": [{"type": "input_text", "text": tail_text}]}
+            )
+
         # Build request
         openai_request = {"model": config.model, "input": messages}
 

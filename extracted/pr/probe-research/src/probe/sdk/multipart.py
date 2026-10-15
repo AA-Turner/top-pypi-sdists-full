@@ -623,6 +623,13 @@ def _check_staged(state: dict) -> None:
 
 
 def _create(client: Any, upload: dict) -> dict:
+    if upload.get("hosted"):
+        # A hosted dataset blob (`.probe/datasets/<sha256>`): only the hosting
+        # door may stage that name, so it opens the upload again, never the
+        # generic create below (which refuses it, 422).
+        from .catalog import reopen_hosted
+
+        return reopen_hosted(client, upload)
     body = {
         "name": upload["name"],
         "content_hash": upload["blob"],

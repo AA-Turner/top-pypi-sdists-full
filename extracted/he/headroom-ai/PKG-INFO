@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: headroom-ai
-Version: 0.40.0
+Version: 0.41.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -68,8 +68,8 @@ Requires-Dist: trafilatura>=1.6.0 ; extra == 'html'
 Requires-Dist: pillow>=12.3.0 ; extra == 'image'
 Requires-Dist: sentencepiece>=0.1.99 ; extra == 'image'
 Requires-Dist: rapidocr-onnxruntime>=1.4.0,<2 ; python_full_version < '3.13' and extra == 'image'
-Requires-Dist: rapidocr>=3.0,<4 ; python_full_version >= '3.13' and extra == 'image'
-Requires-Dist: onnxruntime>=1.7,<2 ; python_full_version >= '3.13' and extra == 'image'
+Requires-Dist: rapidocr>=3.0,<4 ; (python_full_version == '3.13.*' and extra == 'image') or (python_full_version >= '3.14' and platform_machine != 'x86_64' and extra == 'image') or (python_full_version >= '3.14' and sys_platform != 'darwin' and extra == 'image')
+Requires-Dist: onnxruntime>=1.7,<2 ; (python_full_version == '3.13.*' and extra == 'image') or (python_full_version >= '3.14' and platform_machine != 'x86_64' and extra == 'image') or (python_full_version >= '3.14' and sys_platform != 'darwin' and extra == 'image')
 Requires-Dist: langchain-core>=1.3.3,<4.0 ; extra == 'langchain'
 Requires-Dist: langchain-openai>=1.1.14,<2.0 ; extra == 'langchain'
 Requires-Dist: langchain-core>=1.3.3,<4.0 ; extra == 'langgraph'
@@ -95,11 +95,11 @@ Requires-Dist: orjson>=3.9.14 ; platform_python_implementation != 'PyPy' and ext
 Requires-Dist: httpx[http2]>=0.24.0 ; extra == 'proxy'
 Requires-Dist: openai>=2.14.0 ; extra == 'proxy'
 Requires-Dist: mcp>=1.28.1,<2.0.0 ; extra == 'proxy'
-Requires-Dist: magika>=0.6.0 ; extra == 'proxy'
+Requires-Dist: magika>=0.6.0 ; (python_full_version < '3.14' and extra == 'proxy') or (platform_machine != 'x86_64' and extra == 'proxy') or (sys_platform != 'darwin' and extra == 'proxy')
 Requires-Dist: zstandard>=0.20.0 ; extra == 'proxy'
 Requires-Dist: websockets>=13.0 ; extra == 'proxy'
-Requires-Dist: onnxruntime>=1.24.0 ; python_full_version >= '3.11' and extra == 'proxy'
-Requires-Dist: onnxruntime>=1.16.0,<1.24.0 ; python_full_version < '3.11' and extra == 'proxy'
+Requires-Dist: onnxruntime>=1.24.0 ; (python_full_version >= '3.11' and platform_machine != 'x86_64' and extra == 'proxy') or (python_full_version >= '3.11' and sys_platform != 'darwin' and extra == 'proxy')
+Requires-Dist: onnxruntime>=1.16.0,<1.24.0 ; (python_full_version < '3.11' and extra == 'proxy') or (python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'proxy')
 Requires-Dist: transformers>=5.5.0,<6.0 ; extra == 'proxy'
 Requires-Dist: watchdog>=4.0.0 ; (python_full_version < '3.14' and extra == 'proxy') or (sys_platform != 'darwin' and extra == 'proxy')
 Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'proxy'
@@ -107,7 +107,7 @@ Requires-Dist: headroom-ai[proxy] ; extra == 'proxy-prod'
 Requires-Dist: gunicorn>=21.0.0 ; sys_platform != 'win32' and extra == 'proxy-prod'
 Requires-Dist: torch>=2.12.1 ; sys_platform == 'darwin' and extra == 'pytorch-mps'
 Requires-Dist: sentence-transformers>=2.2.0 ; sys_platform == 'darwin' and extra == 'pytorch-mps'
-Requires-Dist: fastembed>=0.4.0 ; extra == 'relevance'
+Requires-Dist: fastembed>=0.4.0 ; (python_full_version < '3.14' and extra == 'relevance') or (platform_machine != 'x86_64' and extra == 'relevance') or (sys_platform != 'darwin' and extra == 'relevance')
 Requires-Dist: numpy>=1.24.0 ; extra == 'relevance'
 Requires-Dist: jinja2>=3.0.0 ; extra == 'reports'
 Requires-Dist: headroom-ai[proxy,code,relevance,reports,otel,html,mcp,spreadsheet] ; extra == 'sandbox'
@@ -115,8 +115,8 @@ Requires-Dist: openpyxl>=3.1.0 ; extra == 'spreadsheet'
 Requires-Dist: xlrd>=2.0.1 ; extra == 'spreadsheet'
 Requires-Dist: strands-agents>=0.1.0 ; extra == 'strands'
 Requires-Dist: hnswlib>=0.8.0 ; extra == 'vector'
-Requires-Dist: onnxruntime>=1.24.0 ; python_full_version >= '3.11' and extra == 'voice'
-Requires-Dist: onnxruntime>=1.16.0,<1.24.0 ; python_full_version < '3.11' and extra == 'voice'
+Requires-Dist: onnxruntime>=1.24.0 ; (python_full_version >= '3.11' and platform_machine != 'x86_64' and extra == 'voice') or (python_full_version >= '3.11' and sys_platform != 'darwin' and extra == 'voice')
+Requires-Dist: onnxruntime>=1.16.0,<1.24.0 ; (python_full_version < '3.11' and extra == 'voice') or (python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'voice')
 Requires-Dist: transformers>=5.5.0,<6.0 ; extra == 'voice'
 Requires-Dist: torch>=2.12.1 ; (platform_machine != 'x86_64' and extra == 'voice') or (sys_platform != 'darwin' and extra == 'voice')
 Requires-Dist: headroom-ai[voice] ; extra == 'voice-train'
@@ -184,6 +184,7 @@ Project-URL: Repository, https://github.com/headroomlabs-ai/headroom
 
 <p>
   <b><a href="https://docs.headroomlabs.ai/docs/quickstart">Quickstart</a></b> ·
+  <b><a href="#headroom-for-teams">Headroom for Teams</a></b> ·
   <a href="#get-started-60-seconds">Install</a> ·
   <a href="#proof">Proof</a> ·
   <a href="#agent-compatibility">Agents</a> ·
@@ -204,6 +205,10 @@ Headroom compresses everything your AI agent reads — tool outputs, logs, RAG
 chunks, files, and conversation history — before it reaches the LLM. Same
 answers, fraction of the tokens. Compression runs on your machine; no prompt or
 file content is sent anywhere to be compressed.
+
+<p align="center">
+  <a href="https://headroom-perks.vercel.app/?source=github&utm_source=github&utm_medium=readme&utm_content=banner"><img src=".github/assets/enterprise-perk.svg" alt="Headroom Enterprise for teams: 3 months free with a 12-month plan. Claim the perk." width="880"></a>
+</p>
 
 <div align="center">
   <img src="HeadroomDemo-Fast.gif" alt="Headroom compressing a 10,144 token log dump to 1,260 tokens while preserving the FATAL line" width="820">
@@ -374,8 +379,13 @@ picks the level:
 
 ```bash
 headroom learn --verbosity            # dry run — preview what it found
-headroom learn --verbosity --apply    # save it; the proxy picks it up
+headroom learn --verbosity --apply    # save it and apply it to the running proxy
 ```
+
+A proxy in cache mode (the default) never re-reads the learned level, because a
+level that changes mid-conversation would bust the prompt cache. There `--apply`
+pins it with `HEADROOM_VERBOSITY_LEVEL`; set that variable yourself to keep it
+after a restart.
 
 **Measuring it.** Output savings are counterfactual — we never see what the model
 *would* have written — so Headroom reports an estimate with a confidence range
@@ -404,7 +414,7 @@ Saved** card then reads `measured` rather than `estimated`, with the band.
 | Copilot CLI | ✅ | starts proxy + launches |
 | VS Code Copilot | ✅ | transparent proxy; keeps the selected model |
 | OpenClaw | ✅ | installs as a ContextEngine plugin |
-| OpenCode | ✅ | injects config · starts proxy + launches |
+| OpenCode | ✅ | injects config · starts proxy + launches [^third-party-upstream] |
 | Cline | ✅ | starts proxy + injects config |
 | Continue | ✅ | starts proxy + injects config |
 | Goose | ✅ | starts proxy + launches |
@@ -414,6 +424,8 @@ Saved** card then reads `measured` rather than `estimated`, with the band.
 | Cortex Code | Library only | 60–65% savings in library mode; no `wrap` |
 | Kimi CLI | ✅ | OAuth bearer forwarded — log in once |
 | ZCode | ✅ | starts the proxy and prints base URLs for ZCode settings |
+
+[^third-party-upstream]: `headroom wrap` routes OpenAI-compatible traffic to the default upstream (`https://api.openai.com/v1`). For a third-party OpenAI-compatible provider (DeepSeek, Together, OpenRouter, a self-hosted gateway), pass `--openai-api-url https://api.deepseek.com/v1` — or set `OPENAI_TARGET_API_URL` before wrapping — otherwise your provider key is sent to OpenAI and rejected with `401 Incorrect API key provided`. See [OpenCode + DeepSeek](docs/content/docs/opencode-deepseek.mdx).
 
 Any OpenAI-compatible client works through `headroom proxy`. MCP-native clients:
 `headroom mcp install`. Undo durable wrapping with `headroom unwrap <tool>`
@@ -781,26 +793,30 @@ regresses a compression ratio across real workloads rather than only our own tes
 corpus.
 
 Turn it off with `HEADROOM_BEACON=off`, the `DO_NOT_TRACK=1` convention, or
-`--offline`. The full field list is in
+`HEADROOM_OFFLINE=1`. The full field list is in
 [the proxy docs](https://docs.headroomlabs.ai/docs/proxy).
 
 ## Headroom for teams
 
-Headroom OSS is built for individual developers: run `headroom proxy` or
-`headroom wrap` on your laptop and start cutting tokens in minutes, free and
-local-first.
+Headroom OSS is built for one developer on one laptop. Headroom Enterprise is built
+for the whole team.
 
-Running it across an engineering org is a different job — a shared always-on
-deployment, centralised config and version rollout, org-wide savings dashboards,
-SSO and access control, air-gapped and VPC installs, and someone to call. We help
-companies with that, self-hosted with support or fully managed.
+| | Open source | Enterprise |
+|---|---|---|
+| Savings | Compression, plus tool search on Anthropic requests (on by default) | Also: tool search for every model, harness tuning, extra compressors |
+| Model routing | Rule-based and opt-in: turn it on with `HEADROOM_MODEL_ROUTER_ENABLED=1` and write the rules in `HEADROOM_MODEL_ROUTES` | Automatic: a cheaper model per request when quality allows, with a shadow mode that shows the savings before you turn it on |
+| Security | — | Detect and strip prompt injection and risky tool calls |
+| Rollout | Per laptop | Managed or in your VPC, SSO, central config, org-wide savings |
+| Support | GitHub, Discord | Dedicated engineers, onboarding, priority response |
 
-If your team is spending real money on LLM tokens — Claude Code, Codex, Cursor,
-or agents running in CI — email **[hello@headroomlabs.ai](mailto:hello@headroomlabs.ai)**
-with your stack and rough monthly LLM spend.
+**3 months of Enterprise free.** Companies that sign a 12-month Enterprise plan get
+their first 3 months free. One perk per company.
 
-Everything in this repo stays open source under Apache 2.0. The managed offering
-is for teams that would rather have it deployed, supported and scaled for them.
+**[Claim 3 months free →](https://headroom-perks.vercel.app/?source=github&utm_source=github&utm_medium=readme&utm_content=teams)**
+· or email [hello@headroomlabs.ai](mailto:hello@headroomlabs.ai) with your stack and
+monthly LLM spend.
+
+Everything in this repo stays open source under Apache 2.0.
 
 ## Documentation
 

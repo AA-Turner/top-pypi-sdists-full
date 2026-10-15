@@ -152,7 +152,7 @@ _CREATE_FIELDS = (
     "authored_by",
 )
 #: Keywords that choose WHERE the run lives, resolved at sync.
-_HOME_FIELDS = ("project", "experiment", "question", "experiment_name")
+_HOME_FIELDS = ("project", "experiment", "question", "experiment_name", "workspace")
 #: Keywords whose feature an offline run skips (warned once, never an error).
 #: `capture_reads`, `capture_outputs` and `ignore` shape its read and write
 #: recording; `probe.init` takes them before this sees `kw`.
@@ -1028,8 +1028,11 @@ def _home_path(client: Client, create: dict, key: str) -> str:
     try:
         project_id = None
         if project:
+            # `workspace=` (kept as given) files a NEW project; without it, the
+            # syncing computer's workspace (`Client.create_project`).
+            workspace = create.get("workspace")
             project_id = (
-                client.ensure_project(project)["id"]
+                client.ensure_project(project, **({"workspace_id": workspace} if workspace else {}))["id"]
                 if question is not None
                 else client.resolve_or_raise("project", project)["id"]
             )

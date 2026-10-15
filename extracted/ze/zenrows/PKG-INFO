@@ -1,7 +1,7 @@
 Metadata-Version: 2.5
 Name: zenrows
-Version: 1.6.0
-Summary: ZenRows Python SDK — synchronous scraping + Batch (async job) API
+Version: 1.8.0
+Summary: Zenrows Python SDK: Fetch, Extract (structured data), Batch and Crawl APIs
 Project-URL: Homepage, https://www.zenrows.com/
 Project-URL: Documentation, https://www.zenrows.com/documentation
 Project-URL: Repository, https://github.com/ZenRows/zenrows-python-sdk
@@ -9,7 +9,7 @@ Project-URL: Issues, https://github.com/ZenRows/zenrows-python-sdk/issues
 Author-email: ZenRows <support@zenrows.com>
 License: MIT
 License-File: LICENSE
-Keywords: async,batch,scraper,scraping,zenrows
+Keywords: async,batch,crawl,extract,scraper,scraping,structured-data,web-scraping,zenrows
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -47,7 +47,6 @@ This package ships three clients:
   - **`ZenRowsBatchClient`** — the async-job / Batch API client. Submit
     thousands of URLs as one job, poll for results, optionally upload a
     CSV of URLs in one call. Best for offline / bulk pipelines.
-    _(Private beta — [contact support](mailto:support@zenrows.com) for access.)_
   - **`ZenRowsCrawlClient`** — the Crawl API client. Give it one start
     URL; it follows links and returns the URLs (and, optionally, the
     pages) it finds behind it. _(New.)_
@@ -88,7 +87,7 @@ Start using the API by [creating your API Key](https://www.zenrows.com/register?
 
 The SDK uses [requests](https://docs.python-requests.org/) for HTTP requests. The client's response will be a requests `Response`.
 
-It also uses [Retry](https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html) to automatically retry failed requests (status codes 429, 500, 502, 503, and 504). Retries are not active by default; you need to specify the number of retries, as shown below. It already includes an exponential back-off retry delay between failed requests.
+It also uses [Retry](https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html) to automatically retry failed requests (status codes 422, 429, 500, 502, 503, and 504, except Extract's `422 no_data_extracted`). Retries are not active by default; you need to specify the number of retries, as shown below. It already includes an exponential back-off retry delay between failed requests.
 
 `client.fetch()` is the primary method for the main page-scraping product; `client.get()` still works and is kept as a deprecated alias.
 
@@ -219,7 +218,7 @@ asyncio.run(main())
 
 ### Extract
 
-[Extract](https://docs.zenrows.com) (beta) runs a page through Zenrows' AI-powered structured extraction instead of returning raw HTML. Use `client.extract()` — it's the same request as `fetch()`, with the `extract` param set for you (defaults to `"auto"`; pass `"native"` or `"standard"` for the other contracts).
+[Extract](https://docs.zenrows.com/extract/introduction) runs a page through Zenrows' AI-powered structured extraction instead of returning raw HTML. Use `client.extract()`: it's the same request as `fetch()`, with the `extract` param set for you (defaults to `"auto"`; pass `"native"` or `"standard"` for the other contracts).
 
 ```python
 from zenrows import ZenRowsClient
@@ -233,11 +232,14 @@ response = client.extract(url)  # extract: "auto"
 print(response.json())
 ```
 
+`extract()` also sends [Adaptive Stealth Mode](https://docs.zenrows.com/fetch/features/adaptive-stealth-mode) (`mode: "auto"`) by default, except when `params` sets `js_render` or `premium_proxy`: the API rejects either combined with Adaptive Stealth Mode, so your fixed configuration is sent as is. Pass `adaptive_stealth=False` to turn it off entirely.
+
+A `422` with `code: "no_data_extracted"` means Extract knows this kind of page but found no data on it. It isn't charged, and the client never retries it, even with `retries` set. `is_no_data_extracted(response)` tells you when you got one. See the [Extract docs](https://docs.zenrows.com/extract/setup).
+
 ## Quickstart — Batch API (`ZenRowsBatchClient`)
 
-> **⚠️ Beta.** The Batch API is currently in beta and not yet generally
-> available — free to use while it's in beta, but the shape of the API may
-> still change before GA.
+> Batch is open to every account and spends the same credits as a regular
+> Fetch request.
 
 For workflows where you have many URLs to scrape and don't want to
 manage retries, concurrency, and pagination yourself, the Batch API
@@ -533,8 +535,9 @@ link hops from the start URL; without it the crawl has no depth limit.
 It stays on the start URL's registrable domain;
 subdomains count. It runs in the background: `create` returns at once with
 `status="running"`, and `wait` blocks until it ends. Without
-`output_format` a crawl returns URLs only; `output_format="html"` also
-returns each kept URL's page.
+`output_format` a crawl returns URLs only; `output_format="html"` or
+`output_format="markdown"` also returns each kept URL's page, as HTML or
+as Markdown.
 
 ```python
 import os

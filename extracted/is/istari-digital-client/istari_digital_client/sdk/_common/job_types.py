@@ -140,5 +140,35 @@ class Job(_GenJob, ClientHaving, Archivable, Shareable):
             self.id, interval=interval, timeout=timeout
         )
 
+    @property
+    def parameters_revision_id(self) -> str:
+        """The file-revision id of this job's parameters file (its current revision).
+
+        A job carries its input parameters as a stored file (``self.file``); this is
+        the id of that file's active revision — e.g. to record it as a source.
+        """
+        return self.file.revisions[-1].id
+
+    def read_parameters(self) -> bytes:
+        """Read the raw bytes of this job's parameters file.
+
+        A job carries its input parameters as a stored file (``self.file``); this
+        downloads that file's current revision content from storage.
+
+        Raises IstariError if the job's parameters file has no revisions.
+        """
+        revisions = self.file.revisions
+        if not revisions:
+            from istari_digital_client.sdk._exceptions import IstariError
+
+            raise IstariError(f"job {self.id} has no parameters revision to read")
+        return self._mgr._engine.storage.read_contents(revisions[-1].content_token)
+
+    def read_parameters_json(self) -> Any:
+        """Read and JSON-parse this job's parameters file."""
+        import json
+
+        return json.loads(self.read_parameters())
+
 
 __all__ = ["Job"]

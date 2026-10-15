@@ -38,6 +38,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from matrx_scraper.db.models_web import (
     LinkEdge as WebLinkEdge,
@@ -126,6 +127,15 @@ HOST_CONSISTENT_SCORE = 100
 #: The only redirect status that consolidates a duplicate host permanently.
 HOST_PERMANENT_REDIRECT_STATUSES = frozenset({301, 308})
 
+#: A sitemap entry or file answering one of these was never SEEN broken: bot
+#: walls and rate limits (401/403/405/406/429). 5xx and no-response are treated
+#: the same way by the callers. All of them are counted apart as "could not check".
+UNVERIFIABLE_HTTP_STATUSES = frozenset({401, 403, 405, 406, 429})
+#: Sitemap locations the discovery step tries on every site, declared or not.
+GUESSED_SITEMAP_PATHS = frozenset({"/sitemap.xml", "/sitemap_index.xml"})
+#: Host-variant redirect chains longer than this many hops are worth reporting.
+HOST_MAX_REDIRECT_HOPS = 2
+
 # Batch sizes. A site can carry 20k pages and tens of thousands of sitemap URLs;
 # nothing below loads a whole table into one query.
 _SITEMAP_MEMBERSHIP_BATCH = 2_000
@@ -154,11 +164,43 @@ class SitemapDocFacts:
     last_fetched_at: datetime | None
 
     @property
-    def unreachable(self) -> bool:
-        """Fetched and refused, or fetched and unparseable."""
+    def failed(self) -> bool:
+        """The fetch did not produce a readable document, for any reason."""
         if self.fetch_error:
             return True
         return self.status_code is not None and self.status_code >= 400
+
+    @property
+    def transient(self) -> bool:
+        """The failure says nothing about the file: a wall, a 5xx, or no answer.
+
+        A 401/403/405/406/429 is a bot wall, a 5xx or a timeout is the server (or
+        the path to it) having a bad minute. We never SAW the file be broken, so
+        it is "could not check", never "cannot be read".
+        """
+        if not self.failed:
+            return False
+        if self.status_code is None or self.status_code == 0:
+            return True  # timeout / connection error: no response at all
+        return self.status_code in UNVERIFIABLE_HTTP_STATUSES or self.status_code >= 500
+
+    def guessed_unreadable(self, declared: set[str]) -> bool:
+        """A conventional path nobody declared that answered with a non-sitemap.
+
+        `/sitemap.xml` and `/sitemap_index.xml` are tried on every site. A CMS
+        that answers them with its HTML soft-404 has not published a broken
+        sitemap — it has not published one there at all.
+        """
+        error = (self.fetch_error or "").lower()
+        if not ("malformed sitemap xml" in error or "unsupported sitemap root" in error):
+            return False
+        path = urlsplit(self.url).path.rstrip("/").lower()
+        return path in GUESSED_SITEMAP_PATHS and self.url.rstrip("/") not in declared
+
+    @property
+    def unreachable(self) -> bool:
+        """Fetched and refused, or fetched and unparseable (kept for callers)."""
+        return self.failed
 
 
 @dataclass
@@ -187,6 +229,10 @@ class SiteEvidence:
     #: Junk class -> the sitemap URLs in it (all of them; sampled at emit time).
     junk_by_class: dict[str, list[str]] = field(default_factory=dict)
     junk_entry_count: int = 0
+    #: Sitemap URLs that answered a wall / rate limit / 5xx / nothing. NOT junk:
+    #: we could not tell whether they are fine, and say so.
+    unverifiable_urls: list[str] = field(default_factory=list)
+    unverifiable_count: int = 0
 
     # --- coverage (crawled indexable pages vs the sitemap set)
     indexable_total: int = 0
@@ -200,6 +246,9 @@ class SiteEvidence:
     #: The page census this evidence was derived from was cut short, so any
     #: whole-site ratio computed from it would understate coverage.
     pages_truncated: bool = False
+    #: Whether the crawl reached enough of the site for "missing from the
+    #: sitemap" to mean anything. `None` = the caller did not measure it.
+    crawl_complete: bool | None = None
 
     @property
     def junk_pct(self) -> float:
@@ -287,6 +336,17 @@ def _check_robots_txt_health(site: SiteEvidence) -> CheckOutcome:
             evidence={"robots_url": capture.url, "http_status": status},
         )
 
+    if _looks_like_html(capture.content):
+        return _verdict(
+            ROBOTS_SYNTAX_ERROR_SCORE,
+            f"{capture.url} returns a web page, not a rules file — the address is "
+            "answering with HTML (often the site's own 'page not found' template). "
+            "Search engines read none of it, so no robots rules are in force. "
+            "Replace it with a plain-text robots.txt, or remove it so it answers 404.",
+            issue_count=1,
+            evidence={"robots_url": capture.url, "http_status": status},
+        )
+
     blanket = document.blanket_disallow_agents()
     if blanket:
         return _verdict(
@@ -333,6 +393,13 @@ def _check_robots_txt_health(site: SiteEvidence) -> CheckOutcome:
     )
 
 
+def _looks_like_html(content: str | None) -> bool:
+    head = (content or "").lstrip()[:2_000].lower()
+    return head.startswith(("<!doctype html", "<html", "<head", "<body")) or (
+        head.startswith("<") and any(t in head for t in ("<html", "<head", "<body", "<title"))
+    )
+
+
 def _robots_blocked_urls(site: SiteEvidence, document: RobotsDocument) -> list[str]:
     """URLs the site advertises that its own robots.txt forbids."""
 
@@ -350,6 +417,38 @@ def _robots_blocked_urls(site: SiteEvidence, document: RobotsDocument) -> list[s
             wanted.append(url)
     blocked = [u for u in wanted[:ROBOTS_BLOCK_SCAN_LIMIT] if not document.is_allowed(u)]
     return blocked
+
+
+def _declared_sitemaps(site: SiteEvidence) -> set[str]:
+    """Sitemap URLs the site itself names in robots.txt (not our guesses)."""
+    if site.robots is None:
+        return set()
+    return {str(u).rstrip("/") for u in site.robots.sitemaps}
+
+
+def _unchecked_note(site: SiteEvidence, unchecked_docs: list[SitemapDocFacts]) -> str:
+    parts = []
+    if site.unverifiable_count:
+        parts.append(
+            f"{site.unverifiable_count} entr{'y' if site.unverifiable_count == 1 else 'ies'} "
+            "answered with a block, rate limit, or server error"
+        )
+    if unchecked_docs:
+        parts.append(f"{len(unchecked_docs)} sitemap file(s) could not be fetched or are not sitemaps")
+    if not parts:
+        return ""
+    return (
+        " Not counted against the sitemap — we could not check: " + "; ".join(parts) + "."
+    )
+
+
+def _unchecked_evidence(site: SiteEvidence, unchecked_docs: list[SitemapDocFacts]) -> dict:
+    evidence: dict = {}
+    if site.unverifiable_urls:
+        evidence["could_not_check"] = sample_urls(site.unverifiable_urls)
+    if unchecked_docs:
+        evidence["unchecked_sitemaps"] = sample_urls([s.url for s in unchecked_docs])
+    return evidence
 
 
 def _check_sitemap_health(site: SiteEvidence) -> CheckOutcome:
@@ -379,7 +478,11 @@ def _check_sitemap_health(site: SiteEvidence) -> CheckOutcome:
             },
         )
 
-    unreachable = [s for s in site.sitemaps if s.unreachable]
+    declared = _declared_sitemaps(site)
+    unchecked_docs = [
+        s for s in site.sitemaps if s.failed and (s.transient or s.guessed_unreadable(declared))
+    ]
+    unreachable = [s for s in site.sitemaps if s.failed and s not in unchecked_docs]
     if unreachable:
         first = unreachable[0]
         detail = first.fetch_error or f"HTTP {first.status_code}"
@@ -402,6 +505,8 @@ def _check_sitemap_health(site: SiteEvidence) -> CheckOutcome:
         )
 
     junk_pct = site.junk_pct
+    unchecked_note = _unchecked_note(site, unchecked_docs)
+    unchecked_evidence = _unchecked_evidence(site, unchecked_docs)
     if site.junk_entry_count > 0:
         summary = ", ".join(
             f"{len(urls)} {label.replace('_', ' ')}"
@@ -416,12 +521,15 @@ def _check_sitemap_health(site: SiteEvidence) -> CheckOutcome:
             f"({junk_pct:.1f}%) should not be there — {summary}. A sitemap is a "
             "list of pages you are asking to have indexed; every entry that "
             "redirects, errors, or says noindex spends crawl budget contradicting "
-            "you.",
+            "you." + unchecked_note,
             issue_count=site.junk_entry_count,
             evidence={
-                label: sample_urls(urls)
-                for label, urls in sorted(site.junk_by_class.items())
-                if urls
+                **{
+                    label: sample_urls(urls)
+                    for label, urls in sorted(site.junk_by_class.items())
+                    if urls
+                },
+                **unchecked_evidence,
             },
         )
 
@@ -440,16 +548,20 @@ def _check_sitemap_health(site: SiteEvidence) -> CheckOutcome:
             )
         return _verdict(
             SITEMAP_MINOR_ISSUE_SCORE,
-            "The sitemap is clean, with housekeeping worth doing: " + "; ".join(details) + ".",
+            "The sitemap is clean, with housekeeping worth doing: "
+            + "; ".join(details)
+            + "."
+            + unchecked_note,
             issue_count=len(oversized) + site.entries_missing_lastmod,
-            evidence={"oversized": sample_urls([s.url for s in oversized])},
+            evidence={"oversized": sample_urls([s.url for s in oversized]), **unchecked_evidence},
         )
 
     return _verdict(
         SITEMAP_CLEAN_SCORE,
         f"All {site.sitemap_entries_total} URLs across {len(site.sitemaps)} sitemap "
         "file(s) are reachable, indexable, and dated — nothing in here contradicts "
-        "what the site is asking to have indexed.",
+        "what the site is asking to have indexed." + unchecked_note,
+        evidence=unchecked_evidence or None,
     )
 
 
@@ -474,6 +586,14 @@ def _check_sitemap_coverage(site: SiteEvidence) -> CheckOutcome:
         return _missing(
             "This site is larger than one analysis pass covers, so any coverage "
             "figure would understate it.",
+            RECRAWL_SITE,
+        )
+    if site.crawl_complete is False:
+        return _missing(
+            "The crawl has reached only part of this site, so most sitemap URLs "
+            "would read as \"never reached\" and most pages as \"missing\" — "
+            "an artifact of the crawl, not of the sitemap. Finish a full crawl and "
+            "this answers properly.",
             RECRAWL_SITE,
         )
     if site.indexable_total == 0:
@@ -552,10 +672,16 @@ def _check_host_protocol_consistency(site: SiteEvidence) -> CheckOutcome:
 
     # Rule 1 — a variant that serves 200 in its own right (never redirecting to
     # the canonical form) is a second live copy of the whole site.
+    # A variant that REDIRECTS somewhere is consolidated, whatever the
+    # `canonical_host_form` guess says about where it ended up: it is not a
+    # second live copy, so only variants that answer 200 themselves count.
     live_duplicates = [
         p
         for p in others
-        if p.final_status == 200 and p.final_url is not None and host_form(p.final_url) != canonical
+        if not p.redirects
+        and p.final_status == 200
+        and p.final_url is not None
+        and host_form(p.final_url) != canonical
     ]
     if live_duplicates:
         urls = [p.url for p in live_duplicates]
@@ -570,25 +696,42 @@ def _check_host_protocol_consistency(site: SiteEvidence) -> CheckOutcome:
             evidence={"live_variants": sample_urls(urls), "canonical": canonical},
         )
 
-    # Rule 2 — they do redirect, but not permanently or not in one hop.
+    # Rule 2 — they do redirect, but with a temporary status (302/307) or through
+    # a chain longer than HOST_MAX_REDIRECT_HOPS. One extra hop (http://www ->
+    # https://www -> https://apex) is the default behaviour of nearly every
+    # host and CDN, and a clean 301 is consolidation working: neither fires.
     soft = [
         p
         for p in others
         if p.redirects
-        and (p.http_status not in HOST_PERMANENT_REDIRECT_STATUSES or len(p.redirect_chain) > 1)
+        and (
+            p.http_status not in HOST_PERMANENT_REDIRECT_STATUSES
+            or len(p.redirect_chain) > HOST_MAX_REDIRECT_HOPS
+        )
     ]
     if soft:
-        detail = ", ".join(
-            f"{p.url} → {p.http_status}"
-            + (f" ({len(p.redirect_chain)} hops)" if len(p.redirect_chain) > 1 else "")
-            for p in soft
+        problems = []
+        for p in soft:
+            hops = len(p.redirect_chain)
+            if p.http_status not in HOST_PERMANENT_REDIRECT_STATUSES:
+                problems.append(
+                    f"{p.url} answers a temporary {p.http_status} redirect"
+                    + (f" ({hops} hops)" if hops > HOST_MAX_REDIRECT_HOPS else "")
+                )
+            else:
+                problems.append(f"{p.url} takes {hops} redirect hops to get there")
+        any_temporary = any(p.http_status not in HOST_PERMANENT_REDIRECT_STATUSES for p in soft)
+        consequence = (
+            "A temporary redirect tells search engines the old address is still "
+            "real and may come back, so they keep it indexed. Make it a 301."
+            if any_temporary
+            else "Every extra hop loses a little of the value a link was carrying "
+            "and slows the visit. Point the address straight at the final one."
         )
         return _verdict(
             HOST_SOFT_REDIRECT_SCORE,
             f"The site's other addresses do point at {canonical}, but not cleanly: "
-            f"{detail}. A temporary redirect tells search engines the old address "
-            "is still real, and every extra hop loses a little of the value the "
-            "link was carrying.",
+            f"{'; '.join(problems)}. {consequence}",
             issue_count=len(soft),
             evidence={"variants": [{"url": p.url, "status": p.http_status} for p in soft]},
         )
@@ -660,6 +803,24 @@ CRAWLABILITY_SITE_CHECKS: dict[str, Callable[[SiteEvidence], CheckOutcome]] = {
 # Evidence loading — batched, and never a whole table in one query.
 
 
+def _says_noindex(facts: object) -> bool:
+    """noindex/none spelled in the robots meta or the X-Robots-Tag header.
+
+    `PageEvidence.noindex` can be unset on a snapshot whose robots evidence was
+    captured piecemeal; the raw directive strings still tell the truth.
+    """
+    values = [getattr(facts, "meta_robots", None)]
+    headers = getattr(facts, "response_headers", None)
+    if isinstance(headers, dict):
+        values.append(headers.get("x-robots-tag"))
+    for value in values:
+        if isinstance(value, str):
+            tokens = {t.strip().lower() for t in value.replace(";", ",").split(",")}
+            if tokens & {"noindex", "none"}:
+                return True
+    return False
+
+
 def _is_indexable(facts: object) -> bool:
     """A page this site is asking to have indexed.
 
@@ -671,6 +832,8 @@ def _is_indexable(facts: object) -> bool:
     if status is None or not (200 <= int(status) < 300):
         return False
     if getattr(facts, "noindex", None) is True:
+        return False
+    if _says_noindex(facts):
         return False
     # A page that declares ANOTHER URL as its canonical is asking for that URL
     # to be indexed instead ("Canonicalised" — non-indexable, as Screaming Frog
@@ -694,6 +857,7 @@ async def load_site_evidence(
     site: WebSite,
     facts_list: list,
     pages_truncated: bool,
+    crawl_complete: bool | None = None,
 ) -> SiteEvidence:
     """Build the site-subject evidence from stored rows plus the site probe.
 
@@ -711,6 +875,7 @@ async def load_site_evidence(
         canonical_host_form=host_form(root_url),
         probe=load_site_probe(site),
         pages_truncated=pages_truncated,
+        crawl_complete=crawl_complete,
     )
     if evidence.probe is not None and evidence.probe.robots is not None:
         evidence.robots = evidence.probe.robots.parsed()
@@ -838,7 +1003,14 @@ def fold_sitemap_members(
             evidence.undiscovered_count += 1
             evidence.undiscovered_urls.append(url)
             continue
-        if status is not None and int(status) >= 400:
+        if status is not None and (
+            int(status) in UNVERIFIABLE_HTTP_STATUSES or int(status) >= 500 or int(status) == 0
+        ):
+            # A wall, a rate limit, a server error under crawl load, or no
+            # answer: we never SAW this entry be dead.
+            evidence.unverifiable_count += 1
+            evidence.unverifiable_urls.append(url)
+        elif status is not None and int(status) >= 400:
             junk["not_found_or_error"].append(url)
         elif status is not None and 300 <= int(status) < 400:
             junk["redirecting"].append(url)
@@ -912,7 +1084,10 @@ __all__ = [
     "COVERAGE_HEALTHY_MIN_SCORE",
     "COVERAGE_ORPHAN_PENALTY_FACTOR",
     "COVERAGE_ORPHAN_PENALTY_MAX",
+    "GUESSED_SITEMAP_PATHS",
     "HOST_CONSISTENT_SCORE",
+    "HOST_MAX_REDIRECT_HOPS",
+    "UNVERIFIABLE_HTTP_STATUSES",
     "HOST_MIXED_INTERNAL_LINKS_SCORE",
     "HOST_MULTIPLE_LIVE_SCORE",
     "HOST_PERMANENT_REDIRECT_STATUSES",

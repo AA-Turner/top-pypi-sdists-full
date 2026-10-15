@@ -149,6 +149,13 @@ class TestDuckDB(Validator):
             },
         )
         self.validate_all(
+            "SELECT ARRAY_TO_STRING(LIST_TRANSFORM([1, 2, 3, NULL, 5], x -> COALESCE(CAST(x AS TEXT), '*')), ',')",
+            read={
+                "postgres": "SELECT ARRAY_TO_STRING(ARRAY[1, 2, 3, NULL, 5], ',', '*')",
+                "presto": "SELECT ARRAY_JOIN(ARRAY[1, 2, 3, NULL, 5], ',', '*')",
+            },
+        )
+        self.validate_all(
             "SELECT SUM(X) OVER (ORDER BY x)",
             write={
                 "bigquery": "SELECT SUM(X) OVER (ORDER BY x)",
@@ -1793,6 +1800,34 @@ class TestDuckDB(Validator):
                     read={"spark2": source, "spark": source, "databricks": source},
                 )
 
+    def test_array_slice_to_length(self):
+        self.validate_all(
+            "SELECT ARRAY_SLICE([1, 2, 3, 4], 2, 3)",
+            write={
+                "duckdb": "SELECT ARRAY_SLICE([1, 2, 3, 4], 2, 3)",
+                "spark2": "SELECT SLICE(ARRAY(1, 2, 3, 4), 2, 2)",
+                "spark": "SELECT SLICE(ARRAY(1, 2, 3, 4), 2, 2)",
+                "databricks": "SELECT SLICE(ARRAY(1, 2, 3, 4), 2, 2)",
+                "presto": "SELECT SLICE(ARRAY[1, 2, 3, 4], 2, 2)",
+                "trino": "SELECT SLICE(ARRAY[1, 2, 3, 4], 2, 2)",
+            },
+        )
+        self.validate_all(
+            "ARRAY_SLICE(x, 0, 2)",
+            write={"spark": "SLICE(x, 1, 2)", "presto": "SLICE(x, 1, 2)"},
+        )
+        self.validate_all(
+            "ARRAY_SLICE(x, 3, 2)",
+            write={"spark": "SLICE(x, 3, 0)", "presto": "SLICE(x, 3, 0)"},
+        )
+        self.validate_all(
+            "ARRAY_SLICE(CASE WHEN RANDOM() < 0.5 THEN [1] ELSE [1, 2] END, -1, 2)",
+            write={
+                "spark": "SLICE(CASE WHEN RAND() < 0.5 THEN ARRAY(1) ELSE ARRAY(1, 2) END, -1, 2)",
+                "presto": "SLICE(CASE WHEN RAND() < 0.5 THEN ARRAY[1] ELSE ARRAY[1, 2] END, -1, 2)",
+            },
+        )
+
     def test_array_insert(self):
         # Test ARRAY_INSERT inserts at beginning
         self.validate_all(
@@ -1831,6 +1866,15 @@ class TestDuckDB(Validator):
                 "": "ARRAY_INSERT([1, 2, 3], -1, 99)",
                 "snowflake": "ARRAY_INSERT([1, 2, 3], -1, 99)",
                 "spark": "ARRAY_INSERT(ARRAY(1, 2, 3), -2, 99)",
+            },
+        )
+
+        # Test 1-based -1 appends (Spark/Databricks), it isn't the 0-based "before last"
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE LIST_CONCAT([1, 2, 3], [99]) END",
+            read={
+                "spark": "ARRAY_INSERT(ARRAY(1, 2, 3), -1, 99)",
+                "databricks": "ARRAY_INSERT(ARRAY(1, 2, 3), -1, 99)",
             },
         )
 

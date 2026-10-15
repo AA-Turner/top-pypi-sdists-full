@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 
 use super::{
     DependabotCooldownConfig, ForbiddenUsesConfig, KnownVulnerableActionsConfig, RemapConfig,
-    SecretsOutsideEnvConfig, UnpinnedUsesConfig, WorkflowRule,
+    SecretsOutsideEnvConfig, SelfHostedRunnerConfig, UnpinnedUsesConfig, WorkflowRule,
 };
 
 /// Base configuration for all audit rules.
@@ -50,6 +50,17 @@ struct ForbiddenUsesRuleConfig {
 
     #[serde(default)]
     config: Option<ForbiddenUsesConfig>,
+}
+
+/// Configuration for the `self-hosted-runner` audit.
+#[derive(Clone, Debug, Default, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct SelfHostedRunnerRuleConfig {
+    #[serde(flatten)]
+    base: BaseRuleConfig,
+
+    #[serde(default)]
+    config: Option<SelfHostedRunnerConfig>,
 }
 
 /// Configuration for the `secrets-outside-env` audit.
@@ -115,7 +126,6 @@ define_audit_rules! {
     use_trusted_publishing,
     template_injection,
     hardcoded_container_credentials,
-    self_hosted_runner,
     undocumented_permissions,
     insecure_commands,
     github_env,
@@ -144,6 +154,7 @@ define_audit_rules! {
 
     [DependabotCooldownRuleConfig] dependabot_cooldown,
     [ForbiddenUsesRuleConfig] forbidden_uses,
+    [SelfHostedRunnerRuleConfig] self_hosted_runner,
     [SecretsOutsideEnvRuleConfig] secrets_outside_env,
     [UnpinnedUsesRuleConfig] unpinned_uses,
     [KnownVulnerableActionsRuleConfig] known_vulnerable_actions,
@@ -228,11 +239,10 @@ mod tests {
               - foo.yml:invalid
         "#;
         let instance = yaml_serde::from_str::<serde_json::Value>(invalid_ignore).unwrap();
-        let errors = SCHEMA_VALIDATOR.iter_errors(&instance).into_errors();
-        insta::assert_snapshot!(errors, @r#"
-        Validation errors:
-        01: "foo.yml:invalid" does not match "^[^:]+\.ya?ml(:[1-9][0-9]*)?(:[1-9][0-9]*)?$"
-        "#);
+        let error = SCHEMA_VALIDATOR
+            .validate(&instance)
+            .expect_err("invalid workflow rule should be rejected");
+        insta::assert_snapshot!(error, @r#""foo.yml:invalid" does not match "^[^:]+\.ya?ml(:[1-9][0-9]*)?(:[1-9][0-9]*)?$""#);
     }
 
     #[test]
@@ -338,11 +348,10 @@ mod tests {
                 actions/checkout: unknown-policy
         "#;
         let instance = yaml_serde::from_str::<serde_json::Value>(unknown_policy).unwrap();
-        let errors = SCHEMA_VALIDATOR.iter_errors(&instance).into_errors();
-        insta::assert_snapshot!(errors, @r#"
-        Validation errors:
-        01: "unknown-policy" is not valid under any of the schemas listed in the 'oneOf' keyword
-        "#);
+        let error = SCHEMA_VALIDATOR
+            .validate(&instance)
+            .expect_err("unknown pinning policy should be rejected");
+        insta::assert_snapshot!(error, @r#""unknown-policy" is not valid under any of the schemas listed in the 'oneOf' keyword"#);
     }
 
     #[test]

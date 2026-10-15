@@ -70,7 +70,18 @@ fn rdkit_num_rings_uncached(mol: &Molecule) -> usize {
                     .any(|&dative| dative)
                 && let Ok(rings) = chematic_perception::relevant_cycles(mol, MAX_RELEVANT_RINGS)
             {
-                return rings.len();
+                // RingDecomposerLib keeps the independent relevant families,
+                // not every combination of equal shortest paths.  The graph
+                // backend intentionally expands those combinations for its
+                // public `relevant_cycles` API, which can over-count highly
+                // repetitive cyclic oligosaccharides (for example 70 versus
+                // RDKit's legacy-compatible 22 or 16).  Genuine symmetric
+                // macrocycle changes in the pinned RDKit corpus stay below
+                // this bounded expansion (10 -> 22).
+                let family_count = rings.len();
+                if family_count <= legacy_count.saturating_mul(3) {
+                    return family_count;
+                }
             }
             legacy_count
         }
@@ -296,13 +307,13 @@ fn two_cycle_system_rings(
         }
         x
     }
-    let ring_neighbors = |a: AtomIdx| -> Vec<AtomIdx> {
+    let ring_neighbors = |a: AtomIdx| -> smallvec::SmallVec<[AtomIdx; 4]> {
         mol.neighbors(a)
             .filter(|(_, bi)| flags[bi.0 as usize])
             .map(|(nb, _)| nb)
             .collect()
     };
-    let mut branch: Vec<AtomIdx> = Vec::new();
+    let mut branch = smallvec::SmallVec::<[AtomIdx; 2]>::new();
     for (idx, _) in mol.atoms() {
         if find(parent, idx.0) as usize != root {
             continue;
@@ -317,7 +328,7 @@ fn two_cycle_system_rings(
     let &[u, v] = branch.as_slice() else {
         return None;
     };
-    let mut lengths: Vec<usize> = Vec::with_capacity(3);
+    let mut lengths = smallvec::SmallVec::<[usize; 3]>::new();
     for start in ring_neighbors(u) {
         let (mut prev, mut cur, mut len) = (u, start, 1usize);
         while cur != v {

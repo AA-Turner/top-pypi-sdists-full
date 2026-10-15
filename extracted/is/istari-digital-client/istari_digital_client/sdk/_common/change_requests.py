@@ -152,21 +152,25 @@ class ChangeRequests(_Manager):
             ),
         )
 
-    def update_status(self, system_id: str, cr_id: str, status: str) -> None:
-        """Set the status of a change request.
+    def update_status(
+        self, system_id: str, cr_id: str, status: str
+    ) -> "ChangeRequest":
+        """Set the status of a change request and return the updated object.
 
         Mutates: true
 
         ``cr_id`` is the change request UUID. ``status`` accepts "OPEN" | "CLOSED".
         Prefer the convenience methods close() and reopen() on the ChangeRequest
-        object itself rather than calling this directly. Returns None.
+        object itself rather than calling this directly. Returns the updated
+        ChangeRequest — the PUT already returns the new state, so no extra fetch.
         """
-        self._call(
+        response = self._call(
             self._engine.v2_api.update_change_request,
             system_id,
             cr_id,
             ChangeRequestUpdateRequest(status=status),
         )
+        return ChangeRequest._from_response(response, mgr=self, system_id=system_id)
 
     def merge(
         self,

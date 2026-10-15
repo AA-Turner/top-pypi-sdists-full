@@ -23,6 +23,7 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOWNLOAD_TIMEOUT
 from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
@@ -408,6 +409,14 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
     return installed_dependencies
 
 
+def _is_retryable_download_error(e: BaseException) -> bool:
+    # GitHub's API intermittently returns 5xx (and 429 when throttled). Those
+    # are worth retrying; other HTTP errors (404, 401, 403) won't fix themselves.
+    if isinstance(e, urllib.error.HTTPError):
+        return e.code >= 500 or e.code == 429
+    return True
+
+
 def _fetch_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
@@ -433,15 +442,18 @@ def _fetch_dependency(
 
     def _download() -> bytes:
         req = github.build_api_request(zip_url)
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT) as response:
             return bytes(response.read())
 
     try:
         zip_data = io.BytesIO(
             retry(
                 _download,
+                retries=5,
+                delay=1.0,
+                backoff=2.0,
                 exceptions=(OSError,),
-                should_retry=lambda e: not isinstance(e, urllib.error.HTTPError),
+                should_retry=_is_retryable_download_error,
             )
         )
     except (OSError, ValueError) as e:

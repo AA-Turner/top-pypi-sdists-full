@@ -343,6 +343,7 @@ class LambdasTypeDef(TypedDict):
     crossAccountRole: NotRequired[str]
     externalId: NotRequired[str]
     arn: NotRequired[str]
+    payload: NotRequired[str]
 
 
 class DeletePlanRequestTypeDef(TypedDict):

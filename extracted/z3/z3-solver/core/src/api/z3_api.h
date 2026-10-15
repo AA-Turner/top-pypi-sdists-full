@@ -152,6 +152,7 @@ typedef enum
     Z3_RE_SORT,
     Z3_CHAR_SORT,
     Z3_TYPE_VAR,
+    Z3_FINITE_FIELD_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -1222,6 +1223,7 @@ typedef enum {
     Z3_OP_SEQ_MAPI,           
     Z3_OP_SEQ_FOLDL,          
     Z3_OP_SEQ_FOLDLI,         
+    Z3_OP_SEQ_POWER,
 
     // strings
     Z3_OP_STR_TO_INT,
@@ -1357,7 +1359,13 @@ typedef enum {
     Z3_OP_INTERNAL,
     Z3_OP_RECURSIVE,
 
-    Z3_OP_UNINTERPRETED
+    Z3_OP_UNINTERPRETED,
+
+    Z3_OP_FF_NUM = 0xd000,
+    Z3_OP_FF_ADD,
+    Z3_OP_FF_MUL,
+    Z3_OP_FF_NEG,
+    Z3_OP_FF_BITSUM
 } Z3_decl_kind;
 
 /**
@@ -1653,6 +1661,7 @@ extern "C" {
          Z3 will return the same pointer twice.
 
        \sa Z3_del_context
+       \sa Z3_set_error_handler
 
        def_API('Z3_mk_context', CONTEXT, (_in(CONFIG),))
     */
@@ -1677,6 +1686,9 @@ extern "C" {
        - All main interaction with Z3 happens in the context of a \c Z3_context.
        - Z3 uses hash-consing, i.e., when the same \c Z3_ast is created twice,
          Z3 will return the same pointer twice.
+
+       \sa Z3_del_context
+       \sa Z3_set_error_handler
 
        def_API('Z3_mk_context_rc', CONTEXT, (_in(CONFIG),))
     */
@@ -1991,6 +2003,32 @@ extern "C" {
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */
     Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, uint64_t size);
+
+    /** \brief Create a prime-field sort. Large moduli undergo probable-prime screening.
+        def_API('Z3_mk_finite_field_sort', SORT, (_in(CONTEXT), _in(STRING)))
+    */
+    Z3_sort Z3_API Z3_mk_finite_field_sort(Z3_context c, Z3_string prime);
+    /** \brief Return the decimal modulus of a finite-field sort.
+        def_API('Z3_get_finite_field_sort_size', STRING, (_in(CONTEXT), _in(SORT)))
+    */
+    Z3_string Z3_API Z3_get_finite_field_sort_size(Z3_context c, Z3_sort s);
+    /** \brief Sum at least two elements of the same prime field.
+        def_API('Z3_mk_ff_add', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_add(Z3_context c, unsigned n, Z3_ast const args[]);
+    /** \brief Multiply at least two elements of the same prime field.
+        def_API('Z3_mk_ff_mul', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_mul(Z3_context c, unsigned n, Z3_ast const args[]);
+    /** \brief Additive inverse in a prime field.
+        def_API('Z3_mk_ff_neg', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_neg(Z3_context c, Z3_ast a);
+    /** \brief Weighted sum a0 + 2*a1 + 4*a2 + ... (does not constrain arguments to bits).
+        def_API('Z3_mk_ff_bitsum', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_bitsum(Z3_context c, unsigned n, Z3_ast const args[]);
+
 
     /**
        \brief Create an array type.
@@ -3970,6 +4008,14 @@ extern "C" {
        def_API('Z3_mk_seq_nth', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_nth(Z3_context c, Z3_ast s, Z3_ast index);
+
+    /**
+       \brief Create the sequence \c s concatenated \c n times with itself.
+       The result is the empty sequence when \c n is not positive.
+
+       def_API('Z3_mk_seq_power', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_seq_power(Z3_context c, Z3_ast s, Z3_ast n);
 
     /**
        \brief Return the length of the sequence \c s.
@@ -6258,9 +6304,22 @@ extern "C" {
        and will be called in this case.  To disable the use of the
        error handler, simply register with \c h=NULL.
 
+       By default, newly created contexts install an internal default error
+       handler that prints the error message and terminates the process via
+       \c exit(1). While suitable for standalone CLI programs, calling
+       raw \c exit() is unsafe when Z3 is invoked from within a managed
+       runtime environment (such as Java/JNI under Android ART or the JVM,
+       or .NET/CLR) or multi-threaded embedders: process termination can race
+       with background runtime threads (e.g., JIT compilation or GC threads),
+       producing crashes (SIGSEGV) in unrelated runtime threads. Embedders
+       in managed runtimes should always register their own error handler or
+       disable it by passing \c h=NULL and inspecting #Z3_get_error_code.
+
        \warning Log files, created using #Z3_open_log, may be potentially incomplete/incorrect if error handlers are used.
 
        \sa Z3_get_error_code
+       \sa Z3_mk_context
+       \sa Z3_mk_context_rc
     */
     void Z3_API Z3_set_error_handler(Z3_context c, Z3_error_handler h);
 
@@ -7754,4 +7813,3 @@ extern "C" {
 #endif // __cplusplus
 
 /**@}*/
-

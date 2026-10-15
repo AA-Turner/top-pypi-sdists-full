@@ -14,6 +14,9 @@ from fakeredis.model import Hash
 
 LOGGER = logging.getLogger("fakeredis")
 
+# Commands whose keyspace event is not named after the command.
+KEYSPACE_EVENT_NAMES = {b"himport set": b"hset"}
+
 
 class NotificationsMixin(CommandsMixinBase):
     _db_num: int
@@ -36,14 +39,20 @@ class NotificationsMixin(CommandsMixinBase):
 
     def _keyspace_notifications(self, command_items: list[CommandItem], event: bytes) -> None:
         """Send keyspace notifications"""
+        # This runs after every command, so leave before building anything when nobody can be listening or nothing was
+        # written.
+        if not self._server.subscribers and not self._server.psubscribers:
+            return
+        command_items = [command_item for command_item in command_items if command_item.is_modified]
+        if not command_items:
+            return
+        event = KEYSPACE_EVENT_NAMES.get(event, event)
         pattern_regex: dict[bytes, re.Pattern[bytes]] = {
             pattern: compile_pattern(pattern) for pattern in self._server.psubscribers
         }
         keyspace_channel_prefix: bytes = f"__keyspace@{self._db_num}__:".encode()
         keyevent_channel: bytes = f"__keyevent@{self._db_num}__:".encode() + event
         for command_item in command_items:
-            if not command_item.is_modified:
-                continue
             try:
                 keyspace_channel = keyspace_channel_prefix + command_item.key
 

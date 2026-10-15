@@ -21,6 +21,14 @@ from probe.sdk.client import Client
 from probe.sdk.journal import Journal, classify
 from tests.served_fake_app import serve
 from tests.test_outbox_credential_stamp import STORED_B, _login
+from tests.conftest import _WS_MINE
+
+@pytest.fixture(autouse=True)
+def _set_up_computer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A computer whose setup picked its workspace (the fake seeds two, and an
+    unaddressed create in a team with several is refused)."""
+    monkeypatch.setenv("PROBE_WORKSPACE", _WS_MINE)
+
 
 
 class _OtherServer:

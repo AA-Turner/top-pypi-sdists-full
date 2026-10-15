@@ -4,7 +4,7 @@ Test suite for pydyf.
 This module adds a PNG export based on GhostScript, that is released under
 AGPL. As "the end user has the ability to opt out of installing the AGPL
 version of [Ghostscript] during the install process", and with explicit
-aggreement from Artifex, it is OK to distribute this code under BSD.
+agreement from Artifex, it is OK to distribute this code under BSD.
 
 See https://www.ghostscript.com/license.html.
 
@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 from subprocess import PIPE, run
 
+import pytest
 from PIL import Image
 
 PIXELS_BY_CHAR = dict(
@@ -27,20 +28,20 @@ PIXELS_BY_CHAR = dict(
 )
 
 
-def assert_pixels(document, reference_pixels):
+def assert_pixels(document, reference_pixels, compress=False):
     """Test that the rendered document matches the reference pixels."""
 
-    # Transform the PDF document into a list of RGB tuples
+    # Transform the PDF document into a list of RGB tuples.
     pdf = io.BytesIO()
-    document.write(pdf)
+    document.write(pdf, compress=compress)
     command = [
         'gs', '-q', '-dNOPAUSE', '-dSAFER', '-sDEVICE=png16m',
         '-r576', '-dDownScaleFactor=8', '-sOutputFile=-', '-']
     png = run(command, input=pdf.getvalue(), stdout=PIPE).stdout
     image = Image.open(io.BytesIO(png))
-    pixels = image.getdata()
+    pixels = image.get_flattened_data()
 
-    # Transform reference drawings into a list of RGB tuples
+    # Transform reference drawings into a list of RGB tuples.
     lines = tuple(
         line.strip() for line in reference_pixels.splitlines() if line.strip())
     assert len({len(line) for line in lines}) == 1, (
@@ -52,7 +53,7 @@ def assert_pixels(document, reference_pixels):
     reference_pixels = tuple(
         PIXELS_BY_CHAR[char] for line in lines for char in line)
 
-    # Compare pixels
+    # Compare pixels.
     if pixels != reference_pixels:  # pragma: no cover
         for i, (value, reference) in enumerate(zip(pixels, reference_pixels)):
             if reference is None:
@@ -66,7 +67,7 @@ def assert_pixels(document, reference_pixels):
                     pixel or (255, 255, 255) for pixel in reference_pixels]
                 write_png(f'{name}-reference', reference_pixels, width, height)
                 x, y = i % width, i // width
-                assert 0, (
+                pytest.fail(
                     f'Pixel ({x}, {y}) in {name}: '
                     f'reference rgba{reference}, got rgba{value}')
 

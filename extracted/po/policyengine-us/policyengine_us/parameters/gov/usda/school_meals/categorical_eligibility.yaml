@@ -1,0 +1,24 @@
+description: Program participation that qualifies families for free school meals.
+
+values:
+  2009-09-01:
+    - snap # Supplemental Nutrition Assistance Program.
+    - receives_snap # Reported SNAP receipt, for households the model gives a $0 allotment.
+    - tanf # Temporary Assistance to Needy Families. Currently only available in CA and IL.
+    - receives_tanf # Reported TANF receipt, for households the model gives a $0 benefit.
+    - fdpir # Food Distribution Program on Indian Reservations.
+    - was_in_foster_care
+    - is_homeless
+    - is_runaway_child
+    - is_migratory_child
+    - is_head_start_eligible
+
+metadata:
+  unit: list
+  period: year
+  label: Free school meals qualifying programs
+  reference:
+    - title: 7 CFR § 245.2 - Definitions
+      href: https://www.law.cornell.edu/cfr/text/7/245.2
+    - title: 42 U.S. Code § 1758 - Program requirements
+      href: https://www.law.cornell.edu/uscode/text/42/1758#b_5

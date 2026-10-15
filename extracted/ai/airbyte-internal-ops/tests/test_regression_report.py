@@ -1452,6 +1452,14 @@ def test_artifact_name_omits_the_run_id_outside_github_actions(monkeypatch):
     assert github_artifact_name("read") == f"{ARTIFACT_NAME_PREFIX}-read"
 
 
+def test_an_artifact_name_override_wins(monkeypatch):
+    """`sandbox-case-run.yml` uploads one artifact under a name its caller picks."""
+    monkeypatch.setenv("GITHUB_RUN_ID", "1234")
+    monkeypatch.setenv("REGRESSION_TEST_ARTIFACT_NAME", "sandbox-case-result-1")
+
+    assert github_artifact_name("read") == "sandbox-case-result-1"
+
+
 # --------------------------------------------------------------------------
 # Record comparison: the read-run checks folded into the verdict, and the
 # per-stream detail blocks the HTML report renders for them

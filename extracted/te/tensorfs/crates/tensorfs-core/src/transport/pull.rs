@@ -37,8 +37,9 @@ use crate::err::{refuse, Code, Refusal, Result};
 use crate::fetch::{DeliveryGrant, FetchPlan};
 use crate::ids::{Doc, ObjectRef};
 use crate::store::Store;
+use crate::transport::credential::{presenting, Ask, CredentialProvider};
 use crate::transport::http::{self, Client};
-use crate::transport::hub::{self, CredentialProvider};
+use crate::transport::hub;
 use crate::transport::ledger::{Deadline, Ledger, PULL_STREAMS};
 use crate::transport::policy::{self, SourcePolicy};
 use std::collections::BTreeMap;
@@ -122,20 +123,26 @@ pub(super) fn open_object<'l>(
     let mut target = url.to_string();
     for _hop in 0..=policy.max_redirects {
         let checked = policy.check(&target)?;
-        let mut headers = credential.headers(&checked.host);
-        headers.extend_from_slice(extra);
-        let response = http::request(
-            client,
-            &checked,
-            "GET",
-            &headers,
-            None,
-            deadline,
-            ledger,
-            http::Judge::Stream,
-            None,
-            Code::TRANSFER_FAILED,
-        )?;
+        let ask = Ask {
+            method: "GET",
+            url: &checked,
+        };
+        let response = presenting(credential, &ask, |presented| {
+            let mut headers = presented.to_vec();
+            headers.extend_from_slice(extra);
+            http::request(
+                client,
+                &checked,
+                "GET",
+                &headers,
+                None,
+                deadline,
+                ledger,
+                http::Judge::Stream,
+                None,
+                Code::TRANSFER_FAILED,
+            )
+        })?;
         let status = response.status;
         hop(&checked, status);
         if (300..400).contains(&status) {
@@ -747,6 +754,86 @@ pub fn resolve_closure(request: &PullRequest<'_>) -> Result<hub::Closure> {
     )
 }
 
+/// The part of `closure` the named components and objects reach: the manifest, its header, the
+/// header's assets, those components' parts and those part objects. The manifest and then the
+/// header land first, two small pulls, since only they say which object is whose. A component
+/// or object the header does not name refuses.
+pub fn narrow(
+    request: &PullRequest<'_>,
+    closure: &hub::Closure,
+    components: &[String],
+    wanted: &[ObjectRef],
+) -> Result<hub::Closure> {
+    let stage = |objects: Vec<ObjectRef>| -> Result<()> {
+        let mut part = closure.clone();
+        part.objects = objects;
+        part.part = true;
+        let pull_part = PullRequest {
+            cancellation: request.cancellation.clone(),
+            store: request.store,
+            base: request.base,
+            refspec: request.refspec,
+            lane: request.lane,
+            credential: request.credential,
+            policy: request.policy,
+            deadline: request.deadline,
+            streams: request.streams,
+            session: request.session,
+            sample_seconds: request.sample_seconds,
+            on_plan: None,
+            on_object: None,
+            closure: Some(&part),
+        };
+        pull(&pull_part).map(drop)
+    };
+    stage(vec![closure.manifest.clone()])?;
+    let manifest = request.store.read_manifest(&closure.manifest)?;
+    let Some(header_ref) = manifest.header().cloned() else {
+        return refuse(
+            Code::ATTACHMENT_CARDINALITY,
+            "not a checkpoint manifest: no cozytensors header attachment",
+        );
+    };
+    stage(vec![header_ref.clone()])?;
+    let header = crate::checkpoint::load_header(request.store, &header_ref)?;
+    if let Some(absent) = components.iter().find(|name| {
+        !header
+            .components
+            .iter()
+            .any(|(component, _)| component == *name)
+    }) {
+        return refuse(
+            Code::NOT_CONTAINED,
+            format!("component {absent:?} is not in this checkpoint"),
+        );
+    }
+    let mut objects = vec![header_ref];
+    for (_, asset) in &header.assets {
+        objects.extend(asset.segments.iter().cloned());
+    }
+    for (component, _, tensor) in header.tensors() {
+        for (_, part) in &tensor.parts {
+            for segment in part.segments() {
+                if components.contains(component) || wanted.contains(segment) {
+                    objects.push(segment.clone());
+                }
+            }
+        }
+    }
+    objects.sort_by(|a, b| a.sha256.cmp(&b.sha256));
+    objects.dedup_by(|a, b| a.sha256 == b.sha256);
+    let mut narrowed = closure.clone();
+    narrowed.objects = objects;
+    narrowed.part = true;
+    if let Some(absent) = wanted.iter().find(|object| !narrowed.objects.contains(object)) {
+        return refuse(
+            Code::NOT_CONTAINED,
+            format!("{} is not a part of this checkpoint", absent.id()),
+        );
+    }
+    Ok(narrowed)
+}
+
 /// What a pull actually did — counted, never estimated.
 #[derive(Debug, Clone, Default)]
 pub struct PullReport {
@@ -905,6 +992,12 @@ pub fn pull(request: &PullRequest<'_>) -> Result<PullReport> {
     if plan.wanted.is_empty() && records_checkpoint(request.store, &closure) {
         return Ok(report);
     }
+    if closure.part {
+        // Part of a checkpoint: each object it names is proved resident, and nothing records
+        // the checkpoint, whose closure is not all here.
+        plan.complete_objects(request.store)?;
+        return Ok(report);
+    }
     // The proof and the index row both write the catalog; a contended catalog waits for its
     // live holder (`catalog::lock`), so a busy moment never throws a landed walk away.
     match closure.scope.as_str() {
@@ -952,30 +1045,42 @@ fn plan_against_store(
     Ok((plan, report))
 }
 
-/// The closure this Store can answer for itself: the refspec is `org/name@release@sha256:<hex>`,
-/// a lane is named, and the local release index maps (model, release, lane) to exactly that
-/// manifest. Anything else — an unpinned ref, a moved pointer, a manifest or header this
-/// Store cannot read — is a question for the hub.
+/// The closure this Store can answer for itself: the refspec pins a manifest the local index
+/// records — `org/name@sha256:<hex>`, one of the repository's checkpoints (a checkpoint by
+/// digest has no lane), or `org/name@release@sha256:<hex>` with that release lane naming it.
+/// Anything else — an unpinned ref, a moved pointer, a manifest or header this Store cannot
+/// read — is a question for the hub.
 fn pinned_local_closure(request: &PullRequest<'_>) -> Option<hub::Closure> {
-    let mut parts = request.refspec.split('@');
-    let (model, release, digest) = (parts.next()?, parts.next()?, parts.next()?);
-    if parts.next().is_some() || release.is_empty() || request.lane.is_empty() {
-        return None;
-    }
+    let parts: Vec<&str> = request.refspec.split('@').collect();
+    let (model, release, lane, digest) = match parts[..] {
+        [model, digest] => (model, "", "", digest),
+        [model, release, digest] if !release.is_empty() && !request.lane.is_empty() => {
+            (model, release, request.lane, digest)
+        }
+        _ => return None,
+    };
     let pinned = digest.strip_prefix("sha256:")?;
     let (org, name) = model.split_once('/')?;
     let repo = crate::repository::RepositoryName::new(org, name).ok()?;
     let bytes = std::fs::read(request.store.repository_path(&repo)).ok()?;
     let repository = crate::repository::Repository::parse(&bytes).ok()?;
-    let manifest = repository
-        .releases
-        .iter()
-        .find(|entry| entry.version == release && !entry.yanked)?
-        .lanes
-        .iter()
-        .find(|lane| lane.lane == request.lane && lane.manifest.sha256 == pinned)?
-        .manifest
-        .clone();
+    let manifest = match release {
+        "" => repository
+            .checkpoints
+            .iter()
+            .find(|entry| entry.manifest.sha256 == pinned)?
+            .manifest
+            .clone(),
+        _ => repository
+            .releases
+            .iter()
+            .find(|entry| entry.version == release && !entry.yanked)?
+            .lanes
+            .iter()
+            .find(|entry| entry.lane == lane && entry.manifest.sha256 == pinned)?
+            .manifest
+            .clone(),
+    };
     if !repository
         .checkpoints
         .iter()
@@ -994,13 +1099,14 @@ fn pinned_local_closure(request: &PullRequest<'_>) -> Option<hub::Closure> {
     Some(hub::Closure {
         model: model.to_string(),
         release: release.to_string(),
-        lane: request.lane.to_string(),
+        lane: lane.to_string(),
         scope: "runtime".to_string(),
         manifest,
         objects,
         complete: true,
         // Served only when nothing is wanted, so it authorizes no presign.
         presign_max_digests: 0,
+        part: false,
     })
 }
 

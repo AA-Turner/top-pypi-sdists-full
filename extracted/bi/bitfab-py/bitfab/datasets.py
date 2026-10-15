@@ -18,12 +18,17 @@ class DatasetGraderRef(TypedDict):
 
 
 class Dataset(TypedDict):
+    """A dataset summary. ``golden`` is True when the dataset is marked golden
+    for the whole organization as a trusted reference set, and reads False
+    from a server that predates golden datasets."""
+
     id: str
     traceFunctionKey: str
     name: str
     description: str | None
     traceCount: int
     graders: list[DatasetGraderRef]
+    golden: bool
     createdAt: str
     updatedAt: str
 
@@ -138,6 +143,14 @@ def _rerun_timed_out(
     )
 
 
+def _with_golden(dataset: Dataset) -> Dataset:
+    return {**dataset, "golden": dataset.get("golden", False)}
+
+
+def _with_dataset_golden(result: Any) -> Any:
+    return {**result, "dataset": _with_golden(result["dataset"])}
+
+
 def _dataset_path(dataset_id: str, suffix: str = "") -> str:
     return f"/api/sdk/datasets/{quote(dataset_id, safe='')}{suffix}"
 
@@ -154,18 +167,26 @@ class DatasetsClient:
         trace_function_key: str,
         name: str,
         description: str | None = None,
+        *,
+        golden: bool | None = None,
     ) -> SaveDatasetResult:
         """Create a dataset, or update the one already named this way under the
         same trace function. ``created`` reports which happened. ``None`` for
-        ``description`` leaves an existing description untouched."""
+        ``description`` leaves an existing description untouched.
+
+        ``golden=True`` marks the dataset as golden for the whole organization,
+        which lists it first in the Bitfab app. ``golden=False`` unmarks it.
+        ``None`` leaves it as it is, and a new dataset starts not golden."""
         payload: dict[str, Any] = {
             "traceFunctionKey": trace_function_key,
             "name": name,
         }
         if description is not None:
             payload["description"] = description
+        if golden is not None:
+            payload["golden"] = golden
         result = self._http_client.request("/api/sdk/datasets", payload)
-        return result  # type: ignore[return-value]
+        return _with_dataset_golden(result)
 
     def list(self, trace_function_key: str | None = None) -> list[Dataset]:
         """List datasets, scoped to one trace function when given and
@@ -176,7 +197,7 @@ class DatasetsClient:
             query["traceFunctionKey"] = trace_function_key
         while True:
             result = self._http_client.get(f"/api/sdk/datasets?{urlencode(query)}")
-            datasets.extend(result["datasets"])
+            datasets.extend(_with_golden(dataset) for dataset in result["datasets"])
             cursor = result.get("nextCursor")
             if cursor is None:
                 return datasets
@@ -186,7 +207,7 @@ class DatasetsClient:
         """Fetch one dataset by id. A dataset outside this organization raises
         ``requests.HTTPError`` with a 404."""
         result = self._http_client.get(_dataset_path(dataset_id))
-        return result["dataset"]
+        return _with_golden(result["dataset"])
 
     def update(
         self,
@@ -194,25 +215,29 @@ class DatasetsClient:
         *,
         name: str | None = None,
         description: str | None = None,
+        golden: bool | None = None,
     ) -> Dataset:
         """Rename a dataset or change its description, by id. ``None`` leaves a
         field untouched, and an empty ``description`` clears it. The dataset
         keeps its id, traces, and graders. A blank name, or a name another
         dataset under the same trace function already uses, raises
         ``requests.HTTPError`` with a 400. A dataset outside this organization
-        raises one with a 404. Passing neither field raises ``ValueError``
-        without sending a request."""
+        raises one with a 404. ``golden=True`` marks the dataset as golden for
+        the whole organization and ``golden=False`` unmarks it. Passing no
+        field at all raises ``ValueError`` without sending a request."""
         payload: dict[str, Any] = {}
         if name is not None:
             payload["name"] = name
         if description is not None:
             payload["description"] = description
+        if golden is not None:
+            payload["golden"] = golden
         if not payload:
-            raise ValueError("Provide name and/or description to update.")
+            raise ValueError("Provide name, description, and/or golden to update.")
         result = self._http_client.request(
             _dataset_path(dataset_id), payload, method="PATCH"
         )
-        return result["dataset"]
+        return _with_golden(result["dataset"])
 
     def list_traces(self, dataset_id: str) -> DatasetTraceIds:
         """The ids of every trace in the dataset, the same membership a replay
@@ -238,7 +263,7 @@ class DatasetsClient:
         result = self._http_client.request(
             _dataset_path(dataset_id, "/traces"), {"traceIds": trace_ids}
         )
-        return result  # type: ignore[return-value]
+        return _with_dataset_golden(result)
 
     def remove_traces(
         self, dataset_id: str, trace_ids: list[str]
@@ -248,7 +273,7 @@ class DatasetsClient:
         result = self._http_client.request(
             _dataset_path(dataset_id, "/removeTraces"), {"traceIds": trace_ids}
         )
-        return result  # type: ignore[return-value]
+        return _with_dataset_golden(result)
 
     def add_graders(
         self, dataset_id: str, grader_ids: list[str]
@@ -259,7 +284,7 @@ class DatasetsClient:
         result = self._http_client.request(
             _dataset_path(dataset_id, "/graders"), {"graderIds": grader_ids}
         )
-        return result  # type: ignore[return-value]
+        return _with_dataset_golden(result)
 
     def remove_graders(
         self, dataset_id: str, grader_ids: list[str]
@@ -268,7 +293,7 @@ class DatasetsClient:
         result = self._http_client.request(
             _dataset_path(dataset_id, "/removeGraders"), {"graderIds": grader_ids}
         )
-        return result  # type: ignore[return-value]
+        return _with_dataset_golden(result)
 
     def rerun_graders(
         self,

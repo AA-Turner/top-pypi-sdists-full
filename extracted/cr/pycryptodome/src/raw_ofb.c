@@ -1,32 +1,6 @@
-/* ===================================================================
- *
- * Copyright (c) 2014, Legrandin <helderijs@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- * ===================================================================
+/*
+ * SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+ * SPDX-License-Identifier: BSD-2-Clause
  */
 
 #include "common.h"
@@ -81,6 +55,7 @@ EXPORT_SYM int OFB_encrypt(OfbModeState *ofbState,
                            size_t data_len)
 {
     size_t block_len;
+    size_t used;
     uint8_t oldKeyStream[MAX_BLOCK_LEN];
 
     if ((NULL == ofbState) || (NULL == in) || (NULL == out))
@@ -90,11 +65,21 @@ EXPORT_SYM int OFB_encrypt(OfbModeState *ofbState,
     if (block_len > MAX_BLOCK_LEN)
         return ERR_BLOCK_SIZE;
 
+    /*
+     * Read the position in the key stream only once, and check it:
+     * if several threads used the object at once (not supported),
+     * the state could be inconsistent, but memory must never be
+     * accessed out of bounds.
+     */
+    used = ofbState->usedKeyStream;
+    if (used > block_len)
+        return ERR_STATE;
+
     while (data_len > 0) {
         size_t i;
         size_t keyStreamToUse;
 
-        if (ofbState->usedKeyStream == block_len) {
+        if (used == block_len) {
             int result;
 
             memcpy(oldKeyStream, ofbState->keyStream, block_len);
@@ -102,20 +87,23 @@ EXPORT_SYM int OFB_encrypt(OfbModeState *ofbState,
                                                oldKeyStream,
                                                ofbState->keyStream,
                                                block_len);
-            if (0 != result)
+            if (0 != result) {
+                ofbState->usedKeyStream = used;
                 return result;
+            }
 
-            ofbState->usedKeyStream = 0;
+            used = 0;
         }
 
-        keyStreamToUse = MIN(data_len, block_len - ofbState->usedKeyStream);
+        keyStreamToUse = MIN(data_len, block_len - used);
         for (i=0; i<keyStreamToUse; i++)
-            *out++ = *in++ ^ ofbState->keyStream[i + ofbState->usedKeyStream];
+            *out++ = *in++ ^ ofbState->keyStream[i + used];
 
         data_len -= keyStreamToUse;
-        ofbState->usedKeyStream += keyStreamToUse;
+        used += keyStreamToUse;
     }
 
+    ofbState->usedKeyStream = used;
     return 0;
 }
 

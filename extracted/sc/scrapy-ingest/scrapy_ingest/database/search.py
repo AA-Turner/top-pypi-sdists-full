@@ -98,6 +98,36 @@ class SearchClient:
             resp = self._client.search(index=index, body=body)
         return [hit["_source"] for hit in resp.get("hits", {}).get("hits", [])]
 
+    def iter_documents(
+        self,
+        index,
+        *,
+        query=None,
+        size=500,
+        sort=None,
+    ):
+        """Yield ``_source`` dicts using ``search_after`` pagination."""
+        sort = sort or [{"created_at": {"order": "asc", "unmapped_type": "date"}}]
+        search_after = None
+        while True:
+            body = {
+                "size": size,
+                "sort": sort,
+                "query": query or {"match_all": {}},
+            }
+            if search_after is not None:
+                body["search_after"] = search_after
+            with _ignore_cluster_warnings():
+                resp = self._client.search(index=index, body=body)
+            hits = resp.get("hits", {}).get("hits", [])
+            if not hits:
+                break
+            for hit in hits:
+                source = hit.get("_source")
+                if source is not None:
+                    yield source
+            search_after = hits[-1].get("sort")
+
 
 class SearchWriter:
     """Index collector batches into search indexes."""

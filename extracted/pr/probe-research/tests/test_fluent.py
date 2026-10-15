@@ -1441,6 +1441,16 @@ def test_a_disabled_run_answers_every_run_property_with_a_value():
             result = getattr(run, name)()
             assert isinstance(result, (list, dict)), f"DisabledRun.{name}() -> {result!r}"
     assert run.foreign_keys == {} and run.log_artifact("x", path="/nope") is None
+    # A verb whose real result is an object answers one the script can read
+    # (review of #2791: `ds.ref` / `ds.wait()` raised on None).
+    from probe.sdk.catalog import DatasetRef
+
+    ds = run.log_dataset("data/", "n")
+    assert isinstance(ds, DatasetRef) and ds.ref is None and ds.wait(0)
+    for name, fn in inspect.getmembers(Run, inspect.isfunction):
+        if not name.startswith("_") and str(inspect.signature(fn).return_annotation) == "DatasetRef":
+            result = getattr(run, name)("data/", "n")
+            assert isinstance(result, DatasetRef) and result.ref is None and result.wait(0), name
 
 
 def test_init_ignore_applies_to_an_attached_run(app, shared_run, hooks, tmp_path, monkeypatch):
@@ -1829,7 +1839,7 @@ def test_a_reinit_against_a_hung_api_and_a_hashing_backlog_keeps_its_cap(
     monkeypatch.delenv("PROBE_FINISH_TIMEOUT_SEC", raising=False)
     monkeypatch.setattr(fluent, "_REINIT_FLUSH_CAP_S", 1.0)
     release = threading.Event()
-    monkeypatch.setattr(inputs, "hash_file", lambda *a, **k: release.wait(60) and ("x", None))
+    monkeypatch.setattr(inputs, "hash_file", lambda *a, **k: release.wait(60) and ("x", None, None))
     inputs._hash_results.clear()
     try:
         first = probe.init(experiment="e1", name="r1", capture_reads=True)

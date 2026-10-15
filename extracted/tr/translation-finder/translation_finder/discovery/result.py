@@ -8,13 +8,24 @@ from __future__ import annotations
 
 from collections import UserDict
 from dataclasses import dataclass, field
+from enum import StrEnum
 from functools import total_ordering
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from pathlib import PurePath
 
 FileFormatParams = dict[str, str | int | bool]
+
+
+class DiscoveryLimit(StrEnum):
+    """Resource limits which can make discovery results incomplete."""
+
+    MASKS_PER_PATH = "masks-per-path"
+    CANDIDATES = "candidates"
+    RESULTS = "results"
+    NEW_BASE_CHECKS = "new-base-checks"
 
 
 class ResultMeta(TypedDict):
@@ -70,7 +81,6 @@ class DiscoveryResult(UserDict):
     Subclass of a dict with meta dict containing additional information.
     """
 
-    data: ResultDict  # type: ignore[assignment]
     __hash__ = None  # type: ignore[assignment]
 
     def __init__(self, data: ResultDict) -> None:
@@ -83,7 +93,7 @@ class DiscoveryResult(UserDict):
 
     @property
     def _sort_key(self) -> tuple[int, str]:
-        return (self.meta["priority"], self["file_format"])
+        return (self.meta["priority"], self.match["file_format"])
 
     @property
     def match(self) -> ResultDict:
@@ -112,6 +122,24 @@ class DiscoveryResult(UserDict):
 
     def copy(self) -> DiscoveryResult:
         """Create a copy of the result."""
-        result = DiscoveryResult(self.data.copy())
+        result = DiscoveryResult(self.match)
         result.meta = self.meta.copy()
         return result
+
+
+class DiscoveryResults(list[DiscoveryResult]):  # ruff: ignore[subclass-builtin]
+    """List-compatible discovery results with run-level limit information."""
+
+    def __init__(
+        self,
+        results: Iterable[DiscoveryResult] = (),
+        *,
+        limit_reasons: Iterable[DiscoveryLimit] = (),
+    ) -> None:
+        super().__init__(results)
+        self.limit_reasons = frozenset(limit_reasons)
+
+    @property
+    def truncated(self) -> bool:
+        """Whether a resource limit might have made results incomplete."""
+        return bool(self.limit_reasons)

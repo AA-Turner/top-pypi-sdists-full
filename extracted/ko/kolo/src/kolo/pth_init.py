@@ -17,35 +17,16 @@ import sys
 def pth_init():
     """Initialize Kolo monitoring when called from .pth file."""
     try:
-        # Check if disabled explicitly (any truthy value disables, consistent with middleware.py)
         if os.environ.get("KOLO_DISABLE"):
             return
 
-        # Check if enabled (accepts "1", "true", or "True")
         if os.environ.get("KOLO") not in ("1", "true", "True"):
             return
 
-        # Import and activate Kolo using _AutoEnabled
         from kolo.core import _AutoEnabled
 
-        # Create an _AutoEnabled instance with default config
-        # IMPORTANT: Use save_in_thread=False to avoid segfaults during process exit.
-        #
-        # When save_in_thread=True, the trace is saved in a background thread. This works
-        # fine in normal usage (middleware, context managers) because the main thread
-        # continues execution and the background thread completes before process exit.
-        #
-        # However, in atexit handlers (like this one), the situation is different:
-        # 1. Process is exiting, atexit handlers run
-        # 2. __exit__() spawns background thread to save trace
-        # 3. atexit handler returns
-        # 4. Python interpreter begins shutdown (module cleanup, C extension teardown)
-        # 5. Background thread is still running, trying to use msgpack C extension
-        # 6. Race condition: thread accesses deallocated Python/C objects → SEGFAULT
-        #
-        # By using save_in_thread=False, we ensure the trace is saved synchronously
-        # in the atexit handler before Python shutdown begins. The blocking on exit
-        # is acceptable - users want their trace data saved reliably.
+        # save_in_thread=False: a save thread still running after this atexit handler
+        # segfaults during interpreter shutdown.
         auto_enabled = _AutoEnabled(
             config=None,
             source="KOLO=1",
@@ -58,13 +39,10 @@ def pth_init():
             inline_returns=False,
         )
 
-        # Activate monitoring and register cleanup only if activation succeeded
         if auto_enabled.activate():
             atexit.register(auto_enabled.cleanup)
 
     except Exception as e:  # pragma: no cover
-        # If anything goes wrong during initialization, print to stderr
-        # but don't crash the Python process
         print(f"Kolo .pth initialization error: {e}", file=sys.stderr)
         import traceback
 

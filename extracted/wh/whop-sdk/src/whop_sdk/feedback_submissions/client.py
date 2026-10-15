@@ -36,7 +36,7 @@ class FeedbackSubmissionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateFeedbackSubmissionsResponse:
         """
-        Submits an issue or an unanswered question to Whop for review, recorded under the authenticated user, account, or app. Returns a receipt once the submission is accepted; processing is asynchronous and no reply is sent. Accepts user, account, and app credentials.
+        Submits an issue or an unanswered question to Whop for review, recorded under the authenticated user, account, or app. Returns a receipt once the submission is accepted; processing is asynchronous and no reply is sent.
 
         Parameters
         ----------
@@ -62,7 +62,7 @@ class FeedbackSubmissionsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -101,7 +101,7 @@ class AsyncFeedbackSubmissionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateFeedbackSubmissionsResponse:
         """
-        Submits an issue or an unanswered question to Whop for review, recorded under the authenticated user, account, or app. Returns a receipt once the submission is accepted; processing is asynchronous and no reply is sent. Accepts user, account, and app credentials.
+        Submits an issue or an unanswered question to Whop for review, recorded under the authenticated user, account, or app. Returns a receipt once the submission is accepted; processing is asynchronous and no reply is sent.
 
         Parameters
         ----------
@@ -129,7 +129,7 @@ class AsyncFeedbackSubmissionsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

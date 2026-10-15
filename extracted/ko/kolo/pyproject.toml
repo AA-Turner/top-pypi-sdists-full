@@ -5,7 +5,7 @@ backend-path = ["."]
 
 [project]
 name = "kolo"
-version = "3.6.0"
+version = "3.6.1"
 description = "Kolo is a text-based Python debugger for AI agents. Capture every executed function call, return value, local variable, HTTP request, and more in greppable trace files."
 readme = "README.md"
 authors = [{ name = "Wilhelm Klopp", email = "team@kolo.app" }]
@@ -38,7 +38,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development",
-    "Topic :: Software Development :: Code Generators",
     "Topic :: Software Development :: Debuggers",
     "Topic :: Software Development :: Documentation",
     "Topic :: Software Development :: Testing",

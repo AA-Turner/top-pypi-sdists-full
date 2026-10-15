@@ -204,7 +204,7 @@ class table__g_l_y_f(DefaultTable.DefaultTable):
             if glyph is None:
                 log.warning("glyph '%s' does not exist in glyf table", glyphName)
                 continue
-            if glyph.numberOfContours:
+            if glyph.numberOfContours or getattr(glyph, "program", None):
                 if splitGlyphs:
                     glyphPath = userNameToFileName(
                         tostr(glyphName, "utf-8"),
@@ -726,6 +726,11 @@ class Glyph(object):
         # some glyphs; decompileCoordinates assumes that there's at least
         # one, so short-circuit here.
         if self.numberOfContours == 0:
+            # Zero-contour glyphs may have instructions for phantom points.
+            if len(data) >= 2:
+                instructionLength = struct.unpack(">H", data[:2])[0]
+                self.program = ttProgram.Program()
+                self.program.fromBytecode(data[2 : 2 + instructionLength])
             return
         if self.isComposite():
             self.decompileComponents(data, glyfTable)
@@ -741,7 +746,7 @@ class Glyph(object):
                 self.expand(glyfTable)
             else:
                 return self.data
-        if self.numberOfContours == 0:
+        if self.numberOfContours == 0 and not getattr(self, "program", None):
             return b""
 
         if recalcBBoxes:
@@ -750,6 +755,9 @@ class Glyph(object):
         data = sstruct.pack(glyphHeaderFormat, self)
         if self.isComposite():
             data = data + self.compileComponents(glyfTable)
+        elif self.numberOfContours == 0:
+            instructions = self.program.getBytecode()
+            data += struct.pack(">H", len(instructions)) + instructions
         else:
             data = data + self.compileCoordinates(optimizeSize=optimizeSize)
         return data
@@ -780,7 +788,7 @@ class Glyph(object):
                 last = self.endPtsOfContours[i] + 1
                 writer.endtag("contour")
                 writer.newline()
-            haveInstructions = self.numberOfContours > 0
+            haveInstructions = hasattr(self, "program")
         if haveInstructions:
             if self.program:
                 writer.begintag("instructions")
@@ -870,7 +878,7 @@ class Glyph(object):
             haveInstructions = haveInstructions | haveInstr
             self.components.append(component)
         if haveInstructions:
-            (numInstructions,) = struct.unpack(">h", data[:2])
+            (numInstructions,) = struct.unpack(">H", data[:2])
             data = data[2:]
             self.program = ttProgram.Program()
             self.program.fromBytecode(data[:numInstructions])
@@ -889,7 +897,7 @@ class Glyph(object):
         self.endPtsOfContours = endPtsOfContours.tolist()
 
         pos = 2 * self.numberOfContours
-        (instructionLength,) = struct.unpack(">h", data[pos : pos + 2])
+        (instructionLength,) = struct.unpack(">H", data[pos : pos + 2])
         self.program = ttProgram.Program()
         self.program.fromBytecode(data[pos + 2 : pos + 2 + instructionLength])
         pos += 2 + instructionLength
@@ -993,7 +1001,7 @@ class Glyph(object):
             data = data + compo.compile(more, haveInstructions, glyfTable)
         if haveInstructions:
             instructions = self.program.getBytecode()
-            data = data + struct.pack(">h", len(instructions)) + instructions
+            data = data + struct.pack(">H", len(instructions)) + instructions
         return data
 
     def compileCoordinates(self, *, optimizeSize=True):
@@ -1004,7 +1012,7 @@ class Glyph(object):
             endPtsOfContours.byteswap()
         data.append(endPtsOfContours.tobytes())
         instructions = self.program.getBytecode()
-        data.append(struct.pack(">h", len(instructions)))
+        data.append(struct.pack(">H", len(instructions)))
         data.append(instructions)
 
         deltas = self.coordinates.copy()
@@ -1404,6 +1412,13 @@ class Glyph(object):
         numContours = struct.unpack(">h", self.data[:2])[0]
         data = bytearray(self.data)
         i = 10
+        if numContours == 0:
+            # No contour endpoint or coordinate flags exist in this case.
+            if not remove_hinting and len(data) >= i + 2:
+                instructionLen = (data[i] << 8) | data[i + 1]
+                i += 2 + instructionLen
+            self.data = data[:i]
+            return
         if numContours >= 0:
             i += 2 * numContours  # endPtsOfContours
             nCoordinates = ((data[i - 2] << 8) | data[i - 1]) + 1
@@ -1589,6 +1604,9 @@ class Glyph(object):
     def drawPoints(self, pen, glyfTable, offset=0):
         """Draw the glyph using the supplied pointPen. As opposed to Glyph.draw(),
         this will not change the point indices.
+
+        All-off-curve cubic contours cannot be represented without changing point
+        indices and raise NotImplementedError. Use Glyph.draw() for these outlines.
         """
 
         if self.isComposite():
@@ -1598,6 +1616,19 @@ class Glyph(object):
             return
 
         coordinates, endPts, flags = self.getCoordinates(glyfTable)
+        # Validate all contours before emitting any points to the pen.
+        start = 0
+        for end in endPts:
+            cFlags = flags[start : end + 1]
+            start = end + 1
+            # Without an on-curve point, the protocol implies quadratic controls.
+            if not any(f & flagOnCurve for f in cFlags) and any(
+                f & flagCubic for f in cFlags
+            ):
+                raise NotImplementedError(
+                    "All-off-curve cubic contours are not supported by drawPoints; "
+                    "use draw instead"
+                )
         if offset:
             coordinates = coordinates.copy()
             coordinates.translate((offset, 0))

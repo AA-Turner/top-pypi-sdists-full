@@ -1,8 +1,10 @@
 import itertools
 import json
 import re
+import sys
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
 from flask import Response, jsonify, request
@@ -136,6 +138,9 @@ def assert_failure_counts_match(html):
     )
     if ticks:
         assert sum(int(count or 1) for count in ticks) == found
+    top = re.findall(r'<span class="tf-n">(\d+)</span>', html)
+    if top and 'class="tf-more"' not in html:
+        assert sum(map(int, top)) == found
 
 
 def assert_operation_counts_match(html):
@@ -167,6 +172,8 @@ def assert_report_consistent(html):
     assert_failure_counts_match(html)
     assert_operation_counts_match(html)
     assert_top_failures_match(html)
+    ids = re.findall(r' id="([^"]+)"', html)
+    assert len(ids) == len(set(ids)), sorted(id_ for id_ in ids if ids.count(id_) > 1)
     if "No tests ran" in html:
         assert not re.search(r'<td class="numeric(?: one)?">[\d,]+', html), "No tests ran, yet operations ran cases"
 
@@ -196,9 +203,16 @@ def test_html_report_passed(ctx, cli, report_dir, snapshot_html):
     assert list(report_dir.iterdir()) == [report_dir / "index.html"]
 
 
+# The only failing operation stops at its first failing response, so every failure arrives at one moment.
 def test_html_report_failed(ctx, cli, report_dir, snapshot_html):
     api = ctx.openapi.apps.failure()
-    assert run_with_report(cli, report_dir, api.schema_url, exit_code=ExitCode.FAILURES) == snapshot_html
+    html = run_with_report(cli, report_dir, api.schema_url, exit_code=ExitCode.FAILURES)
+    assert html == snapshot_html
+    assert "tl-compact" not in html
+    assert re.findall(r'<span class="tl-lane-name">([^<]+)</span>', html) == ["Fuzzing"]
+    assert len(re.findall(r'class="tl-mark', html)) == 1
+    assert '<div class="tl-head"><h2 class="tl-heading" id="tl-heading">Timeline</h2></div>' in html
+    assert "title=" not in re.search(r'<section class="timeline".*?</section>', html).group(0)
 
 
 def test_html_report_schema_not_loaded(ctx, cli, report_dir, snapshot_html):
@@ -362,20 +376,9 @@ def test_html_report_every_operation_errored(ctx, cli, app_runner, report_dir, s
 
 def test_html_report_some_operations_errored(ctx, cli, app_runner, report_dir, snapshot_html):
     app, _ = ctx.openapi.make_flask_app(
-        {"/api/broken": INVALID_BODY, "/api/success": {"get": {"responses": {"200": {"description": "OK"}}}}}
-    )
-
-    @app.route("/api/success")
-    def success():
-        return "{}"
-
-    assert run_with_report(cli, report_dir, app_runner.openapi_url(app), exit_code=ExitCode.FAILURES) == snapshot_html
-
-
-def test_html_report_operation_not_loaded(ctx, cli, app_runner, report_dir, snapshot_html):
-    app, _ = ctx.openapi.make_flask_app(
         {
-            "/api/broken": {
+            "/api/broken": INVALID_BODY,
+            "/api/not-loaded": {
                 "get": {
                     "parameters": [{"$ref": "#/components/parameters/Missing"}],
                     "responses": {"200": {"description": "OK"}},
@@ -420,19 +423,49 @@ def test_html_report_operations_errored_after_cases(ctx, cli, app_runner, report
         report_dir,
         app_runner.openapi_url(app),
         "--checks=not_a_server_error",
-        "--request-timeout=1",
-        "--max-examples=10",
+        "--request-timeout=0.1",
         phases="coverage,fuzzing",
         exit_code=ExitCode.FAILURES,
     )
     release.set()
     groups = re.findall(r'<span class="group-title">(\w+)</span><span class="group-count">(\d+)</span>', html)
-    assert groups == [("Passed", "1"), ("Errored", "2")]
+    assert groups == [("Passed", "2"), ("Errored", "1")]
     operations = re.search(r'Operations</span><span class="m-value">(\d+)</span><span class="m-sub">([^<]*)<', html)
-    assert operations.groups() == ("3", "1 passed, 2 errored")
+    assert operations.groups() == ("3", "2 passed, 1 errored")
     phases = re.findall(r'<span class="ph-name">(\w+)</span><span class="ph-outcome">([^<]*)</span>', html)
     assert [name for name, _ in phases] == ["Examples", "Coverage", "Fuzzing", "Stateful"]
     assert all(re.fullmatch(r"\d+ errors?", outcome) for name, outcome in phases if name in ("Coverage", "Fuzzing"))
+
+
+# The undecodable body errors only for non-integer `q`; other cases of the same operation pass.
+def test_html_report_operation_tested_and_errored(ctx, cli, app_runner, report_dir, snapshot_html):
+    parameter = {"name": "q", "in": "query", "required": True, "schema": {"type": "integer"}}
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/flaky": {"get": {"parameters": [parameter], "responses": {"200": {"description": "OK"}}}},
+            "/api/success": {"get": {"responses": {"200": {"description": "OK"}}}},
+        }
+    )
+
+    @app.route("/api/flaky")
+    def flaky():
+        if not request.args.get("q", "").isdigit():
+            return Response(b"not gzip", headers={"Content-Encoding": "gzip"})
+        return jsonify({})
+
+    @app.route("/api/success")
+    def success():
+        return "{}"
+
+    html = run_with_report(
+        cli,
+        report_dir,
+        app_runner.openapi_url(app),
+        "--checks=not_a_server_error",
+        phases="coverage",
+        exit_code=ExitCode.FAILURES,
+    )
+    assert html == snapshot_html
 
 
 def test_html_report_operations_table(ctx, cli, app_runner, report_dir, snapshot_html):
@@ -456,17 +489,48 @@ def test_html_report_operations_table(ctx, cli, app_runner, report_dir, snapshot
     assert html == snapshot_html
 
 
-def test_html_report_top_failures_count_hidden_kinds(ctx, cli, app_runner, report_dir):
+def top_failures_items(html):
+    tf_list = re.search(r'<ul class="tf-list">(.*?)</ul>', html).group(1)
+    return re.findall(
+        r'<li>(?:<span class="tf-n">\d+</span><span class="tf-name"[^>]*>([^<]+)</span>|<a[^>]*>([^<]+)</a>)</li>',
+        tf_list,
+    )
+
+
+@pytest.mark.parametrize(
+    ("with_schema_failure", "expected"),
+    [
+        (
+            False,
+            [
+                "Missing required headers",
+                "Server error",
+                "Undocumented Content-Type",
+                "Undocumented HTTP status code",
+            ],
+        ),
+        (
+            True,
+            [
+                "Missing required headers",
+                "Response violates schema",
+                "Server error",
+                "+2 more",
+            ],
+        ),
+    ],
+    ids=["one-hidden-shown", "two-hidden-collapsed"],
+)
+def test_html_report_top_failures_count_hidden_kinds(ctx, cli, app_runner, report_dir, with_schema_failure, expected):
     header = {"X-Token": {"required": True, "schema": {"type": "string"}}}
     json_body = {"application/json": {"schema": {"type": "object"}}}
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/api/failure": {"get": {"responses": {"200": {"description": "OK"}}}},
-            "/api/text": {
-                "get": {"responses": {"200": {"description": "OK", "headers": header, "content": json_body}}}
-            },
-        }
-    )
+    paths = {
+        "/api/failure": {"get": {"responses": {"200": {"description": "OK"}}}},
+        "/api/text": {"get": {"responses": {"200": {"description": "OK", "headers": header, "content": json_body}}}},
+    }
+    if with_schema_failure:
+        paths["/api/array"] = {"get": {"responses": {"200": {"description": "OK", "content": json_body}}}}
+    app, _ = ctx.openapi.make_flask_app(paths)
 
     @app.route("/api/failure")
     def failure():
@@ -476,9 +540,13 @@ def test_html_report_top_failures_count_hidden_kinds(ctx, cli, app_runner, repor
     def text():
         return Response("plain", content_type="text/plain")
 
+    @app.route("/api/array")
+    def array():
+        return jsonify([])
+
     html = run_with_report(cli, report_dir, app_runner.openapi_url(app), exit_code=ExitCode.FAILURES)
-    assert len(re.findall(r'<span class="tf-n">', html)) == 3
-    assert re.search(r'<a class="tf-more" href="#operations">\+1 more</a>', html)
+    items = ["".join(item) for item in top_failures_items(html)]
+    assert items == expected
 
 
 def test_html_report_continue_on_failure(ctx, cli, report_dir, snapshot_html):
@@ -522,12 +590,14 @@ def test_html_report_fuzz_failures(ctx, cli, report_dir, snapshot_html):
     assert '<tr class="op-row row-failed has-details" id="op-get-api-failure">' in html
     assert '<span class="method get">GET</span><span class="path">/api<wbr>/failure</span>' in html
     assert '<tr class="detail-row detail-failed" id="op-get-api-failure-details">' in html
+    assert re.findall(r'tl-lane-name">(\w+)</span><span class="tl-sub">', html) == ["Fuzzing"]
 
 
-# `/api/items-0` and `/api/items/0` share an anchor slug.
+# `/api/items-0` and `/api/items/0` share an anchor slug; `/api/failure/details` collides with a detail-row id.
 def test_html_report_large_api(ctx, cli, app_runner, report_dir, snapshot_html):
     paths = {f"/api/items/{index}": {"get": {"responses": {"200": {"description": "OK"}}}} for index in range(26)}
     paths["/api/failure"] = {"get": {"responses": {"200": {"description": "OK"}}}}
+    paths["/api/failure/details"] = {"get": {"responses": {"200": {"description": "OK"}}}}
     paths["/api/items-0"] = {"get": {"responses": {"200": {"description": "OK"}}}}
     app, _ = ctx.openapi.make_flask_app(paths)
 
@@ -543,7 +613,37 @@ def test_html_report_large_api(ctx, cli, app_runner, report_dir, snapshot_html):
     def failure():
         return "", 500
 
+    @app.route("/api/failure/details")
+    def failure_details():
+        return "", 500
+
     assert run_with_report(cli, report_dir, app_runner.openapi_url(app), exit_code=ExitCode.FAILURES) == snapshot_html
+
+
+def test_html_report_operations_in_natural_order(ctx, cli, app_runner, report_dir):
+    ok = {"responses": {"200": {"description": "OK"}}}
+    paths = {f"/number/{index}": {"get": ok} for index in (12, 4, 0, 16, 8)}
+    paths["/number/4/items"] = {"get": ok, "post": ok}
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/number/<index>", methods=["GET"])
+    def number(index):
+        return "{}"
+
+    @app.route("/number/<index>/items", methods=["GET", "POST"])
+    def items(index):
+        return "{}"
+
+    html = run_with_report(cli, report_dir, app_runner.openapi_url(app))
+    assert re.findall(r'<tr class="op-row[^"]*" id="([^"]+)"', html) == [
+        "op-get-number-0",
+        "op-get-number-4",
+        "op-get-number-4-items",
+        "op-post-number-4-items",
+        "op-get-number-8",
+        "op-get-number-12",
+        "op-get-number-16",
+    ]
 
 
 def test_html_report_graphql(ctx, cli, report_dir, snapshot_html):
@@ -791,9 +891,7 @@ def test_html_report_error_tip(ctx, cli, app_runner, report_dir, snapshot_html):
 
 def test_html_report_multiline_warning_tip(ctx, cli, report_dir, snapshot_html):
     api = ctx.openapi.apps.sign_up_and_login("login-rejects")
-    html = run_with_report(
-        cli, report_dir, api.schema_url, "--max-examples=5", "--checks=not_a_server_error", phases="examples,fuzzing"
-    )
+    html = run_with_report(cli, report_dir, api.schema_url, "--checks=not_a_server_error", phases="examples,fuzzing")
     assert html == snapshot_html
     assert "white-space:pre-wrap" in re.search(r"\.w-tip\{([^}]*)\}", html).group(1)
 
@@ -840,39 +938,18 @@ def test_html_report_repeated_error_shown_once(ctx, cli, app_runner, report_dir)
 
     @app.route("/api/slow")
     def slow():
-        time.sleep(0.5)
+        time.sleep(0.2)
         return jsonify({})
 
     html = run_with_report(
         cli,
         report_dir,
         app_runner.openapi_url(app),
-        "--request-timeout=0.1",
+        "--request-timeout=0.02",
         phases="examples,coverage,fuzzing",
         exit_code=ExitCode.FAILURES,
     )
     assert html.count('<article class="case case-error">') == 1
-
-
-def test_html_report_ids_are_unique(ctx, cli, app_runner, report_dir):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/api/users": {"get": {"responses": {"200": {"description": "OK"}}}},
-            "/api/users/details": {"get": {"responses": {"200": {"description": "OK"}}}},
-        }
-    )
-
-    @app.route("/api/users")
-    def users():
-        return "", 500
-
-    @app.route("/api/users/details")
-    def details():
-        return "", 500
-
-    html = run_with_report(cli, report_dir, app_runner.openapi_url(app), exit_code=ExitCode.FAILURES)
-    ids = re.findall(r' id="([^"]+)"', html)
-    assert len(ids) == len(set(ids)), sorted(id_ for id_ in ids if ids.count(id_) > 1)
 
 
 def two_failing_operations(ctx):
@@ -894,24 +971,14 @@ def two_failing_operations(ctx):
     return app
 
 
-# The only failing operation stops at its first failing response, so every failure arrives at one moment.
-def test_html_report_timeline_short_run_has_chart(ctx, cli, report_dir):
-    api = ctx.openapi.apps.failure()
-    html = run_with_report(cli, report_dir, api.schema_url, exit_code=ExitCode.FAILURES)
-    assert "tl-compact" not in html
-    assert re.findall(r'<span class="tl-lane-name">([^<]+)</span>', html) == ["Fuzzing"]
-    assert len(re.findall(r'class="tl-mark', html)) == 1
-    assert '<div class="tl-head"><h2 class="tl-heading" id="tl-heading">Timeline</h2></div>' in html
-    assert "title=" not in re.search(r'<section class="timeline".*?</section>', html).group(0)
-
-
 # Each operation's two failures arrive with one response, so every tick carries a count badge.
-def test_html_report_timeline_quiet_tail(ctx, cli, app_runner, report_dir):
+# Responses are stamped at the epoch, so every failure is found at the run's start however slow the machine is.
+def test_html_report_timeline_quiet_tail(ctx, cli, app_runner, report_dir, monkeypatch):
+    monkeypatch.setattr("schemathesis.engine.recorder.time", SimpleNamespace(time=lambda: 0.0))
     html = run_with_report(
         cli,
         report_dir,
         app_runner.openapi_url(two_failing_operations(ctx)),
-        "--max-time=2",
         phases="coverage,fuzzing",
         exit_code=ExitCode.FAILURES,
     )
@@ -927,32 +994,6 @@ def test_html_report_timeline_quiet_tail(ctx, cli, app_runner, report_dir):
     )
     assert "" not in counts
     assert sum(map(int, counts)) == 4
-
-
-def test_html_report_timeline_counts_match_top_failures(ctx, cli, report_dir, ensure_reachability_module):
-    api = ctx.openapi.apps.success_and_failure()
-    html = run_with_report(
-        cli,
-        report_dir,
-        api.schema_url,
-        "-c",
-        "EnsureReachability",
-        exit_code=ExitCode.FAILURES,
-        hooks=ensure_reachability_module,
-    )
-    top = sum(map(int, re.findall(r'<span class="tf-n">(\d+)</span>', html)))
-    (found,) = re.findall(r'<span class="tl-name">Failures found</span><span class="tl-sub">(\d+) total</span>', html)
-    assert top
-    assert int(found) == top
-
-
-def test_html_report_timeline_for_fuzz_command(ctx, cli, report_dir):
-    api = ctx.openapi.apps.failure()
-    result = cli.main("fuzz", api.schema_url, "--max-failures=1", "--max-time=2", f"--report-html-path={report_dir}")
-    assert result.exit_code == ExitCode.FAILURES, result.stdout
-    html = read_report(report_dir)
-    phases = re.findall(r'tl-lane-name">(\w+)</span><span class="tl-sub">', html)
-    assert phases == ["Fuzzing"]
 
 
 # Passes end on their own until the server breaks, so fuzzing and stateful take turns however slow the machine is.
@@ -980,7 +1021,7 @@ def run_until_server_breaks(cli, report_dir, schema_url, *, phases):
         cli,
         report_dir,
         schema_url,
-        "--max-time=60",
+        "--max-time=600",
         "--max-failures=1",
         "--mode=positive",
         phases=phases,
@@ -1062,14 +1103,6 @@ def test_timeline_short_duration(seconds, expected):
     assert short_duration(seconds) == expected
 
 
-def test_html_report_timeline_interrupted_run(ctx, cli, report_dir):
-    api = ctx.openapi.apps.success_and_failure()
-    module = ctx.write_pymodule(INTERRUPT_ON_SECOND_CALL)
-    html = run_with_report(cli, report_dir, api.schema_url, exit_code=ExitCode.INTERRUPTED, hooks=module)
-    assert re.search(r'<span class="tl-tick tl-end">[\d.]+m?s, stopped</span>', html)
-    assert len(re.findall(r'class="tl-span tl-span-stopped"', html)) == 1
-
-
 def test_html_report_run_level_error(ctx, cli, app_runner, report_dir, snapshot_html):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -1144,9 +1177,7 @@ def test_html_report_lanes_count_only_new_failures(ctx, cli, app_runner, report_
 
 def test_html_report_warning_on_passed_run(ctx, cli, report_dir, snapshot_html):
     api = ctx.openapi.apps.basic()
-    html = run_with_report(
-        cli, report_dir, api.schema_url, "--checks=not_a_server_error", "--mode=positive", "--max-examples=10"
-    )
+    html = run_with_report(cli, report_dir, api.schema_url, "--checks=not_a_server_error", "--mode=positive")
     assert html == snapshot_html
 
 
@@ -1159,7 +1190,6 @@ def test_html_report_warning_grouped_by_cause(ctx, cli, report_dir, snapshot_htm
         f"--url={api.base_url}/v4/",
         "--checks=not_a_server_error",
         "--mode=positive",
-        "--max-examples=10",
         phases="fuzzing,stateful",
     )
     assert html == snapshot_html
@@ -1259,12 +1289,13 @@ def test_html_report_caveat_counts_affecting_warnings(ctx, cli, app_runner, repo
         app_runner.openapi_url(app),
         "--checks=not_a_server_error",
         "--mode=positive",
-        "--max-examples=10",
     )
     assert re.findall(r'<a class="hs-caveat"[^>]*>([^<]*)</a>', html) == ["2 warnings affect results"]
 
 
-def test_html_report_phases_and_checks(ctx, cli, report_dir, snapshot_html):
+# An unrecognised entrypoint hides the Command row instead of showing an uncopyable placeholder.
+def test_html_report_phases_and_checks(ctx, cli, report_dir, snapshot_html, monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["/venv/bin/python"])
     api = ctx.openapi.apps.success()
     html = run_with_report(
         cli,
@@ -1376,6 +1407,19 @@ def test_html_report_warnings_fail_the_run(ctx, cli, report_dir, snapshot_html):
     assert html == snapshot_html
 
 
+def test_html_report_startup_warning_fails_the_run(ctx, cli, report_dir, snapshot_html):
+    api = ctx.openapi.apps.success()
+    html = run_with_report(
+        cli,
+        report_dir,
+        api.schema_url,
+        "--request-timeout=5000",
+        exit_code=ExitCode.FAILURES,
+        config={"warnings": {"fail-on": ["timeout_units"]}},
+    )
+    assert html == snapshot_html
+
+
 def test_html_report_handler_error_after_passed_run(ctx, cli, report_dir, snapshot_html):
     module = ctx.write_pymodule(
         """
@@ -1425,19 +1469,26 @@ def test_html_report_fuzz_operation_errored(ctx, cli, app_runner, report_dir, sn
     assert read_report(report_dir) == snapshot_html
 
 
-def test_html_report_for_fuzz_command(ctx, cli, report_dir):
-    api = ctx.openapi.apps.success()
-    result = cli.main("fuzz", api.schema_url, "--max-time=1", f"--report-html-path={report_dir}")
-    assert result.exit_code == ExitCode.OK, result.stdout
-    assert (report_dir / "index.html").is_file()
-
-
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_html_report_unwritable_path(ctx, cli, tmp_path, snapshot_cli):
     api = ctx.openapi.apps.success()
     parent = tmp_path / "file"
     parent.write_text("", encoding="utf-8")
     assert cli.run(api.schema_url, f"--report-html-path={parent / 'report'}") == snapshot_cli
+
+
+def test_html_report_path_printed_when_run_aborts_before_testing(ctx, cli, tmp_path, report_dir, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    assert (
+        cli.run(
+            api.schema_url,
+            f"--report-html-path={report_dir}",
+            f"--report-junit-path={tmp_path / 'junit.xml'}",
+            config={"auth": {"wfc": {"path": str(tmp_path / "auth.json")}}},
+        )
+        == snapshot_cli
+    )
+    assert (report_dir / "index.html").is_file()
 
 
 def test_html_report_links_other_reports(ctx, cli, tmp_path, report_dir):

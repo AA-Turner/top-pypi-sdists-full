@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = ["contextlib", "pathlib", "secrets", "typing"]
+
 import os
 import secrets
 import stat
@@ -51,6 +53,11 @@ def raise_on_not_writable_file(filename: str) -> None:
     except OSError:
         return  # does not exist, or an error the caller cannot act on
 
+    if stat.S_ISDIR(file_stat.st_mode):
+        if sys.platform == "win32":  # pragma: win32 cover
+            raise PermissionError(EACCES, "Permission denied", filename)
+        raise IsADirectoryError(EISDIR, "Is a directory", filename)  # pragma: win32 no cover
+
     # No mtime guard: the old `if st_mtime != 0` skip covered NFS/Linux quirks where os.lstat returned an all-zero
     # struct, which it no longer does. Skipping on mtime 0 let a read-only file or a directory at the lock path pass
     # as missing, so acquire() blocked forever on an open that cannot succeed.
@@ -64,11 +71,6 @@ def raise_on_not_writable_file(filename: str) -> None:
             # A holder may unlink its marker between lstat() and access(); let the caller attempt creation.
             return
         raise PermissionError(EACCES, "Permission denied", filename)
-
-    if stat.S_ISDIR(file_stat.st_mode):
-        if sys.platform == "win32":  # pragma: win32 cover
-            raise PermissionError(EACCES, "Permission denied", filename)
-        raise IsADirectoryError(EISDIR, "Is a directory", filename)  # pragma: win32 no cover
 
 
 def ensure_directory_exists(filename: Path | str) -> None:

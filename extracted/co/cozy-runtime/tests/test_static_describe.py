@@ -94,7 +94,6 @@ def test_rich_fixture_spells_the_whole_vocabulary() -> None:
         '"input": "tree"',
         '"asset": "file"',
         '"encoded_leaves": "accept"',
-        '"fusion": "accept"',
         '"sequence_parallel": {"degrees": [2, 4]}',
         '"component_use": {"encode": ["text_encoder"], "render": ["dit", "vae"]}',
         '"normalization_worst_relative_frobenius"',
@@ -184,7 +183,7 @@ def test_a_callers_signature_reads_its_callee_packages_types_from_the_locked_sou
         "async def inspect(ctx: Context, *, count: int) -> Result:\n"
         "    return Result([str(count)])\n"
         "app = App()\n"
-        "app.job(inspect)\n",
+        "app.job(inspect, accelerator=False)\n",
         "dependencies = []\n",
     )
     package(
@@ -197,7 +196,7 @@ def test_a_callers_signature_reads_its_callee_packages_types_from_the_locked_sou
         "async def run(ctx: Context, *, count: int) -> Result:\n"
         "    return await inspect(count=count)\n"
         "app = App()\n"
-        "app.job(run)\n",
+        "app.job(run, accelerator=False)\n",
         'dependencies = ["labelled-child"]\n'
         '[tool.uv.sources]\nlabelled-child = { path = "child" }\n',
     )
@@ -253,7 +252,7 @@ def test_a_published_callees_types_are_read_from_the_wheel_its_lock_pins(tmp_pat
         "async def inspect(ctx: Context, *, count: int) -> Result:\n"
         "    return Result([str(count)])\n"
         "app = App()\n"
-        "app.job(inspect)\n",
+        "app.job(inspect, accelerator=False)\n",
     )
     (index / "simple" / "labelled-remote" / "index.html").write_text(
         f'<a href="/files/{filename}#sha256={digest}">{filename}</a>\n'
@@ -278,7 +277,7 @@ def test_a_published_callees_types_are_read_from_the_wheel_its_lock_pins(tmp_pat
             "async def run(ctx: Context, *, count: int) -> Result:\n"
             "    return await inspect(count=count)\n"
             "app = App()\n"
-            "app.job(run)\n"
+            "app.job(run, accelerator=False)\n"
         )
         _run(uv, "lock", "--no-progress", cwd=project)
         assert f"sha256:{digest}" in (project / "uv.lock").read_text()
@@ -433,13 +432,13 @@ def test_explicit_registration_by_call_matches_decorators(tmp_path: Path) -> Non
         tmp_path,
         {
             "__init__.py": (
-                "@app.job(publishes=True)\ndef gate(",
+                "@app.job(publishes=True, accelerator=False)\ndef gate(",
                 "def gate(",
             )
         },
     )
     init = project / "rich_package" / "__init__.py"
-    init.write_text(init.read_text() + "\n\napp.job(gate, publishes=True)\n")
+    init.write_text(init.read_text() + "\n\napp.job(gate, publishes=True, accelerator=False)\n")
     assert _static(project) == _static(RICH)
 
 
@@ -460,7 +459,7 @@ class Request(msgspec.Struct):
     seeds: list[int] = msgspec.field(default_factory=seeds)
 class Result(msgspec.Struct):
     size: int
-@app.job
+@app.job(accelerator=False)
 def render(payload: Request) -> Result:
     return Result(payload.size)
 @app.entrypoint
@@ -572,7 +571,7 @@ def test_torch_free_venv_describes_refuses_and_conforms(torch_free: Path, tmp_pa
     document = json.loads(extending.stdout)
     slot = document["entrypoints"][0]["models"][0]
     assert slot["class"] == "ProbeModel" and slot["encoded_leaves"] == "accept"
-    assert slot["fusion"] == "accept" and slot["sequence_parallel"] == {"degrees": [2, 4]}
+    assert "fusion" not in slot and slot["sequence_parallel"] == {"degrees": [2, 4]}
     assert slot["component_use"]["probe"] == ["vae"]
     assert '"literal": [30, 40, 50]' in json.dumps(document), "the dependency's data asset too"
     _run(uv, "pip", "install", "--python", str(python), "--no-deps", str(EXTENDS))

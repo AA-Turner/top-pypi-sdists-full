@@ -109,6 +109,8 @@ def _existingVariableFeatures(table):
     if hasattr(table, "FeatureVariations") and table.FeatureVariations is not None:
         features = table.FeatureList.FeatureRecord
         for fvr in table.FeatureVariations.FeatureVariationRecord:
+            if fvr.FeatureTableSubstitution is None:
+                continue
             for ftsr in fvr.FeatureTableSubstitution.SubstitutionRecord:
                 existingFeatureVarsTags.add(features[ftsr.FeatureIndex].FeatureTag)
     return existingFeatureVarsTags
@@ -459,10 +461,15 @@ def addFeatureVariationsRaw(font, table, conditionalSubstitutions, featureTag="r
         if hasFeatureVariations and (
             fvr := findFeatureVariationRecord(table.FeatureVariations, conditionTable)
         ):
-            fvr.FeatureTableSubstitution.SubstitutionRecord.extend(records)
-            fvr.FeatureTableSubstitution.SubstitutionCount = len(
-                fvr.FeatureTableSubstitution.SubstitutionRecord
-            )
+            if fvr.FeatureTableSubstitution is None:
+                fvr.FeatureTableSubstitution = buildFeatureVariationRecord(
+                    conditionTable, []
+                ).FeatureTableSubstitution
+            substitutionRecords = fvr.FeatureTableSubstitution.SubstitutionRecord
+            substitutionRecords.extend(records)
+            # The spec requires records sorted by increasing FeatureIndex
+            substitutionRecords.sort(key=lambda r: r.FeatureIndex)
+            fvr.FeatureTableSubstitution.SubstitutionCount = len(substitutionRecords)
         else:
             featureVariationRecords.append(
                 buildFeatureVariationRecord(conditionTable, records)
@@ -573,6 +580,7 @@ def buildSubstitutionLookups(gsub, allSubstitutions, processLast=False):
         visitor = ShifterVisitor(shift)
         visitor.visit(gsub.FeatureList.FeatureRecord)
         visitor.visit(gsub.LookupList.Lookup)
+        visitor.visit(getattr(gsub, "FeatureVariations", None))
 
     for i, subst in enumerate(allSubstitutions):
         substMap = dict(subst)
@@ -650,7 +658,10 @@ def findFeatureVariationRecord(featureVariations, conditionTable):
         )
 
     for fvr in featureVariations.FeatureVariationRecord:
-        if conditionTable == fvr.ConditionSet.ConditionTable:
+        existingConditions = (
+            fvr.ConditionSet.ConditionTable if fvr.ConditionSet is not None else []
+        )
+        if conditionTable == existingConditions:
             return fvr
 
     return None
@@ -687,6 +698,8 @@ def remapFeatures(table, featureRemap):
 
     if hasattr(table, "FeatureVariations") and table.FeatureVariations is not None:
         for fvr in table.FeatureVariations.FeatureVariationRecord:
+            if fvr.FeatureTableSubstitution is None:
+                continue
             for ftsr in fvr.FeatureTableSubstitution.SubstitutionRecord:
                 ftsr.FeatureIndex = featureRemap[ftsr.FeatureIndex]
 

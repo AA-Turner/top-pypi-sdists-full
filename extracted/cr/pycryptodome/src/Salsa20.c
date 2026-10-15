@@ -27,151 +27,280 @@
 
 #include "common.h"
 #include "endianess.h"
+#include "salsa20_core.h"
 
-FAKE_INIT(Salsa20)
+/*
+ * - if SALSA20_MODULE is defined, the functions are exported from the
+ *   Python extension module with that name (default: Salsa20)
+ * - if SALSA20_AVX2 is defined, the key stream is computed with AVX2
+ *   (see Salsa20_avx2_bmi2.c)
+ */
+#ifndef SALSA20_MODULE
+#define SALSA20_MODULE Salsa20
+#endif
+
+FAKE_INIT(SALSA20_MODULE)
 
 #define ROUNDS 20
 #define MAX_KEY_SIZE 32
 
+/*
+ * With SSE2, the key stream is computed 4 blocks at a time
+ * (each 128-bit register holds the same word of the 4 blocks),
+ * and with AVX2 8 blocks at a time (in 256-bit registers).
+ */
+#if defined(SALSA20_AVX2)
+#define KS_BLOCKS 8
+#elif defined(USE_SSE2)
+#define KS_BLOCKS 4
+#else
+#define KS_BLOCKS 1
+#endif
+#define KS_SIZE (64*KS_BLOCKS)
+
+/*
+ * Ask for the loops to be unrolled (gcc does not at -O2).
+ * In salsa20_keystream(), the loops index arrays of SIMD registers:
+ * once unrolled, the indices are constants and the arrays can stay in
+ * registers (about 6% faster with SSE2, 10% with AVX2).
+ */
+#define SALSA20_PRAGMA(x) _Pragma(#x)
+#if defined(__clang__)
+#define UNROLL(n) SALSA20_PRAGMA(unroll n)
+#elif defined(__GNUC__)
+#define UNROLL(n) SALSA20_PRAGMA(GCC unroll n)
+#else
+#define UNROLL(n)
+#endif
+
 static const uint8_t sigma[16] = "expand 32-byte k";
 static const uint8_t tau[16]   = "expand 16-byte k";
 
-#define ROTL32(v, c) (((v) << (c)) | ((v) >> (32 - (c))))
-#define XOR(v,w) ((v) ^ (w))
-
 typedef struct  {
-    uint32_t input[16];
-    uint8_t  block[64];
-    uint8_t  blockindex;
+    uint32_t input[16];             /* Words in the natural order (counter of the block after keystream[]) */
+    unsigned ks_index;              /* Next unused byte in keystream[] */
+    uint8_t  keystream[KS_SIZE];    /* Always computed (KS_BLOCKS blocks before the counter) */
 } stream_state;
 
-static void _salsa20_block(unsigned rounds, uint32_t *input, uint8_t *output)
+#if defined(SALSA20_AVX2)
+
+#include <immintrin.h>
+
+#define SALSA20_ROTL_AVX2(v, c) _mm256_or_si256(_mm256_slli_epi32((v), (c)), _mm256_srli_epi32((v), 32-(c)))
+
+/**
+ * Like store_4x4(), for 8 blocks: the low 128-bit lane of each register
+ * holds blocks 0..3, the high lane blocks 4..7.
+ */
+static inline void store_4x8(const __m256i v[4], uint8_t *out)
 {
-    unsigned x0, x1, x2, x3, x4, x5, x6, x7;
-    unsigned x8, x9, x10, x11, x12, x13, x14, x15;
+    __m256i a = v[0], b = v[1], c = v[2], d = v[3];
+    __m256i t0, t1, t2, t3, r0, r1, r2, r3;
+
+    t0 = _mm256_unpacklo_epi32(a, b);
+    t1 = _mm256_unpacklo_epi32(c, d);
+    t2 = _mm256_unpackhi_epi32(a, b);
+    t3 = _mm256_unpackhi_epi32(c, d);
+    r0 = _mm256_unpacklo_epi64(t0, t1);
+    r1 = _mm256_unpackhi_epi64(t0, t1);
+    r2 = _mm256_unpacklo_epi64(t2, t3);
+    r3 = _mm256_unpackhi_epi64(t2, t3);
+    _mm_storeu_si128((__m128i*)(out + 0*64), _mm256_castsi256_si128(r0));
+    _mm_storeu_si128((__m128i*)(out + 1*64), _mm256_castsi256_si128(r1));
+    _mm_storeu_si128((__m128i*)(out + 2*64), _mm256_castsi256_si128(r2));
+    _mm_storeu_si128((__m128i*)(out + 3*64), _mm256_castsi256_si128(r3));
+    _mm_storeu_si128((__m128i*)(out + 4*64), _mm256_extracti128_si256(r0, 1));
+    _mm_storeu_si128((__m128i*)(out + 5*64), _mm256_extracti128_si256(r1, 1));
+    _mm_storeu_si128((__m128i*)(out + 6*64), _mm256_extracti128_si256(r2, 1));
+    _mm_storeu_si128((__m128i*)(out + 7*64), _mm256_extracti128_si256(r3, 1));
+}
+
+/** Compute the next 8 blocks of key stream **/
+static void salsa20_keystream(const uint32_t input[16], uint8_t out[KS_SIZE])
+{
+    __m256i x[16], y[16];
+    uint32_t c = input[8], h = input[9];
     unsigned i;
 
-    x0  = input[0];
-    x1  = input[1];
-    x2  = input[2];
-    x3  = input[3];
-    x4  = input[4];
-    x5  = input[5];
-    x6  = input[6];
-    x7  = input[7];
-    x8  = input[8];
-    x9  = input[9];
-    x10 = input[10];
-    x11 = input[11];
-    x12 = input[12];
-    x13 = input[13];
-    x14 = input[14];
-    x15 = input[15];
-    
-    for (i = rounds; i > 0; i -= 2) {
-        /* Column round */
-        x4  = XOR( x4, ROTL32( x0 + x12,  7));
-        x8  = XOR( x8, ROTL32( x4 +  x0,  9));
-        x12 = XOR(x12, ROTL32( x8 +  x4, 13));
-        x0  = XOR( x0, ROTL32(x12 +  x8, 18));
-        x9  = XOR( x9, ROTL32( x5 +  x1,  7));
-        x13 = XOR(x13, ROTL32( x9 +  x5,  9));
-        x1  = XOR( x1, ROTL32(x13 +  x9, 13));
-        x5  = XOR( x5, ROTL32( x1 + x13, 18));
-        x14 = XOR(x14, ROTL32(x10 +  x6,  7));
-        x2  = XOR( x2, ROTL32(x14 + x10,  9));
-        x6  = XOR( x6, ROTL32( x2 + x14, 13));
-        x10 = XOR(x10, ROTL32( x6 +  x2, 18));
-        x3  = XOR( x3, ROTL32(x15 + x11,  7));
-        x7  = XOR( x7, ROTL32( x3 + x15,  9));
-        x11 = XOR(x11, ROTL32( x7 +  x3, 13));
-        x15 = XOR(x15, ROTL32(x11 +  x7, 18));
-        
-        /* Row round */
-        x1  = XOR( x1, ROTL32( x0 +  x3,  7));
-        x2  = XOR( x2, ROTL32( x1 +  x0,  9));
-        x3  = XOR( x3, ROTL32( x2 +  x1, 13));
-        x0  = XOR( x0, ROTL32( x3 +  x2, 18));
-        x6  = XOR( x6, ROTL32( x5 +  x4,  7));
-        x7  = XOR( x7, ROTL32( x6 +  x5,  9));
-        x4  = XOR( x4, ROTL32( x7 +  x6, 13));
-        x5  = XOR( x5, ROTL32( x4 +  x7, 18));
-        x11 = XOR(x11, ROTL32(x10 +  x9,  7));
-        x8  = XOR( x8, ROTL32(x11 + x10,  9));
-        x9  = XOR( x9, ROTL32( x8 + x11, 13));
-        x10 = XOR(x10, ROTL32( x9 +  x8, 18));
-        x12 = XOR(x12, ROTL32(x15 + x14,  7));
-        x13 = XOR(x13, ROTL32(x12 + x15,  9));
-        x14 = XOR(x14, ROTL32(x13 + x12, 13));
-        x15 = XOR(x15, ROTL32(x14 + x13, 18));
+    UNROLL(16)
+    for (i=0; i<16; i++) {
+        y[i] = _mm256_set1_epi32((int)input[i]);
     }
-    
-    x0  = x0 + input[0];
-    x1  = x1 + input[1];
-    x2  = x2 + input[2];
-    x3  = x3 + input[3];
-    x4  = x4 + input[4];
-    x5  = x5 + input[5];
-    x6  = x6 + input[6];
-    x7  = x7 + input[7];
-    x8  = x8 + input[8];
-    x9  = x9 + input[9];
-    x10 = x10 + input[10];
-    x11 = x11 + input[11];
-    x12 = x12 + input[12];
-    x13 = x13 + input[13];
-    x14 = x14 + input[14];
-    x15 = x15 + input[15];
-    
-    STORE_U32_LITTLE (output + 0, x0);
-    STORE_U32_LITTLE (output + 4, x1);
-    STORE_U32_LITTLE (output + 8, x2);
-    STORE_U32_LITTLE (output + 12, x3);
-    STORE_U32_LITTLE (output + 16, x4);
-    STORE_U32_LITTLE (output + 20, x5);
-    STORE_U32_LITTLE (output + 24, x6);
-    STORE_U32_LITTLE (output + 28, x7);
-    STORE_U32_LITTLE (output + 32, x8);
-    STORE_U32_LITTLE (output + 36, x9);
-    STORE_U32_LITTLE (output + 40, x10);
-    STORE_U32_LITTLE (output + 44, x11);
-    STORE_U32_LITTLE (output + 48, x12);
-    STORE_U32_LITTLE (output + 52, x13);
-    STORE_U32_LITTLE (output + 56, x14);
-    STORE_U32_LITTLE (output + 60, x15);
-    
-    /* Increment block counter */
-    input[8] = input[8] + 1;
-    if (!input[8]) {
-        input[9] = input[9] + 1;
-        /* stopping at 2^70 bytes per nonce is user's responsibility */
+    y[8] = _mm256_setr_epi32((int)c, (int)(c+1), (int)(c+2), (int)(c+3),
+                             (int)(c+4), (int)(c+5), (int)(c+6), (int)(c+7));
+    y[9] = _mm256_setr_epi32((int)h, (int)(h + (c+1 < c)), (int)(h + (c+2 < c)), (int)(h + (c+3 < c)),
+                             (int)(h + (c+4 < c)), (int)(h + (c+5 < c)), (int)(h + (c+6 < c)), (int)(h + (c+7 < c)));
+    UNROLL(16)
+    for (i=0; i<16; i++) {
+        x[i] = y[i];
+    }
+
+    for (i=0; i<ROUNDS; i+=2) {
+        SALSA20_DOUBLE_ROUND(_mm256_add_epi32, _mm256_xor_si256, SALSA20_ROTL_AVX2,
+                             x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7],
+                             x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]);
+    }
+
+    UNROLL(16)
+    for (i=0; i<16; i++) {
+        x[i] = _mm256_add_epi32(x[i], y[i]);
+    }
+    UNROLL(16)
+    for (i=0; i<16; i+=4) {
+        store_4x8(&x[i], out + 4*i);
+    }
+}
+
+#elif defined(USE_SSE2)
+
+/**
+ * Transpose 4 registers, each with word w (v[0]), w+1 (v[1]), w+2 (v[2]) and w+3 (v[3])
+ * of 4 consecutive blocks, and store words w..w+3 of each block.
+ *
+ * The registers come through a pointer, not by value: on 32-bit x86, MSVC cannot
+ * pass more than three vectors by value (error C2719).
+ */
+static inline void store_4x4(const __m128i v[4], uint8_t *out)
+{
+    __m128i a = v[0], b = v[1], c = v[2], d = v[3];
+    __m128i t0, t1, t2, t3;
+
+    t0 = _mm_unpacklo_epi32(a, b);
+    t1 = _mm_unpacklo_epi32(c, d);
+    t2 = _mm_unpackhi_epi32(a, b);
+    t3 = _mm_unpackhi_epi32(c, d);
+    _mm_storeu_si128((__m128i*)(out + 0*64), _mm_unpacklo_epi64(t0, t1));
+    _mm_storeu_si128((__m128i*)(out + 1*64), _mm_unpackhi_epi64(t0, t1));
+    _mm_storeu_si128((__m128i*)(out + 2*64), _mm_unpacklo_epi64(t2, t3));
+    _mm_storeu_si128((__m128i*)(out + 3*64), _mm_unpackhi_epi64(t2, t3));
+}
+
+/** Compute the next 4 blocks of key stream (x86 is little-endian) **/
+static void salsa20_keystream(const uint32_t input[16], uint8_t out[KS_SIZE])
+{
+    __m128i x[16], y[16];
+    uint32_t c = input[8];
+    unsigned i;
+
+    UNROLL(16)
+    for (i=0; i<16; i++) {
+        y[i] = _mm_set1_epi32((int)input[i]);
+    }
+    /* Block counters (with the carry into the high word) */
+    y[8] = _mm_setr_epi32((int)c, (int)(c+1), (int)(c+2), (int)(c+3));
+    y[9] = _mm_setr_epi32((int)input[9],
+                          (int)(input[9] + (c+1 < c)),
+                          (int)(input[9] + (c+2 < c)),
+                          (int)(input[9] + (c+3 < c)));
+    UNROLL(16)
+    for (i=0; i<16; i++) {
+        x[i] = y[i];
+    }
+
+    for (i=0; i<ROUNDS; i+=2) {
+        SALSA20_DOUBLE_ROUND(_mm_add_epi32, _mm_xor_si128, SALSA20_ROTL_SSE2,
+                             x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7],
+                             x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]);
+    }
+
+    UNROLL(16)
+    for (i=0; i<16; i++) {
+        x[i] = _mm_add_epi32(x[i], y[i]);
+    }
+    UNROLL(16)
+    for (i=0; i<16; i+=4) {
+        store_4x4(&x[i], out + 4*i);
+    }
+}
+
+#else
+
+/** Compute the next block of key stream **/
+static void salsa20_keystream(const uint32_t input[16], uint8_t out[KS_SIZE])
+{
+    uint32_t block[16];
+    unsigned i;
+
+    memcpy(block, input, sizeof block);
+    salsa20_core(ROUNDS, block, NULL, NULL);
+    UNROLL(16)
+    for (i=0; i<16; i++) {
+        STORE_U32_LITTLE(out + 4*i, block[i]);
+    }
+}
+
+#endif /* SALSA20_AVX2, USE_SSE2 */
+
+/** out = in xor ks, for len bytes. @in and @out may be the same buffer. **/
+static void xor_keystream(uint8_t *out, const uint8_t *in, const uint8_t *ks, size_t len)
+{
+    size_t i;
+
+    UNROLL(4)
+    for (i=0; i+8<=len; i+=8) {
+        uint64_t a, b;
+
+        memcpy(&a, in + i, 8);
+        memcpy(&b, ks + i, 8);
+        a ^= b;
+        memcpy(out + i, &a, 8);
+    }
+    for (; i<len; i++) {
+        out[i] = in[i] ^ ks[i];
     }
 }
 
 /*
- * Salsa20/8 Core function (combined with XOR)
+ * The key stream is 2^64 blocks long (2^70 bytes): it ends with the block
+ * whose counter is 2^64 - 1. Using the blocks after it would mean
+ * reusing the key stream from block 0, so that must fail.
  *
- * This function accepts two 64-byte Python byte strings (x and y).
- * It creates a new 64-byte Python byte string with the result
- * of the expression salsa20_8(xor(x,y)).
+ * keystream[] always holds the KS_BLOCKS blocks computed last, and the
+ * counter in input[8..9] is the one of the block after them.
+ * The counter of the first block in keystream[] is always a multiple of
+ * KS_BLOCKS (1, 4 or 8), which divides 2^64: the last KS_BLOCKS blocks of
+ * the key stream end exactly with block 2^64 - 1, and the counter after
+ * them is 0.
  */
-EXPORT_SYM int Salsa20_8_core(const uint8_t *x, const uint8_t *y, uint8_t *out)
+
+/** Block counter after keystream[] **/
+static uint64_t get_next_counter(const stream_state *salsaState)
 {
-    uint32_t input_32[16];
-    int i;
+    return ((uint64_t)salsaState->input[9] << 32) | salsaState->input[8];
+}
 
-    if (NULL==x || NULL==y || NULL==out)
-        return ERR_NULL;
+static void set_next_counter(stream_state *salsaState, uint64_t next_counter)
+{
+    salsaState->input[8] = (uint32_t)next_counter;
+    salsaState->input[9] = (uint32_t)(next_counter >> 32);
+}
 
-    for (i=0; i<16; i++) {
-        uint32_t tmp;
+/** Move the block counter past the KS_BLOCKS blocks just computed in keystream[] **/
+static void advance_counter(stream_state *salsaState)
+{
+    set_next_counter(salsaState, get_next_counter(salsaState) + KS_BLOCKS);
+}
 
-        tmp = LOAD_U32_LITTLE(&x[i*4]);
-        input_32[i] = LOAD_U32_LITTLE(&y[i*4]);
-        input_32[i] ^= tmp;
-    }
+/**
+ * Return 0 if len more bytes of key stream are available,
+ * when ks_avail bytes are left in keystream[].
+ **/
+static int check_length(uint64_t next_counter, unsigned ks_avail, size_t len)
+{
+    uint64_t left;
 
-    _salsa20_block(8, input_32, out);
+    if (len <= ks_avail)
+        return 0;
+
+    /*
+     * Blocks after keystream[] (none if the counter is 0, after the
+     * last block): with 2^58 or more, any len fits
+     */
+    left = 0 - next_counter;
+    if (left >= ((uint64_t)1 << 58))
+        return 0;
+    if ((uint64_t)(len - ks_avail) > 64 * left)
+        return ERR_MAX_DATA;
     return 0;
 }
 
@@ -193,7 +322,7 @@ EXPORT_SYM int Salsa20_stream_init(uint8_t *key, size_t keylen,
 
     if (nonce_len != 8)
         return ERR_NONCE_SIZE;
-    
+
     *pSalsaState = salsaState = calloc(1, sizeof(stream_state));
     if (NULL == salsaState)
         return ERR_MEMORY;
@@ -211,7 +340,7 @@ EXPORT_SYM int Salsa20_stream_init(uint8_t *key, size_t keylen,
     input[8]  = 0;
     input[9]  = 0;
     input[10] = LOAD_U32_LITTLE(constants + 8);
-    /** Set input[11..14] **/ 
+    /** Set input[11..14] **/
     if (keylen == 32) {
         key += 16;
     }
@@ -219,7 +348,48 @@ EXPORT_SYM int Salsa20_stream_init(uint8_t *key, size_t keylen,
         input[i+11] = LOAD_U32_LITTLE(key + 4*i);
     input[15] = LOAD_U32_LITTLE(constants + 12);
 
-    salsaState->blockindex = 64;
+    salsa20_keystream(input, salsaState->keystream);
+    advance_counter(salsaState);
+    salsaState->ks_index = 0;
+    return 0;
+}
+
+/*
+ * Move to a position in the key stream: byte offset (0..63) of
+ * block block_high * 2^32 + block_low (each a 32-bit value).
+ */
+EXPORT_SYM int Salsa20_stream_seek(stream_state *salsaState,
+                                   unsigned long block_high,
+                                   unsigned long block_low,
+                                   unsigned offset)
+{
+    uint32_t input[16];
+    uint64_t block, first;
+    unsigned in_batch;
+
+    if (NULL == salsaState)
+        return ERR_NULL;
+
+    if (offset >= 64 || block_high > 0xFFFFFFFFUL || block_low > 0xFFFFFFFFUL)
+        return ERR_MAX_OFFSET;
+
+    /* Compute the KS_BLOCKS blocks that include this one, from a multiple of KS_BLOCKS */
+    block = ((uint64_t)block_high << 32) | block_low;
+    in_batch = (unsigned)(block % KS_BLOCKS);
+    first = block - in_batch;
+
+    /*
+     * Use a copy of the input, so that the state never holds the counter
+     * of the first block: if several threads used the object at once
+     * (not supported), a counter of 0 would look like the end of the key stream
+     */
+    memcpy(input, salsaState->input, sizeof input);
+    input[8] = (uint32_t)first;
+    input[9] = (uint32_t)(first >> 32);
+    salsa20_keystream(input, salsaState->keystream);
+    set_next_counter(salsaState, first + KS_BLOCKS);
+    salsaState->ks_index = 64*in_batch + offset;
+
     return 0;
 }
 
@@ -232,14 +402,44 @@ EXPORT_SYM int Salsa20_stream_destroy(stream_state *salsaState)
 EXPORT_SYM int Salsa20_stream_encrypt(stream_state *salsaState, const uint8_t in[],
                            uint8_t out[], size_t len)
 {
-    unsigned i;
-    for (i = 0; i < len; ++i) {
-        if (salsaState->blockindex == 64) {
-            salsaState->blockindex = 0;
-            _salsa20_block(ROUNDS, salsaState->input, salsaState->block);
+    unsigned ks_index;
+    int result;
+
+    if (NULL == salsaState || NULL == in || NULL == out)
+        return ERR_NULL;
+
+    /*
+     * Read the position in the key stream only once, and check it:
+     * if several threads used the object at once (not supported),
+     * the state could be inconsistent, but the key stream must never
+     * be read out of bounds.
+     */
+    ks_index = salsaState->ks_index;
+    if (ks_index > KS_SIZE)
+        return ERR_STATE;
+
+    /* Fail before encrypting anything if the key stream would run out */
+    result = check_length(get_next_counter(salsaState), KS_SIZE - ks_index, len);
+    if (result)
+        return result;
+
+    while (len > 0) {
+        size_t n;
+
+        if (ks_index == KS_SIZE) {
+            salsa20_keystream(salsaState->input, salsaState->keystream);
+            advance_counter(salsaState);
+            ks_index = 0;
         }
-        out[i] = in[i] ^ salsaState->block[salsaState->blockindex];
-        salsaState->blockindex++;
+
+        n = MIN(len, KS_SIZE - ks_index);
+        xor_keystream(out, in, salsaState->keystream + ks_index, n);
+        in += n;
+        out += n;
+        len -= n;
+        ks_index += (unsigned)n;
     }
+
+    salsaState->ks_index = ks_index;
     return 0;
 }

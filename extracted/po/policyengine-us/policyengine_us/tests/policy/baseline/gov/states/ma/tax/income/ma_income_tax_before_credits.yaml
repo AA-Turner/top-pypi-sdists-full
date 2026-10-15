@@ -1,0 +1,48 @@
+- name: 12% rate on capital gains.
+  period: 2021
+  input:
+    ma_part_a_taxable_capital_gains_income: 1_000_000
+    is_ma_income_tax_exempt: false
+    state_code: MA
+  output:
+    ma_income_tax_before_credits: 120_000
+
+- name: Millionaire tax not in effect in 2022.
+  period: 2022
+  input:
+    ma_part_a_taxable_dividend_income: 2_000_000
+    is_ma_income_tax_exempt: false
+    state_code: MA
+  output:
+    ma_income_tax_before_credits: 100_000
+
+- name: Millionaire tax took effect in 2023.
+  period: 2023
+  input:
+    ma_part_a_taxable_dividend_income: 2_000_000
+    is_ma_income_tax_exempt: false
+    state_code: MA
+  output:
+    ma_income_tax_before_credits: 140_000
+
+- name: Massachusetts lowered its capital gains rate to 8.5% in 2023.
+  period: 2023
+  input:
+    ma_part_a_taxable_capital_gains_income: 1_000
+    is_ma_income_tax_exempt: false
+    state_code: MA
+  output:
+    ma_income_tax_before_credits: 85
+
+- name: 2025 surtax threshold at $1,083,150.
+  period: 2025
+  absolute_error_margin: 0.1
+  input:
+    ma_part_b_taxable_income: 1_200_000
+    is_ma_income_tax_exempt: false
+    state_code: MA
+  output:
+    # Part B tax: 1,200,000 * 0.05 = 60,000
+    # Surtax: (1,200,000 - 1,083,150) * 0.04 = 4,674
+    # Total: 60,000 + 4,674 = 64,674
+    ma_income_tax_before_credits: 64_674

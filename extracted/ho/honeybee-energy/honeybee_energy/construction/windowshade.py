@@ -88,6 +88,10 @@ class WindowConstructionShade(object):
         * u_value_ip
         * u_factor_ip
         * r_factor_ip
+        * u_factor_summer
+        * r_factor_summer
+        * u_factor_winter
+        * r_factor_winter
         * is_symmetric
         * is_switchable_glazing
         * has_frame
@@ -97,7 +101,10 @@ class WindowConstructionShade(object):
         * outside_emissivity
         * solar_transmittance
         * visible_transmittance
+        * solar_transmissivity
+        * visible_transmissivity
         * shgc
+        * shading_coefficient
         * thickness
         * glazing_count
         * gap_count
@@ -390,6 +397,42 @@ class WindowConstructionShade(object):
         return self._window_construction.u_factor
 
     @property
+    def r_factor_summer(self):
+        """Construction R-factor in NFRC summer conditions [m2-K/W] (including air films).
+
+        Note that this excludes all effects of the shade layer.
+        Formulas for film coefficients come from come from ISO10292 and ISO15099.
+        """
+        return self._window_construction.r_factor_summer
+
+    @property
+    def u_factor_summer(self):
+        """Construction U-factor in NFRC summer conditions [W/m2-K] (including air films).
+
+        Note that this excludes all effects of the shade layer.
+        Formulas for film coefficients come from come from ISO10292 and ISO15099.
+        """
+        return self._window_construction.u_factor_summer
+
+    @property
+    def r_factor_winter(self):
+        """Construction R-factor in NFRC winter conditions [m2-K/W] (including air films).
+
+        Note that this excludes all effects of the shade layer.
+        Formulas for film coefficients come from come from ISO10292.
+        """
+        return self._window_construction.r_factor_winter
+
+    @property
+    def u_factor_winter(self):
+        """Construction U-factor in NFRC winter conditions [W/m2-K] (including air films).
+
+        Note that this excludes all effects of the shade layer.
+        Formulas for film coefficients come from come from ISO10292.
+        """
+        return self._window_construction.u_factor_winter
+
+    @property
     def solar_transmittance(self):
         """The solar transmittance of the bare window construction at normal incidence.
 
@@ -406,12 +449,35 @@ class WindowConstructionShade(object):
         return self._window_construction.visible_transmittance
 
     @property
+    def solar_transmissivity(self):
+        """Get the solar transmissivity of all glazing panes at normal incidence.
+        """
+        return self._window_construction.solar_transmissivity
+
+    @property
+    def visible_transmissivity(self):
+        """Get the visible transmissivity of all glazing panes at normal incidence.
+        """
+        return self._window_construction.visible_transmissivity
+
+    @property
     def shgc(self):
         """The solar heat gain coefficient (SHGC) of the bare window construction.
 
         Note that this excludes all effects of the shade layer.
         """
         return self._window_construction.shgc
+
+    @property
+    def shading_coefficient(self):
+        """Get the shading coefficient (SC) of the bare window construction.
+
+        Shading Coefficient is the ratio of the solar heat the makes it to the
+        interior compared to that of a standard 1/8-inch (or 3mm) clear float glass.
+        Clear float glass has a SHGC of 0.87 so the SC is computed by taking the
+        window construction's SHGC and dividing it by 0.87.
+        """
+        return self._window_construction.shading_coefficient
 
     @property
     def is_symmetric(self):

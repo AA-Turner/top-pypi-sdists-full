@@ -284,6 +284,57 @@ async def test_persistent_context_async_timezone_id_alias(_mock_bin):
     assert "timezone_id" not in call_kwargs
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("launcher", ["launch_async", "launch_context_async", "launch_persistent_context_async"])
+async def test_async_launchers_do_blocking_io_off_the_event_loop(launcher):
+    """Binary/license, GeoIP and WebRTC lookups are blocking network calls; on the loop
+    they freeze every other coroutine (e.g. a server's health endpoint) for up to 20s."""
+    import asyncio
+    import threading
+    import time
+
+    loop_thread = threading.get_ident()
+    threads = []
+
+    def slow(result):
+        def call(*_a, **_kw):
+            threads.append(threading.get_ident())
+            time.sleep(0.2)
+            return result(*_a) if callable(result) else result
+        return call
+
+    ticks = 0
+
+    async def heartbeat():
+        nonlocal ticks
+        while True:
+            await asyncio.sleep(0.02)
+            ticks += 1
+
+    pw_cm, pw, context = _make_mock_async_pw_and_context()
+    pw.chromium.launch.return_value = AsyncMock()
+
+    with patch("playwright.async_api.async_playwright", return_value=pw_cm), \
+         patch("cloakbrowser.browser.ensure_binary", slow("/fake/chrome")), \
+         patch("cloakbrowser.browser.maybe_resolve_geoip", slow(("Europe/Berlin", "de-DE", "5.6.7.8"))), \
+         patch("cloakbrowser.browser._resolve_webrtc_args", slow(lambda args, _proxy: args)):
+        import cloakbrowser.browser as browser
+        beat = asyncio.create_task(heartbeat())
+        try:
+            if launcher == "launch_persistent_context_async":
+                await browser.launch_persistent_context_async("/tmp/profile", geoip=True)
+            else:
+                await getattr(browser, launcher)(geoip=True)
+        finally:
+            beat.cancel()
+
+    # 3 calls; 4 via launch_context_async (its inner launch_async re-calls geoip as a no-op)
+    assert len(threads) >= 3 and loop_thread not in threads
+    assert ticks >= 10  # ~30 over 0.6s at 20ms; a blocked loop gets ~0
+    launch = pw.chromium.launch_persistent_context if launcher == "launch_persistent_context_async" else pw.chromium.launch
+    assert "--fingerprint-timezone=Europe/Berlin" in launch.call_args[1]["args"]
+
+
 @patch("cloakbrowser.browser.ensure_binary", return_value="/fake/chrome")
 @patch("cloakbrowser.browser.maybe_resolve_geoip", return_value=(None, None, None))
 @patch("cloakbrowser.browser.seed_widevine_hint")

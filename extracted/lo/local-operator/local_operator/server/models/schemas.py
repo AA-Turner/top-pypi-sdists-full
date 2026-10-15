@@ -404,6 +404,16 @@ class AgentCreate(BaseModel):
 class AgentUpdate(BaseModel):
     """Data for updating an existing agent."""
 
+    #: Optional definition-CAS token from the agent detail this edit was based
+    #: on. Absent/null is the documented legacy unconditional write; stale or
+    #: malformed is refused 409 under the definition lock (``hub_sync.definition``).
+    #: Declared in the ``Annotated`` form (like ``label`` below): as the FIRST
+    #: field, the ``= Field(None, ...)`` form made pyright's synthesized init
+    #: treat it as required, flagging every construction that omits it.
+    expected_definition_revision: Annotated[
+        str | None,
+        Field(description="Opaque revision of the snapshot this edit was based on."),
+    ] = None
     name: str | None = Field(None, description="Agent's name")
     #: See ``Agent.label``: default AND description, for the two different
     #: reasons documented there. Omit to leave the stored label alone; an empty
@@ -894,6 +904,10 @@ class HealthCheckResponse(BaseModel):
     install_kind: str = Field(
         default="",
         description="How that install was made: uv-tool, pipx, pip, editable or unknown",
+    )
+    rolling_reload_contract: str = Field(
+        default="",
+        description="Positive daemon-owned request/scheduler continuity contract; empty is unknown",
     )
 
 

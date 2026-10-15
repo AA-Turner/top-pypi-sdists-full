@@ -96,7 +96,11 @@ from local_operator.session.runtime.server import audio_blocks as _audio_blocks
 from local_operator.session.runtime.server import (
     image_blocks_in_thread as _image_blocks_async,
 )
-from local_operator.session.runtime.server import receives_message_id
+from local_operator.session.runtime.server import (
+    receives_bridge_meta,
+    receives_custom_type,
+    receives_message_id,
+)
 from local_operator.session.runtime.types import (
     RUNNING_SUBAGENT_STATUSES,
     SIGNAL_DRAIN_CAUSE,
@@ -2156,7 +2160,9 @@ class ServingSessionHandle(SessionHandle):
         runs it, and a final fire's re-arm rides ``_hand_wakes_to_successor``
         at the exit. Spooling that window again would mean re-latching
         ``begin_drain``, which ``_abandon_move`` records against: a second
-        retire discards the ``_wake_rearms`` the drain already swallowed.
+        retire re-runs ``retire_wakes_to_inbox``, and the fires the first drain
+        swallowed are already RESERVED in the scheduler's owned view
+        (``WakeScheduler.hold_pending``) — a second retire must not strand them.
         """
         if not getattr(self, "_draining", False):
             return False
@@ -2246,6 +2252,63 @@ class ServingSessionHandle(SessionHandle):
     # THE ORDER IS THE CONTRACT: open the window (publish + heartbeat) BEFORE the
     # announce, exactly as ``process._begin_drain`` announces before it latches. A
     # window opened after the exit was committed would be a queue nobody drains.
+
+    def request_checkpointed_move(
+        self, pair: str, *, turn_id: str = "", boot_build: str = "", phase: str = "resume"
+    ) -> bool:
+        """Ask a BUSY runtime to move at its next committed pair. False: refused.
+
+        The busy-turn sibling of :meth:`begin_update`: that window is opened only
+        from the IDLE decision (``begin_retire``/``may_refresh`` fire on idle), so
+        it cannot carry a turn that is mid-flight. This path deliberately does
+        NOT sample idleness and does NOT cancel the worker — it opens the SAME
+        admission window (new work spools via ``_spool_for_successor``) and
+        latches a checkpoint request on the session, whose record lands at the
+        next turn-pair commit.
+
+        Returns False when the window cannot be opened (already open, empty pair)
+        or the session cannot latch a request; a refusal leaves the runtime and
+        its worker exactly as they were.
+        """
+        if not pair:
+            return False
+        latch = getattr(self._session, "request_checkpoint", None)
+        if not callable(latch):
+            return False
+        if not latch(turn_id=turn_id, boot_build=boot_build, target_build=pair, phase=phase):
+            return False
+        # Open the admission window WITHOUT the idle gate. If the window cannot
+        # open, the request we just latched must not be left half-promised.
+        if not self.begin_update(pair, handler="checkpointed-move"):
+            if self._updating == pair:
+                return True  # already open for this pair: the request stands
+            getattr(self._session, "cancel_checkpoint", lambda: None)()
+            return False
+        return True
+
+    def ready_to_resume(self) -> str:
+        """The checkpoint id a successor may resume from, or "" when there is none.
+
+        Reports only a READABLE record in ``resume`` phase; an unreadable or
+        deferred record yields "" (the refusal to claim continuation), and the
+        successor is expected to report the move deferred rather than continue.
+        """
+        directory = self._session_directory()
+        if directory is None:
+            return ""
+        try:
+            from local_operator.service_handoff import resumable
+            from local_operator.session.transcript import (
+                CHECKPOINT_CUSTOM_TYPE,
+                read_latest_custom,
+            )
+
+            record = read_latest_custom(directory, CHECKPOINT_CUSTOM_TYPE)
+        except Exception:  # noqa: BLE001 — unreadable is not permission to continue
+            return ""
+        if not resumable(record):
+            return ""
+        return str(record.get("turn_id") or "") if record else ""
 
     def begin_update(self, pair: str, handler: str = "stale-build") -> bool:
         """Open the admission window for a move to ``pair``. False: not ours.
@@ -2499,6 +2562,8 @@ class ServingSessionHandle(SessionHandle):
         command_id: str = "",
         harness_injected: bool = False,
         message_id: str = "",
+        custom_type: str = "",
+        bridge_meta: dict[str, Any] | None = None,
     ) -> str:
         """Spool one message for the successor runtime, and receipt it.
 
@@ -2586,6 +2651,17 @@ class ServingSessionHandle(SessionHandle):
                     # was spooled twice (see ``inbox.InboxLine.message_id``).
                     # Empty on the owner-prompt paths, which own none.
                     message_id=message_id,
+                    # The declared provenance kind, carried across the handover
+                    # for the same reason ``message_id`` is: the successor
+                    # cannot re-derive it, and a bridge wake replayed as a
+                    # generic peer card would re-open exactly the §13.4 gap this
+                    # carriage closes. Empty on the owner-prompt paths.
+                    custom_type=custom_type,
+                    # The internal bridge locator, carried across the handover
+                    # for the same reason ``custom_type`` is: the successor
+                    # cannot re-derive it (H5 F3). Omitted (empty) on the
+                    # owner-prompt paths, whose rows stay byte-identical.
+                    bridge_meta=bridge_meta or {},
                 ),
             )
         except Exception:  # noqa: BLE001 — a broken spool is a refusal, not a crash
@@ -2710,12 +2786,22 @@ class ServingSessionHandle(SessionHandle):
         derived file for processes that have no session; this process has
         the truth in memory. A disposed scheduler reports no wakes so the
         reaper never waits on a schedule that can no longer fire.
+
+        RUNNABLE ROWS ONLY. A held handle (``WakeScheduler.held_schedules``) is
+        owned by this runtime but fired by its SUCCESSOR, so counting its
+        already-due instant here would pin the runtime warm for a delivery this
+        process will never make — the reaper would never reclaim the very runtime
+        that is trying to leave. ``armed_schedules`` is the runnable half of the
+        owned view; a scheduler that predates the split (or a reduced host) has
+        no such property, in which case its ``schedules`` IS its runnable set and
+        reading it is the correct fallback.
         """
         scheduler = getattr(self._session, "wake_scheduler", None)
         if scheduler is None or getattr(scheduler, "disposed", False):
             return None
         try:
-            schedules = scheduler.schedules
+            armed = getattr(scheduler, "armed_schedules", None)
+            schedules = armed if armed is not None else scheduler.schedules
         except Exception:  # noqa: BLE001 — uncertainty must not pin the runtime
             return None
         due = [s.next_due_at for s in schedules if isinstance(s.next_due_at, int)]
@@ -4577,6 +4663,8 @@ class ServingSessionHandle(SessionHandle):
         wake: bool = False,
         sender: dict[str, Any] | None = None,
         message_id: str | None = None,
+        custom_type: str | None = None,
+        bridge_meta: dict[str, Any] | None = None,
     ) -> AckDetail:
         # This handle owns an in-process Session on the registrant's own loop,
         # so the coroutine can be awaited directly (unlike the TUI handle, which
@@ -4585,6 +4673,34 @@ class ServingSessionHandle(SessionHandle):
         # steer() does, so an attached phone paints the peer card immediately
         # rather than waiting for the next MessageStartEvent.
         self._check_loop_thread()
+        # TRUST BOUNDARY: the handle is not the last line that sees this value,
+        # and a frame from a sender this build does not control could carry any
+        # string. Re-validate against the client-local allowlist HERE too — an
+        # unknown kind is refused (typed), never forwarded toward the stamp.
+        if custom_type is not None:
+            from local_operator.harness.message_types import (
+                PEER_DELIVERABLE_CUSTOM_TYPES,
+            )
+
+            if not isinstance(custom_type, str) or custom_type not in PEER_DELIVERABLE_CUSTOM_TYPES:
+                raise ValueError(
+                    "receive_peer_message carries an unknown custom_type; "
+                    "refusing to stamp a provenance kind the session cannot verify"
+                )
+        # The BRIDGE LOCATOR (H5 F3) re-validates HERE too, for the same trust
+        # reason as ``custom_type``: a frame from a sender this build does not
+        # control can carry anything, and this handle is not the last hop.
+        # Unknown/oversized/non-scalar blocks are refused (typed), never
+        # forwarded toward a wake.
+        if bridge_meta is not None:
+            from local_operator.harness.message_types import validate_bridge_meta
+
+            try:
+                bridge_meta = validate_bridge_meta(bridge_meta)
+            except ValueError as failure:
+                raise ValueError(
+                    f"receive_peer_message carries an invalid bridge_meta: {failure}"
+                ) from failure
         # A retiring runtime must not START a turn it will abort one await
         # later. The QUIET record-only delivery (``mailbox``, no wake) is
         # deliberately still admitted: it opens no turn, and refusing it would
@@ -4604,7 +4720,13 @@ class ServingSessionHandle(SessionHandle):
         if (self._retiring_cause or self._updating) and (wake or mode != "mailbox"):
             if self._updating or (self._draining and not self._exit_committed):
                 receipt = await self._spool_for_successor(
-                    text, mode=mode, wake=wake, sender=sender or {}, message_id=message_id or ""
+                    text,
+                    mode=mode,
+                    wake=wake,
+                    sender=sender or {},
+                    message_id=message_id or "",
+                    custom_type=custom_type or "",
+                    bridge_meta=bridge_meta or {},
                 )
                 # The row is DURABLE the moment this returns (it raises instead
                 # when it cannot be written), so the sender may report it as
@@ -4631,6 +4753,16 @@ class ServingSessionHandle(SessionHandle):
         peer_kwargs: dict[str, Any] = {"mode": mode, "wake": wake, "sender": sender or {}}
         if receives_message_id(self._session):
             peer_kwargs["message_id"] = message_id
+        # The same handle-vs-session split as ``message_id`` directly above: the
+        # wire's signature is the HANDLE's, and the SESSION OBJECT the handle
+        # wraps is what actually receives the keyword. Only a value that exists
+        # is forwarded — a frame without one keeps the pre-carriage call shape.
+        if custom_type and receives_custom_type(self._session):
+            peer_kwargs["custom_type"] = custom_type
+        # The same handle-vs-session split again (H5 F3): only a value that
+        # exists is forwarded, and only to a session whose signature takes it.
+        if bridge_meta and receives_bridge_meta(self._session):
+            peer_kwargs["bridge_meta"] = bridge_meta
         result = await self._session.receive_peer_message(text, **peer_kwargs)
         self._fold.note_peer_message(text, sender=sender or {})
         self._notify()
@@ -5575,6 +5707,22 @@ class ServingSessionHandle(SessionHandle):
             raise ValueError(str(outcome.get("error") or "the answer was refused"))
         await self._session.reconcile_asks()
         return "answered"
+
+    @_on_session_loop
+    async def bridge_decide(self, ask_id: str, question_id: str, word: str) -> str:
+        """TB-02 P1: the VERIFIED door a bridge request is decided through.
+
+        Reached only from the runtime's ``bridge_decide`` op — which the
+        authority seam admitted (spawn capability or a verified operator/device
+        signature over the composite ask#question#word target) and which minted
+        the one-shot grant the dispatcher consumes at the point of effect. A
+        plain ``ask_respond`` on a bridge ask is refused by the session.
+        """
+        outcome = self._session.bridge_decide(ask_id, question_id, word)
+        if not outcome.get("ok"):
+            raise ValueError(str(outcome.get("error") or "the decision was refused"))
+        await self._session.reconcile_asks()
+        return "decided"
 
     @_on_session_loop
     async def ask_revise(self, ask_id: str, answers: dict[str, list[str]], by: str = "") -> str:

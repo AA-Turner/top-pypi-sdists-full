@@ -1,0 +1,16 @@
+from policyengine_us.model_api import *
+
+# PA law does not allow standard deductions, deductions for personal exemptions, itemized deductions or deductions for personal expenses.
+# However, PA does allow deductions for 529 plan contributions.
+
+
+class pa_tax_deductions(Variable):
+    value_type = float
+    entity = TaxUnit
+    label = "PA deductions against taxable income"
+    unit = USD
+    definition_period = YEAR
+    reference = "https://www.pa.gov/content/dam/copapwp-pagov/en/revenue/documents/formsandpublications/formsforindividuals/pit/documents/2021/2021_pa-40in.pdf#page=20"
+    defined_for = StateCode.PA
+
+    adds = ["pa_529_plan_deduction"]

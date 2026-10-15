@@ -27,11 +27,26 @@ def versioned_parents(manager, model):
             yield manager.version_class_map[class_]
 
 
+def resolve_declarative_base(model):
+    """
+    Returns the declarative base of given model. Models whose base class isn't
+    a declarative base of their registry, such as SQLModel models, get a base
+    generated from that registry.
+
+    :param model: SQLAlchemy mapped model class
+    """
+    registry = sa.inspect(model).registry
+    base = get_declarative_base(model)
+    if getattr(base, 'registry', None) is registry:
+        return base
+    return registry.generate_base()
+
+
 def get_base_class(manager, model):
     """
     Returns all base classes for history model.
     """
-    return option(model, 'base_classes') or (get_declarative_base(model),)
+    return option(model, 'base_classes') or (resolve_declarative_base(model),)
 
 
 def version_base(manager, parent_cls, base_class_factory=None):
@@ -57,13 +72,6 @@ def copy_mapper_args(model):
         for arg in arg_names:
             if arg in model.__mapper_args__:
                 args[arg] = model.__mapper_args__[arg]
-
-        if 'order_by' in model.__mapper_args__:
-            arg = model.__mapper_args__['order_by']
-            # Only allow string based order_by reflection to version
-            # classes.
-            if isinstance(arg, str):
-                args['order_by'] = arg
 
         if 'polymorphic_on' in model.__mapper_args__:
             column = model.__mapper_args__['polymorphic_on']

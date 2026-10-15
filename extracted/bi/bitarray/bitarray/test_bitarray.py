@@ -31,8 +31,8 @@ import shelve
 import weakref
 
 
-pyodide = bool(platform.machine() == 'wasm32')
-is_pypy = bool(platform.python_implementation() == 'PyPy')
+is_emscripten = platform.machine() in ('wasm32', 'wasm64')
+is_pypy = platform.python_implementation() == 'PyPy'
 
 
 from bitarray import (bitarray, frozenbitarray, bits2bytes, decodetree,
@@ -3813,7 +3813,7 @@ class CountTests(unittest.TestCase, Util):
             self.assertEqual(a.count(v, s.start, s.stop, s.step),
                              a[s].count(v))
 
-    def test_offest_buffer(self):
+    def test_offset_buffer(self):
         # this tests if words are aligned in popcnt_words()
         N = 1 << 16
         for i in range(20):
@@ -4331,7 +4331,7 @@ class FileTests(unittest.TestCase, Util):
         for key in d1.keys():
             self.assertEQUAL(d1[key], d2[key])
 
-    @unittest.skipIf(pyodide, "pyodide has no dbm module")
+    @unittest.skipIf(is_emscripten, "emscripten-build has no dbm module")
     def test_shelve(self):
         d1 = shelve.open(self.tmpfname)
         stored = []
@@ -4582,8 +4582,8 @@ class FileTests(unittest.TestCase, Util):
 
         self.assertEqual(self.read_file(), 1000 * b'\x55')
 
-    # pyodide hits emscripten mmap bug
-    @unittest.skipIf(pyodide or is_pypy, "skip if Pyodide or PyPy")
+    # emscripten builds of python hits emscripten mmap bug
+    @unittest.skipIf(is_emscripten or is_pypy, "skip for Emcripten or PyPy")
     def test_mmap_2(self):
         with open(self.tmpfname, 'wb') as fo:
             fo.write(1000 * b'\x22')

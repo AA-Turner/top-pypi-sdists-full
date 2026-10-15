@@ -9,6 +9,7 @@ figures. The tokens have the same meaning everywhere:
 * ``CAS`` / ``CAS*`` every station whose id starts with CAS
 * ``C%``            SQL LIKE pattern, used as given
 * ``=NENE``         exactly that station
+* ``=NENE,SOLO``    exactly those stations, together in one figure
 * ``AMDAR (42)``    every station of that codtyp; for the codtyp families
                     a name also works (``pilot``, ``=TEMP``, ``temp_ship``)
 
@@ -25,7 +26,7 @@ the files and the viewer entries::
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, List, Optional, Sequence, Tuple
 
 from pikobs.configobs.special_family import (codtyp_label, DICT_CODTYP,
@@ -78,6 +79,8 @@ class StationSelector:
         station one station, produced by the ``all`` expansion
         prefix  ids starting with ``value``
         exact   exact id given as ``=VALUE``
+        list    several exact ids given as ``=A,B,C``, together, shown
+                as written
         like    SQL LIKE pattern (token contains ``%``)
         codtyp  every station whose CODTYP is in ``codes``
     """
@@ -85,6 +88,8 @@ class StationSelector:
     value: str
     codes: Tuple[int, ...] = ()
     label: str = ''
+    # the stations a prefix, a pattern or a list holds in the data
+    members: Tuple[str, ...] = ()
 
     @property
     def display(self) -> str:
@@ -104,13 +109,33 @@ class StationSelector:
             return f'{_safe_filename(self.value)}_grp'
         if self.kind == 'exact':
             return f'{_safe_filename(self.value)}_eq'
+        if self.kind == 'list':
+            # the ids themselves when short; else the first, how many
+            # more, and a short stable mark of the whole list
+            ids = self.value.split(',')
+            joined = _safe_filename('_'.join(ids))
+            if len(joined) <= 48:
+                return f'{joined}_lst'
+            import hashlib
+            mark = hashlib.md5(self.value.encode()).hexdigest()[:6]
+            return f'{_safe_filename(ids[0])}_plus{len(ids) - 1}_{mark}_lst'
         if self.kind == 'codtyp':
             return 'codtyp_' + '-'.join(str(c) for c in self.codes)
         return _safe_filename(self.value)
 
     @property
+    def members_text(self) -> str:
+        """Every station a prefix, a pattern or a list holds, separated by
+        spaces: 'A B C' for a list, 'CH%: A B C' for the others; empty for
+        any other selection."""
+        if self.kind not in ('prefix', 'like', 'list') or not self.members:
+            return ''
+        names = ' '.join(self.members)
+        return names if self.kind == 'list' else f"{self.display}: {names}"
+
+    @property
     def is_group(self) -> bool:
-        return self.kind in ('join', 'prefix', 'like', 'codtyp')
+        return self.kind in ('join', 'prefix', 'like', 'codtyp', 'list')
 
     def sql(self) -> str:
         """SQL condition starting with ' AND ' (empty string for join).
@@ -121,6 +146,10 @@ class StationSelector:
             return ''
         if self.kind in ('station', 'exact'):
             return f" AND id_stn = {_sql_str(self.value)}"
+        if self.kind == 'list':
+            return (" AND id_stn IN ("
+                    + ", ".join(_sql_str(v) for v in self.value.split(','))
+                    + ")")
         if self.kind == 'prefix':
             return (f" AND substr(id_stn, 1, {len(self.value)}) = "
                     f"{_sql_str(self.value)}")
@@ -192,10 +221,26 @@ def _codtyp_group(token: str, codes: Sequence[int]) -> StationSelector:
                            f"{_norm_name(token)}* ({','.join(map(str, codes))})")
 
 
+def _is_list_token(tok: str) -> bool:
+    """'=A,B,C': several exact stations, together in one figure."""
+    return str(tok).startswith('=') and ',' in str(tok)[1:]
+
+
+def _list_selector(tok: str) -> "StationSelector":
+    """The selector of '=A,B,C': id_stn IN (A, B, C), shown as A + B + C."""
+    ids = _dedupe([s.strip() for s in str(tok)[1:].split(',') if s.strip()])
+    if len(ids) == 1:
+        return StationSelector('exact', ids[0])
+    # shown as written: in the viewer's address a '+' reads as a space
+    return StationSelector('list', ','.join(ids), (), '=' + ','.join(ids))
+
+
 def _token_to_selector(tok: str) -> StationSelector:
     """Generic families: tokens refer to station ids."""
     if tok == 'join':
         return StationSelector('join', 'join')
+    if _is_list_token(tok):
+        return _list_selector(tok)
     m = _CODTYP_RE.search(tok)
     if m:
         return StationSelector('codtyp', tok, (int(m.group(1)),), tok)
@@ -230,6 +275,8 @@ def _codtyp_token_to_selector(tok: str, family: str,
       pilot / PILOT*     every present codtyp whose name starts with PILOT,
                          else station prefix
     """
+    if _is_list_token(tok):
+        return _list_selector(tok)
     m = _CODTYP_RE.search(tok)
     if m:
         sel = _codtyp_single(int(m.group(1)))
@@ -298,6 +345,19 @@ def _present_codtyps(db_paths: Sequence[str],
     return sorted({int(r[0]) for r in rows})
 
 
+def _with_members(sel: StationSelector, db_paths: Sequence[str],
+                  table: str) -> StationSelector:
+    """A prefix, a pattern or a list, with the stations it holds in the
+    data; any other selection as it is."""
+    if sel.kind not in ('prefix', 'like', 'list'):
+        return sel
+    rows = _query_distinct(
+        db_paths, f"SELECT DISTINCT id_stn FROM {table} "
+                  f"WHERE id_stn IS NOT NULL{sel.sql()};")
+    names = tuple(sorted({str(r[0]) for r in rows if r[0] is not None}))
+    return replace(sel, members=names) if names else sel
+
+
 def expand_station_selectors(db_paths: Sequence[str],
                              stn_tokens: Sequence[str],
                              family: str,
@@ -332,11 +392,40 @@ def expand_station_selectors(db_paths: Sequence[str],
                     for s in sorted({r[0] for r in rows if r[0] is not None})]
             continue
 
+        # a list of stations, before a '=' is taken for an instrument name
+        if _is_list_token(tok):
+            out.append(_list_selector(tok))
+            continue
         if codtyp_family:
             out.append(_codtyp_token_to_selector(tok, family, present))
         else:
             out.append(_token_to_selector(tok))
-    return _dedupe(out)
+    return [_with_members(s, db_paths, table) for s in _dedupe(out)]
+
+
+def members_label(db_file: str, table: str, sel: "StationSelector",
+                  where: str = "1=1", params: Sequence[Any] = (),
+                  count: str = "COUNT(*)", limit: int = 4) -> str:
+    """'CH% -> CHJVGCJA, CHXZRFGA (+3 more)': the stations a prefix, a
+    pattern or a list holds in ``table`` of ``db_file``, the busiest first
+    (``count``: what busiest means). Any other selection, or nothing found,
+    gives its usual name."""
+    label = sel.display
+    if sel.kind not in ('prefix', 'like', 'list'):
+        return label
+    try:
+        from pikobs.obsdb import open_result
+        with open_result(db_file) as conn:
+            rows = conn.execute(
+                f"SELECT id_stn, {count} FROM {table} WHERE {where}{sel.sql()} "
+                f"GROUP BY id_stn ORDER BY 2 DESC, 1;", tuple(params)).fetchall()
+    except Exception:
+        return label
+    names = [str(r[0]) for r in rows if r[0] is not None]
+    if not names:
+        return label
+    more = f" (+{len(names) - limit} more)" if len(names) > limit else ""
+    return f"{label} -> {', '.join(names[:limit])}{more}"
 
 
 # what scatter, mapobs, timeserie and zone use from here, under public names;

@@ -1,7 +1,7 @@
 from setuptools import setup, Extension
 
 NAME = 'tinybird-toolset'
-VERSION = '2.7.1'
+VERSION = '2.7.3'
 
 # Shared metadata for both the full (extension) build and the metadata-only
 # fallback below, so the two setup() calls can't drift apart.

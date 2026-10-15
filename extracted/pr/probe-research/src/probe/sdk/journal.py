@@ -230,7 +230,16 @@ SCHEMA = "probe.outbox/1"
 #: earlier release reads, so an older worker sharing this outbox never meets
 #: one (it neither holds nor dead-letters it); the producer still asks
 #: `outbox_worker.ready_for` so such a worker steps aside for a current one.
-OP_KINDS = frozenset({"http", "upload", "rejected_http", "create_run", "multipart_upload"})
+#:
+#: `catalog_manifest` is a folder dataset's manifest (data catalog, Q9): gzip
+#: JSON the API takes as raw bytes, so it cannot ride `http`'s JSON body. The
+#: bytes wait in `<outbox>/catalog/<op_id>.json.gz` and the op names them; it
+#: rides the no-run lane AHEAD of the registration that needs it. An older
+#: 1.11+ worker holds it (unknown kind) until a current one replaces it.
+CATALOG_MANIFEST = "catalog_manifest"
+OP_KINDS = frozenset(
+    {"http", "upload", "rejected_http", "create_run", "multipart_upload", CATALOG_MANIFEST}
+)
 DELIVERY_NAMESPACE = "delivery-v1"
 #: Where a client that stamps its credential (#2035) queues, one directory per
 #: credential fingerprint: `<outbox>/credential-v1/<fingerprint>/`. No release
@@ -2259,6 +2268,40 @@ class Journal:
         # The `log()` path: one fsync, of the op file (`_append_locked`). An
         # admitted op (a run's terminal status, once per run) keeps them all.
         return self._append(op, admitted=admitted, sync=SYNC_FULL if admitted else SYNC_FILE)
+
+    def catalog_manifest_path(self, op_id: str) -> Path:
+        """Where a queued catalog manifest's gzip bytes wait (`CATALOG_MANIFEST`)."""
+        return self.dir / "catalog" / f"{op_id}.json.gz"
+
+    def append_catalog_manifest(self, digest: str, gz: bytes) -> str:
+        """Queue `PUT /v1/catalog/manifests/{digest}` with ``gz`` as its body.
+        The bytes are written (and synced) before the op that names them, so
+        no op ever points at a missing file. Returns the op id."""
+        if not re.fullmatch(r"[0-9a-f]{64}", digest or ""):
+            raise errors.ValidationError(f"not a manifest digest: {digest!r}", status=422)
+        op = self._base_op(CATALOG_MANIFEST, None)
+        op["digest"] = digest
+        path = self.catalog_manifest_path(op["op_id"])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(bytes(gz))
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, path)
+        except BaseException:
+            Path(temporary).unlink(missing_ok=True)
+            raise
+        fsync_directory(path.parent)
+        try:
+            from . import outbox_worker
+
+            outbox_worker.ready_for(CATALOG_MANIFEST, str(self.dir))
+        except Exception:  # noqa: BLE001 -- a nudge, never a condition
+            pass
+        return self._append(op)
 
     def append_upload(
         self,
@@ -5875,6 +5918,19 @@ def _execute(
         from .multipart import execute_op
 
         return execute_op(journal, client, op_path, op)
+    if op.get("kind") == CATALOG_MANIFEST:
+        # A folder dataset's manifest, ahead of its registration (Q9).
+        digest = op.get("digest")
+        body_path = journal.catalog_manifest_path(str(op.get("op_id") or ""))
+        try:
+            gz = body_path.read_bytes()
+        except OSError:
+            raise errors.ValidationError(
+                f"the queued manifest {digest} is gone from {body_path}", status=422
+            ) from None
+        client.put_manifest(str(digest), gz)
+        body_path.unlink(missing_ok=True)
+        return None
     if op.get("kind") != "upload":
         raise errors.ValidationError(
             f"unknown journal op kind {op.get('kind')!r}", status=422

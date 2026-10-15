@@ -3478,10 +3478,7 @@ pub fn add_indexed_part<R: Read>(
         reader,
     )?;
     let mut extra = [0u8; 1];
-    if reader.read(&mut extra).map_err(|error| Refusal {
-        code: Code::IO_FAILED,
-        detail: format!("read addition tail: {error}"),
-    })? != 0
+    if reader.read(&mut extra).map_err(|error| crate::store::classify_io("read addition tail", error))? != 0
     {
         return refuse(
             Code::LENGTH_MISMATCH,
@@ -3536,10 +3533,7 @@ pub fn add_config<R: Read>(
     reader
         .take(maximum + 1)
         .read_to_end(&mut input)
-        .map_err(|error| Refusal {
-            code: Code::IO_FAILED,
-            detail: format!("read config: {error}"),
-        })?;
+        .map_err(|error| crate::store::classify_io("read config", error))?;
     if input.len() as u64 > maximum {
         return refuse(
             Code::SIZE_CAP,
@@ -3770,6 +3764,14 @@ pub fn commit(
     store.read_manifest(&manifest_ref)?;
     let walk = checkpoint::walk(store, &manifest)?;
     walk.require_held(store, &crate::ingest::custody::live(store.root())?)?;
+    // What it inherits and this store lacks stays where its sources' origin holds it.
+    if walk.distinct().iter().any(|object| !store.contains(&object.sha256)) {
+        let evidence = sources
+            .iter()
+            .find_map(|source| crate::origin::evidence(store.root(), &source.fact.manifest).ok().flatten())
+            .unwrap_or_else(|| format!("derived {transaction}"));
+        crate::origin::attest(store, &manifest_ref, &evidence)?;
+    }
     let (inherited_payload_objects, inherited_payload_bytes) =
         inherit_observation(&header, &row_before)?;
     store.sync_admitted()?;

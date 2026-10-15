@@ -20,7 +20,6 @@ from ..client.rest_client import (
 )
 from ..errors import (
     ErrorCode,
-    create_config_error,
     create_error_response,
     create_validation_error,
 )
@@ -44,7 +43,23 @@ from .blueprint_substitute import (
     take_control_config,
     validate_write_modes,
 )
+from .coercion import JSON_STRING_COERCION, coerce_to_list, parse_json_param
 from .component_config_reads import fetch_entity_lookup_via_component
+from .config_helpers.registry import validate_registry_ids
+from .config_write_errors import (
+    reject_invalid_config_inputs,
+    reject_sequence_misroute,
+)
+from .config_write_helpers import (
+    apply_entity_category,
+    attach_skill_content,
+    augment_error_dict_with_skill_content,
+    augment_tool_error_with_skill_content,
+    config_reload_waiter,
+    fetch_entity_category,
+    merge_validation_meta,
+    note_reload_outcome,
+)
 from .helpers import (
     exception_to_structured_error,
     log_tool_usage,
@@ -54,22 +69,11 @@ from .helpers import (
     validate_identifier_not_empty,
 )
 from .reference_validator import validate_config_references
-from .tools_config_helpers import validate_registry_ids
-from .util_helpers import (
-    JSON_STRING_COERCION,
-    apply_entity_category,
-    attach_skill_content,
-    augment_error_dict_with_skill_content,
-    augment_tool_error_with_skill_content,
-    coerce_to_list,
-    config_reload_waiter,
-    fetch_entity_category,
-    merge_validation_meta,
-    note_reload_outcome,
-    parse_json_param,
+from .tool_hints import read_only_hints, write_hints
+from .ws_waiters import (
+    verify_entity_removed,
     wait_for_automation_entity_by_unique_id,
     wait_for_entity_registered,
-    wait_for_entity_removed,
     wait_for_state_change,
 )
 
@@ -81,7 +85,8 @@ logger = logging.getLogger(__name__)
 # warning hits regardless of MandatoryBPS. Paths are relative to the
 # home-assistant-best-practices skill directory.
 _AUTOMATION_SKILL_FILES: tuple[str, ...] = (
-    "references/automation-patterns.md",
+    "references/triggers-and-conditions.md",
+    "references/automation-actions.md",
     "references/template-guidelines.md",
 )
 
@@ -423,24 +428,6 @@ def _run_actions_once_reloaded(
 _STANDALONE_RUNTIME_ACTIONS = ("set_enabled", "run_actions")
 
 
-def _reject_enabled_in_config(config: Any) -> None:
-    """Reject the runtime-only ``enabled`` key in a stored config body."""
-    if isinstance(config, dict) and "enabled" in config:
-        raise_tool_error(
-            create_error_response(
-                ErrorCode.VALIDATION_INVALID_PARAMETER,
-                "'enabled' is a runtime-only tool parameter, not a valid "
-                "automation config key",
-                suggestions=[
-                    "Remove 'enabled' from config and pass enabled=True or False "
-                    + "to ha_config_set_automation",
-                    "Use enabled=None to leave the current runtime state unchanged",
-                ],
-                context={"action": "set", "invalid_key": "enabled"},
-            )
-        )
-
-
 async def _set_automation_enabled(client: Any, entity_id: str, enabled: bool) -> Any:
     """Set an automation's runtime enabled state through Home Assistant."""
     service = "turn_on" if enabled else "turn_off"
@@ -520,7 +507,7 @@ class AutomationConfigTools:
                     and state.get("attributes", {}).get("id") == identifier
                 ):
                     return str(state["entity_id"])
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(
                 f"Failed to resolve entity_id for automation {identifier}: {e}"
             )
@@ -541,12 +528,7 @@ class AutomationConfigTools:
     @tool(
         name="ha_config_get_automation",
         tags={"Automations"},
-        annotations={
-            "openWorldHint": False,
-            "idempotentHint": True,
-            "readOnlyHint": True,
-            "title": "Get Automation Config",
-        },
+        annotations=read_only_hints("Get Automation Config", open_world=False),
     )
     @log_tool_usage
     async def ha_config_get_automation(
@@ -607,7 +589,7 @@ class AutomationConfigTools:
             return await self._legacy_get_automation(identifier)
         except ToolError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             exception_to_structured_error(
                 e,
                 context={"identifier": identifier, "action": "get"},
@@ -658,11 +640,12 @@ class AutomationConfigTools:
     @tool(
         name="ha_config_set_automation",
         tags={"Automations"},
-        annotations={
-            "openWorldHint": False,
-            "destructiveHint": True,
-            "title": "Create or Update Automation",
-        },
+        annotations=write_hints(
+            "Create or Update Automation",
+            destructive=True,
+            idempotent=False,
+            open_world=False,
+        ),
     )
     @with_auto_backup(
         domain="automation",
@@ -781,8 +764,8 @@ class AutomationConfigTools:
         positions; templates belong only in `data.*`, notification text,
         `event_data` and `variables`. The best-practice checker reports
         violations under `best_practice_warnings` — fix them before
-        re-submitting. `automation-patterns.md` and `template-guidelines.md`
-        ship under `skill_content` by default. Test any unavoidable template
+        re-submitting. `triggers-and-conditions.md`, `automation-actions.md` and
+        `template-guidelines.md` ship under `skill_content` by default. Test any unavoidable template
         with ha_eval_template first.
 
         Consider a dedicated tool first: a state snapshot with no trigger ->
@@ -904,7 +887,6 @@ class AutomationConfigTools:
                 )
 
             config_dict = self._parse_and_validate_config(config)
-            _reject_enabled_in_config(config_dict)
 
             # Extract category before sending to HA REST API (which rejects unknown keys).
             # Parameter takes precedence over config dict value.
@@ -919,6 +901,13 @@ class AutomationConfigTools:
             # (trigger -> triggers, action -> actions, condition -> conditions).
             config_dict = _normalize_automation_config(config_dict)
 
+            # Purely local input checks run before the tool's own reads, so
+            # a malformed config rejects without spending the hash check's
+            # or the alias guard's GETs. (The auto-backup wrapper may take
+            # its pre-write snapshot first on updates; that read is outside
+            # this tool's control.)
+            self._validate_required_fields(config_dict, identifier)
+
             # Both the hash check and alias guard read the resolved storage key.
             # Reuse it for the write to avoid a second entity-ID lookup (#1813).
             # Creation and responses without an id retain the existing fallback.
@@ -932,7 +921,6 @@ class AutomationConfigTools:
                     identifier, config_dict
                 )
 
-            self._validate_required_fields(config_dict, identifier)
             bp_warnings = _check_best_practices(config_dict)
             validation_meta = await validate_config_references(
                 self._client, config_dict
@@ -966,7 +954,7 @@ class AutomationConfigTools:
 
         except ToolError as te:
             raise augment_tool_error_with_skill_content(te, bp_warnings) from None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # 404 during update only — create (identifier=None) never hits this branch.
             if (
                 identifier
@@ -1379,7 +1367,6 @@ class AutomationConfigTools:
             source="python_transform",
         )
         # Pop category before sending to HA REST API (rejects unknown keys)
-        _reject_enabled_in_config(transformed_config)
         transform_category = transformed_config.pop("category", None)
         effective_category = category if category is not None else transform_category
 
@@ -1389,7 +1376,9 @@ class AutomationConfigTools:
         conflict_warnings = _detect_conflicting_root_keys(transformed_config)
 
         transformed_config = _normalize_automation_config(transformed_config)
-        self._validate_required_fields(transformed_config, identifier)
+        self._validate_required_fields(
+            transformed_config, identifier, source="python_transform"
+        )
         bp_warnings = _check_best_practices(transformed_config)
 
         # Issue #2159: reject an unknown category before the write, so a
@@ -1422,8 +1411,13 @@ class AutomationConfigTools:
         )
         for warning in conflict_warnings:
             result.setdefault("warnings", []).append(warning)
-        refetched = await self._get_automation_config_internal(identifier)
-        new_config_hash = refetched[1]
+        new_config_hash: str | None = None  # the write is saved; read-back may fail
+        try:
+            _, new_config_hash = await self._get_automation_config_internal(identifier)
+        except (HomeAssistantAPIError, HomeAssistantConnectionError) as e:
+            result.setdefault("warnings", []).append(
+                f"Saved; reading it back failed ({e}), re-read it for a config_hash"
+            )
 
         entity_id = result.get("entity_id")
         if not entity_id and identifier and identifier.startswith("automation."):
@@ -1615,7 +1609,7 @@ class AutomationConfigTools:
             result = await self._client.send_websocket_message(
                 {"type": "config/entity_registry/list"}
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug("Failed to list automation entity_ids from registry: %s", e)
             return []
         entries = result.get("result", []) if isinstance(result, dict) else result
@@ -1645,8 +1639,8 @@ class AutomationConfigTools:
         except HomeAssistantAPIError as exc:
             if exc.status_code == 404 and not identifier.startswith("automation."):
                 return None  # Preserve intentional creation with a caller-chosen ID.
-            # Entity-ID resolution also maps lookup failures to 404. Never retry
-            # those as creation: a recovered lookup could overwrite an unchecked target.
+            # Entity-ID resolution reports a state 404 as not found. Never retry
+            # that as creation: a recovered lookup could overwrite an unchecked target.
             raise
         if current.get("alias") != config["alias"]:
             raise_tool_error(
@@ -1850,9 +1844,13 @@ class AutomationConfigTools:
 
     @staticmethod
     def _validate_required_fields(
-        config_dict: dict[str, Any], identifier: str | None
+        config_dict: dict[str, Any], identifier: str | None, source: str = "config"
     ) -> None:
-        """Validate required fields and prevent duplicate creation."""
+        """Validate required fields and prevent duplicate creation.
+
+        A missing required field and a misplaced runtime-only ``enabled`` key
+        surface in ONE rejection (issue #2649).
+        """
         if "use_blueprint" in config_dict:
             required_fields = ["alias"]
             # Strip empty triggers/actions/conditions arrays that would override blueprint
@@ -1863,38 +1861,8 @@ class AutomationConfigTools:
             required_fields = ["alias", "triggers", "actions"]
 
         missing_fields = [f for f in required_fields if f not in config_dict]
-        if missing_fields:
-            # If the caller supplied a 'sequence' key, the config looks like a
-            # script — point them at ha_config_set_script instead of the generic
-            # missing-fields error.
-            if "sequence" in config_dict and (
-                "triggers" in missing_fields or "actions" in missing_fields
-            ):
-                context: dict[str, Any] = {"missing_fields": missing_fields}
-                if identifier:
-                    context["identifier"] = identifier
-                raise_tool_error(
-                    create_error_response(
-                        code=ErrorCode.CONFIG_MISSING_REQUIRED_FIELDS,
-                        message=f"Missing required fields: {', '.join(missing_fields)}",
-                        details=(
-                            "Config contains 'sequence', which belongs to scripts. "
-                            "Automations use 'triggers' and 'actions'; scripts use 'sequence'."
-                        ),
-                        suggestions=[
-                            "Did you mean ha_config_set_script? Scripts use 'sequence' directly.",
-                            "For an automation, replace 'sequence' with 'actions' and add 'triggers'.",
-                        ],
-                        context=context,
-                    )
-                )
-            raise_tool_error(
-                create_config_error(
-                    f"Missing required fields: {', '.join(missing_fields)}",
-                    identifier=identifier,
-                    missing_fields=missing_fields,
-                )
-            )
+        reject_sequence_misroute(config_dict, missing_fields, identifier, source)
+        reject_invalid_config_inputs(config_dict, missing_fields, identifier, source)
 
         # Issue #1169: see _check_scene_create_misroute
         AutomationConfigTools._check_scene_create_misroute(config_dict, identifier)
@@ -1919,12 +1887,9 @@ class AutomationConfigTools:
     @tool(
         name="ha_config_remove_automation",
         tags={"Automations"},
-        annotations={
-            "openWorldHint": False,
-            "destructiveHint": True,
-            "idempotentHint": True,
-            "title": "Remove Automation",
-        },
+        annotations=write_hints(
+            "Remove Automation", destructive=True, idempotent=True, open_world=False
+        ),
     )
     @with_auto_backup(domain="automation", id_param="identifier")
     @log_tool_usage
@@ -1978,18 +1943,7 @@ class AutomationConfigTools:
 
             # Wait for entity to be removed
             if wait and entity_id_for_wait:
-                try:
-                    removed = await wait_for_entity_removed(
-                        self._client, entity_id_for_wait
-                    )
-                    if not removed:
-                        result.setdefault("warnings", []).append(
-                            f"Deletion confirmed by API but {entity_id_for_wait} may still appear briefly."
-                        )
-                except (HomeAssistantConnectionError, HomeAssistantAuthError) as e:
-                    result.setdefault("warnings", []).append(
-                        f"Deletion confirmed but removal verification failed: {e}"
-                    )
+                await verify_entity_removed(self._client, entity_id_for_wait, result)
 
             return {
                 "success": True,
@@ -2001,7 +1955,7 @@ class AutomationConfigTools:
             }
         except ToolError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             if isinstance(e, HomeAssistantAPIError) and e.status_code == 404:
                 await self._raise_automation_not_found(identifier)
             exception_to_structured_error(

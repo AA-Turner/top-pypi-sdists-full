@@ -32,11 +32,7 @@ const TRACKING_PROBE_INTERVAL: usize = 1024;
 const MAX_EXCLUDED_PROFILER_CODE_METADATA_ENTRIES: usize = 4096;
 const MAX_REUSABLE_PROFILER_FRAME_BYTES: usize = 16 * 1024;
 
-// Keep at most one modest frame buffer per live profiler thread. Taking the
-// buffer out of TLS before serialization means no RefCell borrow spans Python
-// fallback, plugin processing, or another profiling callback. Rust runs TLS
-// destructors when a short-lived thread exits, so dead threads do not leave
-// buffers retained by a long-lived profiler.
+// Take profiler scratch out of TLS before serialization; no RefCell borrow may cross Python fallback or plugin callbacks.
 thread_local! {
     static PROFILER_FRAME_SCRATCH: RefCell<Option<Vec<u8>>> = RefCell::new(None);
 }
@@ -92,8 +88,6 @@ struct ProfilerCodeMetadata {
 
 enum CachedProfilerCodeMetadata {
     Full(Arc<ProfilerCodeMetadata>),
-    // A statically excluded code object with no plugin candidate can never
-    // emit a frame. Retain only its identity, and bound these strong refs.
     Excluded { _code: Py<PyCode> },
 }
 
@@ -300,11 +294,6 @@ pub struct KoloProfiler {
     /// inherited (recycled) slot's ids hold for this whole profiler too.
     excluded_code_local: ThreadLocal<RefCell<HashSet<usize>>>,
     /// A list of `PyFrame` objects (as the opaque `PyObject` type) and their associated `frame_id`.
-    // NOTE: `thread_local::ThreadLocal<RefCell<...>>` entries persist for
-    // threads that exit while tracing is active — they are only reclaimed
-    // when the whole `KoloProfiler` is dropped. Bounded by the number of
-    // distinct threads the process spawns, which is small in practice.
-    // Decided won't-fix; see #2535 item 1.
     call_frames: ThreadLocal<RefCell<utils::CallFrames>>,
     /// The time tracing started.
     timestamp: f64,
@@ -359,8 +348,6 @@ pub struct KoloProfiler {
     /// boundary, so we catch the panic there and stop tracing instead of
     /// letting it abort the host process.
     panicked: AtomicBool,
-    // Relaxed is enough here: the generation only invalidates per-thread TLS state,
-    // and every other shared structure in the flush path is synchronized by Mutex.
     flush_generation: AtomicU64,
     flush_barrier: ForkAwareMutex,
     /// Serializes whole saves on this monitor. A save retires the capture and
@@ -389,8 +376,6 @@ fn profiler_value_interning_allowed(frame_types: &[String]) -> bool {
 impl KoloProfiler {
     #[getter]
     fn trace_id(&self, py: Python) -> PyResult<String> {
-        // A caught callback panic may have poisoned this lock; the id itself
-        // is still a valid string.
         Ok(self
             .trace_id
             .lock_py_attached(py)
@@ -400,8 +385,6 @@ impl KoloProfiler {
 
     #[getter]
     fn root_trace_id(&self, py: Python) -> PyResult<String> {
-        // A caught callback panic may have poisoned this lock; the id itself
-        // is still a valid string.
         Ok(self
             .root_trace_id
             .lock_py_attached(py)
@@ -418,8 +401,6 @@ impl KoloProfiler {
     /// This is called from Python code to trigger saving the trace. Used by
     /// `KoloProfiler.save`.
     fn save(&self) -> Result<(), PyErr> {
-        // After a caught callback panic the capture may be inconsistent and
-        // its locks poisoned. The panic was already reported; drop the trace.
         if self.panicked.load(Ordering::Relaxed) {
             return Ok(());
         }
@@ -449,9 +430,7 @@ impl KoloProfiler {
         _event: Py<PyAny>,
         _arg: Py<PyAny>,
     ) -> Result<(), PyErr> {
-        // Tracing stopped after a caught panic; don't start on new threads.
-        // `threading` installed this method with `sys.setprofile`, so clear
-        // it rather than leave it called on every event.
+        // `threading` installed this with sys.setprofile, so clear it rather than leave it called on every event.
         if slf.panicked.load(Ordering::Relaxed) {
             // Safety: we hold the GIL, which we do because we're called from
             // python; `slf` keeps the profiler alive for the rest of the call.
@@ -614,16 +593,11 @@ impl KoloProfiler {
             return Ok(cached_id);
         }
 
-        // No RefCell borrow is held while crossing into Python. CPython also
-        // suppresses recursive profile callbacks while this callback runs.
-        // CPython 3.8 and PyPy preserve the old per-event lookup because they
-        // lack PyThreadState_GetID's non-recycled identity.
+        // Keep per-event thread lookup on CPython 3.8/PyPy; CPython suppresses recursive profile callbacks here.
         let current_thread = self.current_thread_fn.bind(py).call0()?;
         let thread_id = utils::get_thread_id(current_thread.as_ref(), py)?;
         *cached_thread.borrow_mut() = Some(CachedProfilerThread {
             id: thread_id.clone(),
-            // Retain the live Thread object, not a metadata snapshot:
-            // name/daemon changes remain visible at final serialization.
             thread: current_thread.unbind(),
             // Publication happens together with the first frame append so a
             // concurrent trace rotation cannot split metadata from frames.
@@ -791,7 +765,6 @@ impl KoloProfiler {
             frames_by_thread.values().all(|frames| frames.is_empty()),
         );
 
-        // Extract trace name if one wasn't explicitly set
         let trace_name = self.trace_name_for_frames(py, &frames_by_thread);
 
         let thread_tokens = self.snapshot_thread_tokens(&frames_by_thread, &threads)?;
@@ -1051,26 +1024,12 @@ impl KoloProfiler {
         let user_code_call_site = user_code_call_site
             .map_err(|err| self.abandon_entry(py, event, pyframe_id, Some(&frame_id), err))?;
 
-        // Resolve the Python thread before native value publication. The
-        // cached CPython 3.9+ path stays entirely in Rust; cache misses and
-        // compatibility fallbacks may call threading.current_thread(), which
-        // can re-enter Kolo and rotate the trace. Once this returns, the GIL
-        // exact-native encoder cannot run Python code, and #push_frames uses
-        // this already-resolved ID rather than crossing back into Python.
-        // publish_cached_thread then publishes the matching live Thread object
-        // under the same frame-registry generation barrier as the append.
+        // Resolve reentrant thread lookup first, then publish its Thread object and frames under one registry-generation barrier.
         let thread_id = self
             .thread_id(py)
             .map_err(|err| self.abandon_entry(py, event, pyframe_id, Some(&frame_id), err))?;
 
-        // With the GIL, this callback cannot race an explicit trace rotation:
-        // the value record is therefore published to the same capture that
-        // receives the frame below. `start_test` rotates before appending this
-        // Call frame; on Return, reversal appends this frame before `end_test`
-        // saves and rotates. Keep both boundary callbacks inline rather than
-        // coupling references to those orderings. Other frames in each test
-        // capture can intern normally. Free-threaded callbacks can rotate
-        // concurrently and still stay inline.
+        // Keep start_test Call and end_test Return values inline; trace rotation can separate their value table from frames.
         #[cfg(not(Py_GIL_DISABLED))]
         let value_interning = profiler_value_interning_allowed(frame_types).then_some(
             utils::ValueInterningContext::current(&self.value_interning, &self.trace_capture),
@@ -1265,10 +1224,7 @@ impl KoloProfiler {
                 .frames_by_thread
                 .lock_py_attached(py)
                 .expect("mutex poisoned");
-            // The frame registry lock is also the trace-rotation barrier. It
-            // keeps this publication in the same generation as these frames,
-            // while the generation fast path avoids the threads mutex on
-            // ordinary events.
+            // Publish the cached Thread and its frames under the frame-registry trace-rotation barrier.
             self.publish_cached_thread(py)?;
             let thread_frames = frames_by_thread
                 .entry(thread_id.clone())
@@ -1411,8 +1367,6 @@ impl KoloProfiler {
                 );
             }
         }
-        // Short of stack (an exit recorded without its values), leave
-        // flushing to a later event with room.
         if !utils::values_omitted() && utils::room_to_flush() {
             self.maybe_flush_segments(py, &thread_id)?;
         }
@@ -1438,7 +1392,6 @@ impl KoloProfiler {
             .expect("mutex poisoned") = self.explicit_trace_name.clone();
 
         let replacement_capture = TraceCapture::for_trace(&self.db_path, &trace_id, self.timestamp);
-        // Clear frames by thread and retire the old capture together.
         let mut frames = self
             .frames_by_thread
             .lock_py_attached(py)
@@ -1628,7 +1581,6 @@ impl KoloProfiler {
     /// Cache only the immutable part of Kolo's include/exclude model.
     fn profiler_include_decision(&self, filename: &str) -> ProfilerIncludeDecision {
         if self.include_frames.check(filename) {
-            // Existing Kolo behavior: explicit includes override every exclusion.
             ProfilerIncludeDecision::Always
         } else if self.process_static_default_ignore_frames(filename)
             || self.ignore_frames.check(filename)
@@ -1648,7 +1600,6 @@ impl KoloProfiler {
             .expect("profiler code metadata cache mutex poisoned")
             .lookup(code_id)
         {
-            // A hit means the shared cache retains this code object.
             if matches!(metadata, ProfilerCodeMetadataLookup::Excluded) {
                 self.remember_excluded(code_id);
             }
@@ -1678,8 +1629,6 @@ impl KoloProfiler {
                 .lock_py_attached(py)
                 .expect("profiler code metadata cache mutex poisoned");
             let lookup = cache.insert_excluded(code_id, code.clone().unbind());
-            // Past the retention cap the code isn't retained, so its id may be
-            // reused by another code object: don't remember it locally.
             if matches!(lookup, ProfilerCodeMetadataLookup::Excluded)
                 && cache.entries.contains_key(&code_id)
             {
@@ -1786,9 +1735,6 @@ impl KoloProfiler {
             ProfilerCodeMetadataLookup::Full(metadata) => metadata,
             ProfilerCodeMetadataLookup::Excluded => {
                 if event == Event::Call {
-                    // This code is now cached as excluded, so its exit
-                    // returns before the stack check: forget its entry, so a
-                    // later frame at its address can't match it.
                     utils::forget_entry(frame.as_ptr() as usize);
                 }
                 return Ok(());
@@ -1797,7 +1743,6 @@ impl KoloProfiler {
         let filename = metadata.filename.as_str();
         let name = metadata.name.as_str();
         let pyframe_id = frame.as_ptr() as usize;
-        // On a call this clears a marker left by an earlier frame here.
         let abandoned = self.frames_abandoned.load(Ordering::Relaxed)
             && self
                 ._frame_ids
@@ -1834,10 +1779,7 @@ impl KoloProfiler {
                     }
                     Ok(None) => {}
                     Err(err) if utils::reaches_program(py, &err) => {
-                        // Record the return first, then raise (see
-                        // `exit_recorded`): a repeat would run this plugin,
-                        // and fail, again. From 3.12 a generator's yield
-                        // raises unrecorded, as under sys.monitoring.
+                        // Record the return before raising; otherwise a repeated event reruns the failing plugin.
                         if matches!(event, Event::Return) && !(cfg!(Py_3_12) && may_resume(pyframe))
                         {
                             if deferred_interrupt.is_none() {
@@ -1964,15 +1906,9 @@ pub extern "C" fn profile_callback(
         ffi::PyTrace_RETURN => Event::Return,
         _ => return 0,
     };
-    // Kolo's own threads and save sections are never recorded. One native
-    // thread-local read, before anything else, keeps this free for the
-    // threads Kolo does record.
     if thread_hooks::get() & thread_hooks::OFF != 0 {
         return 0;
     }
-    // A storage device which has stopped making progress can no longer accept
-    // a lossless bounded trace. Check only events Kolo would otherwise handle;
-    // C-level events remain on their existing zero-work return path.
     if super::trace_container::writer_circuit_open() {
         return 0;
     }
@@ -2050,7 +1986,6 @@ pub extern "C" fn profile_callback(
             .unwrap_or_else(|| PyNone::get(py).into_any());
 
         if profiler.panicked.load(Ordering::Relaxed) {
-            // Another thread's callback panicked: stop paying for this one.
             drop(profiler);
             stop_profiling_current_thread(obj);
             return 0;
@@ -2169,7 +2104,6 @@ unsafe fn cached_excluded_event(obj: *mut ffi::PyObject, frame: *mut ffi::PyObje
     let Ok(profiler) = profiler.try_borrow() else {
         return CachedEvent::NotExcluded(None);
     };
-    // After a panic the attached path stops profiling this thread.
     if profiler.panicked.load(Ordering::Relaxed) {
         return CachedEvent::NotExcluded(None);
     }
@@ -2302,8 +2236,6 @@ mod tests {
     fn test_profiler_frame_buffer_nested_acquisition_does_not_replace_live_slot() {
         drop(take_profiler_frame_buffer());
 
-        // The outer callback owns its buffer, so a nested callback receives a
-        // distinct allocation and may return it to the empty TLS slot first.
         let outer = take_profiler_frame_buffer();
         let nested = take_profiler_frame_buffer();
         assert!(outer.is_empty());
@@ -2329,8 +2261,6 @@ mod tests {
                     assert!(recycled.is_empty());
                     assert!(recycled.capacity() <= MAX_REUSABLE_PROFILER_FRAME_BYTES);
                     recycle_profiler_frame_buffer(recycled);
-                    // The standard thread-local destructor releases this
-                    // thread's sole retained buffer when the thread returns.
                 })
             })
             .collect();
@@ -2434,8 +2364,6 @@ mod tests {
                 cache.excluded_entries,
                 MAX_EXCLUDED_PROFILER_CODE_METADATA_ENTRIES
             );
-            // The cache's strong code reference keeps the original identity
-            // valid even after the caller releases every code object.
             assert!(matches!(
                 cache.lookup(first_cached_id.unwrap()),
                 Some(ProfilerCodeMetadataLookup::Excluded)
@@ -2501,8 +2429,6 @@ mod tests {
                     .unwrap()
             };
 
-            // Under the retention cap the shared cache keeps the code alive,
-            // so its address is safe to remember on this thread.
             let retained = excluded("<frozen retained>");
             assert!(matches!(
                 profiler.profiler_code_metadata(&retained),
@@ -2510,8 +2436,6 @@ mod tests {
             ));
             assert!(profiler.cached_excluded(&retained));
 
-            // Past the cap it isn't kept alive, so once freed its address may
-            // belong to included code: it must never be remembered.
             profiler
                 .code_metadata_cache
                 .lock()
@@ -2523,7 +2447,6 @@ mod tests {
                 ProfilerCodeMetadataLookup::Excluded
             ));
             assert!(!profiler.cached_excluded(&unretained));
-            // Nor after the shared cache answers again.
             assert!(matches!(
                 profiler.profiler_code_metadata(&unretained),
                 ProfilerCodeMetadataLookup::Excluded
@@ -2552,7 +2475,6 @@ mod tests {
                 .call((db_path.display().to_string(),), Some(&kwargs))
                 .expect("python profiler");
             let profiler = super::KoloProfiler::new_from_python(py, &py_profiler).unwrap();
-            // As if a callback on another thread had panicked.
             profiler
                 .panicked
                 .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -2569,7 +2491,6 @@ mod tests {
             }
             assert!(sys.call_method0("getprofile").unwrap().is(&profiler));
 
-            // The next Python call reaches the callback, which unregisters.
             py.run(c"def f():\n    pass\nf()", None, None).unwrap();
             assert!(sys.call_method0("getprofile").unwrap().is_none());
 

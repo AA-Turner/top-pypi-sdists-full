@@ -118,7 +118,7 @@ def _create_constraint(
 
     if mjd is not None:
       shape = tuple(sizes[dim] if isinstance(dim, str) else dim for dim in f.type.shape)
-      val = np.full(shape, -1 if f.name == "island" else 0, dtype=f.type.dtype)
+      val = np.full(shape, -1 if f.name == "island" else 0, dtype=wp.dtype_to_numpy(f.type.dtype))
       if f.name == "D":
         val[:, : mjd.nefc] = np.tile(efc_D_src, (nworld, 1))
       elif f.name == "aref":
@@ -360,6 +360,11 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
   if (mjm.sensor_plugin != -1).any():
     raise NotImplementedError("Sensor plugins not supported.")
 
+  # TODO(team): contact sensor linvel and angvel (mjSTAGE_VEL)
+  contact_dataspec = mjm.sensor_intprm[mjm.sensor_type == mujoco.mjtSensor.mjSENS_CONTACT, 0]
+  if (contact_dataspec & ((1 << 7) | (1 << 8))).any():
+    raise NotImplementedError("Contact sensor linvel and angvel not supported.")
+
   if mjm.nflex > 0:
     for fi in range(mjm.nflex):
       if abs(mjm.flex_interp[fi]) == 2:
@@ -492,7 +497,6 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
   )[1]
   m.nacttrnbody = (mjm.actuator_trntype == mujoco.mjtTrn.mjTRN_BODY).sum()
   m.nsensortaxel = mjm.mesh_vertnum[mjm.sensor_objid[mjm.sensor_type == mujoco.mjtSensor.mjSENS_TACTILE]].sum()
-  m.nsensorcontact = (mjm.sensor_type == mujoco.mjtSensor.mjSENS_CONTACT).sum()
   m.nrangefinder = (mjm.sensor_type == mujoco.mjtSensor.mjSENS_RANGEFINDER).sum()
   condim_arrays = [np.array([0]), mjm.geom_condim, mjm.pair_dim]
   if mjm.nflex > 0:
@@ -659,6 +663,11 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
     bodies.setdefault(body_depth[i], []).append(i)
   m.body_tree = tuple(wp.array(bodies[i], dtype=int) for i in sorted(bodies))
 
+  # Subtree sizes include the body itself; parents precede their descendants.
+  m.body_subtreenum = np.ones(mjm.nbody, dtype=int)
+  for i in reversed(range(1, mjm.nbody)):
+    m.body_subtreenum[mjm.body_parentid[i]] += m.body_subtreenum[i]
+
   # branch-based traversal data
   children_count = np.bincount(mjm.body_parentid[1:], minlength=mjm.nbody)
   ancestor_chain = lambda b: ancestor_chain(mjm.body_parentid[b]) + [b] if b else []
@@ -699,8 +708,7 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
       dof_adrs = mjm.jnt_dofadr[jnt_free_adrs]
       tree_ids = mjm.dof_treeid[dof_adrs]
       tree_dof6 = mjm.tree_dofnum[tree_ids] == 6
-      mass_match = mjm.body_subtreemass[b_free] == mjm.body_mass[b_free]
-      body_is_free[b_free] = tree_dof6 & mass_match
+      body_is_free[b_free] = tree_dof6
   m.body_is_free = body_is_free
   m.body_freeadr = np.nonzero(m.body_is_free)[0]
   body_fluid_box = np.zeros(mjm.nbody, dtype=bool)
@@ -746,6 +754,8 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
   weld_parentid2 = mjm.body_weldid[mjm.body_parentid[weldid2]]
 
   self_collision = weldid1 == weldid2
+  # both weld bodies dof-less: no forces can act, skip (matches filterBodyPair)
+  no_dofs = (mjm.body_dofnum[weldid1] == 0) & (mjm.body_dofnum[weldid2] == 0)
   parent_child_collision = (
     filterparent & (weldid1 != 0) & (weldid2 != 0) & ((weldid1 == weld_parentid2) | (weldid2 == weld_parentid1))
   )
@@ -753,7 +763,7 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
   exclude = np.isin((bodyid1 << 16) + bodyid2, mjm.exclude_signature)
 
   nxn_pairid_contact = -1 * np.ones(len(geom1), dtype=int)
-  nxn_pairid_contact[~(mask & ~self_collision & ~parent_child_collision & ~exclude)] = -2
+  nxn_pairid_contact[~(mask & ~self_collision & ~no_dofs & ~parent_child_collision & ~exclude)] = -2
 
   # contact pairs
   def upper_tri_index(n, i, j):
@@ -1040,10 +1050,12 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
   m.actuator_trntype_body_adr = np.nonzero(mjm.actuator_trntype == mujoco.mjtTrn.mjTRN_BODY)[0]
 
   # sensor addresses
+  is_contact = mjm.sensor_type == mujoco.mjtSensor.mjSENS_CONTACT
   m.sensor_pos_adr = np.nonzero(
     (mjm.sensor_needstage == mujoco.mjtStage.mjSTAGE_POS)
     & (mjm.sensor_type != mujoco.mjtSensor.mjSENS_JOINTLIMITPOS)
     & (mjm.sensor_type != mujoco.mjtSensor.mjSENS_TENDONLIMITPOS)
+    & ~is_contact
   )[0]
   m.sensor_limitpos_adr = np.nonzero(
     (mjm.sensor_type == mujoco.mjtSensor.mjSENS_JOINTLIMITPOS) | (mjm.sensor_type == mujoco.mjtSensor.mjSENS_TENDONLIMITPOS)
@@ -1058,6 +1070,7 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
   )[0]
   m.sensor_acc_adr = np.nonzero(
     (mjm.sensor_needstage == mujoco.mjtStage.mjSTAGE_ACC)
+    & ~is_contact
     & (
       (mjm.sensor_type != mujoco.mjtSensor.mjSENS_TOUCH)
       | (mjm.sensor_type != mujoco.mjtSensor.mjSENS_JOINTLIMITFRC)
@@ -1078,8 +1091,8 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
   m.sensor_tendonactfrc_adr = np.nonzero(mjm.sensor_type == mujoco.mjtSensor.mjSENS_TENDONACTFRC)[0]
   subtreevel_sensors = (mujoco.mjtSensor.mjSENS_SUBTREELINVEL, mujoco.mjtSensor.mjSENS_SUBTREEANGMOM)
   m.sensor_subtree_vel = np.isin(mjm.sensor_type, subtreevel_sensors).any()
-  m.sensor_contact_adr = np.nonzero(mjm.sensor_type == mujoco.mjtSensor.mjSENS_CONTACT)[0]
-  m.sensor_adr_to_contact_adr = np.clip(np.cumsum(mjm.sensor_type == mujoco.mjtSensor.mjSENS_CONTACT) - 1, a_min=0, a_max=None)
+  m.sensor_contact_pos_adr = np.nonzero(is_contact & (mjm.sensor_needstage == mujoco.mjtStage.mjSTAGE_POS))[0]
+  m.sensor_contact_acc_adr = np.nonzero(is_contact & (mjm.sensor_needstage == mujoco.mjtStage.mjSTAGE_ACC))[0]
   m.sensor_rne_postconstraint = np.isin(
     mjm.sensor_type,
     [
@@ -1198,13 +1211,6 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
     elemid = M_elemid[np.maximum(gi, gj), np.minimum(gi, gj)]  # (nblock, sz, sz), -1 if absent
     elemid = np.where(elemid >= 0, elemid, mjm.nC)
     tile.elemid = wp.array(elemid.reshape(-1).astype(np.int32), dtype=int)
-
-  upper_j, upper_i = np.triu_indices(mjm.nv)
-  upper_elemid = M_elemid[upper_i, upper_j]
-  valid_mask = upper_elemid != -1
-  m.M_fullm_upper_i = upper_j[valid_mask].tolist()
-  m.M_fullm_upper_j = upper_i[valid_mask].tolist()
-  m.M_fullm_upper_elemid = upper_elemid[valid_mask].tolist()
 
   # indices for sparse qD_fullm (used in RNE derivatives)
   # D-structure is the full square sparsity pattern (both upper and lower triangle)
@@ -1369,11 +1375,12 @@ def put_model(mjm: mujoco.MjModel, batch_sizes: dict[str, int] | None = None) ->
       "nsensor_touch": len(m.sensor_touch_adr),
       "nsensor_limitfrc": len(m.sensor_limitfrc_adr),
       "nsensor_tendonactfrc": len(m.sensor_tendonactfrc_adr),
+      "nsensor_contact_pos": len(m.sensor_contact_pos_adr),
+      "nsensor_contact_acc": len(m.sensor_contact_acc_adr),
       "nsensor_collision_start_adr": len(m.sensor_collision_start_adr),
       "nqLD_all_updates": len(m.qLD_all_updates),
       "nqLD_level_offsets": len(m.qLD_level_offsets),
       "nM_fullm": len(m.M_fullm_i),
-      "nM_fullm_upper": len(m.M_fullm_upper_i),
       "nqD_fullm": len(m.qD_fullm_i),
       "nv_plus_1": len(m.M_mulm_rowadr),
       "nM_mulm": len(m.M_mulm_col),

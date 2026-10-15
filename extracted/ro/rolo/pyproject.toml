@@ -24,6 +24,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries"
 ]
 dynamic = ["readme", "version"]
@@ -45,7 +47,8 @@ dev = [
     "websocket-client>=1.7.0",
     "coverage[toml]>=5.0.0",
     "coveralls>=3.3",
-    "twisted[tls]>=24",
+    "twisted[tls,http2]>=24",
+    "httpx[http2]",
     "ruff==0.1.0"
 ]
 docs = [

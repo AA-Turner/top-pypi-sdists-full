@@ -1,54 +1,34 @@
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
 """
 EAX mode.
 """
 
-__all__ = ['EaxMode']
+from __future__ import annotations
+
+from hmac import compare_digest
+from typing import TYPE_CHECKING, Optional, Union, overload
+
+__all__ = ["EaxMode"]
 
 import struct
 from binascii import unhexlify
 
-from Crypto.Util.py3compat import byte_string, bord, _copy_bytes
-
-from Crypto.Util._raw_api import is_buffer
-
-from Crypto.Util.strxor import strxor
-from Crypto.Util.number import long_to_bytes, bytes_to_long
-
-from Crypto.Hash import CMAC, BLAKE2s
+from Crypto.Cipher._state_machine import Method
+from Crypto.Hash import CMAC
 from Crypto.Random import get_random_bytes
+from Crypto.Util._raw_api import is_buffer
+from Crypto.Util.number import bytes_to_long
+from Crypto.Util.strxor import strxor
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+Buffer = Union[bytes, bytearray, memoryview]
 
 
-class EaxMode(object):
+class EaxMode:
     """*EAX* mode.
 
     This is an Authenticated Encryption with Associated Data
@@ -77,26 +57,26 @@ class EaxMode(object):
     :undocumented: __init__
     """
 
-    def __init__(self, factory, key, nonce, mac_len, cipher_params):
+    def __init__(
+        self, factory: ModuleType, key: Buffer, nonce: Buffer, mac_len: int, cipher_params: dict
+    ) -> None:
         """EAX cipher mode"""
 
         self.block_size = factory.block_size
         """The block size of the underlying cipher, in bytes."""
 
-        self.nonce = _copy_bytes(None, None, nonce)
+        self.nonce = bytes(nonce)
         """The nonce originally used to create the object."""
 
         self._mac_len = mac_len
-        self._mac_tag = None  # Cache for MAC tag
+        self._mac_tag: Optional[bytes] = None  # Cache for MAC tag
 
         # Allowed transitions after initialization
-        self._next = ["update", "encrypt", "decrypt",
-                      "digest", "verify"]
+        self._next = [Method.UPDATE, Method.ENCRYPT, Method.DECRYPT, Method.DIGEST, Method.VERIFY]
 
         # MAC tag length
         if not (2 <= self._mac_len <= self.block_size):
-            raise ValueError("'mac_len' must be at least 2 and not larger than %d"
-                             % self.block_size)
+            raise ValueError("'mac_len' must be at least 2 and not larger than %d" % self.block_size)
 
         # Nonce cannot be empty and must be a byte string
         if len(self.nonce) == 0:
@@ -105,12 +85,14 @@ class EaxMode(object):
             raise TypeError("nonce must be bytes, bytearray or memoryview")
 
         self._omac = [
-                CMAC.new(key,
-                         b'\x00' * (self.block_size - 1) + struct.pack('B', i),
-                         ciphermod=factory,
-                         cipher_params=cipher_params)
-                for i in range(0, 3)
-                ]
+            CMAC.new(
+                key,
+                b"\x00" * (self.block_size - 1) + struct.pack("B", i),
+                ciphermod=factory,
+                cipher_params=cipher_params,
+            )
+            for i in range(3)
+        ]
 
         # Compute MAC of nonce
         self._omac[0].update(self.nonce)
@@ -118,13 +100,11 @@ class EaxMode(object):
 
         # MAC of the nonce is also the initial counter for CTR encryption
         counter_int = bytes_to_long(self._omac[0].digest())
-        self._cipher = factory.new(key,
-                                   factory.MODE_CTR,
-                                   initial_value=counter_int,
-                                   nonce=b"",
-                                   **cipher_params)
+        self._cipher = factory.new(
+            key, factory.MODE_CTR, initial_value=counter_int, nonce=b"", **cipher_params
+        )
 
-    def update(self, assoc_data):
+    def update(self, assoc_data: Buffer) -> EaxMode:
         """Protect associated data
 
         If there is any associated data, the caller has to invoke
@@ -145,17 +125,28 @@ class EaxMode(object):
             A piece of associated data. There are no restrictions on its size.
         """
 
-        if "update" not in self._next:
-            raise TypeError("update() can only be called"
-                                " immediately after initialization")
+        if Method.UPDATE not in self._next:
+            raise TypeError("update() can only be called immediately after initialization")
 
-        self._next = ["update", "encrypt", "decrypt",
-                      "digest", "verify"]
+        self._next = [Method.UPDATE, Method.ENCRYPT, Method.DECRYPT, Method.DIGEST, Method.VERIFY]
 
         self._signer.update(assoc_data)
         return self
 
-    def encrypt(self, plaintext, output=None):
+    @overload
+    def encrypt(self, plaintext: Buffer) -> bytes: ...
+
+    @overload
+    def encrypt(self, plaintext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
+
+    @overload
+    def encrypt(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]: ...
+
+    def encrypt(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Encrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have encrypted a message
@@ -188,10 +179,9 @@ class EaxMode(object):
           Otherwise, ``None``.
         """
 
-        if "encrypt" not in self._next:
-            raise TypeError("encrypt() can only be called after"
-                            " initialization or an update()")
-        self._next = ["encrypt", "digest"]
+        if Method.ENCRYPT not in self._next:
+            raise TypeError("encrypt() can only be called after initialization or an update()")
+        self._next = [Method.ENCRYPT, Method.DIGEST]
         ct = self._cipher.encrypt(plaintext, output=output)
         if output is None:
             self._omac[2].update(ct)
@@ -199,7 +189,20 @@ class EaxMode(object):
             self._omac[2].update(output)
         return ct
 
-    def decrypt(self, ciphertext, output=None):
+    @overload
+    def decrypt(self, ciphertext: Buffer) -> bytes: ...
+
+    @overload
+    def decrypt(self, ciphertext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
+
+    @overload
+    def decrypt(
+        self, ciphertext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]: ...
+
+    def decrypt(
+        self, ciphertext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Decrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have decrypted a message
@@ -232,14 +235,13 @@ class EaxMode(object):
           Otherwise, ``None``.
         """
 
-        if "decrypt" not in self._next:
-            raise TypeError("decrypt() can only be called"
-                            " after initialization or an update()")
-        self._next = ["decrypt", "verify"]
+        if Method.DECRYPT not in self._next:
+            raise TypeError("decrypt() can only be called after initialization or an update()")
+        self._next = [Method.DECRYPT, Method.VERIFY]
         self._omac[2].update(ciphertext)
         return self._cipher.decrypt(ciphertext, output=output)
 
-    def digest(self):
+    def digest(self) -> bytes:
         """Compute the *binary* MAC tag.
 
         The caller invokes this function at the very end.
@@ -250,29 +252,28 @@ class EaxMode(object):
         :Return: the MAC, as a byte string.
         """
 
-        if "digest" not in self._next:
-            raise TypeError("digest() cannot be called when decrypting"
-                                " or validating a message")
-        self._next = ["digest"]
+        if Method.DIGEST not in self._next:
+            raise TypeError("digest() cannot be called when decrypting or validating a message")
+        self._next = [Method.DIGEST]
 
         if not self._mac_tag:
-            tag = b'\x00' * self.block_size
+            tag = b"\x00" * self.block_size
             for i in range(3):
                 tag = strxor(tag, self._omac[i].digest())
-            self._mac_tag = tag[:self._mac_len]
+            self._mac_tag = tag[: self._mac_len]
 
         return self._mac_tag
 
-    def hexdigest(self):
+    def hexdigest(self) -> str:
         """Compute the *printable* MAC tag.
 
         This method is like `digest`.
 
         :Return: the MAC, as a hexadecimal string.
         """
-        return "".join(["%02x" % bord(x) for x in self.digest()])
+        return self.digest().hex()
 
-    def verify(self, received_mac_tag):
+    def verify(self, received_mac_tag: Buffer) -> None:
         """Validate the *binary* MAC tag.
 
         The caller invokes this function at the very end.
@@ -289,26 +290,20 @@ class EaxMode(object):
             or the key is incorrect.
         """
 
-        if "verify" not in self._next:
-            raise TypeError("verify() cannot be called"
-                                " when encrypting a message")
-        self._next = ["verify"]
+        if Method.VERIFY not in self._next:
+            raise TypeError("verify() cannot be called when encrypting a message")
+        self._next = [Method.VERIFY]
 
         if not self._mac_tag:
-            tag = b'\x00' * self.block_size
+            tag = b"\x00" * self.block_size
             for i in range(3):
                 tag = strxor(tag, self._omac[i].digest())
-            self._mac_tag = tag[:self._mac_len]
+            self._mac_tag = tag[: self._mac_len]
 
-        secret = get_random_bytes(16)
-
-        mac1 = BLAKE2s.new(digest_bits=160, key=secret, data=self._mac_tag)
-        mac2 = BLAKE2s.new(digest_bits=160, key=secret, data=received_mac_tag)
-
-        if mac1.digest() != mac2.digest():
+        if not compare_digest(self._mac_tag, received_mac_tag):
             raise ValueError("MAC check failed")
 
-    def hexverify(self, hex_mac_tag):
+    def hexverify(self, hex_mac_tag: str) -> None:
         """Validate the *printable* MAC tag.
 
         This method is like `verify`.
@@ -323,7 +318,17 @@ class EaxMode(object):
 
         self.verify(unhexlify(hex_mac_tag))
 
-    def encrypt_and_digest(self, plaintext, output=None):
+    @overload
+    def encrypt_and_digest(self, plaintext: Buffer) -> tuple[bytes, bytes]: ...
+
+    @overload
+    def encrypt_and_digest(
+        self, plaintext: Buffer, output: Union[bytearray, memoryview]
+    ) -> tuple[None, bytes]: ...
+
+    def encrypt_and_digest(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> tuple[Optional[bytes], bytes]:
         """Perform encrypt() and digest() in one step.
 
         :Parameters:
@@ -345,7 +350,20 @@ class EaxMode(object):
 
         return self.encrypt(plaintext, output=output), self.digest()
 
-    def decrypt_and_verify(self, ciphertext, received_mac_tag, output=None):
+    @overload
+    def decrypt_and_verify(self, ciphertext: Buffer, received_mac_tag: Buffer) -> bytes: ...
+
+    @overload
+    def decrypt_and_verify(
+        self, ciphertext: Buffer, received_mac_tag: Buffer, output: Union[bytearray, memoryview]
+    ) -> None: ...
+
+    def decrypt_and_verify(
+        self,
+        ciphertext: Buffer,
+        received_mac_tag: Buffer,
+        output: Optional[Union[bytearray, memoryview]] = None,
+    ) -> Optional[bytes]:
         """Perform decrypt() and verify() in one step.
 
         :Parameters:

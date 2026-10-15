@@ -239,10 +239,6 @@ mod imp {
         im_self: P,
     }
 
-    // ---------------------------------------------------------------
-    // Configuration and statistics
-    // ---------------------------------------------------------------
-
     static ENABLED: AtomicBool = AtomicBool::new(true);
     static VERIFY: AtomicBool = AtomicBool::new(false);
     static STATS: AtomicBool = AtomicBool::new(false);
@@ -271,8 +267,6 @@ mod imp {
     pub fn preload(py: Python<'_>) -> PyResult<()> {
         read_config();
         if ENABLED.load(Ordering::Relaxed) {
-            // The audit module and the startup probe, while `kolo._kolo` is
-            // imported rather than inside the first traced session.
             init_canon(py)?;
         }
         Ok(())
@@ -458,10 +452,6 @@ mod imp {
             .or_insert(0) += 1;
     }
 
-    // ---------------------------------------------------------------
-    // Canonical objects and layout self-checks
-    // ---------------------------------------------------------------
-
     /// `PyDictObject`. `watcher_tag` is `ma_version_tag` before 3.14 (and
     /// `_ma_watcher_tag`, unused here, since).
     #[repr(C)]
@@ -563,10 +553,6 @@ mod imp {
         fn Py_LeaveRecursiveCall();
     }
 
-    // Since 3.14, C recursion is limited by the machine stack: true when
-    // fewer than `margin_count` margin units (2^11 pointers in release
-    // builds, twice that in debug/sanitizer builds) are left above the soft
-    // limit. Exported because the public trashcan macros use it.
     #[cfg(Py_3_14)]
     extern "C" {
         fn _Py_ReachedRecursionLimitWithMargin(
@@ -924,8 +910,6 @@ def closure():
             if !classify.getattr("SUPPORTED")?.is_truthy()? {
                 return Ok(None);
             }
-            // Compile the audited references now, not inside the first
-            // traced event.
             classify.getattr("_references")?.call0()?;
             let classify = classify.getattr("classify")?.unbind();
             let builtins = PyModule::import(py, "builtins")?;
@@ -960,8 +944,6 @@ def closure():
                 {
                     return Ok(None);
                 }
-                // Canonical builtins are kept alive here, so their addresses
-                // can never be reused by another object.
                 let builtin = |name: &str, module: &Bound<'_, PyModule>| -> PyResult<usize> {
                     let value = module.getattr(name)?;
                     let object = value.as_ptr();
@@ -973,8 +955,6 @@ def closure():
                     if ml_name.to_bytes() != name.as_bytes()
                         || (*function).m_self != module.as_ptr()
                     {
-                        // Not the builtin: kept nowhere (it may be the
-                        // program's own replacement).
                         return Ok(0);
                     }
                     keep.borrow_mut().push(value.clone().unbind());
@@ -1010,9 +990,6 @@ def closure():
                     && exact_dict(dict.as_ptr())
                     && (*(dict.as_ptr() as *mut DictObject)).ma_used == 1;
                 let tstate_ok = tstate_layout_ok();
-                // `_collections._tuplegetter` (an immutable extension type,
-                // which no Python class is), verified before its layout is
-                // read; the getter is created directly, not via namedtuple.
                 const IMMUTABLE_TYPE: std::os::raw::c_ulong = 1 << 8;
                 let tuplegetter_ok = ffi::Py_TYPE(tuplegetter_type.as_ptr())
                     == ptr::addr_of_mut!(ffi::PyType_Type)
@@ -1054,9 +1031,6 @@ def closure():
                         <= (*ptr::addr_of_mut!(ffi::PyProperty_Type)).tp_basicsize as usize
                     && *((property.as_ptr() as *mut u8).offset(property_fget_offset) as *const P)
                         == get("getter")?.as_ptr();
-                // The bound method and cell types, checked by name and size
-                // and against the values they must hold before being used
-                // to recognize (and read) such objects.
                 let method_ok = static_instance_of(
                     bound.as_ptr(),
                     "method",
@@ -1139,13 +1113,8 @@ def closure():
                     _keep: Vec::new(),
                 };
                 let mut keep = keep.into_inner();
-                // Only canonical builtins (alive anyway) are kept; the
-                // probe's own objects are freed.
                 keep.push(thread.into_any().unbind());
                 keep.push(weak_callback.unbind());
-                // Certification itself runs Python (the audit module, its
-                // reference table): only under an evaluator that runs it as
-                // CPython does.
                 if canon.function_vectorcall == 0
                     || !trusted_eval_frame(current_eval_frame(), canon.trampoline_active)
                 {
@@ -1165,10 +1134,6 @@ def closure():
             }
         }
     }
-
-    // ---------------------------------------------------------------
-    // Verdicts (what a code object does), from kolo._repr_audit
-    // ---------------------------------------------------------------
 
     const CONV_FORMAT: u8 = 0;
     const CONV_STR: u8 = 1;
@@ -1219,9 +1184,6 @@ def closure():
         if result.is_none() {
             return Ok(None);
         }
-        // Names are kept as indices into `co_names`, not as strings: holding
-        // the (interned, often the program's own) strings would keep them
-        // alive after the code is gone.
         let co_names = code.getattr("co_names")?;
         let name_index = |name: Bound<'_, PyAny>| -> PyResult<usize> {
             co_names.call_method1("index", (name,))?.extract()
@@ -1315,10 +1277,6 @@ def closure():
     /// on the code object, so every monitor and thread shares them.
     static VERDICTS: Mutex<Option<HashMap<usize, VerdictSlot>>> = Mutex::new(None);
 
-    // ---------------------------------------------------------------
-    // Per-type facts, valid for one (type, tp_version_tag)
-    // ---------------------------------------------------------------
-
     #[derive(Clone, Copy)]
     struct TypeInfo {
         tag: u32,
@@ -1348,9 +1306,6 @@ def closure():
                 for index in 0..ffi::PyTuple_GET_SIZE(mro) {
                     let base = ffi::PyTuple_GET_ITEM(mro, index) as T;
                     if (*base).tp_flags & ffi::Py_TPFLAGS_HEAPTYPE == 0 {
-                        // Static types' dicts (kept per interpreter since
-                        // 3.12) are built by CPython from str names and are
-                        // immutable from Python.
                         continue;
                     }
                     let dict = (*base).tp_dict;
@@ -1364,8 +1319,6 @@ def closure():
             TypeInfo {
                 tag,
                 mro_safe,
-                // Every `_PyType_Lookup` walks the MRO dicts; they must not
-                // be able to run a key's `__eq__` either.
                 generic_getattro: mro_safe
                     && (*type_).tp_getattro.map_or(0, |f| f as usize) == canon.generic_getattro,
                 default_class: mro_safe
@@ -1377,10 +1330,6 @@ def closure():
             }
         }
     }
-
-    // ---------------------------------------------------------------
-    // Guards: what validation checks
-    // ---------------------------------------------------------------
 
     /// One check of a recorded dependency. Recording runs a certified
     /// repr's plan and emits one guard per location the plan read; validation
@@ -1555,7 +1504,6 @@ def closure():
                 Guard::Word(at, value) => **at == *value,
                 Guard::Tag(at, tag) => **at == *tag,
                 Guard::Type { object, type_ } => ffi::Py_TYPE(*object) as usize == *type_,
-                // Both exact str / exact int: C comparisons, no Python.
                 Guard::Str { object, copy } => ffi::PyUnicode_Compare(*object, copy.as_ptr()) == 0,
                 Guard::Int { object, copy } => {
                     ffi::PyObject_RichCompareBool(*object, copy.as_ptr(), ffi::Py_EQ) == 1
@@ -1673,7 +1621,6 @@ def closure():
             }
             return 0;
         }
-        // The referent is alive with references besides this one.
         ffi::Py_DECREF(object);
         object as usize
     }
@@ -1692,10 +1639,6 @@ def closure():
         ffi::Py_DECREF(bound);
         result
     }
-
-    // ---------------------------------------------------------------
-    // The recorder: certified plans
-    // ---------------------------------------------------------------
 
     const MAX_DEPTH: u32 = 40;
     const MAX_GUARDS: usize = 1 << 16;
@@ -1865,8 +1808,6 @@ def closure():
             }
             let type_ = ffi::Py_TYPE(object);
             self.type_is(object)?;
-            // str subclasses too (a `__qualname__` may be one): their text
-            // is immutable and compared in C.
             if ffi::PyUnicode_Check(object) != 0 {
                 let copy = copy_str(object);
                 self.require(!copy.is_null(), "could not copy a str")?;
@@ -1875,7 +1816,6 @@ def closure():
                     copy: Bound::from_owned_ptr(self.py, copy).unbind(),
                 })?;
             } else if type_ == ptr::addr_of_mut!(ffi::PyLong_Type) {
-                // Bounds the copy (and matches the limit on printed ints).
                 self.require(long_bits_at_most(object, 2000), "huge int")?;
                 let copy = copy_int(object);
                 self.require(!copy.is_null(), "could not copy an int")?;
@@ -1907,8 +1847,6 @@ def closure():
                     items: set_items(object).into(),
                 })?;
             } else {
-                // Mutable, or contents guarded where they are read: only
-                // the type is fixed (a tuple subclass's items are not).
                 return Ok(());
             }
             self.prove(object);
@@ -1935,7 +1873,6 @@ def closure():
                 ffi::PyErr_Clear();
                 return self.uncert("code names");
             }
-            // The code object keeps its (immutable) names tuple.
             ffi::Py_DECREF(names);
             self.require(
                 ffi::PyTuple_CheckExact(names) != 0 && index < ffi::PyTuple_GET_SIZE(names) as usize,
@@ -2017,8 +1954,6 @@ def closure():
                 dict,
                 items: items.clone().into(),
             })?;
-            // Lookups compare keys by content: a different key at a recorded
-            // address must not pass. Values are identified where read.
             for key in items.iter().step_by(2) {
                 self.identify(*key as P)?;
             }
@@ -2136,7 +2071,6 @@ def closure():
                 Some(info) if info.tag == tag => *info,
                 _ => {
                     let info = TypeInfo::compute(self.py, self.canon, type_, tag);
-                    // Only a memo: bounded like the negative cache.
                     if self.types.len() >= MAX_NEGATIVE {
                         self.types.clear();
                     }
@@ -2144,8 +2078,6 @@ def closure():
                     info
                 }
             };
-            // Every lookup through this type (`_PyType_Lookup`) walks its
-            // MRO dicts, which must not be able to run a key's `__eq__`.
             self.require(info.mro_safe, "class dict with non-str keys")?;
             self.s.type_slots[slot] = Some((type_ as usize, info));
             self.s.seen_types.push((type_ as usize, info));
@@ -2203,10 +2135,8 @@ def closure():
                 }
                 Some(_) => self.uncert("uncertified code"),
                 None => {
-                    // With a callback, CPython creates a new weak reference
-                    // rather than handing out one the program may hold. The
-                    // callback is Kolo's own C no-op (not even an audit
-                    // event, as calling `id` would raise).
+                    // With a callback, CPython creates a new weak reference rather than reusing one the program holds.
+                    // The callback is Kolo's own C no-op (calling `id` would raise an audit event).
                     let weakref = ffi::PyWeakref_NewRef(code, self.canon.weak_callback as P);
                     if weakref.is_null() {
                         ffi::PyErr_Clear();
@@ -2286,7 +2216,6 @@ def closure():
                 "closure shape",
             )?;
             self.identify(closure)?;
-            // The (live, immutable) closure tuple keeps its cells.
             let cell = ffi::PyTuple_GET_ITEM(closure, index as ffi::Py_ssize_t);
             self.require(ffi::Py_TYPE(cell) == cell_type(), "not a cell")?;
             self.identify(cell)?;
@@ -2308,7 +2237,6 @@ def closure():
         ) -> R<Val> {
             if !info.has_instance_dict {
                 self.require(!fallback.is_null(), "missing attribute")?;
-                // Held by a class dict, fixed by the type's tag.
                 self.prove(fallback);
                 return Ok(Val::Obj(fallback));
             }
@@ -2316,7 +2244,6 @@ def closure():
             let value = generic_getattr(object, name);
             self.require(!value.is_null(), "missing attribute")?;
             if value == fallback {
-                // Held by a class dict, fixed by the type's tag.
                 self.prove(value);
             }
             self.guard(Guard::Attr {
@@ -2334,20 +2261,15 @@ def closure():
             let type_ = self.type_of(object)?;
             let info = self.type_guard(type_)?;
             self.require(info.generic_getattro, "custom attribute access")?;
-            // Fixed by the type's tag.
             let descr = _PyType_Lookup(type_, name.as_ptr());
             if descr.is_null() {
                 return self.instance_value(object, &info, name.as_ptr(), ptr::null_mut());
             }
-            // Held by a class dict, fixed by the type's tag.
             self.prove(descr);
             let descr_type = self.type_of(descr)?;
-            // Whether (and how) generic getattr calls into the descriptor
-            // depends on its type: guard that before any `Attr` guard.
             self.type_guard(descr_type)?;
             let is_data = (*descr_type).tp_descr_set.is_some();
             if descr_type == ptr::addr_of_mut!(ffi::PyMemberDescr_Type) {
-                // `__slots__` (and other object members).
                 let member = (*(descr as *mut MemberDescr)).d_member;
                 self.require(
                     matches!((*member).type_code, T_OBJECT | T_OBJECT_EX)
@@ -2384,21 +2306,16 @@ def closure():
                         && index < ffi::PyTuple_GET_SIZE(object),
                     "tuple getter out of range",
                 )?;
-                // Items of the (live, immutable) tuple.
                 self.tuple_items(object)?;
                 return Ok(Val::Obj(ffi::PyTuple_GET_ITEM(object, index)));
             }
             let descr_get = (*descr_type).tp_descr_get.map_or(0, |f| f as usize);
             if descr_get == self.canon.slot_tp_descr_get && descr_get != 0 {
-                // A Python-level descriptor: `type(descr).__get__(descr,
-                // object, type(object))`.
                 self.type_guard(descr_type)?;
                 let get = _PyType_Lookup(descr_type, name!(self.py, "__get__").as_ptr());
                 self.require(!get.is_null(), "descriptor without __get__")?;
                 self.prove(get);
                 let verdict = self.verdict(get)?;
-                // A `__get__` call is a Python frame, and its reads may reach
-                // the same descriptor again: it counts toward the depth.
                 self.enter()?;
                 let result = match *verdict {
                     Verdict::EnumPropertyGet if is_data => self.enum_property_get(descr, object),
@@ -2414,7 +2331,6 @@ def closure():
                 return self.uncert("unsupported data descriptor");
             }
             if descr_get == 0 {
-                // Plain class attribute value.
                 return self.instance_value(object, &info, name.as_ptr(), descr);
             }
             self.uncert("attribute is a method or other descriptor")
@@ -2430,10 +2346,8 @@ def closure():
                 !descr.is_null() && ffi::Py_TYPE(descr) == ptr::addr_of_mut!(ffi::PyFunction_Type),
                 "method is not a function",
             )?;
-            // Held by a class dict, fixed by the type's tag.
             self.prove(descr);
             if info.has_instance_dict {
-                // The instance dict may shadow the method.
                 self.require(instance_dict_safe(object), "instance dict has non-str keys")?;
                 self.require(
                     bound_to(object, name.as_ptr(), descr as usize),
@@ -2449,8 +2363,6 @@ def closure():
         }
 
         unsafe fn call_getter(&mut self, getter: P, object: P) -> R<Val> {
-            // A getter call is a Python frame (and may lead to further
-            // getters), so it counts toward the recursion budget.
             self.enter()?;
             let result = self.call_getter_inner(getter, object);
             self.leave();
@@ -2465,8 +2377,6 @@ def closure():
                     self.attr(object, &name)
                 }
                 Verdict::RichTextPlain => {
-                    // `if len(self._text) != 1: <mutate>; return self._text[0]`:
-                    // certified only on the pure path.
                     self.global_is(getter, name!(self.py, "len"), self.canon.builtin_len)?;
                     let Val::Obj(text) = self.attr(object, name!(self.py, "_text"))? else {
                         return self.uncert("text parts");
@@ -2483,8 +2393,6 @@ def closure():
         }
 
         unsafe fn enum_property_get(&mut self, descr: P, object: P) -> R<Val> {
-            // instance is not None, so: `if self.fget is not None: return
-            // self.fget(instance)`.
             let Val::Obj(fget) = self.attr(descr, name!(self.py, "fget"))? else {
                 return self.uncert("enum property getter");
             };
@@ -2505,8 +2413,6 @@ def closure():
         }
 
         unsafe fn rich_bit_get(&mut self, descr: P, object: P) -> R<Val> {
-            // `if obj._set_attributes & self.bit: return obj._attributes &
-            // self.bit != 0; return None` on exact ints.
             let (set, mut attributes) = match self.s.bits {
                 Some((seen, set, attributes)) if seen == object as usize => (set, attributes),
                 _ => {
@@ -2562,15 +2468,11 @@ def closure():
             let qualname = self.field(type_ as P, ptr::addr_of!((*heap).ht_qualname))?;
             self.identify(qualname)?;
             let dict = (*type_).tp_dict;
-            // `__module__` is looked up in it: no key may run `__eq__`.
             self.require(
                 !dict.is_null() && exact_dict(dict) && dict_lookup_safe(dict),
                 "type dict",
             )?;
-            // A type cannot get another dict; this one is the same object
-            // as long as the type is (guarded by its tag).
             self.prove(dict);
-            // `type_repr` and `object_repr` print it.
             let module = self.dict_item(dict, name!(self.py, "__module__").as_ptr())?;
             if module.is_null() {
                 return Ok(());
@@ -2671,9 +2573,6 @@ def closure():
         /// Record everything `repr(value)` reads. `value` is the root or
         /// was reached through guarded reads, so it is live.
         unsafe fn repr_dep(&mut self, value: P) -> R {
-            // A wrapper's recursion guard set printed while that wrapper runs
-            // shows its temporary keys (and an order that depends on the
-            // set's past): never certified.
             if self.s.running.iter().any(|(set, _)| *set == value as usize) {
                 return self.uncert("recursion guard set repr'd");
             }
@@ -2684,15 +2583,11 @@ def closure():
                 self.identify(value)?;
                 self.max_depth = self.max_depth.max(self.depth + 1);
                 if ffi::Py_TYPE(value) == ptr::addr_of_mut!(ffi::PyLong_Type) {
-                    // Far below any `sys.set_int_max_str_digits` limit.
                     return self.require(long_bits_at_most(value, 2000), "huge int");
                 }
                 return Ok(());
             }
-            // A repeated object reprs identically within one repr (nothing
-            // runs in between that could change it), so its dependencies are
-            // recorded once. Its graph height still counts at this depth for
-            // the recursion budget.
+            // Reused repr dependencies are recorded once, but their graph height still counts toward recursion.
             if let Some(height) = self.s.seen_reprs.get(&(value as usize)) {
                 self.max_depth = self.max_depth.max(self.depth + 1 + *height);
                 return self.require(self.depth + 1 + *height <= MAX_DEPTH, "graph too deep");
@@ -2712,7 +2607,6 @@ def closure():
         unsafe fn repr_dep_inner(&mut self, value: P) -> R {
             let type_ = ffi::Py_TYPE(value);
             if type_ == ptr::addr_of_mut!(ffi::PyTuple_Type) {
-                // Items of an immutable tuple, kept alive by it.
                 self.identify(value)?;
                 for index in 0..ffi::PyTuple_GET_SIZE(value) {
                     self.repr_dep(ffi::PyTuple_GET_ITEM(value, index))?;
@@ -2727,8 +2621,6 @@ def closure():
                 return Ok(());
             }
             if type_ == ptr::addr_of_mut!(ffi::PyDict_Type) {
-                // An unchanged version means the same entries in the same
-                // order, kept alive by the dict.
                 self.dict_version(value)?;
                 let mut position = 0;
                 let (mut key, mut item) = (ptr::null_mut(), ptr::null_mut());
@@ -2758,7 +2650,6 @@ def closure():
                 return Ok(());
             }
             if type_ == ptr::addr_of_mut!(ffi::PyFunction_Type) {
-                // `<function {__qualname__} at {address}>`
                 self.identify(value)?;
                 let qualname = self.field(
                     value,
@@ -2769,9 +2660,6 @@ def closure():
             if type_ == ptr::addr_of_mut!(ffi::PyCFunction_Type)
                 || type_ == ptr::addr_of_mut!(ffi::PyCMethod_Type)
             {
-                // `<built-in function name>` or `<built-in method name of
-                // TYPE object at address>`. `m_ml` and `m_self` never change,
-                // but the object at this address may be another one.
                 self.identify(value)?;
                 let raw = value as *mut ffi::PyCFunctionObject;
                 self.field(value, ptr::addr_of!((*raw).m_ml) as *const P)?;
@@ -2784,9 +2672,6 @@ def closure():
                 return Ok(());
             }
             if type_ == method_type() {
-                // `<bound method {__func__.__qualname__} of {__self__!r}>`.
-                // `__func__` and `__self__` never change, but the object at
-                // this address may be another one.
                 self.identify(value)?;
                 let method = value as *mut MethodObject;
                 let function = self.field(value, ptr::addr_of!((*method).im_func))?;
@@ -2803,24 +2688,19 @@ def closure():
                 let bound_self = self.field(value, ptr::addr_of!((*method).im_self))?;
                 return self.repr_dep(bound_self);
             }
-            // Everything else dispatches on `type(value).__repr__`.
             let type_ = self.type_of(value)?;
             self.type_guard(type_)?;
             let tp_repr = (*type_).tp_repr.map_or(0, |f| f as usize);
             if tp_repr == self.canon.type_repr {
-                // A class (whose metaclass does not override `__repr__`):
-                // `<class 'module.qualname'>`.
                 self.type_guard(value as T)?;
                 return self.type_names(value as T);
             }
             if tp_repr == self.canon.object_repr {
-                // `<module.qualname object at address>`.
                 return self.type_names(type_);
             }
             self.require(tp_repr == self.canon.slot_tp_repr, "C repr")?;
             let function = _PyType_Lookup(type_, name!(self.py, "__repr__").as_ptr());
             self.require(!function.is_null(), "no __repr__")?;
-            // Held by a class dict, fixed by the type's tag.
             self.prove(function);
             self.repr_function(function, value)
         }
@@ -2828,8 +2708,6 @@ def closure():
         /// Record what calling the Python `__repr__` `function` on `object`
         /// reads.
         unsafe fn repr_function(&mut self, function: P, object: P) -> R {
-            // Each function layer (wrappers around wrappers included) uses
-            // its own frames, so it counts toward the recursion budget.
             self.enter()?;
             let result = self.repr_function_inner(function, object);
             self.leave();
@@ -2850,8 +2728,6 @@ def closure():
                         thread as usize == self.canon.thread_module,
                         "_thread rebound",
                     )?;
-                    // `_thread.get_ident` from the module's (fixed) dict, as
-                    // long as the module's class is still `ModuleType`.
                     let module_type = self.type_of(thread)?;
                     let dict = ffi::PyModule_GetDict(thread);
                     self.require(
@@ -2863,8 +2739,6 @@ def closure():
                     let name = name!(py, "get_ident");
                     let key = (dict as usize, name.as_ptr() as usize);
                     if !self.s.seen_globals.iter().any(|(d, n, _)| (*d, *n) == key) {
-                        // The canonical module (kept alive by `Canon`) and its
-                        // dict, which a module cannot replace.
                         self.prove(dict);
                         let get_ident = self.dict_item(dict, name.as_ptr())?;
                         self.require(
@@ -2882,13 +2756,11 @@ def closure():
                     self.wrapped_repr(function, *running, *user, object)
                 }
                 Verdict::NamedTupleRepr { fmt } => {
-                    // `self.__class__.__name__ + repr_fmt % self`
                     let class = self.class_of(object)?;
                     self.type_name(class, false)?;
                     let fmt = self.cell(function, *fmt)?;
                     self.require(ffi::PyUnicode_CheckExact(fmt) != 0, "format not a str")?;
                     self.identify(fmt)?;
-                    // Only `%r` (and `%%`) conversions: each item's repr.
                     let text =
                         Bound::from_borrowed_ptr(self.py, fmt).cast_into_unchecked::<PyString>();
                     let only_repr = text.to_str().is_ok_and(|text| {
@@ -2901,7 +2773,6 @@ def closure():
                         true
                     });
                     self.require(only_repr && ffi::PyTuple_Check(object) != 0, "format")?;
-                    // Items of the (live, immutable) tuple.
                     self.tuple_items(object)?;
                     for index in 0..ffi::PyTuple_GET_SIZE(object) {
                         self.repr_dep(ffi::PyTuple_GET_ITEM(object, index))?;
@@ -2910,8 +2781,6 @@ def closure():
                 }
                 Verdict::JinjaContextRepr => self.jinja_context(function, object),
                 Verdict::JinjaMacroRepr => {
-                    // `name = "anonymous" if self.name is None else
-                    // repr(self.name)`; `f"<{type(self).__name__} {name}>"`
                     let py = self.py;
                     self.global_is(
                         function,
@@ -2954,9 +2823,6 @@ def closure():
                 ptr::addr_of!((*(running as *mut ffi::PySetObject)).used) as *const usize,
                 0,
             ))?;
-            // While this wrapper runs, `(id(object), thread)` is in the set:
-            // a wrapper inside it that shares the set returns its fill value
-            // for the same object. Refuse such chains.
             let key = (running as usize, object as usize);
             self.require(!self.s.running.contains(&key), "shared recursion guard")?;
             let user = self.cell(function, user)?;
@@ -3000,7 +2866,6 @@ def closure():
         }
 
         unsafe fn jinja_context(&mut self, function: P, object: P) -> R {
-            // f"<{type(self).__name__} {self.get_all()!r} of {self.name!r}>"
             let py = self.py;
             let dict_type = ptr::addr_of_mut!(ffi::PyDict_Type) as usize;
             self.global_is(
@@ -3021,7 +2886,6 @@ def closure():
                 return self.uncert("context parent");
             };
             self.require(exact_dict(vars) && exact_dict(parent), "context dicts")?;
-            // Their sizes decide which dict is repr'd.
             self.dict_version(vars)?;
             self.dict_version(parent)?;
             let (vars_len, parent_len) = (ffi::PyDict_Size(vars), ffi::PyDict_Size(parent));
@@ -3030,8 +2894,6 @@ def closure():
             } else if parent_len == 0 {
                 self.repr_dep(vars)?;
             } else {
-                // `dict(parent, **vars)`: a C merge; all keys must be exact
-                // str so neither `**` nor key comparison can run Python.
                 for dict in [parent, vars] {
                     let mut position = 0;
                     let (mut key, mut item) = (ptr::null_mut(), ptr::null_mut());
@@ -3062,8 +2924,6 @@ def closure():
             self.global_is(function, name!(py, "len"), self.canon.builtin_len)?;
             self.global_is(function, name!(py, "repr"), self.canon.builtin_repr)?;
             let rich_repr = self.method(object, name!(py, "__rich_repr__"))?;
-            // `getattr(self.__rich_repr__, "angular", False)` reads the
-            // function's `__dict__`.
             let attributes = self.field(
                 rich_repr,
                 ptr::addr_of!((*(rich_repr as *mut ffi::PyFunctionObject)).func_dict),
@@ -3077,7 +2937,6 @@ def closure():
                     "angular",
                 )?;
             }
-            // `self.__class__.__name__`
             let class = self.class_of(object)?;
             self.type_name(class, false)?;
             let verdict = self.verdict(rich_repr)?;
@@ -3104,7 +2963,6 @@ def closure():
                         self.keyed_item(value)?;
                     }
                     let meta = self.attr(object, name!(py, "_meta"))?;
-                    // `if self._meta:` on None or empty bytes only.
                     let falsy = match meta {
                         Val::Obj(meta) => {
                             self.identify(meta)?;
@@ -3139,7 +2997,6 @@ def closure():
         /// A `yield value` item of `__rich_repr__`, as `auto_repr` handles it.
         unsafe fn single_item(&mut self, value: Val) -> R {
             let Val::Obj(object) = value else {
-                // bool/None/str: not tuples; their reprs are pure.
                 return match value {
                     Val::Pure => Ok(()),
                     _ => self.uncert("yielded a type"),
@@ -3147,7 +3004,6 @@ def closure():
             };
             let type_ = self.type_of(object)?;
             if ffi::PyTuple_Check(object) == 0 {
-                // `isinstance(arg, tuple)` falls back to `arg.__class__`.
                 let info = self.type_guard(type_)?;
                 self.require(
                     info.generic_getattro && info.default_class,
@@ -3207,10 +3063,6 @@ def closure():
         ))
     }
 
-    // ---------------------------------------------------------------
-    // Root-level context checks
-    // ---------------------------------------------------------------
-
     /// Whether the real repr would run in a neutral context: no container
     /// repr in progress on this thread, and enough recursion budget for a
     /// graph of `depth` levels.
@@ -3250,10 +3102,6 @@ def closure():
         }
         ffi::PyList_CheckExact(list) != 0 && ffi::PyList_GET_SIZE(list) == 0
     }
-
-    // ---------------------------------------------------------------
-    // The cache
-    // ---------------------------------------------------------------
 
     const MAX_ENTRIES: usize = 8192;
     const MAX_RESIDENT_WORDS: usize = 1 << 22;
@@ -3297,8 +3145,6 @@ def closure():
             .map(|guard| match guard {
                 Guard::Str { copy, .. } => str_words(copy.as_ptr()),
                 Guard::Bytes { data, .. } => data.len() / 8,
-                // Ints above 2000 bits are refused (`identify`): at most 67
-                // 30-bit digits of 4 bytes, plus the object header.
                 Guard::Int { .. } => (2000 / 30 + 1) * 4 / 8 + 4,
                 Guard::Tuple { items, .. }
                 | Guard::List { items, .. }
@@ -3364,8 +3210,6 @@ def closure():
                 .map(|(key, entry)| (entry.last_used, *key))
                 .collect();
             ages.sort_unstable();
-            // The oldest quarter at least, then on until both limits hold
-            // (a few large entries can keep the words over the cap).
             let quarter = ages.len() / 4 + 1;
             for (index, (_, key)) in ages.iter().enumerate() {
                 if index >= quarter
@@ -3512,8 +3356,6 @@ def closure():
                             &counters.verify_repr_ns,
                             repr_start.elapsed().as_nanos() as u64,
                         );
-                        // The cached text must equal what the real repr returns
-                        // now: an exception or a str subclass is a mismatch too.
                         let equal = match &real {
                             // Safety: both are str objects.
                             Ok(real) => {
@@ -3578,8 +3420,6 @@ def closure():
                     drop(failed)
                 }
             }
-            // Miss: record the guards, run the real repr, check they still
-            // hold, and store.
             let record_start = Instant::now();
             let snapshot = match cell.try_borrow_mut() {
                 Ok(mut cache) => self.record(py, canon, &mut cache, object, stats),
@@ -3602,7 +3442,6 @@ def closure():
                         let _no_gc = NoGc::new();
                         all_hold(&guards)
                     } {
-                        // Something it depends on changed while it ran.
                         bump(&counters.changed_during_repr, 1);
                         cache.strike(object);
                     } else if let Some(copy) = unsafe {
@@ -3616,8 +3455,6 @@ def closure():
                                 .unbind()
                         })
                     } {
-                        // An entry left by `lookup` for confirmation: its
-                        // guards held before this repr ran.
                         let previous = cache.entries.remove(&(object as usize));
                         let confirmed = previous.as_ref().is_some_and(|old| unsafe {
                             ffi::PyUnicode_Compare(old.text.as_ptr(), copy.as_ptr()) == 0
@@ -3692,12 +3529,8 @@ def closure():
                         }
                     }
                 }
-                // Cheap refusal for types whose `__repr__` code is known
-                // not to be certified (no recording attempt needed).
-                // Safety: GIL held; reads a live type and its MRO dicts.
-                // The lookup happens before taking the lock (and only through
-                // str-keyed dicts), so no Python code runs while it is held.
-                // Safety: GIL held; reads a live type and its MRO dicts.
+                // The lookup happens before taking the lock (only through str-keyed dicts),
+                // so no Python code runs while it is held. Safety: GIL held; reads a live type and its MRO dicts.
                 let root = unsafe { root_code(py, object) };
                 let rejected = root.is_some_and(|(_, code)| {
                     VERDICTS
@@ -3736,8 +3569,6 @@ def closure():
             };
             let elapsed = start.map_or(0, |start| start.elapsed().as_nanos() as u64);
             if valid && !entry.confirmed {
-                // Not reused yet: run the real repr once more (see
-                // `Entry::confirmed`).
                 bump(&counters.confirmations, 1);
                 cache.entries.insert(object as usize, entry);
                 Lookup::Miss(None)
@@ -3752,9 +3583,6 @@ def closure():
                 bump(&counters.deopt_validate_ns, elapsed);
                 bump(&counters.deopts, 1);
                 cache.resident -= entry.resident();
-                // Released outside the cache borrow (it holds only Kolo's own
-                // objects, but nothing is dropped while the cache is
-                // borrowed).
                 Lookup::Miss(Some(entry))
             }
         }
@@ -3857,7 +3685,6 @@ def closure():
                 }
             }
             if let Ok(mut cache) = cell.try_borrow_mut() {
-                // A new verdict can make earlier refusals certifiable.
                 cache.negative.clear();
             }
             Ok(())

@@ -18,4 +18,4 @@ class TrainingCheckpointResponse(BaseModel):
   """Base model slug the checkpoint was trained from."""
 
   is_deployable: bool = False
-  """Whether the checkpoint has restorable Tinker state for deployment."""
+  """Whether the checkpoint has saved Tinker weights for serving."""

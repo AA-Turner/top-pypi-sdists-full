@@ -70,6 +70,7 @@ __all__ = (
     "AmiDistributionConfigurationUnionTypeDef",
     "AmiTypeDef",
     "AutoDisablePolicyTypeDef",
+    "AutoScalingGroupConfigurationTypeDef",
     "CancelImageCreationRequestTypeDef",
     "CancelImageCreationResponseTypeDef",
     "CancelLifecycleExecutionRequestTypeDef",
@@ -314,6 +315,7 @@ __all__ = (
     "OutputResourcesTypeDef",
     "PackageVulnerabilityDetailsTypeDef",
     "PaginatorConfigTypeDef",
+    "ParentInstanceConfigurationTypeDef",
     "PipelineLoggingConfigurationTypeDef",
     "PlacementTypeDef",
     "ProductCodeListItemTypeDef",
@@ -399,6 +401,10 @@ class LaunchPermissionConfigurationOutputTypeDef(TypedDict):
 
 class AutoDisablePolicyTypeDef(TypedDict):
     failureCount: int
+
+class AutoScalingGroupConfigurationTypeDef(TypedDict):
+    name: str
+    capacityWaitTimeoutSeconds: NotRequired[int]
 
 class CancelImageCreationRequestTypeDef(TypedDict):
     imageBuildVersionArn: str
@@ -1023,6 +1029,9 @@ class ScheduleTypeDef(TypedDict):
     timezone: NotRequired[str]
     pipelineExecutionStartCondition: NotRequired[PipelineExecutionStartConditionType]
     autoDisablePolicy: NotRequired[AutoDisablePolicyTypeDef]
+
+class ParentInstanceConfigurationTypeDef(TypedDict):
+    autoScalingGroup: AutoScalingGroupConfigurationTypeDef
 
 class CancelImageCreationResponseTypeDef(TypedDict):
     requestId: str
@@ -1938,11 +1947,13 @@ class CreateInfrastructureConfigurationRequestTypeDef(TypedDict):
     logging: NotRequired[LoggingTypeDef]
     keyPair: NotRequired[str]
     terminateInstanceOnFailure: NotRequired[bool]
+    terminateInstanceOnCompletion: NotRequired[bool]
     snsTopicArn: NotRequired[str]
     resourceTags: NotRequired[Mapping[str, str]]
     instanceMetadataOptions: NotRequired[InstanceMetadataOptionsTypeDef]
     tags: NotRequired[Mapping[str, str]]
     placement: NotRequired[PlacementTypeDef]
+    parentInstance: NotRequired[ParentInstanceConfigurationTypeDef]
     dryRun: NotRequired[bool]
 
 class InfrastructureConfigurationTypeDef(TypedDict):
@@ -1963,6 +1974,8 @@ class InfrastructureConfigurationTypeDef(TypedDict):
     instanceMetadataOptions: NotRequired[InstanceMetadataOptionsTypeDef]
     tags: NotRequired[dict[str, str]]
     placement: NotRequired[PlacementTypeDef]
+    terminateInstanceOnCompletion: NotRequired[bool]
+    parentInstance: NotRequired[ParentInstanceConfigurationTypeDef]
 
 class UpdateInfrastructureConfigurationRequestTypeDef(TypedDict):
     infrastructureConfigurationArn: str
@@ -1975,10 +1988,12 @@ class UpdateInfrastructureConfigurationRequestTypeDef(TypedDict):
     logging: NotRequired[LoggingTypeDef]
     keyPair: NotRequired[str]
     terminateInstanceOnFailure: NotRequired[bool]
+    terminateInstanceOnCompletion: NotRequired[bool]
     snsTopicArn: NotRequired[str]
     resourceTags: NotRequired[Mapping[str, str]]
     instanceMetadataOptions: NotRequired[InstanceMetadataOptionsTypeDef]
     placement: NotRequired[PlacementTypeDef]
+    parentInstance: NotRequired[ParentInstanceConfigurationTypeDef]
 
 class ImagePipelineTypeDef(TypedDict):
     arn: NotRequired[str]

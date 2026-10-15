@@ -99,13 +99,13 @@ def s2s_status(s2s_dir):
     return len(files), f"{ymax}-{mmax:02d}" if mmax else f"{ymax}-01"
 
 
-def _shift_month(year, month, k):
+def shift_month(year, month, k):
     """(year, month) ``k`` months after (or, for k < 0, before) year-month."""
     t = year * 12 + (month - 1) + k
     return t // 12, t % 12 + 1
 
 
-def _month_end(year, month):
+def month_end(year, month):
     return date(year, month, calendar.monthrange(year, month)[1])
 
 
@@ -140,13 +140,13 @@ def window_state(planting, wraps, today=None, latest_init=None,
     # Next planting, unless the previous planting's window is still open.
     py = today.year if today.month <= planting else today.year + 1
     k_close = close_offset(planting, harvest_month)
-    if today <= _month_end(*_shift_month(py - 1, planting, k_close)):
+    if today <= month_end(*shift_month(py - 1, planting, k_close)):
         py -= 1
     plant = date(py, planting, 1)
     harvest_year = py + 1 if wraps else py
-    uy, um = _shift_month(py, planting, -MAX_USABLE_OFFSET)
+    uy, um = shift_month(py, planting, -MAX_USABLE_OFFSET)
     usable_from = date(uy, um, 1)
-    closes = _month_end(*_shift_month(py, planting, k_close))
+    closes = month_end(*shift_month(py, planting, k_close))
     status = "open" if today >= usable_from else "too_early"
     phase = "in_season" if today >= plant else "pre_season"
     # is a usable init actually PUBLISHED? (S2S data reaches latest_init)

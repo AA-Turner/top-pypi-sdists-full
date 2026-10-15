@@ -14,7 +14,10 @@ import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from airbyte_ops_mcp.regression_tests.repro_case import ReproductionVerdict
 
 
 def is_ci() -> bool:
@@ -140,6 +143,7 @@ def write_json_output(key: str, data: dict[str, Any] | list[Any]) -> None:
 
 
 ARTIFACT_NAME_PREFIX = "regression-test-artifacts"
+ARTIFACT_NAME_ENV_VAR = "REGRESSION_TEST_ARTIFACT_NAME"
 
 
 def github_artifact_name(command: str) -> str:
@@ -149,7 +153,14 @@ def github_artifact_name(command: str) -> str:
     `.github/workflows/connector-regression-test.yml`, whose per-command
     `actions/upload-artifact` steps use exactly this shape. Outside GitHub
     Actions there is no run id, so the bare per-command name is returned.
+
+    `sandbox-case-run.yml` uploads a single artifact under a name its caller
+    chooses and passes it in `REGRESSION_TEST_ARTIFACT_NAME`, which then wins.
     """
+    override = os.getenv(ARTIFACT_NAME_ENV_VAR, "")
+    if override:
+        return override
+
     run_id = os.getenv("GITHUB_RUN_ID", "")
     if run_id:
         return f"{ARTIFACT_NAME_PREFIX}-{command}-{run_id}"
@@ -440,6 +451,7 @@ def generate_action_test_comparison_report(
     output_dir: Path,
     record_comparison: dict[str, Any] | None = None,
     comparison_findings: Sequence[tuple[str, str]] = (),
+    reproduction: ReproductionVerdict | None = None,
 ) -> Path:
     """Generate a markdown comparison report for a single action (command).
 
@@ -464,6 +476,9 @@ def generate_action_test_comparison_report(
             dropped a field. Warnings are listed without changing the verdict:
             they do not gate a release, but a reader of this file should not
             have to open the HTML report to learn the catalog grew.
+        reproduction: The reproduction-case verdict, when the run used one. It
+            replaces the command-outcome verdict: in case mode a failing control
+            is the expected evidence, not an inconclusive run.
 
     Returns:
         Path to the generated report.md file.
@@ -506,7 +521,10 @@ def generate_action_test_comparison_report(
 
     failures = [text for status, text in comparison_findings if status == "fail"]
 
-    if failures:
+    if reproduction is not None:
+        lines.append(f"**Result:** {reproduction.detail} — **{reproduction.label}**")
+        lines.extend(f"- {finding}" for finding in reproduction.details)
+    elif failures:
         # Only reachable when both commands ran cleanly, so this is the one
         # verdict the exit codes could not have produced.
         plural = "s" if len(failures) > 1 else ""

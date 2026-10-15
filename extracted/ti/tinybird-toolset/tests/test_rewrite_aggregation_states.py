@@ -148,3 +148,8 @@ class TestGetLeftTable(unittest.TestCase):
         sql = "WITH t as (select value from table) SELECT avg(value) FROM t"
         expected = "WITH t as (select value from table) SELECT avgState(value) FROM t"
         self.assertEqual(chquery.format(chquery.rewrite_aggregation_states(sql)), chquery.format(expected))
+
+    def test_throws_with_explain_and_describe(self):
+        for sql in ["EXPLAIN SELECT avg(value) FROM table", "DESCRIBE TABLE table"]:
+            with self.assertRaisesRegex(ValueError, "Only SELECT queries are supported"):
+                chquery.rewrite_aggregation_states(sql)

@@ -8,9 +8,10 @@ from urllib.parse import quote
 from typing_extensions import NotRequired, TypeGuard
 
 from bitfab.approval import ApprovalFields, Assignee, Justification
-from bitfab.assertion_categories import AssertionCategorySummary
+from bitfab.categories import CategorySummary
 from bitfab.http import HttpClient
 from bitfab.replay import TokenUsage
+from bitfab.warn_once import warn_once
 
 TraceTargetOccurrence = Literal["first", "last"] | int
 
@@ -58,12 +59,15 @@ TraceTarget = OutputTarget | SpanTarget
 
 
 class TraceAssertion(ApprovalFields):
+    """A saved assertion. ``category_assertion_id`` is a deprecated alias carrying the same value as ``category_id``."""
+
     id: str
     traceId: str
     assertion: str
     humanNote: str | None
+    category_id: str | None
     category_assertion_id: str | None
-    category: AssertionCategorySummary | None
+    category: CategorySummary | None
     passCriteria: str | None
     failCriteria: str | None
     targetOnEvaluatedTrace: TraceTarget | None
@@ -250,6 +254,7 @@ class Scenario(TypedDict):
     trigger: ScenarioTrigger
     data: ScenarioData
     actualOutcome: ScenarioActualOutcome | None
+    categories: list[CategorySummary]
     triggerSummary: str
     dataSummary: str
 
@@ -272,6 +277,14 @@ class TraceAssertionsResult(TypedDict):
 
 
 class SaveAssertion(TypedDict):
+    """One assertion to save.
+
+    Omit ``category_id`` to preserve the existing category, or pass ``None`` to
+    clear it. ``category_assertion_id`` is a deprecated alias for ``category_id``;
+    when both are set, ``category_id`` wins.
+    """
+
+    category_id: NotRequired[str | None]
     category_assertion_id: NotRequired[str | None]
     id: NotRequired[str]
     assertion: str
@@ -354,6 +367,31 @@ def _generation_timed_out(
     )
 
 
+def _wire_assertion(assertion: SaveAssertion) -> dict[str, Any]:
+    entry: dict[str, Any] = dict(assertion)
+    if "category_assertion_id" not in entry:
+        return entry
+    warn_once(
+        "deprecated-category-assertion-id",
+        "SaveAssertion.category_assertion_id is deprecated; pass category_id instead.",
+    )
+    legacy = entry.pop("category_assertion_id")
+    entry.setdefault("category_id", legacy)
+    return entry
+
+
+def _wire_updates(updates: list[TraceAssertionsUpdate]) -> list[dict[str, Any]]:
+    return [
+        {
+            **update,
+            "assertions": [
+                _wire_assertion(assertion) for assertion in update["assertions"]
+            ],
+        }
+        for update in updates
+    ]
+
+
 def _trace_assertions_path(trace_id: str, suffix: str = "") -> str:
     return f"/api/sdk/traces/{quote(trace_id, safe='')}/assertions{suffix}"
 
@@ -369,6 +407,7 @@ def _scenario_payload(
     data: ScenarioData | None,
     append_data: ScenarioDataAppend | None,
     actual_outcome: ScenarioActualOutcome | None | _ActualOutcomeUnset,
+    category_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     if data is not None and append_data is not None:
         raise ValueError(
@@ -385,10 +424,12 @@ def _scenario_payload(
     payload = {key: value for key, value in fields.items() if value is not None}
     if not isinstance(actual_outcome, _ActualOutcomeUnset):
         payload["actualOutcome"] = actual_outcome
+    if category_ids is not None:
+        payload["categoryIds"] = category_ids
     if not payload:
         raise ValueError(
             "save_scenario needs at least one of name, description, trigger, "
-            "data, append_data, or actual_outcome."
+            "data, append_data, actual_outcome, or category_ids."
         )
     return payload
 
@@ -462,7 +503,7 @@ class TracesClient:
         if not updates:
             return []
         payload: dict[str, Any] = {
-            "updates": updates,
+            "updates": _wire_updates(updates),
             "source": source,
         }
         result = self._http_client.request(ASSERTIONS_PATH, payload)
@@ -549,6 +590,7 @@ class TracesClient:
         actual_outcome: ScenarioActualOutcome
         | None
         | _ActualOutcomeUnset = _ACTUAL_OUTCOME_UNSET,
+        category_ids: list[str] | None = None,
     ) -> Scenario:
         """Update the scenario built from a trace and return the saved scenario.
 
@@ -561,11 +603,24 @@ class TracesClient:
         saved value whole, passing ``None`` clears it, and leaving it out keeps
         it. It may be the only field sent.
 
+        ``category_ids`` files the scenario under those categories and replaces
+        its whole set of categories. Leaving it out keeps the saved set, and
+        passing an empty list clears it. It is sent as ``categoryIds``. An id
+        outside the organization raises ``requests.HTTPError`` with a 400
+        naming the missing ids. The returned scenario lists its ``categories``
+        sorted by title.
+
         Sending nothing raises ``ValueError`` before any request. A trace with
         no scenario raises ``requests.HTTPError`` with a 404.
         """
         payload = _scenario_payload(
-            name, description, trigger, data, append_data, actual_outcome
+            name,
+            description,
+            trigger,
+            data,
+            append_data,
+            actual_outcome,
+            category_ids,
         )
         result = self._http_client.request(_trace_scenario_path(trace_id), payload)
         return result["scenario"]

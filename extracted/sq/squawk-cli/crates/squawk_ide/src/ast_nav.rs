@@ -74,7 +74,7 @@ pub(crate) enum ParentQuery {
     Merge(ast::Merge),
 }
 
-pub(crate) fn target_parent_query(target: ast::Target) -> Option<ParentQuery> {
+pub(crate) fn target_parent_query(target: &ast::Target) -> Option<ParentQuery> {
     node_parent_query(target.syntax())
 }
 
@@ -111,7 +111,7 @@ pub(crate) enum SelectContext {
 }
 
 impl SelectContext {
-    pub(crate) fn iter(&self) -> Option<Box<dyn Iterator<Item = ast::Select>>> {
+    pub(crate) fn selects(&self) -> Option<Box<dyn Iterator<Item = ast::Select>>> {
         fn variant_iter(
             variant: ast::SelectVariant,
         ) -> Option<Box<dyn Iterator<Item = ast::Select>>> {
@@ -146,7 +146,7 @@ impl SelectContext {
     }
 }
 
-pub(crate) fn find_select_parent(token: SyntaxToken) -> Option<SelectContext> {
+pub(crate) fn find_select_parent(token: &SyntaxToken) -> Option<SelectContext> {
     let mut found_select = None;
     let mut found_compound = None;
 
@@ -296,28 +296,6 @@ pub(crate) fn create_table_args(
         });
 
     inherits_iter.chain(args_iter)
-}
-
-struct UnwrapParenExpr {
-    current: Option<ast::Expr>,
-}
-
-impl Iterator for UnwrapParenExpr {
-    type Item = ast::Expr;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let expr = self.current.take()?;
-        if let ast::Expr::ParenExpr(paren_expr) = &expr {
-            self.current = paren_expr.expr();
-        }
-        Some(expr)
-    }
-}
-
-pub(crate) fn unwrap_paren_expr(expr: ast::Expr) -> impl Iterator<Item = ast::Expr> {
-    UnwrapParenExpr {
-        current: Some(expr),
-    }
 }
 
 pub(crate) fn iter_from_clause(

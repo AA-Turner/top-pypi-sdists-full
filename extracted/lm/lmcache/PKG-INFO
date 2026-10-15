@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmcache
-Version: 0.5.5
+Version: 0.5.6
 Summary: A LLM serving engine extension to reduce TTFT and increase throughput, especially under long-context scenarios.
 Author-email: LMCache Team <lmcacheteam@gmail.com>
 License-Expression: Apache-2.0
@@ -48,6 +48,7 @@ Requires-Dist: pytest
 Requires-Dist: pyyaml
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: grpcio>=1.78.0
+Requires-Dist: grpcio-observability==1.78.0; platform_system == "Linux"
 Requires-Dist: protobuf<7,>=6.31.1
 Requires-Dist: redis
 Requires-Dist: safetensors
@@ -61,7 +62,10 @@ Requires-Dist: httptools
 Requires-Dist: cachetools
 Requires-Dist: google-api-core
 Requires-Dist: google-cloud-bigtable
+Provides-Extra: kafka
+Requires-Dist: confluent-kafka>=2.3.0; extra == "kafka"
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 
 <div align="center">

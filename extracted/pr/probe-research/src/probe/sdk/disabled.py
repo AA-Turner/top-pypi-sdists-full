@@ -165,6 +165,16 @@ class DisabledRun:
         self.config.update(values)
         return None
 
+    def log_dataset(self, path_or_uri: Any = None, name: Any = None, **_kw: Any) -> Any:
+        """A settled, empty ref: `ds.ref` is None and `ds.wait()` returns at once,
+        so a script that reads them runs on (the `_noop_like` fallback would hand
+        it None)."""
+        from .catalog import DatasetRef
+
+        ref = DatasetRef(name=name if isinstance(name, str) else None)
+        ref._done.set()
+        return ref
+
     def finish(self, status: str = "completed", **kw: Any) -> None:
         self.status = status
         from . import _open_runs

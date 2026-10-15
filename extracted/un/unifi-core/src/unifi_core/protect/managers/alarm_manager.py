@@ -90,6 +90,35 @@ class AlarmManager:
 
         return [self._format_profile(p) for p in data if isinstance(p, dict)]
 
+    async def is_global_alarm_manager(self) -> bool:
+        """Return True when the console runs the UniFi OS (Global) Alarm Manager.
+
+        Protect sets ``nvr.featureFlags.useExternalAlarmManager`` once the Alarm
+        Manager is in Global mode (forced when USL sensors, fobs, relays or an
+        Alarm Hub are adopted). In that mode the legacy ``arm/*`` endpoints are
+        detached from the real alarm: ``arm/enable`` returns 204 without arming
+        and ``arm/disable`` fails, so callers must not mutate through them.
+
+        An absent ``featureFlags`` object or an absent flag means Local mode (older
+        Local-only consoles report neither). A payload that is present but
+        malformed (non-dict ``nvr`` or ``featureFlags``, non-bool flag) raises
+        ``ValueError`` so callers fail closed instead of guessing.
+        """
+        nvr_data = await self._cm.client.api_request("nvr", method="get")
+        if not isinstance(nvr_data, dict):
+            raise ValueError("Unexpected nvr payload; cannot determine the Alarm Manager mode")
+        if "featureFlags" not in nvr_data:
+            return False
+        flags = nvr_data["featureFlags"]
+        if not isinstance(flags, dict):
+            raise ValueError("Unexpected nvr.featureFlags payload; cannot determine the Alarm Manager mode")
+        if "useExternalAlarmManager" not in flags:
+            return False
+        value = flags["useExternalAlarmManager"]
+        if not isinstance(value, bool):
+            raise ValueError("Unexpected useExternalAlarmManager value; cannot determine the Alarm Manager mode")
+        return value
+
     async def get_arm_state(self) -> Dict[str, Any]:
         """Return the current Alarm Manager state.
 

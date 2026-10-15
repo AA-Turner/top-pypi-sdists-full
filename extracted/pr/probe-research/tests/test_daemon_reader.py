@@ -94,8 +94,9 @@ class Reader:
         self.seen: list[tuple[list, AgentInfo]] = []
 
     def __call__(self, messages, info: AgentInfo) -> ModelResponse:
-        if not info.output_tools:  # a compaction's summary request
-            return ModelResponse(parts=[TextPart("SUMMARY")])
+        # A request without the output tool is a compaction's summary call: the
+        # reader never compacts (2026-10-14), in any test.
+        assert info.output_tools, "the reader never compacts"
         self.seen.append((list(messages), info))
         step = self.steps.pop(0) if self.steps else ("end", self.end)
         if callable(step):
@@ -165,7 +166,7 @@ def test_every_approved_reads_file_is_pinned_here():
     used = {"job/read-session.NEW.md", "tools/final_result.NEW.md", "tools/read.NEW.md", "tools/session.NEW.md",
             "tools/feedback.NEW.md",
             "conversation/ask-line.NEW.md", "conversation/divider.NEW.md",
-            "conversation/memory-index-framing.NEW.md", "conversation/summary-prompt.NEW.md",
+            "conversation/memory-index-framing.NEW.md",
             "replies/message-too-long.NEW.md", "replies/turn-limit.NEW.md", "agent-facing/message.NEW.md",
             "agent-facing/ask-failed.NEW.md", "agent-facing/probe-ask.NEW.md",
             "researcher-facing/failure-messages.NEW.md",
@@ -196,7 +197,6 @@ def test_the_readers_tools_and_replies_are_the_approved_text():
     assert agent_mod.READER_READ_DESCRIPTION == body("tools/read.NEW.md")
     assert agent_mod.READER_SESSION_DESCRIPTION == body("tools/session.NEW.md")
     assert agent_mod.READER_FEEDBACK_DESCRIPTION == body("tools/feedback.NEW.md")
-    assert agent_mod.READER_SUMMARY_PROMPT == body("conversation/summary-prompt.NEW.md")
     assert agent_mod.MESSAGE_TOO_LONG == body("replies/message-too-long.NEW.md")
     assert agent_mod.TURN_LIMIT == body("replies/turn-limit.NEW.md")
     assert rl.DIVIDER == body("conversation/divider.NEW.md")
@@ -1100,31 +1100,131 @@ def _sized(steps, end: str, prompt_tokens: int):
     return call
 
 
-def test_a_turn_still_over_the_size_after_compaction_makes_the_next_turn_fresh(tmp_path, monkeypatch):
-    """The compaction loop (round 3, task 7): one reader turn added more than
-    compaction took off, so every later turn paid a summary call and re-cached
-    the whole history. The last request was still over the size: the next turn
-    starts fresh."""
+def _summary_calls(script):
+    """`script`, counting the calls made without the reader's output tool: a
+    compaction's summary request."""
+    calls = []
+
+    def call(messages, info):
+        if not info.output_tools:
+            calls.append(messages)
+        return script(messages, info)
+
+    call.calls = calls
+    return call
+
+
+def test_events_that_would_pass_the_size_start_the_conversation_fresh_with_no_summary_call(tmp_path, monkeypatch):
+    """The reader never compacts (2026-10-14): a summary call ran before the
+    turn's first round, 140-310 s on gpt-6.1-sol and inside the turn's time, so
+    one retry cut a strand-ai turn at 420 s with nothing read. New events that
+    would take the kept conversation past its size start it fresh instead --
+    rule A at the start of a turn, told what was already sent."""
     monkeypatch.setattr(agent_mod, "READ_CONTEXT_TOKENS", 2_000)
     w = _worker(tmp_path)
-    lane = _lane(w, _sized([], "", 500))
+    lane = _lane(w, _sized([], "digits-svm (run r7): best C=10, 0.9889.", 500))
     asyncio.run(lane.run_turn("prompt"))
-    assert w.store.live_read_conversation() is not None, "under the size: kept"
-    with w.session.transcript.open("a") as handle:  # enough history that compaction must run
+    first = w.store.live_read_conversation()
+    assert first is not None and first["messages"], "under the size: kept"
+    with w.session.transcript.open("a") as handle:  # enough new events to pass the size
         handle.write(_line({"type": "assistant", "message": {"content": [{"type": "text", "text": "x " * 6000}]}}))
     _append_turn(w, "and the RBF kernel?")
     w.read_new()
-    lane._model = FunctionModel(_sized([], "", 5_000))
+    sized = _sized([], "", 500)  # the fresh turn ends under the size: kept
+    lane._model = FunctionModel(script := _summary_calls(sized))
     asyncio.run(lane.run_turn("prompt"))
-    assert w.store.live_read_conversation() is None, "ended: the next turn is fresh"
-    [reason] = [r["end_reason"] for r in w.store.db.execute("SELECT end_reason FROM read_conversations")]
-    assert "over the size" in reason
+    assert script.calls == [], "no summary call"
+    [(messages, _info)] = sized.inner.seen
+    assert len(messages) == 1, "a fresh conversation: only this turn's prompt"
+    assert rl.SENT_HEADER in _prompt(messages[0]) and "best C=10" in _prompt(messages[0])
+    assert "and the RBF kernel?" in _prompt(messages[0]), "the same events, fresh"
+    reasons = dict(w.store.db.execute("SELECT id, end_reason FROM read_conversations"))
+    assert "over the size" in reasons[first["id"]]
+    live = w.store.live_read_conversation()
+    assert live is not None and live["id"] != first["id"] and not live["compactions"]
 
 
-def test_a_turn_over_the_size_without_a_compaction_also_starts_fresh(tmp_path):
-    """Rule A (Richard 2026-10-07): over the size by the provider's count is
-    enough -- the next turn would otherwise compact, a summary call and a
-    re-cache, which a fresh start does not pay."""
+def test_a_reader_state_never_compacts_and_a_writer_state_does():
+    caps = agent_mod._harness(agent_mod.ReaderState(conversation=True))
+    assert not [c for c in caps if "Compaction" in type(c).__name__]
+    writer = agent_mod._harness(agent_mod.RunState(conversation=True))
+    assert [c for c in writer if "Compaction" in type(c).__name__], "the writer still compacts"
+
+
+def test_a_turn_that_grows_past_the_size_mid_turn_makes_no_summary_call(tmp_path, monkeypatch):
+    """Every round reports 5,000 tokens against a 2,000 size: compaction would
+    have summarized before round 2. The turn runs on; its end starts the next
+    one fresh (rule A)."""
+    monkeypatch.setattr(agent_mod, "READ_CONTEXT_TOKENS", 2_000)
+    w = _worker(tmp_path)
+    outline = ("tool", ("session", {"op": "outline"}))
+    sized = _sized([outline, outline, outline], "", 5_000)
+    lane = _lane(w, script := _summary_calls(sized))
+    asyncio.run(lane.run_turn("prompt"))
+    assert script.calls == [], "the reader never compacts, not even mid-turn"
+    assert len(sized.inner.seen) == 4, "every round ran"
+    assert w.store.live_read_conversation() is None, "ended over the size: the next turn is fresh"
+
+
+def test_a_turn_stops_once_a_round_is_near_the_routes_ceiling(tmp_path):
+    """With no compaction a turn could grow until the route refuses it and all
+    of its work is lost: past READ_STOP_TOKENS its tool calls are not run and
+    the model is told to end the turn."""
+    w = _worker(tmp_path)
+    sized = _sized([("tool", ("session", {"op": "outline"}))], "digits-svm: best C=10.",
+                   agent_mod.READ_STOP_TOKENS)
+    lane = _lane(w, sized)
+    asyncio.run(lane.run_turn("prompt"))
+    [_first, (messages, _info)] = sized.inner.seen
+    assert f"stopped - {agent_mod.READ_STOP_TOKENS:,} tokens" in _text(messages[-1:])
+    assert rl.Status.TURN_STOPPED in Path(mailbox.status_path(SID)).read_text()
+
+
+def test_a_kept_conversation_at_the_message_count_starts_fresh_before_the_turn(tmp_path, monkeypatch):
+    from pydantic_ai.messages import ModelMessagesTypeAdapter
+
+    w = _worker(tmp_path)
+    lane = _lane(w, Reader(end=""))
+    asyncio.run(lane.run_turn("prompt"))
+    first = w.store.live_read_conversation()
+    wire = agent_mod.wire_messages(ModelMessagesTypeAdapter.validate_json(first["messages"]))
+    monkeypatch.setattr(agent_mod, "COMPACT_MESSAGES", wire)  # at the count: this turn's prompt passes it
+    _append_turn(w, "and the RBF kernel?")
+    w.read_new()
+    reader = Reader(end="")
+    lane._model = FunctionModel(reader)
+    asyncio.run(lane.run_turn("prompt"))
+    [(messages, _info)] = reader.seen
+    assert len(messages) == 1, "fresh"
+    reason = w.store.db.execute("SELECT end_reason FROM read_conversations WHERE id = ?", (first["id"],)).fetchone()[0]
+    assert "messages" in reason
+
+
+def test_a_conversation_an_older_cli_compacted_starts_fresh_once(tmp_path):
+    """A kept conversation with a summary at its head: nothing re-shapes that
+    head any more (`agent.user_turn_first`), so it is not continued."""
+    w = _worker(tmp_path)
+    lane = _lane(w, Reader(end=""))
+    asyncio.run(lane.run_turn("prompt"))
+    old = w.store.live_read_conversation()
+    with w.store.tx():
+        w.store.db.execute("UPDATE read_conversations SET compactions = 1 WHERE id = ?", (old["id"],))
+    _append_turn(w, "and the RBF kernel?")
+    w.read_new()
+    reader = Reader(end="")
+    lane._model = FunctionModel(reader)
+    asyncio.run(lane.run_turn("prompt"))
+    [(messages, _info)] = reader.seen
+    assert len(messages) == 1, "fresh"
+    assert w.store.live_read_conversation()["id"] != old["id"]
+    reason = w.store.db.execute("SELECT end_reason FROM read_conversations WHERE id = ?", (old["id"],)).fetchone()[0]
+    assert reason == "compacted by an older CLI: started fresh"
+
+
+def test_a_turn_that_ends_over_the_size_ends_its_conversation(tmp_path):
+    """Rule A (Richard 2026-10-07): a turn whose last request was over the size by
+    the provider's count ends the conversation at once; the next turn starts
+    fresh, told what was already sent."""
     w = _worker(tmp_path)
     lane = _lane(w, _sized([], "", agent_mod.read_context_tokens() + 1))
     asyncio.run(lane.run_turn("prompt"))

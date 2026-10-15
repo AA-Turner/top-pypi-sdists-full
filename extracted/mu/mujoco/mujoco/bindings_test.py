@@ -17,9 +17,11 @@
 import contextlib
 import copy
 from etils import epath
+import gc
 import os
 import pickle
 import sys
+import weakref
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -474,6 +476,60 @@ class MuJoCoBindingsTest(parameterized.TestCase):
     opt1.gravity = 5
     np.testing.assert_allclose(opt2.timestep, 0.001)
     np.testing.assert_allclose(opt2.gravity, [2, 2, 2])
+
+  def test_mjmodel_and_mjvisual_substruct_assignment(self):
+    # Assigning to model.opt copies into the model and updates existing views.
+    gravity_view = self.model.opt.gravity
+    opt = mujoco.MjOption()
+    opt.timestep = 0.001
+    opt.gravity = (0, 0, -1)
+    self.model.opt = opt
+    self.assertEqual(self.model.opt, opt)
+    np.testing.assert_allclose(self.model.opt.timestep, 0.001)
+    np.testing.assert_array_equal(gravity_view, [0, 0, -1])
+    # The model holds a copy: later edits to opt do not propagate.
+    opt.timestep = 0.5
+    opt.gravity = (1, 2, 3)
+    np.testing.assert_allclose(self.model.opt.timestep, 0.001)
+    np.testing.assert_array_equal(self.model.opt.gravity, [0, 0, -1])
+
+    # Same for model.stat: in-place copy, existing array views stay valid.
+    stat = mujoco.MjStatistic()
+    stat.extent = 42.0
+    stat.center = (1, 2, 3)
+    center_view = self.model.stat.center
+    self.model.stat = stat
+    self.assertEqual(self.model.stat, stat)
+    np.testing.assert_array_equal(center_view, [1, 2, 3])
+
+    # Assigning a whole MjVisual updates views into its nested sub-structs.
+    vis = copy.copy(self.model.vis)
+    vis.global_.fovy = 75
+    vis.quality.shadowsize = 2048
+    vis.headlight.ambient = (0.2, 0.3, 0.4)
+    vis.map.stiffness = 200.0
+    vis.scale.framelength = 2.5
+    vis.rgba.fog = (0.1, 0.2, 0.3, 0.4)
+    ambient_view = self.model.vis.headlight.ambient
+    fog_view = self.model.vis.rgba.fog
+    self.model.vis = vis
+    self.assertEqual(self.model.vis, vis)
+    np.testing.assert_allclose(ambient_view, [0.2, 0.3, 0.4])
+    np.testing.assert_allclose(fog_view, [0.1, 0.2, 0.3, 0.4])
+
+    # Sub-structs with array fields (headlight) are assignable directly.
+    headlight = copy.copy(self.model.vis.headlight)
+    headlight.diffuse = (0.5, 0.6, 0.7)
+    self.model.vis.headlight = headlight
+    np.testing.assert_allclose(
+        self.model.vis.headlight.diffuse, [0.5, 0.6, 0.7]
+    )
+
+    # Sub-structs with only scalar fields (global_) are assignable too.
+    global_vis = copy.copy(self.model.vis.global_)
+    global_vis.fovy = 60
+    self.model.vis.global_ = global_vis
+    self.assertEqual(self.model.vis.global_.fovy, 60)
 
   def test_mjmodel_can_copy(self):
     model_copy = copy.copy(self.model)
@@ -1816,6 +1872,55 @@ Euler integrator, semi-implicit in velocity.
     data2 = pickle.loads(pickle.dumps(self.data))
     attr_to_compare = ('time', 'qpos', 'qvel', 'mocap_pos')
     self._assert_attributes_equal(data2, self.data, attr_to_compare)
+
+  def test_pickle_mjdata_releases_owned_model(self):
+    data2 = pickle.loads(pickle.dumps(self.data))
+    # A leaked native wrapper keeps this array alive.
+    model_array_ref = weakref.ref(data2.model.body_mass)
+    del data2
+    gc.collect()
+    self.assertIsNone(model_array_ref())
+
+  def test_pickle_mjdata_retains_external_model_reference(self):
+    data2 = pickle.loads(pickle.dumps(self.data))
+    model2 = data2.model
+    model_array_ref = weakref.ref(model2.body_mass)
+    del data2
+    gc.collect()
+    self.assertIsNotNone(model_array_ref())
+    data3 = mujoco.MjData(model2)
+    mujoco.mj_step(model2, data3)
+    del data3, model2
+    gc.collect()
+    self.assertIsNone(model_array_ref())
+
+  @parameterized.parameters('model', 'data')
+  def test_pickle_mjdata_retains_array_views(self, owner):
+    data2 = pickle.loads(pickle.dumps(self.data))
+    view = data2.model.body_mass if owner == 'model' else data2.qpos
+    reference = view.copy()
+    array_ref = weakref.ref(view)
+    del data2
+    gc.collect()
+    np.testing.assert_array_equal(view, reference)
+    view[:] = reference + 1
+    np.testing.assert_array_equal(view, reference + 1)
+    del view
+    gc.collect()
+    self.assertIsNone(array_ref())
+
+  @parameterized.parameters(copy.copy, copy.deepcopy)
+  def test_copy_unpickled_mjdata_retains_model(self, copier):
+    data2 = pickle.loads(pickle.dumps(self.data))
+    data3 = copier(data2)
+    model_array_ref = weakref.ref(data3.model.body_mass)
+    del data2
+    gc.collect()
+    self.assertIsNotNone(model_array_ref())
+    mujoco.mj_step(data3.model, data3)
+    del data3
+    gc.collect()
+    self.assertIsNone(model_array_ref())
 
   def test_pickle_mjdata(self):
     mujoco.mj_step(self.model, self.data)

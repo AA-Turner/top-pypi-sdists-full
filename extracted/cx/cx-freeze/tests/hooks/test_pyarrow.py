@@ -54,9 +54,9 @@ pyproject.toml
 
 
 @pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 15),
+    IS_CONDA and sys.version_info[:2] >= (3, 15),
     raises=ModuleNotFoundError,
-    reason="pyarrow does not support Python 3.15 yet",
+    reason="conda-forge does not support pyarrow on Python 3.15+",
     strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
 @pytest.mark.xfail(

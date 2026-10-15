@@ -39,8 +39,11 @@ import os
 import queue
 import shutil
 import socket
+import sys
 import tempfile
+import threading
 from typing import Any
+import webbrowser
 import zlib
 
 import mujoco
@@ -81,9 +84,16 @@ def _print_url_banner(host: str, port: int) -> None:
   rows.append(('Local:', f'http://localhost:{port}/'))
 
   label_width = max(len(label) for label, _ in rows)
+  footer = [
+      '',
+      'Ctrl+C to quit',
+      '',
+      'Warning: No authentication or encryption. Anyone who can reach this',
+      '         port can connect and see your logs and file paths.',
+  ]
   lines_plain = ['MuJoCo Web Viewer running at:', '']
   lines_plain += [f'  {label.ljust(label_width)}  {url}' for label, url in rows]
-  lines_plain += ['', 'Ctrl+C to quit']
+  lines_plain += footer
 
   width = max(len(line) for line in lines_plain)
 
@@ -94,7 +104,7 @@ def _print_url_banner(host: str, port: int) -> None:
   lines_formatted += [
       f'  {label.ljust(label_width)}  {_hyperlink(url)}' for label, url in rows
   ]
-  lines_formatted += ['', 'Ctrl+C to quit']
+  lines_formatted += footer
 
   banner = ['+' + '-' * (width + 2) + '+']
   for plain, formatted in zip(lines_plain, lines_formatted):
@@ -102,6 +112,18 @@ def _print_url_banner(host: str, port: int) -> None:
     banner.append(f'| {formatted}{padding} |')
   banner.append('+' + '-' * (width + 2) + '+')
   print('\n'.join(banner), flush=True)
+
+
+def _open_browser(port: int) -> None:
+  """Opens the local web viewer URL in a browser tab if a display is present."""
+  if sys.platform.startswith('linux') and not (
+      os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')
+  ):
+    return
+  url = f'http://localhost:{port}/'
+  threading.Thread(
+      target=webbrowser.open, args=(url,), kwargs={'new': 2}, daemon=True
+  ).start()
 
 
 def _pick_drop_root(paths: list[str]) -> str | None:
@@ -150,7 +172,6 @@ class WebViewer(viewer_protocol.Viewer):
       endpoint: endpoints.ViewerEndpoint,
       *,
       model: mujoco.MjModel | None = None,
-      model_path: str = '',
       plugins: list[Any] | None = None,
       camera: mujoco.MjvCamera | None = None,
       vis_options: mujoco.MjvOption | None = None,
@@ -165,7 +186,6 @@ class WebViewer(viewer_protocol.Viewer):
       config: Viewer window configuration.
       endpoint: The viewer endpoint for communication with the sim side.
       model: Optional initial MjModel. Forwarded to the base Viewer.
-      model_path: Optional path to the model file.
       plugins: Optional list of plugin instances.
       camera: Camera parameters. Internal object is created if None.
       vis_options: Visualization options. Internal object is created if None.
@@ -180,7 +200,6 @@ class WebViewer(viewer_protocol.Viewer):
         config,
         endpoint,
         model=model,
-        model_path=model_path,
         plugins=plugins,
         camera=camera,
         vis_options=vis_options,
@@ -189,6 +208,9 @@ class WebViewer(viewer_protocol.Viewer):
         extra_geoms=extra_geoms,
     )
 
+    # TODO(matijak): Consider binding to loopback by default, with an opt-in
+    # (e.g. a ViewerConfig.host field and a --host flag) for all interfaces, so
+    # that the viewer is not reachable from the network by default.
     self._host = '::'
     # Bind both listening sockets up front, in this process: bind conflicts
     # surface here as one clear error, and the loopback port is OS-assigned so
@@ -229,9 +251,15 @@ class WebViewer(viewer_protocol.Viewer):
     self._drop_dir = None
     self._start_server()
     _print_url_banner(self._host, self._http_port)
+    if config.open_browser:
+      _open_browser(self._http_port)
 
     # Dispatch lifecycle event so handlers can cache the viewer reference.
-    self.dispatch(viewer_protocol.ViewerInitEvent(viewer=self))
+    try:
+      self.dispatch(viewer_protocol.ViewerInitEvent(viewer=self))
+    except BaseException:
+      self.close()  # The server is already up; nothing else will stop it.
+      raise
 
   # ---------------------------------------------------------------------------
   # Server lifecycle.
@@ -272,7 +300,7 @@ class WebViewer(viewer_protocol.Viewer):
 
   def _stop_server(self) -> None:
     if self._web_server is not None:
-      self._web_server.stop()
+      self._web_server.stop(reason=self.exit_reason)
       self._web_server = None
 
   # ---------------------------------------------------------------------------
@@ -338,7 +366,8 @@ class WebViewer(viewer_protocol.Viewer):
     written to a temporary directory here, preserving names and relative
     paths — a dropped folder's asset references resolve, and the mjz/zip
     decoder can locate an archive's root XML by the archive's own name —
-    and the regular drop-loading flow (ViewerApp -> parser.parse) applies.
+    and the regular drop-loading flow applies (ViewerApp sends a
+    LoadModelEvent; the sim thread parses the file).
     """
     try:
       files = self._drop_queue.get_nowait()

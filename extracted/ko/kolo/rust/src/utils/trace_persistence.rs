@@ -167,13 +167,8 @@ pub(crate) fn save_v3_trace_from_parts<S: FrameSequence>(
     #[cfg(not(target_arch = "wasm32"))]
     let result: PyResult<()> = (|| {
         let capture = TraceCapture::for_trace(db_path, trace_id, timestamp);
-        // Publishing values, appending copied frames, and finalization can
-        // each wait for writer progress or storage and touch no Python
-        // objects, so they run detached and other threads keep running.
-        //
-        // Reconstructed frame ranges may already contain extension-9 value
-        // references. Publish their complete table before any copied frame
-        // chunk so an interrupted artifact remains independently recoverable.
+        // Publish the complete value table before any copied frame chunk,
+        // so an interrupted artifact stays independently recoverable.
         py.detach(|| capture.publish_table(&value_table))
             .map_err(pyo3::exceptions::PyOSError::new_err)?;
         let mut stores = HashMap::with_capacity(frames_by_thread.len());

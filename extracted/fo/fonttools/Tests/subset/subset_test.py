@@ -1351,6 +1351,65 @@ def test_subset_feature_variations_drop_all(featureVarsTestFont):
     assert font["GSUB"].table.Version == 0x00010000
 
 
+@pytest.mark.parametrize("explicit_empty", [False, True])
+@pytest.mark.parametrize("drop_feature", [False, True])
+@pytest.mark.parametrize("lazy", [False, True])
+def test_subset_feature_variations_null_substitution(
+    featureVarsTestFont, explicit_empty, drop_feature, lazy
+):
+    from copy import deepcopy
+
+    font = featureVarsTestFont
+    variations = font["GSUB"].table.FeatureVariations
+    first = deepcopy(variations.FeatureVariationRecord[0])
+    first.ConditionSet.ConditionTable[0].FilterRangeMinValue = 0.5
+    if explicit_empty:
+        first.FeatureTableSubstitution.SubstitutionRecord = []
+        first.FeatureTableSubstitution.SubstitutionCount = 0
+    else:
+        first.FeatureTableSubstitution = None
+    last = deepcopy(first)
+    last.ConditionSet.ConditionTable[0].FilterRangeMinValue = -1
+    last.ConditionSet.ConditionTable[0].FilterRangeMaxValue = 0
+    variations.FeatureVariationRecord.insert(0, first)
+    variations.FeatureVariationRecord.append(last)
+    variations.FeatureVariationCount = 3
+    buf = io.BytesIO()
+    font.save(buf)
+    buf.seek(0)
+    font = TTFont(buf, lazy=lazy)
+
+    options = subset.Options()
+    options.glyph_names = True
+    if drop_feature:
+        options.layout_features.remove("rvrn")
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=[ord("f"), ord("$")])
+    subsetter.subset(font)
+
+    buf = io.BytesIO()
+    font.save(buf)
+    buf.seek(0)
+    gsub = TTFont(buf)["GSUB"].table
+    if drop_feature:
+        assert getattr(gsub, "FeatureVariations", None) is None
+        assert gsub.Version == 0x00010000
+    else:
+        # The first empty record blocks the later substitution; only the last
+        # empty record can be removed without changing first-match behavior.
+        variations = gsub.FeatureVariations
+        assert variations.FeatureVariationCount == 2
+        first, second = variations.FeatureVariationRecord
+        assert first.ConditionSet.ConditionTable[0].FilterRangeMinValue == 0.5
+        if explicit_empty:
+            assert first.FeatureTableSubstitution.SubstitutionCount == 0
+        else:
+            assert first.FeatureTableSubstitution is None
+        substitution = second.FeatureTableSubstitution.SubstitutionRecord[0]
+        lookup = gsub.LookupList.Lookup[substitution.Feature.LookupListIndex[0]]
+        assert lookup.SubTable[0].mapping == {"dollar": "dollar.rvrn"}
+
+
 # TODO test_subset_feature_variations_drop_from_end_empty_records
 # https://github.com/fonttools/fonttools/issues/1881#issuecomment-619415044
 
@@ -1375,6 +1434,39 @@ def singlepos2_font():
     buf.seek(0)
 
     return TTFont(buf)
+
+
+@pytest.mark.parametrize("keep_classes", [False, True])
+def test_subset_null_gdef_varstore(singlepos2_font, keep_classes):
+    font = singlepos2_font
+    gdef = ot.GDEF()
+    gdef.Version = 0x00010003
+    gdef.AttachList = gdef.LigCaretList = None
+    gdef.MarkAttachClassDef = gdef.MarkGlyphSetsDef = None
+    gdef.VarStore = None
+    gdef.GlyphClassDef = ot.ClassDef()
+    gdef.GlyphClassDef.classDefs = {"a" if keep_classes else "b": 1}
+    font["GDEF"] = newTable("GDEF")
+    font["GDEF"].table = gdef
+
+    buf = io.BytesIO()
+    font.save(buf)
+    buf.seek(0)
+    font = TTFont(buf)
+    assert font["GDEF"].table.VarStore is None
+
+    subsetter = subset.Subsetter()
+    subsetter.populate(text="a")
+    subsetter.subset(font)
+    assert ("GDEF" in font) == keep_classes
+    if keep_classes:
+        assert font["GDEF"].table.GlyphClassDef.classDefs == {"a": 1}
+        assert font["GDEF"].table.Version == 0x00010000
+
+    output = io.BytesIO()
+    font.save(output)
+    output.seek(0)
+    assert ("GDEF" in TTFont(output)) == keep_classes
 
 
 def test_subset_single_pos_format(singlepos2_font):

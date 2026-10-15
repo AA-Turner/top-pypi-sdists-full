@@ -7,6 +7,7 @@ share, tag, classify) bound to the manager that produced the object.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pydantic import Field, StrictStr
@@ -46,7 +47,8 @@ class Resource(
 
     Fields: resource_id, file_revision_id, name (str | None),
     extension (str | None), size (int | None, bytes), mime (str | None),
-    resource_type (str: "model" | "artifact" | "file"),
+    resource_type (str: "model" | "artifact" | "file" |
+    "connected_resource" | "connected_container"),
     description (str | None), version_name (str | None),
     display_name (str | None), external_identifier (str | None),
     content_token, archived (bool),
@@ -105,8 +107,25 @@ class Resource(
         / ``read_json()`` on a pointer return that metadata, not the content the user
         asked for; call :meth:`extracted` to reach the real records Istari pulled in.
         """
+        # `connector` is the authoritative "connected" marker: a non-null value means
+        # the content is observed at the source rather than uploaded (i.e. a pointer).
+        # Prefer it over sniffing the extension string.
+        if self.connector is not None:
+            return True
+        # ponytail: legacy fallback for resources predating the `connector` field;
+        # drop once connector is backfilled everywhere.
         ext = (self.extension or "").lower()
         return ext.startswith("istari_") and ext.endswith("metadata")
+
+    @property
+    def is_container(self) -> bool:
+        """True if this resource is a connected container (a folder/project, not a file).
+
+        A container's children are tracked as their own resources; iterate them via
+        :meth:`related` (``direction="outgoing"``) rather than reading the container's
+        own content. Use in place of the v2 ``ResourceTypeDto.CONTAINER`` enum compare.
+        """
+        return self.resource_type == "connected_container"
 
     def extracted(self) -> list[Resource]:
         """The records extracted from this connected pointer into Istari — the real data behind the stub.
@@ -245,6 +264,11 @@ class ResourceRevision(ResourceRevisionDto, ClientHaving, Readable):
     def id(self) -> str:
         """Alias for file_revision_id — use when passing a revision to Branch.commit()."""
         return self.file_revision_id
+
+    @property
+    def stem(self) -> str | None:
+        """The revision's file name without its extension, or None if unnamed."""
+        return Path(self.name).stem if self.name else None
 
 
 class Comment(CommentDto, ClientHaving, Readable, Archivable):

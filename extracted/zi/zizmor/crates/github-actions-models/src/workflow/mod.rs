@@ -11,7 +11,7 @@ use indexmap::IndexMap;
 use serde::Deserialize;
 
 use crate::common::{
-    Env, Permissions,
+    CacheMode, Env, Permissions,
     expr::{BoE, LoE},
 };
 
@@ -25,6 +25,7 @@ pub struct Workflow {
     pub name: Option<String>,
     pub run_name: Option<String>,
     pub on: Trigger,
+    pub cache_mode: Option<CacheMode>,
     #[serde(default)]
     pub permissions: Permissions,
     #[serde(default)]
@@ -57,15 +58,56 @@ pub struct Workflow {
 ///         branches: [main]
 ///       pull_request:
 ///     ```
+///
+/// All three forms expose the same event fields through [`Self::events`].
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "snake_case", untagged)]
-pub enum Trigger {
+#[serde(from = "TriggerWire")]
+pub struct Trigger {
+    /// The normalized events, independent of the original YAML shape.
+    pub events: Box<event::Events>,
+    /// The original YAML shape, for locating events in the source document.
+    pub syntax: TriggerSyntax,
+}
+
+/// The source syntax of a [`Trigger`].
+#[derive(Debug)]
+pub enum TriggerSyntax {
+    /// A single event name at `on`.
+    Scalar,
+    /// Event names in source order, including any repetitions.
+    Sequence(Vec<event::BareEvent>),
+    /// Event names appear as keys of the `on` mapping.
+    Mapping,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum TriggerWire {
     // NOTE: `Events` is before `BareEvent` because serde-yaml appears to capture
     // `pull_request:` (an event with a missing body) as equivalent to `on: pull_request`
     // (a bare event).
     Events(Box<event::Events>),
     BareEvent(event::BareEvent),
     BareEvents(Vec<event::BareEvent>),
+}
+
+impl From<TriggerWire> for Trigger {
+    fn from(value: TriggerWire) -> Self {
+        match value {
+            TriggerWire::Events(events) => Self {
+                events,
+                syntax: TriggerSyntax::Mapping,
+            },
+            TriggerWire::BareEvent(event) => Self {
+                events: Box::new(std::iter::once(&event).collect()),
+                syntax: TriggerSyntax::Scalar,
+            },
+            TriggerWire::BareEvents(events) => Self {
+                events: Box::new(events.iter().collect()),
+                syntax: TriggerSyntax::Sequence(events),
+            },
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -152,9 +194,7 @@ mod tests {
         ";
 
         let trigger: Trigger = yaml_serde::from_str(on).unwrap();
-        let Trigger::Events(events) = trigger else {
-            panic!("wrong trigger type");
-        };
+        let events = &trigger.events;
 
         assert!(matches!(events.issues, OptionalBody::Default));
         assert!(matches!(

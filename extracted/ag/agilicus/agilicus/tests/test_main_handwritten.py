@@ -29,6 +29,7 @@ from agilicus.main import (
     output_environment_entries,
 )
 from agilicus import main as main_module
+from agilicus import admin as admin_module
 
 
 # ---------------------------------------------------------------------------
@@ -1244,6 +1245,132 @@ def test_cli_admin_org_status_help():
     assert "--org-id" in result.output
     assert "--email" in result.output
     assert "--markdown" in result.output
+
+
+# ---------------------------------------------------------------------------
+# admin-org-status resolves the org from the context: its --org-id is a command
+# option, so the group-level --org-id never reaches the command and it used to
+# print nothing at all.
+# ---------------------------------------------------------------------------
+class _Context:
+    """The minimum a status() call needs: ``ctx.obj``."""
+
+    def __init__(self, obj):
+        self.obj = obj
+
+
+def _capture_status(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        admin_module, "_show_status", lambda ctx, org, **kwargs: seen.update(kwargs)
+    )
+    return seen
+
+
+def test_admin_org_status_uses_the_group_org_id(monkeypatch):
+    seen = _capture_status(monkeypatch)
+
+    admin_module.status(_Context({"ORG_ID": "org-1"}), org_id=None, email=None)
+
+    assert seen["org_id"] == "org-1"
+
+
+def test_admin_org_status_falls_back_to_the_context_organisation(monkeypatch):
+    seen = _capture_status(monkeypatch)
+
+    admin_module.status(
+        _Context({"ORG_ID": "", "ORGANISATION": {"id": "org-2"}}),
+        org_id=None,
+        email=None,
+    )
+
+    assert seen["org_id"] == "org-2"
+
+
+def test_admin_org_status_prefers_its_own_org_id(monkeypatch):
+    seen = _capture_status(monkeypatch)
+
+    admin_module.status(_Context({"ORG_ID": "org-1"}), org_id="org-explicit", email=None)
+
+    assert seen["org_id"] == "org-explicit"
+
+
+def test_cli_admin_org_status_with_the_group_org_id(monkeypatch):
+    seen = _capture_status(monkeypatch)
+    monkeypatch.setattr(main_module.orgs, "get", lambda ctx, org_id: {"id": org_id})
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            ["--token", "test-token", "--org-id", "org-1", "admin-org-status"],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    assert seen["org_id"] == "org-1"
+
+
+def test_admin_org_status_without_an_org_prints_nothing(monkeypatch):
+    calls = []
+    monkeypatch.setattr(admin_module, "_show_status", lambda *a, **k: calls.append(k))
+
+    admin_module.status(_Context({}), org_id=None, email=None)
+
+    assert calls == []
+
+
+# ---------------------------------------------------------------------------
+# update-org: an org is assigned to a region or a POP, not both
+# ---------------------------------------------------------------------------
+def test_update_org_rejects_a_region_with_a_point_of_presence():
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            [
+                "--token",
+                "test-token",
+                "update-org",
+                "org-1",
+                "--region-id",
+                "region-1",
+                "--point-of-presence-id",
+                "pop-1",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 2
+    assert "not both" in result.output
+
+
+def test_update_org_accepts_a_point_of_presence_alone(monkeypatch):
+    calls = {}
+    monkeypatch.setattr(
+        main_module.orgs,
+        "update",
+        lambda ctx, org_id, **kwargs: calls.update(kwargs, org_id=org_id),
+    )
+    monkeypatch.setattr(main_module.orgs, "get", lambda ctx, org_id: {"id": org_id})
+    monkeypatch.setattr(main_module, "output_entry", lambda ctx, value: None)
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            [
+                "--token",
+                "test-token",
+                "update-org",
+                "org-1",
+                "--point-of-presence-id",
+                "pop-1",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    assert calls["point_of_presence_id"] == "pop-1"
+    assert not calls.get("region_id")
 
 
 def test_cli_list_stale_authentication_documents_help():

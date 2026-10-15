@@ -40,7 +40,7 @@ class DmChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[DmChannelListItem, ListDmChannelsResponse]:
         """
-        Returns a paginated list of DM channels for the currently authenticated user, sorted by most recently active.
+        Lists the authenticated user's DM channels, most recently active first.
 
         Required permissions:
          - `dms:read`
@@ -75,7 +75,7 @@ class DmChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -104,7 +104,7 @@ class DmChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DmChannel:
         """
-        Create a new DM channel between two or more users, optionally scoped to a specific company. Returns the existing channel if one already exists.
+        Creates a DM channel between two or more users, optionally scoped to an account. Returns the existing channel if one already exists.
 
         Required permissions:
          - `dms:channel:manage`
@@ -136,7 +136,7 @@ class DmChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -179,7 +179,7 @@ class DmChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -192,7 +192,7 @@ class DmChannelsClient:
 
     def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> bool:
         """
-        Permanently delete a DM channel and all of its messages. Only an admin of the channel can perform this action.
+        Permanently deletes a DM channel and all of its messages. Only a channel admin can delete it.
 
         Required permissions (one of):
          - `dms:channel:manage`
@@ -216,7 +216,7 @@ class DmChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -235,7 +235,7 @@ class DmChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DmChannel:
         """
-        Update the settings of an existing DM channel, such as its display name. Only an admin of the channel can perform this action.
+        Updates a DM channel's settings, such as its display name. Only a channel admin can update it.
 
         Required permissions (one of):
          - `dms:channel:manage`
@@ -262,7 +262,7 @@ class DmChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -300,7 +300,7 @@ class AsyncDmChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[DmChannelListItem, ListDmChannelsResponse]:
         """
-        Returns a paginated list of DM channels for the currently authenticated user, sorted by most recently active.
+        Lists the authenticated user's DM channels, most recently active first.
 
         Required permissions:
          - `dms:read`
@@ -337,7 +337,7 @@ class AsyncDmChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -373,7 +373,7 @@ class AsyncDmChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DmChannel:
         """
-        Create a new DM channel between two or more users, optionally scoped to a specific company. Returns the existing channel if one already exists.
+        Creates a DM channel between two or more users, optionally scoped to an account. Returns the existing channel if one already exists.
 
         Required permissions:
          - `dms:channel:manage`
@@ -407,7 +407,7 @@ class AsyncDmChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -458,7 +458,7 @@ class AsyncDmChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -477,7 +477,7 @@ class AsyncDmChannelsClient:
 
     async def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> bool:
         """
-        Permanently delete a DM channel and all of its messages. Only an admin of the channel can perform this action.
+        Permanently deletes a DM channel and all of its messages. Only a channel admin can delete it.
 
         Required permissions (one of):
          - `dms:channel:manage`
@@ -503,7 +503,7 @@ class AsyncDmChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -528,7 +528,7 @@ class AsyncDmChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DmChannel:
         """
-        Update the settings of an existing DM channel, such as its display name. Only an admin of the channel can perform this action.
+        Updates a DM channel's settings, such as its display name. Only a channel admin can update it.
 
         Required permissions (one of):
          - `dms:channel:manage`
@@ -557,7 +557,7 @@ class AsyncDmChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

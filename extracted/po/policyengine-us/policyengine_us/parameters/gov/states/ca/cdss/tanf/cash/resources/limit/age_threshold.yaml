@@ -1,0 +1,11 @@
+description: California CalWORKs provides a higher resource limit to households with at least one person at or over this age.
+
+metadata:
+  unit: year
+  period: year
+  label: California CalWORKs resource limit age threshold
+  reference:
+    - title: Los Angeles Department of Public Social Services E-Policy | Property
+      href: https://my.dpss.lacounty.gov/public/en/home/epolicy/program/calworks/property/property.html
+values:
+  2023-01-01: 60

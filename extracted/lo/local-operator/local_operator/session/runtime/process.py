@@ -2269,6 +2269,29 @@ async def _reconcile_owed_asks(handle: object) -> None:
         logger.warning("ask: boot reconcile failed", exc_info=True)
 
 
+async def _admit_bridge_host(handle: object) -> None:
+    """Best-effort BOUNDARY admission for the bridge runtime (S1, §5.1).
+
+    Called beside the boot drain/reconcile — a materialisation boundary, never a
+    poll: there is no timer, no backoff loop and no process-life retry here, and
+    the admission function itself is single-flight and returns immediately when
+    the feature is off or native authority is missing (no runtime was built
+    then — zero traffic). A failure must not stop a runtime from starting; the
+    next boundary (or an op-edge, which refuses typed and schedules the same
+    read) carries on.
+    """
+    session = getattr(handle, "_session", None)
+    runtime = getattr(session, "bridge_runtime", None)
+    if runtime is None:
+        return
+    try:
+        from local_operator.team_bridge.host import admit_bridge_runtime
+
+        await admit_bridge_runtime(runtime)
+    except Exception:  # noqa: BLE001 — a boot must not fail on an admission read
+        logger.warning("bridge: boot admission failed", exc_info=True)
+
+
 async def _abandon_update_window(handle: object, runtime: object, pair: str, bound: float) -> None:
     """The bound expired: keep the build this runtime loaded, and say so.
 
@@ -3616,12 +3639,12 @@ async def _abandon_move(
     :func:`_drain_for` with it, so the departure is still retried on every tick and
     still happens at the first idle instant — but the LATCH IS NOT TAKEN AGAIN, and
     that matters more than it looks: a second ``begin_drain`` re-runs
-    ``Session.retire_wakes_to_inbox``, which STARTS A FRESH ``_wake_rearms`` list and
-    so discards the one-shot wakes this drain has already swallowed. A reminder that
-    fired before the bound would then never fire at all, which is a silent loss of
-    the operator's work in exchange for a re-announcement nobody needs — the drain
-    is already latched as a commitment (the record still says it is leaving for the
-    build on disk when its turn ends, which is still true).
+    ``Session.retire_wakes_to_inbox``, whose per-session re-arm queue used to be
+    started fresh and so discarded the one-shot wakes this drain had already
+    swallowed. That queue is gone — the reservation now lives in the scheduler's
+    owned view (``WakeScheduler.hold_pending``), which a second retire does not
+    clear — but the latch is still not taken twice: the commitment is already
+    recorded, and re-announcing it helps nobody.
 
     THAT RETRY IS ALSO WHAT MAKES THE DWELL ARM SAFE TO FIRE EARLY, which is the
     half a reader of the dwell bound needs: on the STALENESS arm the work has stopped
@@ -4055,6 +4078,32 @@ async def _drain_for_signal(
     stop.set()
 
 
+def _resume_consumed_ids(directory: Path) -> set[str]:
+    """Inbox/job ids a predecessor already delivered, from the checkpoint record.
+
+    The successor reads this ONCE at boot (before it listens) so a row the
+    predecessor already delivered is not delivered a second time. Unreadable,
+    absent, deferred or non-resumable ⇒ empty: the rows are delivered normally,
+    because unknown is not permission to suppress a delivery.
+    """
+    try:
+        from local_operator.service_handoff import resumable
+        from local_operator.session.transcript import (
+            CHECKPOINT_CUSTOM_TYPE,
+            read_latest_custom,
+        )
+
+        record = read_latest_custom(directory, CHECKPOINT_CUSTOM_TYPE)
+    except Exception:  # noqa: BLE001 — unreadable is not permission to filter
+        return set()
+    if not resumable(record):
+        return set()
+    consumed = record.get("inbox_consumed_ids") if record else None
+    if not isinstance(consumed, list):
+        return set()
+    return {item for item in consumed if isinstance(item, str) and item}
+
+
 async def _drain_inbox_into(handle: object) -> int:
     """Deliver every message spooled while this session was cold. Count sent.
 
@@ -4146,6 +4195,17 @@ async def _drain_inbox_into(handle: object) -> int:
     # deferral writes back ONE row per wake (carrying its fire count), which is
     # also what keeps a later drain's merge from double-counting.
     lines = coalesce_wake_rows(lines)
+    # SUCCESSOR RESUME (ready-successor handoff). A checkpointed move may have
+    # already delivered some spooled rows on the predecessor; the record's
+    # ``inbox_consumed_ids`` is the durable "delivered once" set. Dropping those
+    # rows here is what makes delivery exactly-once across the swap rather than
+    # at-least-once. Unreadable/absent/deferred ⇒ no filtering (the rows are
+    # delivered normally), matching the rule that unknown is not permission to
+    # change behaviour. Read BEFORE the deferral split so the deferral writes
+    # back only what it will not deliver.
+    consumed = _resume_consumed_ids(directory)
+    if consumed:
+        lines = [line for line in lines if (getattr(line, "message_id", "") or "") not in consumed]
     if requires_engagement:
         keep = [line for line in lines if getattr(line, "source", "") != SOURCE_USER]
         lines = [line for line in lines if getattr(line, "source", "") == SOURCE_USER]
@@ -4178,7 +4238,11 @@ async def _drain_inbox_into(handle: object) -> int:
     # Imported HERE, like the server import lower in this module: the server
     # imports this file at module scope, so a top-level import would close a
     # cycle (and the drain is the only caller).
-    from local_operator.session.runtime.server import receives_message_id
+    from local_operator.session.runtime.server import (
+        receives_bridge_meta,
+        receives_custom_type,
+        receives_message_id,
+    )
 
     receive = cast(Callable[..., Awaitable[str]], probed)
     delivered = 0
@@ -4209,6 +4273,39 @@ async def _drain_inbox_into(handle: object) -> int:
                 # keyword" means.
                 if receives_message_id(handle):
                     fields["message_id"] = getattr(line, "message_id", "") or None
+                # The declared PROVENANCE kind rides the same probe discipline:
+                # only a live spool row carries one, only a handle whose literal
+                # signature takes it receives it, and the serving boundary
+                # re-validates before anything stamps it. Rows an older build
+                # wrote have no key and read as "" — never forwarded.
+                if receives_custom_type(handle):
+                    fields["custom_type"] = getattr(line, "custom_type", "") or None
+                # The internal bridge LOCATOR (H5 F3) rides the same probe
+                # discipline: only a live spool row carries one, only a
+                # handle whose literal signature takes it receives it, and
+                # the drain (TB-09) AND the serving boundary validate before
+                # anything forwards it. Rows an older build wrote have no key
+                # and read as {} — never forwarded, never treated as
+                # authority.
+                if receives_bridge_meta(handle):
+                    candidate = getattr(line, "bridge_meta", {}) or None
+                    if candidate is not None:
+                        # TB-09: the drain hop validates the locator ITSELF — a
+                        # malformed block is dropped here (the row still
+                        # delivers as a plain peer message) so no downstream
+                        # hop can be asked to trust it.
+                        from local_operator.harness.message_types import (
+                            validate_bridge_meta,
+                        )
+
+                        try:
+                            candidate = validate_bridge_meta(candidate)
+                        except ValueError:
+                            logger.warning(
+                                "spool drain: invalid bridge_meta dropped", exc_info=True
+                            )
+                            candidate = None
+                    fields["bridge_meta"] = candidate
                 await receive(line.text, **fields)
             else:
                 raise RuntimeError("this handle cannot receive a spooled peer message")
@@ -4947,6 +5044,7 @@ async def amain(operator_cap: bytes | None = None) -> int:
     # one written just now.
     await _drain_inbox_into(handle)
     await _reconcile_owed_asks(handle)
+    await _admit_bridge_host(handle)
 
     # THE HANDOVER MARKER, consumed here for the same reason the drain is: this is
     # the successor's first act with a materialised session, and the fact it

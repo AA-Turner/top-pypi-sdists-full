@@ -243,8 +243,8 @@ ENGINE_SUPPORTS_BASIS_SET: frozenset[Engine] = frozenset(
 )
 
 
-# Solvent models supported per engine. Engines not listed do not support solvent models.
-ENGINE_SOLVENT_MODELS: dict[Engine, frozenset[SolventModel]] = {
+# Engine-specific solvent models.
+_ENGINE_SOLVENT_MODELS: dict[Engine, frozenset[SolventModel]] = {
     Engine.AIMNET2: frozenset({SolventModel.ALPB, SolventModel.CPCMX}),
     Engine.EGRET: frozenset({SolventModel.ALPB, SolventModel.CPCMX}),
     Engine.GPU4PYSCF: frozenset({SolventModel.COSMORS, SolventModel.CPCM, SolventModel.PCM}),
@@ -253,7 +253,12 @@ ENGINE_SOLVENT_MODELS: dict[Engine, frozenset[SolventModel]] = {
     Engine.ORB: frozenset({SolventModel.ALPB, SolventModel.CPCMX}),
     Engine.PSI4: frozenset({SolventModel.COSMO, SolventModel.CPCM, SolventModel.PCM}),
     Engine.PYSCF: frozenset({SolventModel.COSMO, SolventModel.COSMORS, SolventModel.CPCM, SolventModel.PCM}),
+    Engine.TBLITE: frozenset({SolventModel.ALPB, SolventModel.GBSA, SolventModel.CPCM}),
     Engine.XTB: frozenset({SolventModel.ALPB, SolventModel.GBSA, SolventModel.CPCMX}),
+}
+
+ENGINE_SOLVENT_MODELS: dict[Engine, frozenset[SolventModel]] = {
+    engine: _ENGINE_SOLVENT_MODELS.get(engine, frozenset()) | {SolventModel.ANYSOLV} for engine in Engine
 }
 
 

@@ -444,7 +444,7 @@ def test_a_hostile_peer_card_is_clamped_to_legal_ranges():
                                  "energy": 10 ** 9, "energy_max": 10 ** 9,
                                  "battles": -5, "wins": 10 ** 9,
                                  "hit_type": "nuclear", "hp": 999999})
-    assert c["hp"] == 5, "everyone fights from 5 in the HP race"
+    assert c["hp"] <= 6, "trained HP adds at most +1 to the 5-HP race (battle call #21 = B)"
     assert c["strength"] <= c["strength_max"] <= 9
     assert c["energy"] <= c["energy_max"] <= 2000
     assert c["battles"] == 0 and c["wins"] == 0
@@ -553,7 +553,8 @@ def test_abort_mid_fight_is_a_forfeit_win_not_a_void():
     pan._on_relay({"from_id": 2, "payload": {"kind": "battle", "abort": True}})
     assert pan.client.reports == [(True, "Ryo")], "the winning half files"
     # L17 ruling: the purse pays and the ladder credits; wins stay still
-    assert pan.pet.wins == wins0 and pan.pet.bits > bits0
+    # the win files, but a forfeit pays no purse (shop/loot audit 2026-10-14)
+    assert pan.pet.wins == wins0 and pan.pet.bits == bits0
     assert pan.bphase == "over" and "you win" in pan.bt_outcome.lower()
     _fits(pan, "forfeit-win over screen")
 

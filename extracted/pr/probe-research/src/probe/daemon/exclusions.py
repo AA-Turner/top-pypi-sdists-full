@@ -1,5 +1,7 @@
 """`.probe.config` for the Probe daemon: an event about a path at `off` never
-enters the session store; one about a path at `read` enters it tagged.
+enters the session store; one about a path at `read` enters it tagged. A path
+at `hash` is `off` here (`probe_config.daemon_view`): the SDK may record its
+identity, the daemon never sees it.
 
 Every transcript line the worker reads goes through `Worker._parse` and then
 the store, and everything the daemon does -- its bites, its reader, its tools
@@ -144,6 +146,8 @@ class Filter:
                     hit = pc.check_cwd(path, cwd=where or start, **kw)
                 else:
                     hit = pc.check(path, cwd=where or start, **kw)
+                # `hash` is `off` to the daemon: it never sees the path (C9).
+                hit = pc.daemon_view(hit)
             except Exception:  # noqa: BLE001
                 hit = pc.NOT_EXCLUDED
             if len(self._cache) > 20_000:
@@ -158,7 +162,7 @@ class Filter:
     def checker(self, where: str | None) -> pc.Checker:
         """One batch of checks (an output's lines, a glob's matches)."""
         start, skip = self._view()
-        return pc.Checker(cwd=where or start, skip=skip, legacy=True, ttl=VIEW_TTL_S)
+        return pc.Checker(cwd=where or start, skip=skip, legacy=True, ttl=VIEW_TTL_S, daemon=True)
 
     def path_excluded(self, path: str) -> bool:
         """For the folder check: is this file kept out of the record (`read` or

@@ -32,8 +32,10 @@
 //! to a loopback listener it starts itself, and nothing here reads the environment.
 
 mod api;
+mod credential;
 mod decisions;
 mod download;
+mod dpop;
 mod http;
 mod hub;
 mod ledger;
@@ -47,13 +49,14 @@ pub(crate) mod sources;
 #[cfg(test)]
 mod tests;
 
-pub use api::{api_get, fetch_prefix, probe_length, Prefix};
-pub use download::{fetch_ranged, Ranged, CHUNK_BYTES, PART_BYTES};
-pub use http::{trust_roots, Client};
-pub use hub::{
-    closure, closure_all, credential_from_spec, hub_call, presign, Anonymous, Closure,
-    CredentialProvider, HostToken, Presigned, ScopedHeaders,
+pub use api::{api_get, fetch_prefix, form_post, probe_length, Prefix};
+pub use credential::{
+    credential_from_spec, Anonymous, Answer, Ask, Both, CredentialProvider, ScopedHeaders,
 };
+pub use download::{fetch_ranged, Ranged, CHUNK_BYTES, PART_BYTES};
+pub use dpop::{AccessToken, DpopCredential, DpopKey};
+pub use http::{trust_roots, Client};
+pub use hub::{closure, closure_all, presign, Closure, Presigned};
 pub use ledger::{
     Deadline, Ledger, PullCancellation, FETCH_ATTEMPTS, PULL_STREAMS, SAMPLE_SECONDS, STALL_FACTOR,
     STILL_SAMPLES, STREAMS,
@@ -61,7 +64,7 @@ pub use ledger::{
 pub use memory::{memory_available, streams_within, transfer_streams, STREAM_MEMORY};
 pub use policy::{base_host, blocked, is_loopback_origin, resolve, CheckedUrl, SourcePolicy};
 pub use pull::{
-    fetch_wanted, pull, resolve_closure, FetchObserver, Fetched, ObjectSource, ObjectUrls,
+    fetch_wanted, narrow, pull, resolve_closure, FetchObserver, Fetched, ObjectSource, ObjectUrls,
     PullReport, PullRequest, WalkOutcome, RETRYABLE_STATUS,
 };
 pub use publish::{publish, Publication, Published};

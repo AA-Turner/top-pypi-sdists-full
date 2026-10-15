@@ -1,0 +1,21 @@
+from policyengine_us.model_api import *
+
+
+class mn_income_tax_before_refundable_credits(Variable):
+    value_type = float
+    entity = TaxUnit
+    label = "Minnesota income tax before refundable credits"
+    unit = USD
+    definition_period = YEAR
+    reference = (
+        "https://www.revenue.state.mn.us/sites/default/files/2023-12/m1_21_0.pdf",
+        "https://www.revenue.state.mn.us/sites/default/files/2023-12/m1_inst_21.pdf",
+        "https://www.revenue.state.mn.us/sites/default/files/2023-12/m1_22.pdf",
+        "https://www.revenue.state.mn.us/sites/default/files/2024-02/m1-inst-22.pdf",
+    )
+    defined_for = StateCode.MN
+
+    def formula(tax_unit, period, parameters):
+        itax_before_credits = tax_unit("mn_income_tax_before_credits", period)
+        nonrefundable_credits = tax_unit("mn_non_refundable_credits", period)
+        return max_(0, itax_before_credits - nonrefundable_credits)

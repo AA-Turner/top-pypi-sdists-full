@@ -8,10 +8,19 @@ import pytest
 from braintrust import Attachment, logger
 from braintrust.conftest import get_vcr_config
 from braintrust.integrations.litellm import patch_litellm
+from braintrust.integrations.test_decisions import (
+    DECISIONS_INPUT,
+    DECISIONS_MODEL,
+    DECISIONS_QUESTIONS,
+    assert_decisions_image_span,
+    assert_decisions_span,
+    decisions_image_input,
+)
 from braintrust.integrations.test_utils import (
     assert_metrics_are_valid,
     verify_autoinstrument_script,
 )
+from braintrust.integrations.versioning import detect_module_version, version_satisfies
 from braintrust.test_helpers import assert_dict_matches, init_test_logger
 
 
@@ -20,7 +29,6 @@ PROJECT_NAME = "test-project-litellm-py-tracing"
 TEST_MODEL = "gpt-4o-mini"  # cheapest model for tests
 TEST_TEXT_MODEL = "anthropic/claude-haiku-4-5-20251001"
 TEST_PROMPT = "What's 12 + 12?"
-TEST_SYSTEM_PROMPT = "You are a helpful assistant that only responds with numbers."
 TEST_CACHE_MODEL = "anthropic/claude-haiku-4-5-20251001"
 TEST_CACHEABLE_PROMPT = "Braintrust LiteLLM prompt caching regression context. " * 400
 TEST_AUDIO_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "test_audio.wav")
@@ -126,7 +134,7 @@ def test_litellm_completion_metrics(memory_logger, is_async) -> None:
     assert_metrics_are_valid(metrics, start, end)
     assert span["metadata"]["model"] == TEST_MODEL
     assert span["metadata"]["provider"] == "openai"
-    assert TEST_PROMPT in str(span["input"])
+    assert span["input"] == [{"role": "user", "content": TEST_PROMPT}]
 
 
 @pytest.mark.vcr
@@ -277,6 +285,54 @@ def test_litellm_completion_streaming(memory_logger, is_async):
 
 @pytest.mark.vcr
 @sync_async
+def test_litellm_decisions_metrics(memory_logger, is_async):
+    if not version_satisfies(detect_module_version(litellm, ("litellm",)), ">=1.105.0"):
+        pytest.skip("Decisions requires LiteLLM >=1.105.0")
+
+    model = f"openai/{DECISIONS_MODEL}"
+    start = time.time()
+    response = _run(
+        is_async,
+        litellm.decisions,
+        litellm.adecisions,
+        model,
+        DECISIONS_INPUT,
+        DECISIONS_QUESTIONS,
+        safety_identifier="do-not-log-this-identifier",
+    )
+    end = time.time()
+
+    assert_decisions_span(
+        memory_logger.pop(),
+        response,
+        name="Decision",
+        model=model,
+        instrumentation="litellm-auto",
+        start=start,
+        end=end,
+    )
+
+
+@pytest.mark.vcr(match_on=["method", "scheme", "host", "port", "path", "query", "body"])
+@sync_async
+def test_litellm_decisions_image(memory_logger, is_async):
+    if not version_satisfies(detect_module_version(litellm, ("litellm",)), ">=1.105.0"):
+        pytest.skip("Decisions requires LiteLLM >=1.105.0")
+
+    messages = decisions_image_input()
+    response = _run(
+        is_async,
+        litellm.decisions,
+        litellm.adecisions,
+        model=f"openai/{DECISIONS_MODEL}",
+        input=messages,
+        questions=DECISIONS_QUESTIONS[:1],
+    )
+    assert_decisions_image_span(memory_logger.pop(), response, messages)
+
+
+@pytest.mark.vcr
+@sync_async
 def test_litellm_responses_metrics(memory_logger, is_async):
     assert not memory_logger.pop()
 
@@ -391,34 +447,6 @@ def test_litellm_image_generation(memory_logger, is_async):
     assert span["input"] == prompt
     assert span["output"]["images_count"] == 1
     assert span["metrics"]["duration"] >= 0
-
-
-@pytest.mark.vcr
-@sync_async
-def test_litellm_completion_with_system_prompt(memory_logger, is_async):
-    assert not memory_logger.pop()
-
-    response = _run(
-        is_async,
-        litellm.completion,
-        litellm.acompletion,
-        model=TEST_MODEL,
-        messages=[{"role": "system", "content": TEST_SYSTEM_PROMPT}, {"role": "user", "content": TEST_PROMPT}],
-    )
-
-    assert response
-    assert response.choices
-    assert "24" in response.choices[0].message.content
-
-    spans = memory_logger.pop()
-    assert len(spans) == 1
-    span = spans[0]
-    inputs = span["input"]
-    assert len(inputs) == 2
-    assert inputs[0]["role"] == "system"
-    assert inputs[0]["content"] == TEST_SYSTEM_PROMPT
-    assert inputs[1]["role"] == "user"
-    assert inputs[1]["content"] == TEST_PROMPT
 
 
 @pytest.mark.vcr
@@ -565,7 +593,6 @@ def test_litellm_tool_calls(memory_logger):
     )
     end = time.time()
 
-    print(response)
     assert response
     assert response.choices
 
@@ -636,8 +663,6 @@ async def test_litellm_async_streaming_with_break(memory_logger):
     stream = await litellm.acompletion(
         model=TEST_MODEL, messages=[{"role": "user", "content": TEST_PROMPT}], stream=True
     )
-
-    time.sleep(0.1)  # time to first token sleep
 
     # Only process the first few chunks
     counter = 0

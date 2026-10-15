@@ -12,10 +12,23 @@ use crate::{
 };
 
 const BASH_COMMAND_QUERY: &str = "(command name: (_) @cmd argument: (_)+ @args) @span";
-const PWSH_COMMAND_QUERY: &str = "(command \
-    command_name: (_) @cmd \
-    command_elements: (command_elements (_)+ @args) \
-) @span";
+// Include non-argument children in the repetition so they don't split the captures.
+const PWSH_COMMAND_QUERY: &str = r#"
+(command
+  name: [
+    (command_name) @cmd
+    (invocation_operator_command command: (command_argument) @cmd)
+  ]
+  [
+    (command_argument) @args
+    (command_parameter) @args
+    (redirection)
+    (comment)
+    (line_continuation)
+    (verbatim_arguments)
+  ]+
+) @span
+"#;
 
 pub(crate) struct AdhocPackages {
     bash_command_query: utils::SpannedQuery,
@@ -35,8 +48,34 @@ impl AdhocPackages {
         cursor: &'a mut tree_sitter::QueryCursor,
         tree: &'a tree_sitter::Tree,
         source: &'a str,
-    ) -> tree_sitter::QueryMatches<'a, 'a, &'a [u8], &'a [u8]> {
+    ) -> tree_sitter::QueryMatches<'a, 'a, 'static, &'a [u8], &'a [u8]> {
         cursor.matches(query, tree.root_node(), source.as_bytes())
+    }
+
+    /// Whether a supported package-manager option consumes a separate value.
+    /// Unknown options are assumed to take no value.
+    fn option_takes_value(cmd: &str, option: &str) -> bool {
+        match cmd {
+            "pnpm" => matches!(option, "-C" | "--dir" | "-F" | "--filter" | "--filter-prod"),
+            "yarn" => matches!(option, "--cwd" | "--mutex" | "--cache-folder"),
+            _ => false,
+        }
+    }
+
+    /// Find the next subcommand after leading options and their known values.
+    fn next_subcommand<'a>(cmd: &str, args: &mut impl Iterator<Item = &'a str>) -> Option<&'a str> {
+        while let Some(arg) = args.next() {
+            if arg == "--" {
+                return args.next();
+            }
+            if !arg.starts_with('-') {
+                return Some(arg);
+            }
+            if !arg.contains('=') && Self::option_takes_value(cmd, arg) {
+                args.next()?;
+            }
+        }
+        None
     }
 
     /// Determine whether the given command and arguments correspond to an
@@ -73,15 +112,22 @@ impl AdhocPackages {
                     _ => false,
                 }
             }
-            "yarn" => {
-                // Require at least one non-flag argument after `add` so we
-                // don't flag malformed invocations like `yarn add`.
-                args.any(|arg| arg == "add") && args.any(|arg| !arg.starts_with('-'))
-            }
-            "pnpm" => {
-                // Require at least one non-flag argument after `add` so we
-                // don't flag malformed invocations like `pnpm add`.
-                args.any(|arg| arg == "add") && args.any(|arg| !arg.starts_with('-'))
+            "yarn" | "pnpm" => {
+                let subcommand = match (cmd, Self::next_subcommand(cmd, &mut args)) {
+                    // `yarn workspace <name> add <pkg>` installs into a workspace.
+                    ("yarn", Some("workspace")) => {
+                        args.next();
+                        Self::next_subcommand(cmd, &mut args)
+                    }
+                    // These prefixes also dispatch to the package manager's own commands.
+                    ("yarn", Some("global")) | ("pnpm", Some("recursive" | "multi" | "m")) => {
+                        Self::next_subcommand(cmd, &mut args)
+                    }
+                    (_, subcommand) => subcommand,
+                };
+
+                // A package name must follow, so a bare `pnpm add` isn't flagged.
+                matches!(subcommand, Some("add")) && args.any(|arg| !arg.starts_with('-'))
             }
             _ => false,
         }
@@ -130,7 +176,7 @@ impl AdhocPackages {
         matches.for_each(|mat| {
             let cmd = {
                 let cap = mat
-                    .captures
+                    .captures()
                     .iter()
                     .find(|cap| cap.index == cmd_idx)
                     .expect("internal error: expected capture for cmd");
@@ -140,15 +186,9 @@ impl AdhocPackages {
             };
 
             let args = mat
-                .captures
+                .captures()
                 .iter()
                 .filter(|cap| cap.index == args_idx)
-                // The powershell grammar interleaves `command_argument_sep`
-                // whitespace nodes between real arguments inside
-                // `command_elements`. They have no analogue in bash, so
-                // filtering here is a no-op for bash but lets the single
-                // query work for pwsh too.
-                .filter(|cap| cap.node.kind() != "command_argument_sep")
                 .map(|cap| {
                     cap.node
                         .utf8_text(run.as_bytes())
@@ -157,7 +197,7 @@ impl AdhocPackages {
 
             if Self::is_adhoc_install_command(cmd, args) {
                 let span = mat
-                    .captures
+                    .captures()
                     .iter()
                     .find(|cap| cap.index == query.span_idx)
                     .expect("internal error: expected capture for span");
@@ -247,6 +287,41 @@ impl Audit for AdhocPackages {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pwsh_install_candidates() {
+        let sut = AdhocPackages::new(&AuditState::default()).unwrap();
+
+        for (case, expected) in [
+            // Invocation operators wrap the command name in a different node.
+            (". npm install lodash", true),
+            // Parameters and their values must remain in source order.
+            ("pnpm --filter core add lodash", true),
+            ("pnpm --filter add lint lodash", false),
+            // Intervening nodes must not hide the package argument.
+            ("npm install `\n  --no-fund `\n  lodash", true),
+            ("npm install <# package #> lodash", true),
+            ("npm install > install.log lodash", true),
+            // Redirections aren't package arguments; verbatim text stays in the span.
+            ("npm install > lodash", false),
+            ("npm install lodash --% > install.log", true),
+            // A quoted argument must not be split into a subcommand and package.
+            ("npm 'install lodash'", false),
+        ] {
+            // Check command boundaries and byte offsets as well as classification.
+            let run = format!("Write-Host '🦀'\n{case}\nWrite-Host done");
+            let candidates = sut.adhoc_install_candidates(&run, "pwsh").unwrap();
+            if expected {
+                assert_eq!(candidates.len(), 1, "{case}");
+                let span = candidates[0].locate_within(&run).unwrap();
+                assert_eq!(&run[span.as_range()], case, "{case}");
+            } else {
+                assert!(candidates.is_empty(), "{case}");
+            }
+        }
+    }
+
     #[test]
     fn test_is_adhoc_install_command() {
         for (args, expected) in &[
@@ -315,6 +390,102 @@ mod tests {
             // "pnpm install" is fine.
             (&["pnpm", "install"][..], false),
             (&["pnpm", "install", "--frozen-lockfile"][..], false),
+            // A dispatched tool's own `add` subcommand is not an install.
+            (&["pnpm", "exec", "changeset", "add", "lodash"][..], false),
+            (&["pnpm", "dlx", "changeset", "add", "lodash"][..], false),
+            (&["pnpm", "run", "build", "add", "lodash"][..], false),
+            (&["yarn", "exec", "changeset", "add", "lodash"][..], false),
+            (&["yarn", "run", "lint", "add", "lodash"][..], false),
+            // `pnpm <script>` is shorthand for `pnpm run <script>`.
+            (&["pnpm", "test", "add", "lodash"][..], false),
+            (&["pnpm", "lint", "add", "lodash"][..], false),
+            // Flags before the subcommand, including ones taking a value.
+            (&["pnpm", "-r", "add", "lodash"][..], true),
+            (&["pnpm", "-r", "lint", "add", "lodash"][..], false),
+            (&["pnpm", "-C", "./sub", "add", "lodash"][..], true),
+            (&["pnpm", "--dir", "./sub", "add", "lodash"][..], true),
+            (&["pnpm", "-F", "core", "add", "lodash"][..], true),
+            (
+                &["pnpm", "--filter-prod", "core", "add", "lodash"][..],
+                true,
+            ),
+            (&["yarn", "--cwd", "./sub", "add", "lodash"][..], true),
+            (&["yarn", "--mutex", "file", "add", "lodash"][..], true),
+            (
+                &["yarn", "--cache-folder", "./cache", "add", "lodash"][..],
+                true,
+            ),
+            (
+                &["pnpm", "--filter", "./pkgs/core/", "add", "lodash"][..],
+                true,
+            ),
+            (
+                &["pnpm", "--filter=./pkgs/core/", "add", "lodash"][..],
+                true,
+            ),
+            // A `--flag=value` takes no separate value, so `lint` is the subcommand.
+            (
+                &["pnpm", "--filter=./pkgs/core/", "lint", "add", "lodash"][..],
+                false,
+            ),
+            // `add` can itself be an option value.
+            (&["pnpm", "--filter", "add", "test"][..], false),
+            (&["pnpm", "--filter", "add", "add", "lodash"][..], true),
+            (&["yarn", "--cwd", "add", "run", "lint"][..], false),
+            // A required value or package name may be missing.
+            (&["pnpm", "--filter"][..], false),
+            (&["pnpm", "--filter", "core", "add"][..], false),
+            // Unknown options are assumed to take no value.
+            (&["pnpm", "--unknown", "add", "lodash"][..], true),
+            (&["pnpm", "--unknown", "lint", "add", "lodash"][..], false),
+            // `--` ends option scanning, including for known options.
+            (&["pnpm", "--", "--filter", "add", "lodash"][..], false),
+            // `yarn workspace <name> add` is still an install.
+            (
+                &["yarn", "workspace", "@acme/core", "add", "lodash"][..],
+                true,
+            ),
+            (
+                &["yarn", "workspace", "@acme/core", "build", "add", "lodash"][..],
+                false,
+            ),
+            // Boolean options must not consume the workspace subcommand.
+            (
+                &["yarn", "--silent", "workspace", "core", "add", "lodash"][..],
+                true,
+            ),
+            (
+                &[
+                    "yarn",
+                    "--non-interactive",
+                    "workspace",
+                    "core",
+                    "add",
+                    "lodash",
+                ][..],
+                true,
+            ),
+            // Other package-manager prefixes can also dispatch to `add`.
+            (&["yarn", "global", "add", "typescript"][..], true),
+            (&["yarn", "global", "add"][..], false),
+            (&["yarn", "global", "list", "add", "lodash"][..], false),
+            (&["pnpm", "recursive", "add", "lodash"][..], true),
+            (&["pnpm", "multi", "add", "lodash"][..], true),
+            (&["pnpm", "m", "add", "lodash"][..], true),
+            (&["pnpm", "recursive", "add"][..], false),
+            (
+                &["pnpm", "recursive", "--filter", "core", "add", "lodash"][..],
+                true,
+            ),
+            (
+                &["pnpm", "recursive", "exec", "changeset", "add", "lodash"][..],
+                false,
+            ),
+            // Ensure we don't mix up different managers. For example,
+            // `yarn workspace` exists but `pnpm workspace` does not.
+            (&["pnpm", "workspace", "core", "add", "lodash"][..], false),
+            (&["pnpm", "global", "add", "lodash"][..], false),
+            (&["yarn", "recursive", "add", "lodash"][..], false),
             // In the future we should consider catching wrapped commands, those using `sudo` and so on.
             // (&["sudo", "gem", "install", "rails"][..], true),
             // (&["bundle", "exec", "gem", "install", "rails"][..], true),

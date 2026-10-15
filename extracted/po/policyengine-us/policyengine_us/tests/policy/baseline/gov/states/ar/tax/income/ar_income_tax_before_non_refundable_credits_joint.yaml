@@ -1,0 +1,223 @@
+- name: AR income tax rates - taxable income not exceeding $5100
+  period: 2022
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 5_100
+    ar_low_income_tax_joint: 500
+    state_code: AR
+  output:
+    #round(5_100 * 0.00)
+    ar_income_tax_before_non_refundable_credits_joint: 0
+
+- name: AR income tax rates - taxable income from $5,101 to $10,300
+  period: 2022
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 10_000
+    ar_low_income_tax_joint: 500
+    state_code: AR
+  output:
+    # (10_000-5_101) * 0.02
+    ar_income_tax_before_non_refundable_credits_joint: 98
+
+- name: AR income tax rates - taxable income from $10,301 to $14,700
+  period: 2022
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 11_000
+    ar_low_income_tax_joint: 500
+    state_code: AR
+  output:
+    # 2022 Regular Income Tax Table (p.31), row $11,000-$11,100: $127 < 500.
+    # Midpoint of $11,000-$11,099 = 11,049.50; 11,049.50 x 3% - 204.97 = 126.52 -> 127
+    ar_income_tax_before_non_refundable_credits_joint: 127
+
+- name: AR income tax rates - taxable income from $14,701 to $24,300
+  period: 2022
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 20_000
+    ar_low_income_tax_joint: 500
+    state_code: AR
+  output:
+    # 2022 Regular Income Tax Table (p.32), row $20,000-$20,100: $418 < 500.
+    # Midpoint 20,049.50 x 3.4% - 263.77 = 417.91 -> 418
+    ar_income_tax_before_non_refundable_credits_joint: 418
+
+- name: AR income tax rates - taxable income for income over $24,301
+  period: 2022
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 25_000
+    ar_low_income_tax_joint: 1_000
+    state_code: AR
+  output:
+    # 2022 Regular Income Tax Table (p.32), row $25,000-$25,100: $599 < 1,000.
+    # Midpoint 25,049.50 x 4.9% - 628.25 = 599.18 -> 599
+    ar_income_tax_before_non_refundable_credits_joint: 599
+
+- name: AR income tax rates - taxable income for income over $25,000
+  period: 2023
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 25_300
+    ar_low_income_tax_joint: 1_000
+    state_code: AR
+  output:
+    # 2023 Regular Income Tax Table (p.32), row $25,300-$25,400: $594 < 1,000.
+    # Midpoint 25,349.50 x 4.7% - 597.35 = 594.08 -> 594
+    ar_income_tax_before_non_refundable_credits_joint: 594
+
+- name: AR income tax rates - taxable income from $15,100 to $25,000 
+  period: 2023
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 20_000
+    ar_low_income_tax_joint: 1_000
+    state_code: AR
+  output:
+    # 2023 Regular Income Tax Table (p.31), row $20,000-$20,100: $409 < 1,000.
+    # Midpoint 20,049.50 x 3.4% - 272.37 = 409.31 -> 409
+    ar_income_tax_before_non_refundable_credits_joint: 409
+
+- name: AR income tax rates - taxable income from $25,000 to $89,600 
+  period: 2023
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 30_000
+    ar_low_income_tax_joint: 1_000
+    state_code: AR
+  output:
+    # 2023 Regular Income Tax Table (p.32), row $30,000-$30,100: $815 < 1,000.
+    # Midpoint 30,049.50 x 4.7% - 597.35 = 814.98 -> 815
+    ar_income_tax_before_non_refundable_credits_joint: 815
+
+- name: AR income tax rates - taxable income over $100,000
+  period: 2023
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 100_000
+    ar_low_income_tax_joint: 1_000
+    state_code: AR
+  output:
+    # 100_000 * 0.047 - 153.7 = 4546.3 > 1_000
+    ar_income_tax_before_non_refundable_credits_joint: 1_000
+
+- name: Case 10, 2025 joint taxable income in 3.4% bracket, low income cap applies.
+  period: 2025
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 20_000
+    ar_low_income_tax_joint: 300
+    state_code: AR
+  output:
+    # Regular: 20_000 * 0.034 - 287.97 = 392.03
+    # Low income cap: 300
+    # min(392.03, 300) = 300
+    ar_income_tax_before_non_refundable_credits_joint: 300
+
+- name: Case 11, 2025 joint taxable income in 3.9% bracket, no low income cap.
+  period: 2025
+  absolute_error_margin: 1
+  input:
+    ar_taxable_income_joint: 50_000
+    ar_low_income_tax_joint: 5_000
+    state_code: AR
+  output:
+    # Regular: 2025 Regular Income Tax Table (p.32), row $50,000-$50,100: $1,532
+    # (midpoint 50,049.50 x 3.9% - 419.96 = 1,531.97 -> 1,532)
+    # Low income cap: 5_000
+    # min(1_532, 5_000) = 1_532
+    ar_income_tax_before_non_refundable_credits_joint: 1_532
+
+- name: AR 2021 MFJ with two dependents just above the low-income table cutoff uses the regular table (pe-us 9024)
+  period: 2021
+  absolute_error_margin: 1
+  input:
+    people:
+      head:
+        age: 40
+        employment_income: 35_050
+      spouse:
+        age: 40
+      child1:
+        age: 10
+      child2:
+        age: 8
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child1, child2]
+    households:
+      household:
+        members: [head, spouse, child1, child2]
+        state_code: AR
+  output:
+    # 2021 MFJ 2+ dependents low-income table ends at $32,200
+    # ("Above $32,200 use Standard or Itemized Deductions and Regular
+    # Income Tax Table"); regular table: 0.05 x 30,650 - 439.96 = 1,092.54.
+    # Before the fix a leaked 2024 row returned $765.
+    ar_income_tax_before_non_refundable_credits_joint: [1_092.54, 0, 0, 0]
+
+- name: AR 2021 MFJ with two dependents inside the low-income table keeps its table amount (monotonicity companion, pe-us 9024)
+  period: 2021
+  absolute_error_margin: 1
+  input:
+    people:
+      head:
+        age: 40
+        employment_income: 31_950
+      spouse:
+        age: 40
+      child1:
+        age: 10
+      child2:
+        age: 8
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child1, child2]
+    households:
+      household:
+        members: [head, spouse, child1, child2]
+        state_code: AR
+  output:
+    # 2021 published row $31,901-$32,000 -> $921 (TaxTables_2021.pdf)
+    ar_income_tax_before_non_refundable_credits_joint: [921, 0, 0, 0]
+
+- name: AR 2024 MFJ with two dependents at the published last table row still gets 765 (pe-us 9024)
+  period: 2024
+  absolute_error_margin: 1
+  input:
+    people:
+      head:
+        age: 40
+        employment_income: 35_050
+      spouse:
+        age: 40
+      child1:
+        age: 10
+      child2:
+        age: 8
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child1, child2]
+    households:
+      household:
+        members: [head, spouse, child1, child2]
+        state_code: AR
+  output:
+    # 2024 published last row $35,001-$35,100 -> $765
+    ar_income_tax_before_non_refundable_credits_joint: [765, 0, 0, 0]
+
+- name: AR 2027 indexed Act 1 of 2026 tables - joint return above the low-income tables
+  period: 2027
+  absolute_error_margin: 0.01
+  input:
+    ar_taxable_income_joint: 50_000
+    ar_low_income_tax_joint: 5_000
+    state_code: AR
+  output:
+    # Indexed 2027 rows start at 5,800 / 11,500 / 16,500 / 27,200 (nearest $100).
+    # Table row $50,000-$50,099, midpoint 50,049.50:
+    # 5,700 x 2% + 5,000 x 3% + 10,700 x 3.4% + (50,049.50 - 27,200) x 3.7%
+    # = 627.80 + 845.43 = 1,473.23 -> 1,473
+    ar_income_tax_before_non_refundable_credits_joint: 1_473

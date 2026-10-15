@@ -200,6 +200,11 @@ def test_every_cli_command_has_an_owner():
     (["project", "set", "p", "--summary", "x"], False),
     (["experiment", "create", "e", "--project", "p", "--question", "q", "--summary", "x"], False),
     (["experiment", "set", "e", "--question", "Does the SVM beat logreg?"], True),
+    (["experiment", "set", "e", "--conclusion", "x"], True),
+    (["experiment", "set", "e", "--conclusion", "x", "--authored-by", "human"], False),
+    # An unknown flag first must not hide the claim from the resilient parser.
+    (["experiment", "set", "e", "--conclusion", "x", "--directed", "--authored-by=human"], False),
+    (["run", "set", "r1", "--name", "x", "--directed", "--authored-by", "human"], False),
     # A description written here locks the server's description lane out (L15).
     (["project", "set", "p", "--description", "digits classifiers"], False),
     (["project", "create", "p", "--kind", "general", "--description", "x"], False),

@@ -1,0 +1,422 @@
+# Unit tests for nj_staynj variable.
+# Formula: Stay NJ = max(min(property_taxes * 50%, max_benefit) - ANCHOR
+#                        - capped Senior Freeze, 0)
+# 2026: original P.L.2023 c.75 rules - flat $6,500 cap, $500,000 income limit.
+# 2027+: FY2027 Appropriations Act (A-5327) - income-tiered cap
+#        (<=$100K -> $6,500; $100K-$150K -> $5,000; $150K-$200K -> $4,000),
+#        $200,000 income limit.
+# ANCHOR and capped Senior Freeze are set directly as inputs to isolate the
+# Stay NJ formula (their own derivations are tested separately).
+
+# --- 2026: flat $6,500 cap, $500,000 income limit ---
+
+- name: 2026 flat cap, benefit capped at $6,500.
+  period: 2026
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 100_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    # min($20,000 * 50%, $6,500) = $6,500
+    nj_staynj: 6_500
+
+- name: 2026 higher income still gets the flat $6,500 cap (no tiering).
+  period: 2026
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 300_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    # income $300K < $500K limit, flat $6,500 cap applies
+    nj_staynj: 6_500
+
+- name: 2026 property tax binds below the flat cap.
+  period: 2026
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 100_000
+        real_estate_taxes: 8_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    # min($8,000 * 50%, $6,500) = $4,000
+    nj_staynj: 4_000
+
+- name: 2026 income at the old $500,000 limit is ineligible.
+  period: 2026
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 500_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj: 0
+
+# --- 2027: income-tiered cap, $200,000 income limit ---
+
+- name: 2027 lowest income tier, capped at $6,500.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 80_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj: 6_500
+
+- name: 2027 middle income tier capped at $5,000.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 120_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj: 5_000
+
+- name: 2027 top income tier capped at $4,000.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 175_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj: 4_000
+
+- name: 2027 income exactly $100,000 stays in the $6,500 tier (upper-inclusive band).
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 100_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    # "not in excess of $100,000" -> $6,500 cap; min($10,000, $6,500) = $6,500
+    nj_staynj: 6_500
+
+- name: 2027 income just above $100,000 falls in the $5,000 tier.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 100_001
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj: 5_000
+
+- name: 2027 income exactly $150,000 stays in the $5,000 tier (upper-inclusive band).
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 150_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    # "not in excess of $150,000" -> $5,000 cap
+    nj_staynj: 5_000
+
+- name: 2027 income exactly $200,000 is eligible at the $4,000 tier (not in excess of $200,000).
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 200_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    # income exactly $200,000 remains eligible; $150K-$200K tier -> $4,000 cap
+    nj_staynj: 4_000
+
+- name: 2027 income over $200,000 is ineligible.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 200_001
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj: 0
+
+- name: 2027 ANCHOR and Senior Freeze reduce the Stay NJ top-up.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 80_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 1_500
+        nj_capped_senior_freeze: 1_000
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    # min($10,000, $6,500) - $1,500 - $1,000 = $4,000
+    nj_staynj: 4_000
+
+- name: 2027 offsets exceeding the target zero out the benefit.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 80_000
+        real_estate_taxes: 6_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 1_500
+        nj_capped_senior_freeze: 2_000
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    # min($6,000 * 50%, $6,500) = $3,000; $3,000 - $1,500 - $2,000 < 0 -> $0
+    nj_staynj: 0
+
+# --- eligibility gates (year-independent) ---
+
+- name: Under age 65 is ineligible.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 64
+        employment_income: 80_000
+        real_estate_taxes: 20_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj: 0
+
+- name: Renter is ineligible.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 80_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        nj_anchor: 0
+        nj_capped_senior_freeze: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: RENTER
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj: 0

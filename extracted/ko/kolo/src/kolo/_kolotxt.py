@@ -35,6 +35,7 @@ def format_trace_line(
     timestamp: "datetime",
     size: int,
     trace_name: str | None,
+    unreadable: str | None = None,
 ) -> str:
     """Format a single trace for the kolo.txt listing."""
     from .utils import pretty_byte_size, relative_time
@@ -42,6 +43,8 @@ def format_trace_line(
     rel_time = relative_time(timestamp)
     size_str = pretty_byte_size(size)
 
+    if unreadable:
+        return f"{trace_id} ({rel_time}, {size_str}) [unreadable: {unreadable}]"
     if trace_name:
         return f"{trace_name} ({rel_time}, {size_str}, {trace_id})"
     return f"{trace_id} ({rel_time}, {size_str})"
@@ -57,10 +60,23 @@ def generate_kolotxt_content(db_path: Path) -> str:
     Returns:
         The full kolo.txt content as a string
     """
-    from .cli_mcp_shared import parse_trace_timestamp
-    from .db import list_traces_with_data_from_db, load_trace_from_db
+    from .cli_mcp_shared import parse_trace_timestamp_or_now, unreadable_reason
+    from .db import (
+        TraceNotFoundError,
+        list_traces_with_data_from_db,
+        load_trace_from_db,
+    )
     from .trace_container import load_trace
     from .trace import Trace
+
+    def resolve_display_name(msgpack_data, auto_generated_name, db_path, trace_id):
+        try:
+            name = Trace.resolve_display_name(
+                msgpack_data, auto_generated_name, db_path, trace_id
+            )
+        except Exception as error:
+            return None, unreadable_reason(error)
+        return name, None
 
     lines = [KOLOTXT_HEADER]
 
@@ -82,9 +98,10 @@ def generate_kolotxt_content(db_path: Path) -> str:
         # rollback-journal databases do not make a second connection wait on
         # the suspended cursor held by this same thread.
         trace_name = None
+        unreadable = None
         needs_name_migration = not auto_generated_name
         if not needs_name_migration:
-            trace_name = Trace.resolve_display_name(
+            trace_name, unreadable = resolve_display_name(
                 msgpack_data, auto_generated_name, db_path, trace_id
             )
         traces.append(
@@ -94,12 +111,11 @@ def generate_kolotxt_content(db_path: Path) -> str:
                 size,
                 trace_name,
                 needs_name_migration,
+                unreadable,
             )
         )
 
-        # Do not retain every raw trace until the latest-trace section is
-        # rendered. Five 500 MiB traces otherwise mean 2.5 GiB of raw blobs in
-        # memory before msgpack decoding and tree construction even begin.
+        # Free the raw blob now: holding every trace's bytes until the latest section renders can use GiBs.
         del msgpack_data
 
     if not traces:
@@ -107,40 +123,56 @@ def generate_kolotxt_content(db_path: Path) -> str:
             "No traces found. Run your Python code with KOLO=1 to capture traces."
         )
     else:
-        for trace_id, timestamp_str, size, trace_name, needs_name_migration in traces:
+        for (
+            trace_id,
+            timestamp_str,
+            size,
+            trace_name,
+            needs_name_migration,
+            unreadable,
+        ) in traces:
             if needs_name_migration:
-                if latest_trace is not None and trace_id == latest_trace[0]:
-                    msgpack_data = latest_trace[3]
-                else:
-                    msgpack_data, _ = load_trace_from_db(db_path, trace_id)
-                trace_name = Trace.resolve_display_name(
+                try:
+                    if latest_trace is not None and trace_id == latest_trace[0]:
+                        msgpack_data = latest_trace[3]
+                    else:
+                        msgpack_data, _ = load_trace_from_db(db_path, trace_id)
+                except TraceNotFoundError:
+                    continue
+                trace_name, unreadable = resolve_display_name(
                     msgpack_data, None, db_path, trace_id
                 )
                 del msgpack_data
 
-            timestamp = parse_trace_timestamp(timestamp_str)
-            lines.append(format_trace_line(trace_id, timestamp, size, trace_name))
+            timestamp, bad_timestamp = parse_trace_timestamp_or_now(timestamp_str)
+            lines.append(
+                format_trace_line(
+                    trace_id,
+                    timestamp,
+                    size,
+                    trace_name,
+                    unreadable=unreadable or bad_timestamp,
+                )
+            )
 
     lines.append("")
     lines.append("")
 
-    # Latest trace section
     if latest_trace is not None:
         trace_id, timestamp_str, size, msgpack_data = latest_trace
         try:
             data = load_trace(msgpack_data)
             trace = Trace(unprocessed_data=data, size=size)
 
-            # Build LATEST TRACE header in the same style as other sections
             lines.append(f"LATEST TRACE ({trace_id})")
             lines.append("-" * len(f"LATEST TRACE ({trace_id})"))
             lines.append(trace.compact_metadata())
             lines.append("")
             lines.append(trace.compact_tree_only(include_return_value=False))
-        except Exception as e:  # pragma: no cover
-            lines.append("LATEST TRACE")
-            lines.append("------------")
-            lines.append(f"Error loading trace: {e}")
+        except Exception as e:
+            lines.append(f"LATEST TRACE ({trace_id})")
+            lines.append("-" * len(f"LATEST TRACE ({trace_id})"))
+            lines.append(f"Error loading trace: {unreadable_reason(e)}")
     else:
         lines.append("LATEST TRACE")
         lines.append("------------")
@@ -159,7 +191,6 @@ def update_kolotxt(db_path: Path) -> Path:
     Returns:
         Path to the kolo.txt file
     """
-    # db is at .kolo/.internal/db.sqlite3, kolo.txt goes at .kolo/kolo.txt
     kolo_dir = db_path.parent.parent
     kolotxt_path = kolo_dir / "kolo.txt"
     content = generate_kolotxt_content(db_path)

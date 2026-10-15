@@ -659,6 +659,8 @@ class BrowserInspectRequest(BaseModel):
     # caller OWNS, and routing our own page through a residential proxy adds
     # latency, failure modes and cost for nothing.
     use_proxy: bool = False
+    # The caller wants the pictures, not a render verdict: skips the network-quiet wait and shortens the settle.
+    pictures_only: bool = False
     # One exact render at the caller's width/theme (kind "exact"), captured in
     # its own navigation before any named device kinds.
     exact: ExactCaptureRequest | None = None
@@ -752,6 +754,7 @@ async def browser_inspect(
             user_agent_suffix=request.user_agent_suffix,
             nav_timeout_ms=request.timeout_ms,
             exact=ExactCaptureSpec(**request.exact.model_dump()) if request.exact else None,
+            pictures_only=request.pictures_only,
         )
     except BrowserInspectTimeout as exc:
         return BrowserInspectResult(

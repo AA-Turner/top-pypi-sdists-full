@@ -1,9 +1,0 @@
-"""Sphinx needs extension for managing needs/requirements and specifications"""
-
-__version__ = "8.5.0"
-
-
-def setup(app):
-    from sphinx_needs.needs import setup as needs_setup
-
-    return needs_setup(app)

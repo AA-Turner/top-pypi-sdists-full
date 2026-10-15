@@ -1,0 +1,433 @@
+- name: In 2022, single filer, one child age < 6, agi = 25_000, federal ctc = 1_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 25_000
+    co_federal_ctc: 1_000
+    filing_status: SINGLE
+    age: 5
+  output:
+    co_ctc: 600
+
+- name: In 2022, single filer, one child age < 6, agi = 50_000, federal ctc = 2_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 50_000
+    co_federal_ctc: 2_000
+    filing_status: SINGLE
+    age: 4
+  output:
+    co_ctc: 600
+
+- name: In 2022, single filer, one child age < 6, agi = 75_000, federal ctc = 2_000, the colorado ctc = 200
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 75_000
+    co_federal_ctc: 2_000
+    filing_status: SINGLE
+    age: 4
+  output:
+    co_ctc: 200
+
+- name: In 2022, single filer, one child age < 6, agi = 85_000, federal ctc = 2_000, the colorado ctc = 0
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 85_000
+    co_federal_ctc: 2_000
+    filing_status: SINGLE
+    age: 4
+  output:
+    co_ctc: 0
+
+- name: In 2022, joint filer, one child age < 6, agi = 35_000, federal ctc = 1_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 35_000
+    co_federal_ctc: 1_000
+    filing_status: JOINT
+    age: 5
+  output:
+    co_ctc: 600
+
+- name: In 2022, joint filer, one child age < 6, agi = 60_000, federal ctc = 2_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 60_000
+    co_federal_ctc: 2_000
+    filing_status: JOINT
+    age: 4
+  output:
+    co_ctc: 600
+
+- name: In 2022, joint filer, one child age < 6, agi = 85_000, federal ctc = 2_000, the colorado ctc = 200
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 85_000
+    co_federal_ctc: 2_000
+    filing_status: JOINT
+    age: 4
+  output:
+    co_ctc: 200
+
+- name: In 2022, joint filer, one child age < 6, agi = 95_000, federal ctc = 2_000, the colorado ctc = 0
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 95_000
+    co_federal_ctc: 2_000
+    filing_status: JOINT
+    age: 4
+  output:
+    co_ctc: 0
+
+- name: In 2022, separate filer, one child age < 6, agi = 25_000, federal ctc = 1_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 25_000
+    co_federal_ctc: 1_000
+    filing_status: SEPARATE
+    age: 5
+  output:
+    co_ctc: 600
+
+- name: In 2022, separate filer, one child age < 6, agi = 50_000, federal ctc = 2_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 50_000
+    co_federal_ctc: 2_000
+    filing_status: SEPARATE
+    age: 4
+  output:
+    co_ctc: 600
+
+- name: In 2022, separate filer, one child age < 6, agi = 75_000, federal ctc = 2_000, the colorado ctc = 200
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 75_000
+    co_federal_ctc: 2_000
+    filing_status: SEPARATE
+    age: 4
+  output:
+    co_ctc: 200
+
+- name: In 2022, separate filer, one child age < 6, agi = 85_000, federal ctc = 2_000, the colorado ctc = 0
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 85_000
+    co_federal_ctc: 2_000
+    filing_status: SEPARATE
+    age: 4
+  output:
+    co_ctc: 0
+
+- name: In 2022,  surviving spouse filer, one child age < 6, agi = 25_000, federal ctc = 1_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 25_000
+    co_federal_ctc: 1_000
+    filing_status: SURVIVING_SPOUSE
+    age: 5
+  output:
+    co_ctc: 600
+
+- name: In 2022, surviving spouse filer, one child age < 6, agi = 50_000, federal ctc = 2_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 50_000
+    co_federal_ctc: 2_000
+    filing_status: SURVIVING_SPOUSE
+    age: 4
+  output:
+    co_ctc: 600
+
+- name: In 2022, surviving spouse filer, one child age < 6, agi = 75_000, federal ctc = 2_000, the colorado ctc = 200
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 75_000
+    co_federal_ctc: 2_000
+    filing_status: SURVIVING_SPOUSE
+    age: 4
+  output:
+    co_ctc: 200
+
+- name: In 2022, surviving spouse filer, one child age < 6, agi = 85_000, federal ctc = 2_000, the colorado ctc = 0
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 85_000
+    co_federal_ctc: 2_000
+    filing_status: SURVIVING_SPOUSE
+    age: 4
+  output:
+    co_ctc: 0
+
+- name: In 2022, head of household filer, one child age < 6, agi = 25_000, federal ctc = 1_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 25_000
+    co_federal_ctc: 1_000
+    filing_status: HEAD_OF_HOUSEHOLD
+    age: 5
+  output:
+    co_ctc: 600
+
+- name: In 2022, head of household filer, one child age < 6, agi = 50_000, federal ctc = 2_000, the colorado ctc = 600
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 50_000
+    co_federal_ctc: 2_000
+    filing_status: HEAD_OF_HOUSEHOLD
+    age: 4
+  output:
+    co_ctc: 600
+
+- name: In 2022, head of household filer, one child age < 6, agi = 75_000, federal ctc = 2_000, the colorado ctc = 200
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 75_000
+    co_federal_ctc: 2_000
+    filing_status: HEAD_OF_HOUSEHOLD
+    age: 4
+  output:
+    co_ctc: 200
+
+- name: In 2022, head of household filer, one child age < 6, agi = 85_000, federal ctc = 2_000, the colorado ctc = 0
+  period: 2022
+  input:
+    state_code: CO
+    adjusted_gross_income: 85_000
+    co_federal_ctc: 2_000
+    filing_status: HEAD_OF_HOUSEHOLD
+    age: 4
+  output:
+    co_ctc: 0
+
+- name: In 2022, single filer, 1_000 ctc 
+  period: 2022
+  input:
+    people:
+      child1: 
+        age: 4
+      child2:
+        age: 3
+    tax_units:
+      tax_unit:
+        members: [child1, child2]
+        adjusted_gross_income: 25_000
+        co_federal_ctc: 1_000
+        filing_status: SINGLE
+    households:
+      household:
+        members: [child1, child2]
+        state_code: CO
+  output: 
+    co_ctc: 600
+
+- name: In 2024, single filer, 2 children - flat amount
+  period: 2024
+  input:
+    people:
+      child1: 
+        age: 4
+      child2:
+        age: 3
+    tax_units:
+      tax_unit:
+        members: [child1, child2]
+        adjusted_gross_income: 25_000
+        co_federal_ctc: 1_000
+        filing_status: SINGLE
+    households:
+      household:
+        members: [child1, child2]
+        state_code: CO
+  output: 
+    co_ctc: 2_400
+
+- name: In 2024, joint filer, one child - flat amount
+  period: 2024
+  input:
+    people:
+      child1: 
+        age: 4
+      child2:
+        age: 6
+    tax_units:
+      tax_unit:
+        members: [child1, child2]
+        adjusted_gross_income: 85_000
+        co_federal_ctc: 1_000
+        filing_status: JOINT
+    households:
+      household:
+        members: [child1, child2]
+        state_code: CO
+  output: 
+    co_ctc: 200
+
+- name: In 2024, surviving spouse filer, 2 children - flat amount
+  period: 2024
+  input:
+    people:
+      child1: 
+        age: 4
+      child2:
+        age: 3
+    tax_units:
+      tax_unit:
+        members: [child1, child2]
+        adjusted_gross_income: 0
+        co_federal_ctc: 1_000
+        filing_status: SINGLE
+    households:
+      household:
+        members: [child1, child2]
+        state_code: CO
+  output: 
+    co_ctc: 2_400
+
+- name: In 2024, joint filer, one child - flat amount - ineligible
+  period: 2024
+  input:
+    people:
+      child1: 
+        age: 4
+      child2:
+        age: 6
+    tax_units:
+      tax_unit:
+        members: [child1, child2]
+        adjusted_gross_income: 85_001
+        co_federal_ctc: 1_000
+        filing_status: JOINT
+    households:
+      household:
+        members: [child1, child2]
+        state_code: CO
+  output: 
+    co_ctc: 0
+
+- name: Integration test, 1 child in 2022
+  absolute_error_margin: 2
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 40
+        employment_income: 20000
+        ssi: 0
+        wic: 0
+        deductible_mortgage_interest: 0
+      person2:
+        age: 4
+        employment_income: 0
+        ssi: 0
+        wic: 0
+        deductible_mortgage_interest: 0
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        tax_unit_childcare_expenses: 2_000
+        premium_tax_credit: 0
+        local_income_tax: 0
+        state_sales_tax: 0
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+        snap: 0
+        tanf: 0
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 8
+  output:
+    co_ctc: 900
+    co_income_tax: -1_803.2
+
+# End-to-end age-basis + ITIN integration test for the 2022-2023 refundable CTC.
+# Unlike the cases above (which inject co_federal_ctc / the child count directly),
+# this flows through the REAL derivation: co_ctc_qualifying_child ->
+# co_ctc_eligible_child -> co_ctc_eligible_children_count -> co_refundable_ctc.
+# The ITIN child (ssn_card_type OTHER_NON_CITIZEN) aged 4 has no SSN gate and is
+# under 6, so it IS counted and produces a NON-ZERO co_refundable_ctc; the
+# citizen child aged 10 (6-16) is EXCLUDED from the 2022-2023 age-basis count.
+# C.R.S. 39-22-129(2)(a) / (3.5)(a). This case FAILS if a federal child-SSN gate
+# is added or the under-6 age basis is broken.
+- name: Age-basis integration - ITIN under-6 child counted, citizen 6-16 child excluded (2022)
+  period: 2022
+  input:
+    people:
+      parent:
+        age: 40
+        employment_income: 20_000
+        ssi: 0
+        wic: 0
+        deductible_mortgage_interest: 0
+      itin_child:
+        age: 4
+        is_tax_unit_dependent: true
+        ssn_card_type: OTHER_NON_CITIZEN
+        employment_income: 0
+        ssi: 0
+        wic: 0
+        deductible_mortgage_interest: 0
+      citizen_older_child:
+        age: 10
+        is_tax_unit_dependent: true
+        ssn_card_type: CITIZEN
+        employment_income: 0
+        ssi: 0
+        wic: 0
+        deductible_mortgage_interest: 0
+    tax_units:
+      tax_unit:
+        members: [parent, itin_child, citizen_older_child]
+        premium_tax_credit: 0
+        local_income_tax: 0
+        state_sales_tax: 0
+        filing_status: HEAD_OF_HOUSEHOLD
+    spm_units:
+      spm_unit:
+        members: [parent, itin_child, citizen_older_child]
+        snap: 0
+        tanf: 0
+    households:
+      household:
+        members: [parent, itin_child, citizen_older_child]
+        state_fips: 8
+  output:
+    # Only the under-6 ITIN child is counted; the 6-16 citizen child is excluded.
+    co_ctc_eligible_children_count: 1
+    # Non-zero refundable CTC driven entirely by the ITIN under-6 child.
+    co_refundable_ctc: 1_500
+
+# Boundary guard for the ctc_matched_federal_credit flip date (2022-01-01 true ->
+# 2024-01-01 false). 2023 must still use the rate x co_federal_ctc branch, not the
+# 2024+ flat-per-child branch. Mirrors the 2022 single/agi=25k/federal=1_000 case.
+# HB23-1112; ctc_matched_federal_credit.yaml.
+- name: In 2023, single filer, agi = 25_000, federal ctc = 1_000, rate branch still active - co_ctc = 600
+  period: 2023
+  input:
+    state_code: CO
+    adjusted_gross_income: 25_000
+    co_federal_ctc: 1_000
+    filing_status: SINGLE
+    age: 5
+  output:
+    co_ctc: 600

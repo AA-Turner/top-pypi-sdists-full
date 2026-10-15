@@ -1,0 +1,16 @@
+- name: No Federal CDCC
+  period: 2021
+  input:
+    state_code: RI
+    cdcc: 0
+    ri_income_tax_before_non_refundable_credits: 1000000
+  output:
+    ri_cdcc: 0
+- name: Calculation
+  period: 2021
+  input:
+    state_code: RI
+    cdcc: 1000
+    ri_income_tax_before_non_refundable_credits: 1000000
+  output:
+    ri_cdcc: 250

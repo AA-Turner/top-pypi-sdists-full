@@ -806,3 +806,253 @@ def test_the_heartbeat_path_matches_the_capture_plugins_check(tmp_path):
     heard = subprocess.run(["/bin/bash", "-c", f'. "{tap}"; probe_hooks_nudge "../{SID}" ""'],
                            capture_output=True, text=True, env=env, timeout=10)
     assert "systemMessage" in heard.stdout, "and without one, it speaks"
+
+
+# --- the hand-over to the installed copy ------------------------------------------------------
+#
+# Claude Code fixes a session's plugin folder at its start; a session left open
+# across releases ran a 0.129.0 guard that refused `probe paper find`, the
+# command the current managed block named (2026-10-13). Each event goes to the
+# copy the install ledger names instead.
+
+OLD, NEW = "0.129.0", "0.145.0"
+MARKET = "research-os-agent"
+
+
+def _folder(tmp_path: Path, plugin: str = "probe-research") -> Path:
+    return tmp_path / "home" / ".claude" / "plugins" / "cache" / MARKET / plugin
+
+
+def _copy(root: Path, version: str) -> Path:
+    """A version folder holding this branch's dispatcher, with a Stop route that
+    prints its version and the plugin root it was given."""
+    (root / "hooks").mkdir(parents=True)
+    for name in ("dispatch.py", "dispatch.sh"):
+        shutil.copy2(FULL / name, root / "hooks" / name)
+    routes = _routes("Stop", "stop", _shell(f'cat >/dev/null; echo "{version} $CLAUDE_PLUGIN_ROOT"'))
+    (root / "hooks" / "routes.json").write_text(json.dumps(routes), encoding="utf-8")
+    return root
+
+
+def _cache(tmp_path: Path, *versions: str, plugin: str = "probe-research") -> list[Path]:
+    """Version folders of one plugin as Claude Code caches them."""
+    return [_copy(_folder(tmp_path, plugin) / v, v) for v in versions]
+
+
+def _ledger(tmp_path: Path, *paths, raw: str | None = None, scope: str = "user",
+            key: str = f"probe-research@{MARKET}") -> Path:
+    ledger = tmp_path / "home" / ".claude" / "plugins" / "installed_plugins.json"
+    entries = [{"scope": scope, "installPath": str(p), "version": Path(p).name} for p in paths]
+    ledger.write_text(raw if raw is not None else json.dumps({"version": 2, "plugins": {key: entries}}), encoding="utf-8")
+    return ledger
+
+
+@pytest.mark.parametrize("session, installed", [(OLD, NEW), (NEW, OLD)], ids=["upgraded", "rolled-back"])
+def test_an_open_session_runs_the_installed_copy(tmp_path, session, installed):
+    roots = dict(zip((OLD, NEW), _cache(tmp_path, OLD, NEW)))
+    _ledger(tmp_path, roots[installed])
+    result = _dispatch(roots[session], "stop", {}, _env(tmp_path, roots[session], False))
+    assert (result.returncode, result.stdout) == (0, f"{installed} {roots[installed]}\n"), result.stderr
+
+
+def test_the_hand_over_comes_before_the_old_copys_own_rules(tmp_path):
+    """The incident's shape: the open session's copy does not route the call at
+    all (its byte filter and routes predate the rule); the installed one does."""
+    old, new = _cache(tmp_path, OLD, NEW)
+    source = (old / "hooks" / "dispatch.py").read_text(encoding="utf-8")
+    assert 'frozenset(("Bash", ' in source
+    (old / "hooks" / "dispatch.py").write_text(source.replace('frozenset(("Bash", ', "frozenset(("), encoding="utf-8")
+    deny = tmp_path / "deny.json"
+    deny.write_text(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny"}}))
+    guard = {"hooks": {"PreToolUse": [{"lane": "pre-tool", "matcher": "Bash", "hooks": [
+        _shell(f'cat >/dev/null; cat "{deny}"')]}]}}
+    (new / "hooks" / "routes.json").write_text(json.dumps(guard), encoding="utf-8")
+    payload = _tool_payload("Bash")
+    env = _env(tmp_path, old, False)
+    assert _dispatch(old, "pre-tool", payload, env).stdout == b"", "unrouted in the open session's copy"
+    _ledger(tmp_path, new)
+    assert json.loads(_dispatch(old, "pre-tool", payload, env).stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def _stays(tmp_path: Path, case: str):
+    """(root, env) for an event that must run in the session's own copy."""
+    old, new = _cache(tmp_path, OLD, NEW)
+    env = _env(tmp_path, old, False)
+    hooks = new / "hooks"
+    if case == "no-ledger":
+        pass
+    elif case == "lists-this-copy":
+        _ledger(tmp_path, old)
+    elif case == "two-copies":
+        _ledger(tmp_path, old, new)
+    elif case == "unparseable":
+        _ledger(tmp_path, raw='{"plugins": {"x": [{"installPath": "%s"' % new)
+    elif case == "a-fifo":
+        os.mkfifo(tmp_path / "home" / ".claude" / "plugins" / "installed_plugins.json")
+    elif case == "project-scope":
+        _ledger(tmp_path, new, scope="project")
+    elif case == "another-plugins-key":
+        _ledger(tmp_path, new, key=f"probe-research-daemon@{MARKET}")
+    elif case == "another-plugins-folder":
+        (other,) = _cache(tmp_path, NEW, plugin="probe-research-daemon")
+        _ledger(tmp_path, other, key=f"probe-research-daemon@{MARKET}")
+    elif case == "symlinked-out-of-the-cache":
+        outside = _copy(tmp_path / "elsewhere" / "0.146.0", "0.146.0")
+        (_folder(tmp_path) / "0.146.0").symlink_to(outside)
+        _ledger(tmp_path, _folder(tmp_path) / "0.146.0")
+    elif case == "codex":
+        _ledger(tmp_path, new)
+        env = _env(tmp_path, old, True)
+    elif case == "no-dispatcher-there":
+        _ledger(tmp_path, new)
+        (hooks / "dispatch.sh").unlink()
+    elif case == "dispatch-py-gone":
+        _ledger(tmp_path, new)
+        (hooks / "dispatch.py").unlink()
+    elif case == "dispatch-py-cut-short":
+        _ledger(tmp_path, new)
+        (hooks / "dispatch.py").write_text((hooks / "dispatch.py").read_text(encoding="utf-8")[:900], encoding="utf-8")
+    elif case == "dispatch-py-without-run":
+        _ledger(tmp_path, new)
+        (hooks / "dispatch.py").write_text("X = 1\n", encoding="utf-8")
+    elif case == "routes-broken":
+        _ledger(tmp_path, new)
+        (hooks / "routes.json").write_text("{broken", encoding="utf-8")
+    elif case == "a-routed-script-missing":
+        _ledger(tmp_path, new)
+        routes = json.loads((hooks / "routes.json").read_text(encoding="utf-8"))
+        routes["hooks"]["Stop"][0]["hooks"].append({"type": "command", "command": '/bin/bash -c \'exec "$ROOT/hooks/gone.py"\''})
+        (hooks / "routes.json").write_text(json.dumps(routes), encoding="utf-8")
+    elif case == "plugin-dir-checkout":
+        _ledger(tmp_path, new)
+        old = _plugin(tmp_path / "checkout", _routes("Stop", "stop", _shell(f'cat >/dev/null; echo "{OLD} $CLAUDE_PLUGIN_ROOT"')))
+        env = _env(tmp_path, old, False)
+    return old, env
+
+
+@pytest.mark.parametrize("case", [
+    "no-ledger", "lists-this-copy", "two-copies", "unparseable", "a-fifo", "project-scope",
+    "another-plugins-key", "another-plugins-folder", "symlinked-out-of-the-cache", "codex",
+    "no-dispatcher-there", "dispatch-py-gone", "dispatch-py-cut-short", "dispatch-py-without-run",
+    "routes-broken", "a-routed-script-missing", "plugin-dir-checkout",
+])
+def test_otherwise_the_event_runs_in_the_sessions_own_copy(tmp_path, case):
+    """Nothing to hand to, a copy that is not this plugin's own version folder,
+    or one that is not whole (mid-install, mid-delete): the session's own copy,
+    which is whole, runs the event."""
+    root, env = _stays(tmp_path, case)
+    result = _dispatch(root, "stop", {}, env, timeout=10)
+    assert (result.returncode, result.stdout) == (0, f"{OLD} {env.get('CLAUDE_PLUGIN_ROOT', '')}\n"), result.stderr
+
+
+def test_one_copy_listed_under_two_entries_is_still_one_copy(tmp_path):
+    old, new = _cache(tmp_path, OLD, NEW)
+    _ledger(tmp_path, new, new)
+    assert _dispatch(old, "stop", {}, _env(tmp_path, old, False)).stdout == f"{NEW} {new}\n"
+
+
+def test_an_event_moves_once_and_its_routes_never_see_the_marker(tmp_path):
+    old, new = _cache(tmp_path, OLD, NEW)
+    _ledger(tmp_path, new)
+    seen = tmp_path / "marker-at-hand-over"
+    source = (new / "hooks" / "dispatch.py").read_text(encoding="utf-8")
+    pop = "    if os.environ.pop(HANDED_OVER, None) is not None:\n"
+    assert source.count(pop) == 1
+    (new / "hooks" / "dispatch.py").write_text(source.replace(
+        pop, f"    open({str(seen)!r}, 'w').write(os.environ.get(HANDED_OVER, ''))\n" + pop), encoding="utf-8")
+    (new / "hooks" / "routes.json").write_text(json.dumps(_routes(
+        "Stop", "stop", _shell('cat >/dev/null; echo "ran:${PROBE_HOOKS_HANDED_OVER:-}"'))), encoding="utf-8")
+    result = _dispatch(old, "stop", {}, _env(tmp_path, old, False))
+    assert result.stdout == "ran:\n", result.stderr
+    assert seen.read_text(encoding="utf-8") == str(old), "the installed copy was told, so it hands over no further"
+
+
+def test_a_symlinked_home_still_finds_the_installed_copy(tmp_path):
+    old, new = _cache(tmp_path, OLD, NEW)
+    _ledger(tmp_path, new)
+    (tmp_path / "link").symlink_to(tmp_path / "home")
+    via = tmp_path / "link" / old.relative_to(tmp_path / "home")
+    result = _dispatch(via, "stop", {}, _env(tmp_path, via, False))
+    assert result.stdout == f"{NEW} {new}\n", result.stderr
+
+
+def test_the_ledger_under_claude_config_dir_wins(tmp_path):
+    """Claude Code reads `$CLAUDE_CONFIG_DIR` and never `~/.claude` when it is
+    set; a stale ledger in HOME naming this copy must not keep the event here."""
+    old, new = _cache(tmp_path, OLD, NEW)
+    config = tmp_path / "config"
+    (config / "plugins").mkdir(parents=True)
+    _ledger(tmp_path, new).rename(config / "plugins" / "installed_plugins.json")
+    _ledger(tmp_path, old)
+    result = _dispatch(old, "stop", {}, _env(tmp_path, old, False, CLAUDE_CONFIG_DIR=str(config)))
+    assert result.stdout == f"{NEW} {new}\n", result.stderr
+
+
+def test_the_usual_event_reads_the_ledger_without_importing_json(tmp_path):
+    """Every event reads the ledger; when it lists this copy (the usual answer)
+    that costs no `json` import (~10 ms of the ~12 ms an unguarded call costs)."""
+    old, _new = _cache(tmp_path, OLD, NEW)
+    _ledger(tmp_path, old)
+    probe = (
+        "import sys; sys.path[0] = sys.argv[1]; import dispatch, os\n"
+        "print(dispatch.installed_root(sys.argv[2], os.environ), 'json' in sys.modules)"
+    )
+    result = subprocess.run([sys.executable, "-S", "-c", probe, str(FULL), str(old)],
+                            capture_output=True, text=True, timeout=30, env=_env(tmp_path, old, False))
+    assert result.stdout.split() == ["None", "False"], result.stderr
+
+
+# The Stop wake comes from claude-reads.json, not hooks.json, so dispatch.py
+# never sees it: reads_hook.py hands it over itself.
+
+_READS_STUB = "import os, sys\nprint(os.environ['CLAUDE_PLUGIN_ROOT'], sys.stdin.read())\n"
+
+
+def _reads_copies(tmp_path: Path) -> tuple[Path, Path]:
+    old, new = _cache(tmp_path, OLD, NEW)
+    for name in os.listdir(FULL):
+        if (FULL / name).is_file() and not (old / "hooks" / name).exists():
+            shutil.copy2(FULL / name, old / "hooks" / name)
+    (new / "hooks" / "reads_hook.py").write_text(_READS_STUB, encoding="utf-8")
+    return old, new
+
+
+@pytest.mark.parametrize("event", ["Stop", "UserPromptSubmit"])
+def test_the_stop_wake_runs_the_installed_reads_hook(tmp_path, event):
+    old, new = _reads_copies(tmp_path)
+    _ledger(tmp_path, new)
+    payload = json.dumps({"session_id": SID, "hook_event_name": event})
+    result = subprocess.run([sys.executable, str(old / "hooks" / "reads_hook.py")], input=payload,
+                            capture_output=True, text=True, timeout=30, env=_env(tmp_path, old, False))
+    expected = f"{new} {payload}\n" if event == "Stop" else ""
+    assert (result.returncode, result.stdout) == (0, expected), result.stderr
+
+
+@pytest.mark.parametrize("damage", ["none-installed", "will-not-compile"])
+def test_otherwise_the_stop_wake_waits_in_the_sessions_own_copy(tmp_path, damage):
+    old, new = _reads_copies(tmp_path)
+    if damage == "none-installed":
+        _ledger(tmp_path, old)
+    else:
+        _ledger(tmp_path, new)
+        (new / "hooks" / "reads_hook.py").write_text("def broken(:\n", encoding="utf-8")
+    payload = json.dumps({"session_id": SID, "hook_event_name": "Stop"})
+    result = subprocess.run([sys.executable, str(old / "hooks" / "reads_hook.py")], input=payload,
+                            capture_output=True, text=True, timeout=30, env=_env(tmp_path, old, False))
+    assert (result.returncode, result.stdout) == (0, ""), "an unattended session's own waiter returns at once"
+
+
+def test_a_copy_that_will_not_import_leaves_this_copys_modules_in_place(tmp_path):
+    """The fallback restores sys.path[0]: a lone python route runs in-process
+    and imports its sibling modules from there, so they must be this copy's."""
+    old, new = _cache(tmp_path, OLD, NEW)
+    _ledger(tmp_path, new)
+    for root, version in ((old, OLD), (new, NEW)):
+        (root / "hooks" / "_which.py").write_text(f"VERSION = {version!r}\n", encoding="utf-8")
+        (root / "hooks" / "route.py").write_text("import sys, _which\nsys.stdin.read()\nprint(_which.VERSION)\n", encoding="utf-8")
+        route = {"type": "command", "command": dispatch._plain_command([], "route.py", False, [])}
+        (root / "hooks" / "routes.json").write_text(json.dumps(_routes("Stop", "stop", route)), encoding="utf-8")
+    assert _dispatch(old, "stop", {}, _env(tmp_path, old, False)).stdout == f"{NEW}\n", "the installed copy, whole"
+    (new / "hooks" / "dispatch.py").write_text("def broken(:\n", encoding="utf-8")
+    result = _dispatch(old, "stop", {}, _env(tmp_path, old, False))
+    assert (result.returncode, result.stdout) == (0, f"{OLD}\n"), result.stderr

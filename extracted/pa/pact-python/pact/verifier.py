@@ -105,8 +105,7 @@ else:
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-
-    from typing_extensions import Self
+    from typing import Self
 
 logger = logging.getLogger(__name__)
 
@@ -1613,7 +1612,7 @@ class BrokerSelectorBuilder:
                 deployed or released and currently supported in any environment.
                 Use of this selector requires that the deployment of the
                 consumer application is recorded in the Pact Broker using the
-                `pact-broker record-deployment` or `pact-broker record-release`
+                `pact broker record-deployment` or `pact broker record-release`
                 CLI.
 
             deployed:
@@ -1623,7 +1622,7 @@ class BrokerSelectorBuilder:
                 pacts for all versions of the consumer that are currently
                 deployed to any environment. Use of this selector requires that
                 the deployment of the consumer application is recorded in the
-                Pact Broker using the `pact-broker record-deployment` CLI.
+                Pact Broker using the `pact broker record-deployment` CLI.
 
             released:
                 Applications that have been released.
@@ -1632,7 +1631,7 @@ class BrokerSelectorBuilder:
                 pacts for all versions of the consumer that are released and
                 currently supported in any environment. Use of this selector
                 requires that the deployment of the consumer application is
-                recorded in the Pact Broker using the `pact-broker
+                recorded in the Pact Broker using the `pact broker
                 record-release` CLI.
 
             environment:

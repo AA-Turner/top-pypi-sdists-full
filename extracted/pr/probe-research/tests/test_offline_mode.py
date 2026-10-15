@@ -189,6 +189,20 @@ def test_a_thousand_logs_sync_as_one_run_with_client_times(outbox, no_network, l
     assert all("local:" not in r.url.path for r in lab.requests)
 
 
+def test_an_offline_run_keeps_its_workspace_for_the_project_sync_creates(outbox, no_network, lab):
+    """`workspace=` files the NEW project the sync creates there, whatever the
+    syncing computer is set to."""
+    from tests.conftest import _WS_OTHER
+
+    _record(n=1, project="fresh", experiment="e-new", question="does x beat y?", workspace="teammate")
+    no_network.restore()
+    (result,) = _sync(lab)
+
+    assert result["clean"], result
+    project = next(p for p in lab.projects.values() if p["slug"] == "fresh")
+    assert project["workspace_id"] == _WS_OTHER
+
+
 def test_syncing_twice_does_not_duplicate(outbox, no_network, lab, monkeypatch):
     _record()
     no_network.restore()

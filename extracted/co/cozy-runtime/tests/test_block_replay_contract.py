@@ -82,6 +82,7 @@ def wrapped(
     weights.host_only = False
     monkeypatch.setattr(weights, "stream", lambda: 0)
     monkeypatch.setattr(weights, "hold_host", lambda: None)
+    monkeypatch.setattr(weights, "limit_torch", lambda: None)
     trace: dict[str, Any] = {"acquired": 0, "released": 0, "room": [], "free": 16}
     monkeypatch.setattr(
         accel,
@@ -94,8 +95,8 @@ def wrapped(
         },
     )
 
-    def shrink(need: int, floor: int) -> int:
-        trace["room"].append({"need": need, "floor": floor})
+    def shrink(need: int, keep: int = 0) -> int:
+        trace["room"].append({"need": need, "keep": keep})
         trace["free"] += max(need, weight_policy.MARGIN)
         return max(need, weight_policy.MARGIN)
 
@@ -197,6 +198,38 @@ def test_successful_current_block_path_preserves_module_semantics(monkeypatch: A
     assert trace["acquired"] == trace["released"] == 3 and not trace["room"]
 
 
+class CachedBlock(StatefulBlock):
+    """A Wan VAE's causal block: it writes its input into the feature cache it is handed and
+    advances the decoder's shared index into it."""
+
+    def forward(self, value: Any, feat_cache: list[Any], feat_idx: list[int]) -> Any:
+        if feat_cache[feat_idx[0]] is not None:
+            raise ValueError("a first frame's convolution takes no feature cache")
+        feat_cache[feat_idx[0]] = value.clone()
+        feat_idx[0] += 1
+        return super().forward(value)
+
+
+def test_a_block_runs_again_with_the_lists_it_was_handed_as_they_were(monkeypatch: Any) -> None:
+    """Run 5686's decoder: each causal block writes its input into the feature cache it is
+    handed and advances their shared index. Run again after an out-of-memory with both as
+    the failed run left them, it would take the next block's slot; they are put back first,
+    as its tensors and generators are."""
+    control, current = CachedBlock("rng"), CachedBlock("rng")
+    _weights, _region, trace = wrapped(current, monkeypatch)
+    value = torch.tensor([[0.25, -0.5]])
+    with torch.inference_mode():
+        for block in (control, current):  # the first run learns its effects
+            block(value, [None], [0])
+        expected_cache, cache, expected_index, index = [None, None], [None, None], [0], [0]
+        expected = control(value, expected_cache, expected_index)
+        current.fail_next = True
+        actual = current(value, cache, index)
+    assert torch.equal(actual, expected) and index == expected_index == [1]
+    assert torch.equal(cache[0], expected_cache[0]) and cache[1] is None
+    assert len(trace["room"]) == 1
+
+
 class FailAfterOp(torch.utils._python_dispatch.TorchDispatchMode):  # type: ignore[misc,name-defined]
     """Real operator execution, then a one-shot CPU exception at its return boundary."""
 
@@ -228,10 +261,12 @@ def test_a_failed_op_recovers_without_replaying_its_python_forward(
     assert len(trace["room"]) == 1 and not trace["residency"].poisoned
 
 
-@pytest.mark.parametrize("effect", ["mutable", "rng", "custom"])
+@pytest.mark.parametrize("effect", ["mutable", "copy", "rng", "custom"])
 def test_a_failed_op_runs_again_from_what_it_read(effect: str, monkeypatch: Any) -> None:
     """An op that fails after it ran (the harshest case: a real OOM fails before writing)
-    runs again from the tensors it writes into and the generator state it drew from."""
+    runs again from the tensors it writes into and the generator state it drew from. A
+    pointwise op allocates nothing, so it can only fail before it writes: it is not copied.
+    The copy is an allocation too, and recovers like the op (run 6021)."""
     weights, _region, trace = wrapped(StatefulBlock("counter"), monkeypatch)
     value = torch.zeros(2)
     generator = torch.Generator().manual_seed(17)
@@ -250,12 +285,16 @@ def test_a_failed_op_runs_again_from_what_it_read(effect: str, monkeypatch: Any)
             return once(value)
 
         failed = FailAfterOp(None)
-    elif effect == "mutable":
+    elif effect in ("mutable", "copy"):
 
         def operation() -> Any:
-            return value.add_(1)
+            return value.index_put_((torch.arange(2),), torch.ones(2), accumulate=True)
 
-        failed = FailAfterOp(torch.ops.aten.add_.Tensor)
+        failed = FailAfterOp(
+            torch.ops.aten.index_put_.default
+            if effect == "mutable"
+            else torch.ops.aten.clone.default
+        )
     else:
 
         def operation() -> Any:
@@ -269,7 +308,7 @@ def test_a_failed_op_runs_again_from_what_it_read(effect: str, monkeypatch: Any)
         assert calls == [1, 1] and torch.equal(out, torch.ones(2))
     else:
         assert failed.calls == 2
-    if effect == "mutable":
+    if effect in ("mutable", "copy"):
         assert torch.equal(value, torch.ones(2)), "applied once"
     if effect == "rng":
         assert torch.equal(out, torch.rand(2, generator=control)), "the same draw"
@@ -301,51 +340,9 @@ def test_before_forward_acquisition_failure_keeps_existing_recovery(monkeypatch:
     assert not residency.poisoned
 
 
-def test_only_sdk_decoder_pass_replays_to_the_uninterrupted_tensor(monkeypatch: Any) -> None:
-    diffusers = pytest.importorskip("diffusers")
-    from cozy_runtime.internal import image_vae
-
-    torch.manual_seed(71)
-    vae = diffusers.AutoencoderKL(
-        down_block_types=("DownEncoderBlock2D",) * 2,
-        up_block_types=("UpDecoderBlock2D",) * 2,
-        block_out_channels=(8, 8),
-        norm_num_groups=4,
-    ).eval()
-    latent = torch.randn(1, 4, 2, 3)
-    conv = vae.decoder.conv_in
-    with torch.inference_mode():
-        expected = image_vae.Decode(vae, latent, band=100).run().sample
-    _weights, _region, trace = wrapped(conv, monkeypatch, root=vae)
-    within = trace["residency"]._within("model")
-    calls = []
-
-    def fail_once(module: Any, body: Any) -> Any:
-        if module is not conv:
-            return within(module, body)
-
-        def pass_body() -> Any:
-            out = body()  # actual SDK pass writes only its output map and scratch statistics
-            calls.append(1)
-            if len(calls) == 1:
-                raise torch.OutOfMemoryError("SDK output-only pass failed after its writes")
-            return out
-
-        return within(module, pass_body)
-
-    with torch.inference_mode():
-        actual = image_vae.Decode(vae, latent, band=100).run(fail_once).sample
-    assert torch.equal(actual, expected)
-    assert calls == [1, 1]
-    assert trace["acquired"] == trace["released"] == 2 and len(trace["room"]) == 1
-    assert not trace["residency"].poisoned
-
-
-@pytest.mark.parametrize("custom", ["leaf", "forward", "hook", "processor"])
+@pytest.mark.parametrize("custom", ["leaf", "forward", "hook"])
 def test_custom_decoder_calls_run_again_after_a_failure(custom: str, monkeypatch: Any) -> None:
     diffusers = pytest.importorskip("diffusers")
-    from cozy_runtime.internal import image_vae
-
     torch.manual_seed(72)
     vae = diffusers.AutoencoderKL(
         down_block_types=("DownEncoderBlock2D",) * 2,
@@ -357,7 +354,7 @@ def test_custom_decoder_calls_run_again_after_a_failure(custom: str, monkeypatch
     before = latent.clone()
     resnet = vae.decoder.mid_block.resnets[0]
     with torch.inference_mode():
-        expected = image_vae.Decode(vae, latent).run().sample
+        expected = vae.decode(latent).sample
     calls: list[int] = []
     armed: list[int] = []
 
@@ -388,18 +385,6 @@ def test_custom_decoder_calls_run_again_after_a_failure(custom: str, monkeypatch
             advance()
 
         resnet.dropout.register_forward_hook(hook)
-    elif custom == "processor":
-        attention = vae.decoder.mid_block.attentions[0]
-        original = attention.processor
-
-        class CustomProcessor:
-            def __call__(self, *args: Any, **kwargs: Any) -> Any:
-                result = original(*args, **kwargs)
-                advance()
-                return result
-
-        attention.set_processor(CustomProcessor())
-    assert image_vae.exact(vae)  # this remains a valid successful custom decoder
     _weights, _region, trace = wrapped(resnet, monkeypatch, root=vae, weight_module=resnet.conv1)
     with torch.inference_mode():
         assert torch.equal(vae.decode(latent).sample, expected)

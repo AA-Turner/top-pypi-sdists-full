@@ -69,3 +69,37 @@ def test_system_job_is_allowed_inside_a_scheduled_run(monkeypatch):
     assert scheduler_identity_active() is True
     monkeypatch.setattr(ac, "try_get_app_context", lambda: SimpleNamespace(origin_class="chat", source_app="web"))
     assert scheduler_identity_active() is False
+
+
+# --- tracker a83730e9: assets for a system-org shape written by a non-admin owner -------------
+from matrx_ai.tools.implementations import kind_shared
+from matrx_ai.tools.implementations.kind_shared import asset_organization_id
+
+OWN = "11111111-0000-4000-8000-000000000000"
+
+
+def _ctx(org):
+    return SimpleNamespace(organization_id=org)
+
+
+def test_non_admin_owner_of_system_org_shape_writes_assets_in_their_own_org(monkeypatch):
+    monkeypatch.setattr(kind_shared, "system_organization_id", lambda: SYS)
+    monkeypatch.setattr(kind_shared, "ctx_is_admin", lambda ctx: False)
+    # The old code wrote organization_id=SYS (+ is_system=True): the INSERT policy refuses that
+    # for a person without access to the system org.
+    assert asset_organization_id(kd(SYS), _ctx(OWN)) == OWN
+    assert reach_of(kd(SYS), SYS, OWN)["is_system"] is False
+
+
+def test_admin_surface_and_scheduler_keep_the_system_org(monkeypatch):
+    monkeypatch.setattr(kind_shared, "system_organization_id", lambda: SYS)
+    monkeypatch.setattr(kind_shared, "ctx_is_admin", lambda ctx: True)
+    assert asset_organization_id(kd(SYS), _ctx(OWN)) == SYS
+    monkeypatch.setattr(kind_shared, "ctx_is_admin", lambda ctx: False)
+    assert asset_organization_id(kd(SYS), _ctx(OWN), system_job=True) == SYS
+
+
+def test_ordinary_org_shape_keeps_its_org(monkeypatch):
+    monkeypatch.setattr(kind_shared, "system_organization_id", lambda: SYS)
+    monkeypatch.setattr(kind_shared, "ctx_is_admin", lambda ctx: False)
+    assert asset_organization_id(kd(OWN), _ctx("other")) == OWN

@@ -272,12 +272,9 @@ fn encoder_reuses_reprs_across_the_roots_of_one_event() {
         assert!(encoder.encode(&arg, &mut native).is_ok());
         assert!(encoder.encode(&locals, &mut native).is_ok());
         assert_eq!(native, expected);
-        // Python 3.8 leaves bound method reprs (and their `__self__` repr)
-        // to CPython.
         let per_event = if cfg!(Py_3_9) { 1 } else { 2 };
         assert_eq!(calls.len().expect("calls has a length"), per_event);
 
-        // The next event starts with an empty memo.
         let mut encoder = NativeMsgpackEncoder::new(&serializer, false);
         assert!(encoder.encode(&locals, &mut Vec::new()).is_ok());
         assert_eq!(calls.len().expect("calls has a length"), 2 * per_event);
@@ -337,9 +334,7 @@ fn value_interner_uses_strong_exact_object_identity_not_equal_content() {
     assert_eq!(&output[reference_start..], b"\xd6\x09\0\0\0\0");
     assert_eq!(interning.snapshot_all().len(), 1);
 
-    // Equal bytes in a different exact object are not aliased. The table
-    // retains `first`, so its pointer cannot be recycled while this entry
-    // exists and no probabilistic/content-only identity is involved.
+    // Retain the first object so its pointer cannot be reused by a distinct equal object.
     assert_eq!(
         encoder.lookup_value(
             equal_but_distinct.as_ptr() as usize,
@@ -673,9 +668,6 @@ fn test_assign_unsupported_values_match_python_bytes_errors_and_repr_calls() {
                 let expected_calls = calls.extract::<Vec<String>>().unwrap();
                 calls.call_method0("clear").unwrap();
 
-                // The destination is deliberately non-empty: if serialization
-                // fails, assignment encoding must not expose a partial
-                // extension header or payload to its caller.
                 let mut actual_bytes = vec![0xc0];
                 let actual = write_assign_tuple(
                     &mut actual_bytes,
@@ -807,8 +799,6 @@ fn test_serializer_failures_leave_destination_unchanged() {
         assert_eq!(error.to_string(), "Interrupt: argument serializer failed");
         assert_eq!(frame_bytes, [0xcc]);
 
-        // The module frame's locals hold a lone surrogate, which the careful
-        // pass records, and then `uncatchable`, whose repr still escapes.
         let exact_argument = 42_i64.into_pyobject(py).unwrap().into_any();
         let (frame_bytes, result) = write_frame(0xdd, Arg::Argument(&exact_argument));
         let error = result.expect_err("locals failure after an argument must propagate");
@@ -834,7 +824,6 @@ fn test_native_msgpack_matches_python_for_formerly_rejected_shapes() {
         for (name, value) in values.cast::<PyDict>().unwrap().iter() {
             for lightweight_repr in [false, true] {
                 let label = format!("{name} (lightweight={lightweight_repr})");
-                // Default-address reprs differ between objects, not runs.
                 assert_native_matches_python(py, &serializer, &value, lightweight_repr, &label);
             }
         }
@@ -1299,8 +1288,6 @@ fn test_frame_with_surrogate_module_name_is_kept() {
         )
         .expect("a lone surrogate in the locals no longer loses the frame");
 
-        // `__name__` in the module's locals: "\ud800" as a surrogatepass
-        // extension (type 10).
         let surrogate = [0xc7, 0x03, 10, 0xed, 0xa0, 0x80];
         assert!(buf.windows(surrogate.len()).any(|window| window == surrogate));
     });
@@ -1469,7 +1456,6 @@ fn native_encode_count_is_released_when_a_panic_unwinds() {
         }));
 
         assert!(unwound.is_err());
-        // A stuck count would block every later query on this thread.
         assert!(!native_encode_in_progress());
     });
 }
@@ -1525,8 +1511,6 @@ while codes:
                 .expect("code item")
                 .cast_into::<pyo3::types::PyCode>()
                 .expect("a code object");
-            // From 3.13 the table is only consulted for code without LINE
-            // instrumentation data; these code objects never ran.
             #[cfg(Py_3_13)]
             assert!(
                 co_monitoring::answers_from_line_table(py, &code.clone().unbind()),
@@ -1619,12 +1603,10 @@ other_frame = other()
                 break;
             }
         }
-        // Unstarted (no instruction run yet, `co_firstlineno`), then each yield.
         assert_eq!(seen[0], 2);
         assert_eq!(&seen[1..], [3, 5, 8, 8, 8, seen[6]]);
         assert!((9..=10).contains(&seen[6]));
 
-        // A frame of another code object is never answered from this table.
         let other_frame = module
             .getattr("other_frame")
             .expect("other frame")
@@ -1722,8 +1704,6 @@ def stop(scenario, code):
         ] {
             let instrumented = !matches!(scenario, "none" | "py_start");
 
-            // Every instruction offset of a long function that ran under
-            // the scenario.
             let big = module
                 .call_method1("fresh", ("big", module.getattr("big_src").unwrap()))
                 .expect("fresh big");
@@ -1758,14 +1738,11 @@ def stop(scenario, code):
             call("stop", (scenario, code.as_any()));
             if cfg!(Py_3_13) {
                 assert_eq!(answers, !instrumented, "{scenario}");
-                // LINE data answers -1 between line starts: the gate matters.
                 assert_eq!(differs > 0, instrumented, "{scenario}");
             } else {
                 assert_eq!(differs, 0, "{scenario}: 3.12 ignores LINE data");
             }
 
-            // Every suspension point of a generator stepped under the
-            // scenario, against CPython's own lookup.
             let walk = module
                 .call_method1("fresh", ("walk", module.getattr("walk_src").unwrap()))
                 .expect("fresh walk");
@@ -1875,9 +1852,6 @@ for t in taken:
         );
         assert_eq!(tools(), before);
 
-        // Another tool's global LINE events give the probe LINE data from
-        // the start, so nothing can be confirmed: the table stays off until
-        // a later monitor start checks again.
         py.run(
             c"tool = next(t for t in range(6) if M.get_tool(t) is None)
 M.use_tool_id(tool, 'kolo test')
@@ -1901,7 +1875,6 @@ M.set_events(tool, M.events.LINE)
         );
         assert_eq!(tools(), before);
 
-        // An active `sys.settrace` is the same, detected without a probe.
         py.run(
             c"import sys\nsys.settrace(lambda *args: None)\n",
             Some(&globals),
@@ -1979,7 +1952,6 @@ ladder = {
             assert_eq!(classify(value), [false, false], "{name}");
         }
 
-        // Encoding flips IN_KOLO_PROFILER, which must not invalidate.
         let plain = module.getattr("values").unwrap().get_item("plain").unwrap();
         let before = globals_generation();
         serializer
@@ -2055,7 +2027,6 @@ fn shared_containers_encode_once_and_match_python() {
                 let native = serializer
                     .dump_msgpack(py, &value, lightweight_repr)
                     .expect("native encoding succeeds");
-                // Expanded as a tree this would be 2**41 containers.
                 assert!(native.len() < 16 * 1024, "{name}: {} bytes", native.len());
                 assert!(native
                     .windows(2)
@@ -2086,8 +2057,6 @@ fn small_values_never_track_shared_containers() {
         let native = serializer
             .dump_msgpack(py, &value, false)
             .expect("native encoding succeeds");
-        // 1001 containers stay below the tracking threshold, so the repeated
-        // list is written out each time, exactly as msgpack would.
         let mut expected = vec![0xdc, 0x03, 0xe8];
         for _ in 0..1000 {
             expected.extend_from_slice(&[0x92, 1, 2]);
@@ -2182,8 +2151,6 @@ fn value_budget_ignores_unfinished_extension_header_reservations() {
         let python = serializer
             .python_dump_msgpack(py, &value, false)
             .expect("Python encoding succeeds");
-        // Packing the inner tuple holds the outer tuple's 6-byte reserved
-        // header, more than the finished value's 6 bytes in total.
         assert_eq!(python.len(), 6);
         for (budget, expected) in [(6, Encoded::Complete), (5, Encoded::OverBudget)] {
             let mut encoder = NativeMsgpackEncoder::new(&serializer, false);
@@ -2224,7 +2191,6 @@ fn assignment_tuples_never_hold_shared_references() {
                 budget,
             )
             .expect("assignment encodes");
-            // Readers reject a shared reference inside a tuple payload.
             assert!(!encoded
                 .windows(2)
                 .any(|pair| pair == [0xd6, SHARED_REFERENCE_EXTENSION_TYPE as u8]));
@@ -2238,8 +2204,6 @@ fn assignment_tuples_never_hold_shared_references() {
 
 #[test]
 fn test_max_value_mb_accepts_only_ints_and_floats() {
-    // As kolo.config.resolve_max_value_bytes: a Decimal (or anything with
-    // `__float__`) is rejected, ints and floats are taken.
     Python::initialize();
     Python::attach(|py| {
         let resolve = |mb: Bound<'_, PyAny>| {
@@ -2263,7 +2227,6 @@ fn test_max_value_mb_accepts_only_ints_and_floats() {
 #[test]
 #[cfg(target_pointer_width = "64")]
 fn test_max_value_mb_upper_bound_matches_python() {
-    // kolo.config.resolve_max_value_bytes accepts at most sys.maxsize bytes.
     Python::initialize();
     Python::attach(|py| {
         let resolve = |mb: f64| {
@@ -2271,7 +2234,6 @@ fn test_max_value_mb_upper_bound_matches_python() {
             config.set_item("max_value_mb", mb).expect("set");
             config::resolve_max_value_bytes(&config)
         };
-        // 2**43 MB is 2**63 bytes, one past isize::MAX.
         let too_large = (1u64 << 43) as f64;
         assert!(resolve(too_large).is_err());
         assert_eq!(
@@ -2283,9 +2245,6 @@ fn test_max_value_mb_upper_bound_matches_python() {
 
 #[test]
 fn test_assign_tuple_encoded_in_place_matches_python_at_every_extension_header_size() {
-    // The tuple is encoded behind a header reserved at its largest size and
-    // shrunk afterwards. Walk the payload across every header size msgpack
-    // has: fixext 4/8/16 and ext 8/16/32.
     Python::initialize();
 
     Python::attach(|py| {
@@ -2296,9 +2255,7 @@ fn test_assign_tuple_encoded_in_place_matches_python_at_every_extension_header_s
             let value = PyString::new(py, &"x".repeat(len)).into_any();
             let expected = python_assign_reference(py, &serializer, "v", &value, false)
                 .expect("Python reference serializes a str");
-            // After the `assign` key (a fixstr of 6 bytes).
             headers.insert(expected[7]);
-            // The destination is non-empty, as a frame arena is.
             let mut actual = vec![0xc0, 0xc3];
             write_assign_tuple(&mut actual, &serializer, ("v", value), false, None)
                 .expect("a str encodes");
@@ -2320,7 +2277,6 @@ fn test_assign_tuple_encoded_in_place_matches_python_at_every_extension_header_s
 
 /// A line frame as it was written before its per-code fields were cached:
 /// every field formatted from the live frame with `rmp`.
-// Line events need sys.monitoring.
 #[cfg(Py_3_12)]
 fn reference_line_frame(
     py: Python<'_>,
@@ -2364,10 +2320,6 @@ fn test_line_frame_with_cached_code_fields_matches_per_frame_formatting() {
     Python::initialize();
 
     Python::attach(|py| {
-        // One code object run under different globals: an ordinary module
-        // name, none, a non-str, a str subclass, one with a lone surrogate
-        // and one long enough for a two-byte str header. The last frame has
-        // no line number.
         let module = PyModule::from_code(
             py,
             c"import inspect, sys, types\nclass Name(str):\n    def __str__(self):\n        return 'from __str__'\ndef outer():\n    def target():\n        marker = 1\n        return sys._getframe()\n    return target\ntarget = outer()\nframes = [\n    types.FunctionType(target.__code__, namespace)()\n    for namespace in (\n        {'sys': sys, '__name__': 'package.module'},\n        {'sys': sys},\n        {'sys': sys, '__name__': 5},\n        {'sys': sys, '__name__': Name('subclass')},\n        {'sys': sys, '__name__': 'lone\\ud800surrogate'},\n        {'sys': sys, '__name__': 'm' * 300},\n    )\n]\ndef generator():\n    yield inspect.currentframe()\nframes.append(next(types.FunctionType(generator.__code__.replace(co_linetable=b''), globals())()))\nvalues = [1, 'x' * 300, [1, 2], None]\n",
@@ -2389,8 +2341,6 @@ fn test_line_frame_with_cached_code_fields_matches_per_frame_formatting() {
                 .unwrap()
                 .extract::<String>()
                 .unwrap();
-            // Shared by the frames of one code object, as in a session, so
-            // the joined qualname is replaced when the module name changes.
             let line_code = line_codes
                 .entry(code.as_ptr() as usize)
                 .or_insert_with(|| {
@@ -2412,7 +2362,6 @@ fn test_line_frame_with_cached_code_fields_matches_per_frame_formatting() {
                         frame_id.map(FrameId::from_str),
                     )
                     .expect("line frame captures");
-                    // The destination is non-empty, as a frame arena is.
                     let mut actual = vec![0xc0];
                     line_frame
                         .write_msgpack_into(
@@ -2447,9 +2396,6 @@ fn test_line_frame_with_cached_code_fields_matches_per_frame_formatting() {
                 }
             }
         }
-        // A frame of other code than the instruction's (a replaced
-        // `sys._getframe`) keeps its own path and qualname, read from the
-        // frame, under the instruction's co_name.
         let frames = frames.cast::<PyList>().unwrap();
         let target = frames.get_item(0).unwrap().cast_into::<PyFrame>().unwrap();
         let generator = frames.get_item(6).unwrap().cast_into::<PyFrame>().unwrap();
@@ -2476,7 +2422,6 @@ fn test_line_frame_with_cached_code_fields_matches_per_frame_formatting() {
         assert_eq!(field("qualname"), get_qualname(&target, py).unwrap().unwrap());
         assert_eq!(field("co_name"), "generator");
 
-        // The fixture reached every way a qualname is put together.
         for expected in [
             "package.module.outer.<locals>.target".to_string(),
             "<unknown>.outer.<locals>.target".to_string(),

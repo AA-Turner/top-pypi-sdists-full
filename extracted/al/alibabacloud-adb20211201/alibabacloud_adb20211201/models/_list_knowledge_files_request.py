@@ -14,24 +14,17 @@ class ListKnowledgeFilesRequest(DaraModel):
         status: str = None,
         user: str = None,
     ):
-        # The ID of the AnalyticDB for MySQL instance.
+        # The ADB instance ID.
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id
-        # The JSON string of the file ID array. A maximum of 200 positive integers are supported.
+        # The JSON string of the file ID array, which contains up to 200 positive integers.
         self.file_ids = file_ids
-        # The page number, starting from 1. If this parameter is not specified, Ray uses a default value of 1.
+        # The page number, starting from 1. If this parameter is not specified, the default value is 1.
         self.page = page
-        # The number of entries per page. Valid values: 1 to 100. If this parameter is not specified, Ray uses a default value of 20.
+        # The number of entries per page. Valid values: 1 to 100. If this parameter is not specified, the default value is 20.
         self.page_size = page_size
-        # The processing status. Valid values:
-        # 
-        # - PENDING
-        # - PROCESSING
-        # - COMPLETED
-        # - FAILED
-        # - DUPLICATED
-        # - SKIPPED
+        # The processing status. Valid values: PENDING, PROCESSING, COMPLETED, FAILED, DUPLICATED, and SKIPPED.
         self.status = status
         # The stable ID of the authorized user. If this parameter is not specified, all files in the knowledge base can be queried.
         self.user = user

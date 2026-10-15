@@ -134,6 +134,9 @@ which gives *control vs E22* and *control vs E23*, selectable in the viewer.
 3. Choosing the platforms
 =========================
 
+Every token, with examples for each family (radiances, aircraft,
+radiosondes, surface), is on :doc:`stations`. In short:
+
 ``ID_STN`` takes the tokens of the rest of Pikobs, and each one is its own
 series of figures:
 

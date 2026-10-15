@@ -124,7 +124,7 @@ class ProcessWrapper:
                     stdin_w = None
 
             process.poll()
-            if process.returncode is not None:
+            if process.returncode is not None and len(ready_r) == 0:
                 break
 
         if stdin_w is not None:
@@ -135,7 +135,7 @@ class ProcessWrapper:
         if buf:
             # process incomplete line
             res.append(buf)
-            if buf[-1] != b'\n':
+            if not buf.endswith(b'\n'):
                 buf += b'\n'
             for callback in self.callbacks:
                 callback(buf, process)

@@ -15,7 +15,17 @@ import meshioplusplus as mio
 from meshioplusplus import _fit_cad
 from meshioplusplus._cli._main import main as cli_main
 
-from .analytic_surfaces import box_skin, torus, turned_part
+from .analytic_surfaces import (
+    box_skin,
+    inclined_boss,
+    rounded_thread_rod,
+    threaded_rod,
+    torus,
+    turned_part,
+    variable_fillet_block,
+    wavy_bar,
+    wavy_capped,
+)
 
 HAS_OCCT = _fit_cad.has_occt()
 needs_occt = pytest.mark.skipif(
@@ -101,6 +111,164 @@ def test_types_mask_and_empty_types_facet_the_rest():
     assert report["num_plane"] == 0
     assert report["num_faceted_faces"] == report["num_faces"] > 6
     assert report["num_demoted"] == 0
+
+
+def _bumped_box(n=32, amp=0.15):
+    """The unit cube whose top carries a smooth bump no primitive explains."""
+    skin = box_skin(n)
+    p = skin.points.copy()
+    top = np.isclose(p[:, 2], 1.0)
+    x, y = p[top, 0], p[top, 1]
+    p[top, 2] += (
+        amp
+        * np.exp(-((x - 0.5) ** 2 + (y - 0.5) ** 2) / 0.03)
+        * 16
+        * x
+        * (1 - x)
+        * y
+        * (1 - y)
+    )
+    return mio.Mesh(p, skin.cells)
+
+
+@needs_occt
+def test_unexplained_patch_becomes_a_freeform_face(tmp_path):
+    fit = _fitted(_bumped_box())
+    assert 0 in fit.field_data["fit:patch_type"].tolist()  # the bump is no primitive
+    out, report = mio.fit_cad(fit, tmp_path / "bump.step", return_report=True)
+    assert report["valid"]
+    assert report["num_bspline"] == 1 and report["num_plane"] == 5
+    assert report["num_faceted_faces"] == 0 and report["num_demoted"] == 0
+    assert report["max_deviation"] <= report["tolerance"]
+    assert report["volume_ratio"] == pytest.approx(1.0, abs=1e-4)
+    assert 6 in out.cell_data["fit_cad:type"][0].tolist()
+    # The solid as NURBS, ready for Kratos: six trimmed faces.
+    brep = out.info["brep"]
+    assert len(brep["faces"]) == 6 and all(f["trimmed"] for f in brep["faces"])
+    mio.write(tmp_path / "bump.cad.json", out)
+    assert len(mio.read(tmp_path / "bump.cad.json").info["brep"]["faces"]) == 6
+
+
+@needs_occt
+def test_freeform_off_or_a_coarse_skin_stays_faceted():
+    _out, report = mio.fit_cad(
+        _fitted(_bumped_box()), freeform=False, return_report=True
+    )
+    assert report["num_bspline"] == 0 and report["num_faceted_faces"] > 0
+    # A skin coarser than the tolerance cannot be a smooth face within it: the
+    # fit refuses it up front rather than building a face to demote.
+    _out, report = mio.fit_cad(
+        _fitted(_bumped_box(16)), tolerance=2e-3, return_report=True
+    )
+    assert report["num_bspline"] == 0 and report["num_demoted"] == 0
+
+
+@needs_occt
+def test_a_curled_patch_is_split_into_freeform_faces():
+    """The wavy wall folds over its plane and, closed around the axis, over
+    its unrolled cylinder too: it is split into pieces that each unroll
+    (roadmap 6.3.2), each a B-spline face under a new patch label."""
+    fit = _fitted(wavy_capped())
+    out, report = mio.fit_cad(fit, return_report=True)
+    assert report["valid"]
+    assert report["num_split_patches"] >= 2
+    assert report["num_bspline"] == report["num_split_patches"]
+    assert report["num_faceted_faces"] == 0
+    assert report["max_deviation"] <= report["tolerance"]
+    largest = max(int(np.max(b)) for b in fit.cell_data["segment:patch"])
+    labels = set(out.cell_data["fit_cad:patch"][0].tolist())
+    assert max(labels) == largest + report["num_split_patches"]
+    _out, report = mio.fit_cad(fit, freeform_split=False, return_report=True)
+    assert report["num_split_patches"] == 0 and report["num_bspline"] == 0
+
+
+@needs_occt
+def test_a_rolling_ball_fillet_is_its_own_face():
+    """The foot of a leaning boss rounded with a constant radius: a canal
+    surface along an ellipse, no primitive (roadmap 6.3.1)."""
+    fit = _fitted(inclined_boss(), curvature_tolerance=3.0)
+    out, report = mio.fit_cad(fit, return_report=True)
+    assert report["valid"]
+    assert report["num_fillet"] == 1 and report["num_faceted_faces"] == 0
+    assert report["num_variable_fillet"] == 0 and report["num_blend"] == 0
+    assert report["max_deviation"] <= report["tolerance"]
+    assert 7 in out.cell_data["fit_cad:type"][0].tolist()
+    # Every face reaches the NURBS side channel, trimmed (OpenCASCADE 7.9's
+    # conversion throws on this solid; the faces are then approximated).
+    faces = out.info["brep"]["faces"]
+    assert len(faces) == report["num_faces"] and all(f["trimmed"] for f in faces)
+    _out, report = mio.fit_cad(fit, fillets=False, return_report=True)
+    assert report["num_fillet"] == 0
+
+
+@needs_occt
+def test_a_fillet_of_varying_radius_is_its_own_face():
+    """A block's edge rounded by a ball whose radius goes from 0.3 to 0.2
+    along it: no one radius explains it, a radius law along the rail does
+    (roadmap 6.3.1)."""
+    fit = _fitted(variable_fillet_block(), curvature_tolerance=3.0)
+    out, report = mio.fit_cad(fit, return_report=True)
+    assert report["valid"]
+    assert report["num_fillet"] == report["num_variable_fillet"] == 1
+    assert report["num_plane"] == 6 and report["num_faceted_faces"] == 0
+    assert report["max_deviation"] <= report["tolerance"]
+    assert report["volume_ratio"] == pytest.approx(1.0, abs=0.01)
+    assert set(out.cell_data["fit_cad:type"][0].tolist()) == {1, 7}
+    _out, report = mio.fit_cad(fit, fillets=False, return_report=True)
+    assert report["num_fillet"] == report["num_variable_fillet"] == 0
+
+
+@needs_occt
+def test_a_blend_between_two_freeform_faces_is_its_own_face():
+    """A bar whose wavy top and leaning front are both freeform B-spline
+    faces, its edge rounded by a rolling ball: the blend is fitted after the
+    freeform faces, against them (roadmap 6.3.1)."""
+    fit = _fitted(wavy_bar(), curvature_tolerance=3.0)
+    out, report = mio.fit_cad(fit, return_report=True)
+    assert report["valid"]
+    assert report["num_fillet"] == report["num_blend"] == 1
+    assert report["num_bspline"] == 2 and report["num_faceted_faces"] == 0
+    assert report["max_deviation"] <= report["tolerance"]
+    assert {6, 7} <= set(out.cell_data["fit_cad:type"][0].tolist())
+    _out, report = mio.fit_cad(fit, fillets=False, return_report=True)
+    assert report["num_fillet"] == report["num_blend"] == 0
+
+
+@needs_occt
+def test_thread_flanks_are_helical_faces():
+    """A trapezoidal thread: both flanks are ruled helicoids about the axis
+    of the root and crest cylinders (roadmap 6.3.1)."""
+    fit = _fitted(threaded_rod(turns=3))
+    out, report = mio.fit_cad(fit, return_report=True)
+    assert report["valid"]
+    assert report["num_helical"] == 2 and report["num_cylinder"] == 2
+    assert report["num_rounded_thread"] == 0
+    assert report["max_deviation"] <= report["tolerance"]
+    assert 8 in out.cell_data["fit_cad:type"][0].tolist()
+    faces = out.info["brep"]["faces"]
+    assert len(faces) == report["num_faces"] and all(f["trimmed"] for f in faces)
+
+
+@needs_occt
+def test_a_rounded_thread_with_no_cylinder_is_helical():
+    """Root and crest rounded into arcs and no cylinder anywhere: every face
+    of the thread finds the screw from its own facets, the flanks straight
+    and the root and crest rounded (roadmap 6.3.1)."""
+    fit = _fitted(rounded_thread_rod(turns=3))
+    out, report = mio.fit_cad(fit, return_report=True)
+    assert report["valid"]
+    assert report["num_helical"] == 4 and report["num_rounded_thread"] == 2
+    assert report["num_cylinder"] == 0
+    assert report["max_deviation"] <= report["tolerance"]
+    assert report["volume_ratio"] == pytest.approx(1.0, abs=0.01)
+    assert 8 in out.cell_data["fit_cad:type"][0].tolist()
+
+
+def test_freeform_options_are_checked_before_the_core():
+    with pytest.raises(ValueError, match="freeform_degree"):
+        mio.fit_cad(box_skin(2), freeform_degree=9)
+    with pytest.raises(ValueError, match="freeform_max_control"):
+        mio.fit_cad(box_skin(2), freeform_max_control=2)
 
 
 @needs_occt

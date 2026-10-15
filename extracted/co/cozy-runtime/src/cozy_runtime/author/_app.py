@@ -59,8 +59,8 @@ class Registration:
     internal: bool = False
     """Managed children from this installed package revision only; never a root request."""
     accelerator: bool | None = None
-    """A job's own execution device: True computes on an accelerator, False on CPU. None
-    leaves the machine class to the host's reading of the dependency closure."""
+    """A job's own execution device: True requires a GPU, False runs on CPU, None (undeclared)
+    takes the machine's GPU when it has one. None on an entrypoint, whose model slots decide."""
     hidden: bool = False
     """This surface is DECLARED but NOT PUBLISHED (#572d). A hidden entrypoint stays in the
     local registry but is absent from the package interface, so no deployment stages a binding and
@@ -242,8 +242,8 @@ class App:
         derived from the signature exactly as it is for an entrypoint. There is no
         JobContext, no second kernel and no serving loop.
         `internal=True` retains this job for same-package managed child calls only.
-        `accelerator=` is the job's own execution device: False runs it on a CPU machine
-        even when its dependencies include torch, True requires an accelerator.
+        `accelerator=` is the job body's own execution device: True requires a GPU, False runs
+        on CPU, and undeclared takes the machine's GPU when it has one, else CPU.
         """
         return self._register(
             "job",

@@ -73,7 +73,7 @@ from ._tool_identity import (
 )
 from .computer import AsyncComputer, Computer
 from .editor import ApplyPatchEditor, ApplyPatchOperation
-from .exceptions import ModelBehaviorError, ToolTimeoutError, UserError
+from .exceptions import MCPToolCancellationError, ModelBehaviorError, ToolTimeoutError, UserError
 from .function_schema import DocstringStyle, function_schema, generate_func_documentation
 from .logger import log_tool_action_warning, logger
 from .run_context import RunContextWrapper
@@ -86,6 +86,7 @@ from .util._tool_errors import get_trace_tool_error
 from .util._types import MaybeAwaitable
 
 if TYPE_CHECKING:
+    from mcp.types import ToolAnnotations
     from typing_extensions import dataclass_transform
 
     from .agent import Agent, AgentBase
@@ -594,6 +595,22 @@ class FunctionTool:
     )
     """Original MCP server name, raw tool name, and configured server position for resume."""
 
+    _mcp_annotations: ToolAnnotations | None = field(default=None, kw_only=True, repr=False)
+
+    @property
+    def mcp_annotations(self) -> ToolAnnotations | None:
+        """Return a copy of the MCP annotations captured when this tool was converted.
+
+        Returns None for non-MCP tools and MCP tools without annotations. The value uses
+        the installed MCP SDK's ToolAnnotations type and attribute names. Omitted hints
+        remain omitted; callers must apply MCP defaults when interpreting them.
+
+        These are server-provided hints, not proof of side effects, successful execution,
+        or safe retries. Trust decisions belong to the application. This runtime metadata
+        is not included in tool origin serialization.
+        """
+        return copy.deepcopy(self._mcp_annotations)
+
     @property
     def qualified_name(self) -> str:
         """Return the public qualified name used to identify this function tool."""
@@ -895,7 +912,12 @@ class ComputerTool(Generic[ComputerT]):
     """The computer implementation, or a factory that produces a computer per run."""
 
     on_safety_check: Callable[[ComputerToolSafetyCheckData], MaybeAwaitable[bool]] | None = None
-    """Optional callback to acknowledge computer tool safety checks."""
+    """Optional callback invoked for each pending safety check before computer actions execute.
+
+    Return True to acknowledge a check or False to raise UserError before execution.
+    If omitted, pending checks remain unacknowledged and execution continues with a warning.
+    The callback runs only when the model reports pending checks, not for every action.
+    """
 
     custom_data_extractor: ComputerToolCustomDataExtractor | None = field(
         default=None,
@@ -2086,6 +2108,36 @@ async def maybe_invoke_function_tool_failure_error_function(
         result = await result
     if function_tool._use_default_failure_error_function and isinstance(context, ToolContext):
         setattr(context, _DEFAULT_FAILURE_HANDLED_ATTR, True)
+        if (
+            isinstance(error, Exception)
+            and not isinstance(error, MCPToolCancellationError)
+            and context.run_config is not None
+            and context.run_config.tool_error_formatter is not None
+        ):
+            # Keep the default failure policy identity: approving model feedback must not
+            # opt the original exception into handled-error traces.
+            from .run_config import ToolErrorFormatterArgs
+
+            try:
+                message = context.run_config.tool_error_formatter(
+                    ToolErrorFormatterArgs(
+                        kind="tool_exception",
+                        tool_type="function",
+                        tool_name=context.qualified_tool_name,
+                        call_id=context.tool_call_id,
+                        default_message=result,
+                        run_context=context,
+                        error=error,
+                    )
+                )
+                message = await message if inspect.isawaitable(message) else message
+            except Exception as exc:
+                log_tool_action_warning(logger, "Tool error formatter failed", exc)
+            else:
+                if isinstance(message, str):
+                    return message
+                if message is not None:
+                    logger.warning("Tool error formatter returned a non-string value")
     return result
 
 

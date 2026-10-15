@@ -76,6 +76,13 @@ class BridgeOrigin(StrEnum):
     INDEPENDENT_HOOK = "independent_hook"
     MATRX_LOCAL = "matrx_local"
     MATRX_SANDBOX = "matrx_sandbox"
+    #: A chat delivered by Matrx 2 (the desktop app) through the shared history importer.
+    #: Native like matrx_local, but no server-driven runtime: the web reaches Matrx 2 over the relay.
+    MATRX_DESKTOP = "matrx_desktop"
+
+
+#: The origins a native transcript (append_native) may come from.
+NATIVE_ORIGINS = frozenset({BridgeOrigin.MATRX_LOCAL, BridgeOrigin.MATRX_SANDBOX, BridgeOrigin.MATRX_DESKTOP})
 
 
 class BridgeRuntimeKind(StrEnum):
@@ -419,15 +426,15 @@ class BridgeRequest(BaseModel):
                 raise ValueError("entries are required for append_native")
             if self.conversation is None:
                 raise ValueError("conversation is required for append_native")
-            if self.origin not in {BridgeOrigin.MATRX_LOCAL, BridgeOrigin.MATRX_SANDBOX}:
-                raise ValueError("append_native origin must be matrx_local or matrx_sandbox")
+            if self.origin not in NATIVE_ORIGINS:
+                raise ValueError("append_native origin must be matrx_local, matrx_desktop or matrx_sandbox")
             if self.writer_runtime_id is None:
                 raise ValueError("writer_runtime_id is required for append_native")
             if self.source_metadata is not None and (
                 self.provider is not BridgeProvider.CLAUDE_CODE
-                or self.origin is not BridgeOrigin.MATRX_LOCAL
+                or self.origin not in {BridgeOrigin.MATRX_LOCAL, BridgeOrigin.MATRX_DESKTOP}
             ):
-                raise ValueError("source_metadata is supported only for Matrx Local Claude imports")
+                raise ValueError("source_metadata is supported only for desktop (Matrx Local or Matrx 2) Claude imports")
             if self.source_metadata is not None and self.provider_project_key is None:
                 raise ValueError("provider_project_key is required for local Claude imports")
         elif self.entries:

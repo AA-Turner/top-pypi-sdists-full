@@ -29,6 +29,7 @@ z3_add_component(smt
     smt_enode.cpp
     smt_farkas_util.cpp
     smt_for_each_relevant_expr.cpp
+    smt_ho_qsolver.cpp
     smt_implied_equalities.cpp
     smt_internalizer.cpp
     smt_justification.cpp
@@ -62,6 +63,7 @@ z3_add_component(smt
     theory_dl.cpp
     theory_dummy.cpp
     theory_fpa.cpp
+    theory_ff.cpp
     theory_intblast.cpp
     theory_lra.cpp
     theory_opt.cpp
@@ -76,9 +78,12 @@ z3_add_component(smt
     uses_theory.cpp
     watch_list.cpp
   COMPONENT_DEPENDENCIES
+    seq
     solver_assertions
     bit_blaster
     cmd_context
+    ff
+    ff_ast
     fpa
     grobner
     nlsat
@@ -87,8 +92,12 @@ z3_add_component(smt
     normal_forms
     parser_util
     pattern
+    polynomial
     proofs
     proto_model
     simplex
     substitution
 )
+
+add_subdirectory(proto_model)
+add_subdirectory(tactic)

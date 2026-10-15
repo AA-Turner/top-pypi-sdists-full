@@ -120,6 +120,25 @@ def test_a_refusal_without_counts_still_renders(refuse, capsys) -> None:
     assert "Nothing was deleted and everything already recorded stays readable." in err
 
 
+def test_a_limit_this_cli_has_never_heard_of_renders_the_servers_sentence(refuse, capsys) -> None:
+    """Data catalog C8i: a newer server refuses a hosted dataset or checkpoint
+    upload with `limit: hosted_data_bytes`, a kind released CLIs predate. The
+    renderer never branches on the kind, so the server's own sentence -- which
+    names what stopped and what did not -- reaches the researcher intact."""
+    hosted = (
+        "This upload would put you over the 50 GB of hosted datasets and checkpoints "
+        "your plan includes (you're using about 49 GB). Runs, metrics and ordinary "
+        f"files keep working -- it's only new hosted data that is paused. {BOOKING}"
+    )
+    refuse(message=hosted, limit="hosted_data_bytes", current=49, maximum=50)
+    rc = cli.main(["project", "create", "--kind", "general", "over-the-line"])
+    err = capsys.readouterr().err
+
+    assert rc == 1
+    assert "50 GB of hosted datasets and checkpoints" in err
+    assert err.count(BOOKING) == 1, err
+
+
 @pytest.mark.parametrize("raises", [False, True])
 def test_a_temporary_cli_client_does_not_leak_into_later_commands(monkeypatch, raises):
     import sys

@@ -13,6 +13,7 @@ from .types.invite_memberships_response import InviteMembershipsResponse
 from .types.list_memberships_request_direction import ListMembershipsRequestDirection
 from .types.list_memberships_request_order import ListMembershipsRequestOrder
 from .types.list_memberships_request_status import ListMembershipsRequestStatus
+from .types.list_memberships_request_statuses_item import ListMembershipsRequestStatusesItem
 from .types.list_memberships_response import ListMembershipsResponse
 from .types.transfer_memberships_response import TransferMembershipsResponse
 
@@ -40,9 +41,16 @@ class MembershipsClient:
         *,
         account_id: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        member_id: typing.Optional[str] = None,
         status: typing.Optional[ListMembershipsRequestStatus] = None,
+        statuses: typing.Optional[
+            typing.Union[ListMembershipsRequestStatusesItem, typing.Sequence[ListMembershipsRequestStatusesItem]]
+        ] = None,
         product_id: typing.Optional[str] = None,
+        product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         plan_id: typing.Optional[str] = None,
+        plan_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        promo_code_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         created_after: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         order: typing.Optional[ListMembershipsRequestOrder] = None,
@@ -64,14 +72,29 @@ class MembershipsClient:
         user_id : typing.Optional[str]
             Narrow to one user's memberships (`user_` tag, or `me` for the caller). A user outside the caller's visible set returns an empty list.
 
+        member_id : typing.Optional[str]
+            Narrow to one member's memberships (`mber_` tag), including memberships bought by another business. A member outside the caller's visible set returns an empty list.
+
         status : typing.Optional[ListMembershipsRequestStatus]
-            Filter by billing state. `canceling` matches active memberships set to cancel at period end; `paused` matches memberships with payment collection paused.
+            Filter by billing state. `trialing`, `active`, `past_due`, `completed`, `canceled`, and `expired` match the membership's `status`; `active`, `trialing`, and `past_due` exclude memberships set to cancel at period end. The other values are derived buckets that never appear as a `status`: `canceling` matches memberships set to cancel at period end; `paused` matches memberships with payment collection paused; `expiring` matches one-time purchases that have not yet expired; `one_time` matches one-time purchases that never expire; `unclaimed` matches memberships with no buyer user, including memberships bought by another business; `banned` matches memberships whose buyer is banned from the account.
+
+        statuses : typing.Optional[typing.Union[ListMembershipsRequestStatusesItem, typing.Sequence[ListMembershipsRequestStatusesItem]]]
+            Filter to memberships matching any of these billing states, with the same meanings as `status`. Repeat the parameter to pass several. Combined with `status` when both are sent.
 
         product_id : typing.Optional[str]
-            Filter to memberships of this product (`prod_` tag). Repeat as product_ids[] for several.
+            Filter to memberships of this product (`prod_` tag).
+
+        product_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter to memberships of any of these products, each prefixed `prod_`. Repeat the parameter to pass several.
 
         plan_id : typing.Optional[str]
-            Filter to memberships of this variant (`plan_` tag). Repeat as plan_ids[] for several.
+            Filter to memberships of this variant (`plan_` tag).
+
+        plan_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter to memberships of any of these variants, each prefixed `plan_`. Repeat the parameter to pass several.
+
+        promo_code_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter to memberships discounted by any of these promo codes, each prefixed `promo_`. Repeat the parameter to pass several.
 
         created_after : typing.Optional[str]
             Only memberships created after this ISO 8601 timestamp.
@@ -110,11 +133,15 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
-        response = client.memberships.list()
+        response = client.memberships.list(
+            product_ids=["prod_xxxxxxxxxxxxx"],
+            plan_ids=["plan_xxxxxxxxxxxxx"],
+            promo_code_ids=["promo_xxxxxxxxxxxxxx"],
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -124,9 +151,14 @@ class MembershipsClient:
         return self._raw_client.list(
             account_id=account_id,
             user_id=user_id,
+            member_id=member_id,
             status=status,
+            statuses=statuses,
             product_id=product_id,
+            product_ids=product_ids,
             plan_id=plan_id,
+            plan_ids=plan_ids,
+            promo_code_ids=promo_code_ids,
             created_after=created_after,
             created_before=created_before,
             order=order,
@@ -142,7 +174,7 @@ class MembershipsClient:
         self, *, request: InviteMembershipsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> InviteMembershipsResponse:
         """
-        Sends an email inviting one recipient to join the account through a free variant. Identify the recipient by exactly one of `user_id` or `email`. The invitation is bound to that recipient; after signing in, accepting it immediately grants the membership without checkout. This Experimental endpoint is available only to accounts enabled for membership invitations.
+        Emails one recipient an invitation to a free variant's membership. The invitation is bound to that recipient; after signing in, accepting it immediately grants the membership without checkout. This Experimental endpoint is available only to accounts enabled for membership invitations.
 
         Parameters
         ----------
@@ -162,7 +194,7 @@ class MembershipsClient:
         from whop_sdk.memberships import InviteMembershipsRequestBodyUserId
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -198,7 +230,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -220,7 +252,7 @@ class MembershipsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Membership:
         """
-        Updates a membership: merge metadata key-value pairs, toggle `cancel_at_period_end` — `true` schedules the cancellation for the end of the current billing period, `false` reverses a pending one — or move future renewals to another of the customer's saved payment methods with `payment_method_id`, or set `billing_period_days` to change renewal cadence for an active, trialing, or past-due membership billed automatically by Whop. The current period end moves to the current period start plus the requested number of days, and future renewals use the same cadence. Invoice, externally billed, and canceling memberships are not supported.
+        Updates a membership's metadata, scheduled cancellation, renewal payment method, or renewal cadence.
 
         Parameters
         ----------
@@ -228,7 +260,7 @@ class MembershipsClient:
             Membership ID (`mem_` tag), or a software license key.
 
         billing_period_days : typing.Optional[int]
-            Number of days between recurring charges. Sets the current period end to the current period start plus this value and applies to every recurring variant. The new period end must remain in the future. Existing non-daily memberships cannot be changed to daily billing.
+            Number of days between recurring charges. Sets the current period end to the current period start plus this value and applies to every recurring variant, so future renewals use the same cadence. The new period end must remain in the future. Only for active, trialing, or past-due memberships billed automatically by Whop; invoice, externally billed, and canceling memberships are not supported. Existing non-daily memberships cannot be changed to daily billing. Cannot be combined with other fields.
 
         cancel_at_period_end : typing.Optional[bool]
             `true` cancels at the end of the current billing period (the customer keeps access until then); `false` reverses a pending cancellation.
@@ -252,7 +284,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -275,7 +307,7 @@ class MembershipsClient:
         self, id: str, *, promo_code: str, request_options: typing.Optional[RequestOptions] = None
     ) -> Membership:
         """
-        Applies a promo code to an `active` or `trialing` membership that does not already have one and has exactly one recurring item. The discount lands on the next invoice and follows the code's duration (`once`, `repeating`, or `forever`). Works for Stripe-billed memberships and memberships billed by Whop's billing engine, including payment-element and multi-PSP renewals. Stock, plan eligibility, and expiry are still checked. Memberships with multiple recurring items are rejected.
+        Applies a promo code to an `active` or `trialing` membership that does not already have one and has exactly one recurring item, for Stripe-billed memberships and memberships billed by Whop's billing engine. The discount lands on the next invoice and follows the code's duration (`once`, `repeating`, or `forever`).
 
         Parameters
         ----------
@@ -283,7 +315,7 @@ class MembershipsClient:
             Membership ID (`mem_` tag).
 
         promo_code : str
-            The promo code to apply, as customers enter it at checkout (for example `SAVE20`).
+            The promo code to apply, as customers enter it at checkout (for example `SAVE20`). Its stock, variant eligibility, and expiry are checked as at checkout.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -298,7 +330,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -322,7 +354,7 @@ class MembershipsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Membership:
         """
-        Assigns an affiliate to a membership and pays them the commission you set on its future payments. Name the user with exactly one of `user_id`, `email`, or `username`. A user who is not yet an affiliate of your account becomes one, which also requires `affiliate:create`. Send a new `commission_type` or `commission_value` for the membership's current affiliate to change their commission; a membership that already has a different affiliate returns a conflict. Works for active or trialing memberships with one recurring plan that bill through Stripe or Whop's billing engine, and not for marketplace memberships, paused payments, or a scheduled cancellation. The payout cannot exceed 90% of the next renewal amount, and no past payments are recalculated. You cannot assign yourself.
+        Assigns an affiliate to a membership and pays them the commission you set on its future payments; past payments are not recalculated. A user who is not yet an affiliate of your account becomes one, which also requires `affiliate:create`. Send a new `commission_type` or `commission_value` for the membership's current affiliate to change their commission; a membership that already has a different affiliate returns a conflict. Works for active or trialing memberships with one recurring variant that bill through Stripe or Whop's billing engine, and not for marketplace memberships, paused payments, or a scheduled cancellation. You cannot assign yourself.
 
         Parameters
         ----------
@@ -333,7 +365,7 @@ class MembershipsClient:
             Whether the commission is a percentage of each payment or a fixed amount per payment.
 
         commission_value : float
-            A whole number from 1 to 90 for `percentage`, or an amount greater than 1 in the membership currency for `flat_fee`. Flat fees need matching billing and settlement currencies.
+            A whole number from 1 to 90 for `percentage`, or an amount greater than 1 in the membership currency for `flat_fee`. The payout cannot exceed 90% of the next renewal amount. Flat fees need matching billing and settlement currencies.
 
         email : typing.Optional[str]
             Email address of the user to assign. Pass exactly one of `user_id`, `email`, or `username`.
@@ -357,7 +389,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -384,11 +416,12 @@ class MembershipsClient:
         id: str,
         *,
         cancel_at_period_end: typing.Optional[bool] = OMIT,
+        feedback_option_id: typing.Optional[str] = OMIT,
         reason: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Membership:
         """
-        Cancels a membership. Pass `cancel_at_period_end: true` to stop auto-renewal and keep access until the current billing period ends. Omit it (or pass `false`) to revoke access immediately. Buyers cannot cancel buy-now-pay-later (`splitit`, `sezzle`) or non-trial split-pay memberships.
+        Cancels a membership, either immediately or at the end of the current billing period. Buyers cannot cancel buy-now-pay-later (`splitit`, `sezzle`) or non-trial split-pay memberships.
 
         Parameters
         ----------
@@ -397,6 +430,9 @@ class MembershipsClient:
 
         cancel_at_period_end : typing.Optional[bool]
             `true` stops auto-renewal and keeps access until the current billing period ends. Omit or `false` revokes access immediately.
+
+        feedback_option_id : typing.Optional[str]
+            The ID of the feedback option the customer picked as their reason for canceling, from the account's `feedback_options` preference. The membership records the option's label as the customer saw it and its category as `cancel_option`.
 
         reason : typing.Optional[str]
             Free-form note recording why the membership was canceled.
@@ -414,7 +450,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -423,7 +459,11 @@ class MembershipsClient:
         )
         """
         _response = self._raw_client.cancel(
-            id, cancel_at_period_end=cancel_at_period_end, reason=reason, request_options=request_options
+            id,
+            cancel_at_period_end=cancel_at_period_end,
+            feedback_option_id=feedback_option_id,
+            reason=reason,
+            request_options=request_options,
         )
         return _response.data
 
@@ -452,7 +492,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -491,7 +531,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -506,7 +546,7 @@ class MembershipsClient:
         self, id: str, *, days: typing.Optional[int] = OMIT, request_options: typing.Optional[RequestOptions] = None
     ) -> Membership:
         """
-        Restores access to a `canceled` or `expired` membership that contains only one-time purchases and sets its `status` to `completed`. Lifetime memberships regain lifetime access. For memberships with an expiration, `days` sets `current_period_end` that many days from now; without it the original `current_period_end` is kept, so `days` is required once that has passed. Active and recurring memberships cannot be reactivated.
+        Restores access to a `canceled` or `expired` membership that contains only one-time purchases and sets its `status` to `completed`. Lifetime memberships regain lifetime access; for memberships with an expiration, `days` sets the new `current_period_end`. Active and recurring memberships cannot be reactivated.
 
         Parameters
         ----------
@@ -529,7 +569,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -562,7 +602,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -595,7 +635,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -630,7 +670,7 @@ class MembershipsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -662,9 +702,16 @@ class AsyncMembershipsClient:
         *,
         account_id: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        member_id: typing.Optional[str] = None,
         status: typing.Optional[ListMembershipsRequestStatus] = None,
+        statuses: typing.Optional[
+            typing.Union[ListMembershipsRequestStatusesItem, typing.Sequence[ListMembershipsRequestStatusesItem]]
+        ] = None,
         product_id: typing.Optional[str] = None,
+        product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         plan_id: typing.Optional[str] = None,
+        plan_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        promo_code_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         created_after: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         order: typing.Optional[ListMembershipsRequestOrder] = None,
@@ -686,14 +733,29 @@ class AsyncMembershipsClient:
         user_id : typing.Optional[str]
             Narrow to one user's memberships (`user_` tag, or `me` for the caller). A user outside the caller's visible set returns an empty list.
 
+        member_id : typing.Optional[str]
+            Narrow to one member's memberships (`mber_` tag), including memberships bought by another business. A member outside the caller's visible set returns an empty list.
+
         status : typing.Optional[ListMembershipsRequestStatus]
-            Filter by billing state. `canceling` matches active memberships set to cancel at period end; `paused` matches memberships with payment collection paused.
+            Filter by billing state. `trialing`, `active`, `past_due`, `completed`, `canceled`, and `expired` match the membership's `status`; `active`, `trialing`, and `past_due` exclude memberships set to cancel at period end. The other values are derived buckets that never appear as a `status`: `canceling` matches memberships set to cancel at period end; `paused` matches memberships with payment collection paused; `expiring` matches one-time purchases that have not yet expired; `one_time` matches one-time purchases that never expire; `unclaimed` matches memberships with no buyer user, including memberships bought by another business; `banned` matches memberships whose buyer is banned from the account.
+
+        statuses : typing.Optional[typing.Union[ListMembershipsRequestStatusesItem, typing.Sequence[ListMembershipsRequestStatusesItem]]]
+            Filter to memberships matching any of these billing states, with the same meanings as `status`. Repeat the parameter to pass several. Combined with `status` when both are sent.
 
         product_id : typing.Optional[str]
-            Filter to memberships of this product (`prod_` tag). Repeat as product_ids[] for several.
+            Filter to memberships of this product (`prod_` tag).
+
+        product_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter to memberships of any of these products, each prefixed `prod_`. Repeat the parameter to pass several.
 
         plan_id : typing.Optional[str]
-            Filter to memberships of this variant (`plan_` tag). Repeat as plan_ids[] for several.
+            Filter to memberships of this variant (`plan_` tag).
+
+        plan_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter to memberships of any of these variants, each prefixed `plan_`. Repeat the parameter to pass several.
+
+        promo_code_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter to memberships discounted by any of these promo codes, each prefixed `promo_`. Repeat the parameter to pass several.
 
         created_after : typing.Optional[str]
             Only memberships created after this ISO 8601 timestamp.
@@ -734,14 +796,18 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
 
 
         async def main() -> None:
-            response = await client.memberships.list()
+            response = await client.memberships.list(
+                product_ids=["prod_xxxxxxxxxxxxx"],
+                plan_ids=["plan_xxxxxxxxxxxxx"],
+                promo_code_ids=["promo_xxxxxxxxxxxxxx"],
+            )
             async for item in response:
                 yield item
 
@@ -755,9 +821,14 @@ class AsyncMembershipsClient:
         return await self._raw_client.list(
             account_id=account_id,
             user_id=user_id,
+            member_id=member_id,
             status=status,
+            statuses=statuses,
             product_id=product_id,
+            product_ids=product_ids,
             plan_id=plan_id,
+            plan_ids=plan_ids,
+            promo_code_ids=promo_code_ids,
             created_after=created_after,
             created_before=created_before,
             order=order,
@@ -773,7 +844,7 @@ class AsyncMembershipsClient:
         self, *, request: InviteMembershipsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> InviteMembershipsResponse:
         """
-        Sends an email inviting one recipient to join the account through a free variant. Identify the recipient by exactly one of `user_id` or `email`. The invitation is bound to that recipient; after signing in, accepting it immediately grants the membership without checkout. This Experimental endpoint is available only to accounts enabled for membership invitations.
+        Emails one recipient an invitation to a free variant's membership. The invitation is bound to that recipient; after signing in, accepting it immediately grants the membership without checkout. This Experimental endpoint is available only to accounts enabled for membership invitations.
 
         Parameters
         ----------
@@ -795,7 +866,7 @@ class AsyncMembershipsClient:
         from whop_sdk.memberships import InviteMembershipsRequestBodyUserId
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -839,7 +910,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -867,7 +938,7 @@ class AsyncMembershipsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Membership:
         """
-        Updates a membership: merge metadata key-value pairs, toggle `cancel_at_period_end` — `true` schedules the cancellation for the end of the current billing period, `false` reverses a pending one — or move future renewals to another of the customer's saved payment methods with `payment_method_id`, or set `billing_period_days` to change renewal cadence for an active, trialing, or past-due membership billed automatically by Whop. The current period end moves to the current period start plus the requested number of days, and future renewals use the same cadence. Invoice, externally billed, and canceling memberships are not supported.
+        Updates a membership's metadata, scheduled cancellation, renewal payment method, or renewal cadence.
 
         Parameters
         ----------
@@ -875,7 +946,7 @@ class AsyncMembershipsClient:
             Membership ID (`mem_` tag), or a software license key.
 
         billing_period_days : typing.Optional[int]
-            Number of days between recurring charges. Sets the current period end to the current period start plus this value and applies to every recurring variant. The new period end must remain in the future. Existing non-daily memberships cannot be changed to daily billing.
+            Number of days between recurring charges. Sets the current period end to the current period start plus this value and applies to every recurring variant, so future renewals use the same cadence. The new period end must remain in the future. Only for active, trialing, or past-due memberships billed automatically by Whop; invoice, externally billed, and canceling memberships are not supported. Existing non-daily memberships cannot be changed to daily billing. Cannot be combined with other fields.
 
         cancel_at_period_end : typing.Optional[bool]
             `true` cancels at the end of the current billing period (the customer keeps access until then); `false` reverses a pending cancellation.
@@ -901,7 +972,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -930,7 +1001,7 @@ class AsyncMembershipsClient:
         self, id: str, *, promo_code: str, request_options: typing.Optional[RequestOptions] = None
     ) -> Membership:
         """
-        Applies a promo code to an `active` or `trialing` membership that does not already have one and has exactly one recurring item. The discount lands on the next invoice and follows the code's duration (`once`, `repeating`, or `forever`). Works for Stripe-billed memberships and memberships billed by Whop's billing engine, including payment-element and multi-PSP renewals. Stock, plan eligibility, and expiry are still checked. Memberships with multiple recurring items are rejected.
+        Applies a promo code to an `active` or `trialing` membership that does not already have one and has exactly one recurring item, for Stripe-billed memberships and memberships billed by Whop's billing engine. The discount lands on the next invoice and follows the code's duration (`once`, `repeating`, or `forever`).
 
         Parameters
         ----------
@@ -938,7 +1009,7 @@ class AsyncMembershipsClient:
             Membership ID (`mem_` tag).
 
         promo_code : str
-            The promo code to apply, as customers enter it at checkout (for example `SAVE20`).
+            The promo code to apply, as customers enter it at checkout (for example `SAVE20`). Its stock, variant eligibility, and expiry are checked as at checkout.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -955,7 +1026,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -985,7 +1056,7 @@ class AsyncMembershipsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Membership:
         """
-        Assigns an affiliate to a membership and pays them the commission you set on its future payments. Name the user with exactly one of `user_id`, `email`, or `username`. A user who is not yet an affiliate of your account becomes one, which also requires `affiliate:create`. Send a new `commission_type` or `commission_value` for the membership's current affiliate to change their commission; a membership that already has a different affiliate returns a conflict. Works for active or trialing memberships with one recurring plan that bill through Stripe or Whop's billing engine, and not for marketplace memberships, paused payments, or a scheduled cancellation. The payout cannot exceed 90% of the next renewal amount, and no past payments are recalculated. You cannot assign yourself.
+        Assigns an affiliate to a membership and pays them the commission you set on its future payments; past payments are not recalculated. A user who is not yet an affiliate of your account becomes one, which also requires `affiliate:create`. Send a new `commission_type` or `commission_value` for the membership's current affiliate to change their commission; a membership that already has a different affiliate returns a conflict. Works for active or trialing memberships with one recurring variant that bill through Stripe or Whop's billing engine, and not for marketplace memberships, paused payments, or a scheduled cancellation. You cannot assign yourself.
 
         Parameters
         ----------
@@ -996,7 +1067,7 @@ class AsyncMembershipsClient:
             Whether the commission is a percentage of each payment or a fixed amount per payment.
 
         commission_value : float
-            A whole number from 1 to 90 for `percentage`, or an amount greater than 1 in the membership currency for `flat_fee`. Flat fees need matching billing and settlement currencies.
+            A whole number from 1 to 90 for `percentage`, or an amount greater than 1 in the membership currency for `flat_fee`. The payout cannot exceed 90% of the next renewal amount. Flat fees need matching billing and settlement currencies.
 
         email : typing.Optional[str]
             Email address of the user to assign. Pass exactly one of `user_id`, `email`, or `username`.
@@ -1022,7 +1093,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1055,11 +1126,12 @@ class AsyncMembershipsClient:
         id: str,
         *,
         cancel_at_period_end: typing.Optional[bool] = OMIT,
+        feedback_option_id: typing.Optional[str] = OMIT,
         reason: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Membership:
         """
-        Cancels a membership. Pass `cancel_at_period_end: true` to stop auto-renewal and keep access until the current billing period ends. Omit it (or pass `false`) to revoke access immediately. Buyers cannot cancel buy-now-pay-later (`splitit`, `sezzle`) or non-trial split-pay memberships.
+        Cancels a membership, either immediately or at the end of the current billing period. Buyers cannot cancel buy-now-pay-later (`splitit`, `sezzle`) or non-trial split-pay memberships.
 
         Parameters
         ----------
@@ -1068,6 +1140,9 @@ class AsyncMembershipsClient:
 
         cancel_at_period_end : typing.Optional[bool]
             `true` stops auto-renewal and keeps access until the current billing period ends. Omit or `false` revokes access immediately.
+
+        feedback_option_id : typing.Optional[str]
+            The ID of the feedback option the customer picked as their reason for canceling, from the account's `feedback_options` preference. The membership records the option's label as the customer saw it and its category as `cancel_option`.
 
         reason : typing.Optional[str]
             Free-form note recording why the membership was canceled.
@@ -1087,7 +1162,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1102,7 +1177,11 @@ class AsyncMembershipsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.cancel(
-            id, cancel_at_period_end=cancel_at_period_end, reason=reason, request_options=request_options
+            id,
+            cancel_at_period_end=cancel_at_period_end,
+            feedback_option_id=feedback_option_id,
+            reason=reason,
+            request_options=request_options,
         )
         return _response.data
 
@@ -1135,7 +1214,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1182,7 +1261,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1203,7 +1282,7 @@ class AsyncMembershipsClient:
         self, id: str, *, days: typing.Optional[int] = OMIT, request_options: typing.Optional[RequestOptions] = None
     ) -> Membership:
         """
-        Restores access to a `canceled` or `expired` membership that contains only one-time purchases and sets its `status` to `completed`. Lifetime memberships regain lifetime access. For memberships with an expiration, `days` sets `current_period_end` that many days from now; without it the original `current_period_end` is kept, so `days` is required once that has passed. Active and recurring memberships cannot be reactivated.
+        Restores access to a `canceled` or `expired` membership that contains only one-time purchases and sets its `status` to `completed`. Lifetime memberships regain lifetime access; for memberships with an expiration, `days` sets the new `current_period_end`. Active and recurring memberships cannot be reactivated.
 
         Parameters
         ----------
@@ -1228,7 +1307,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1269,7 +1348,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1310,7 +1389,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1353,7 +1432,7 @@ class AsyncMembershipsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

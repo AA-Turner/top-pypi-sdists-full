@@ -92,11 +92,23 @@ from angr.utils.types import unpack_pointer_and_array, unpack_typeref
 
 from .base import (
     BaseStructuredCodeGenerator,
+    BinaryOpNode,
     CConstantType,
+    ClosingObjectNode,
+    ConstantNode,
+    ExpressionNode,
+    FunctionCallNode,
+    FunctionNode,
     IdentType,
+    IndexedVariableNode,
     InstructionMapping,
+    LabelNode,
     PositionMapping,
     PositionMappingElement,
+    StructFieldNode,
+    UnaryOpNode,
+    VariableFieldNode,
+    VariableNode,
     register_display_name,
     variable_display_name,
     vector_convert_name,
@@ -113,6 +125,7 @@ from .sse_intrinsics import (
     vector_op_intrinsic,
     vector_op_kind,
 )
+from .utils import first_stmt_addr
 
 if TYPE_CHECKING:
     import archinfo
@@ -791,7 +804,7 @@ class CConstruct:
         return " " * indent
 
 
-class CFunction(CConstruct):  # pylint:disable=abstract-method
+class CFunction(CConstruct, FunctionNode):  # pylint:disable=abstract-method
     """
     Represents a function in C.
     """
@@ -1220,7 +1233,7 @@ class CStatement(CConstruct):  # pylint:disable=abstract-method
         super().__init__(codegen=codegen, tags=tags)
 
 
-class CExpression(CConstruct):
+class CExpression(CConstruct, ExpressionNode):
     """
     Base class for C expressions.
     """
@@ -1261,7 +1274,8 @@ class CStatements(CStatement):
         super().__init__(**kwargs)
 
         self.statements = statements
-        self.addr = addr
+        # a list built by codegen passes (not from a structurer node) takes its first statement's address
+        self.addr = addr if addr is not None else first_stmt_addr(statements)
 
     def c_repr_chunks(self, indent=0, asexpr=False):
         indent_str = self.indent_str(indent)
@@ -1851,7 +1865,7 @@ class CExpressionStatement(CStatement):
             yield "\n", None
 
 
-class CFunctionCall(CExpression):
+class CFunctionCall(CExpression, FunctionCallNode):
     """
     func(arg0, arg1)
 
@@ -2123,11 +2137,12 @@ class CDirtyStatement(CExpression):
 
         yield indent_str, None
         yield from self.dirty.c_repr_chunks()
-        yield ";", None
-        yield "\n", None
+        if not asexpr:
+            yield ";", None
+            yield "\n", None
 
 
-class CLabel(CStatement):
+class CLabel(CStatement, LabelNode):
     """
     Represents a label in C code.
     """
@@ -2144,7 +2159,7 @@ class CLabel(CStatement):
         yield "\n", None
 
 
-class CStructField(CExpression):
+class CStructField(CExpression, StructFieldNode):
     __slots__ = (
         "field",
         "offset",
@@ -2189,7 +2204,7 @@ class CFakeVariable(CExpression):
         yield self.name, self
 
 
-class CVariable(CExpression):
+class CVariable(CExpression, VariableNode):
     """
     CVariable represents access to a variable with the specified type (`variable_type`).
 
@@ -2227,7 +2242,7 @@ class CVariable(CExpression):
             yield f"<vvar_{self.vvar_id}>", self
 
 
-class CIndexedVariable(CExpression):
+class CIndexedVariable(CExpression, IndexedVariableNode):
     """
     Represent a variable (an array) that is indexed.
     """
@@ -2271,7 +2286,7 @@ class CIndexedVariable(CExpression):
         yield "]", bracket
 
 
-class CVariableField(CExpression):
+class CVariableField(CExpression, VariableFieldNode):
     """
     Represent a field of a variable.
     """
@@ -2320,7 +2335,7 @@ class CVariableField(CExpression):
         yield ")", paren
 
 
-class CUnaryOp(CExpression):
+class CUnaryOp(CExpression, UnaryOpNode):
     """
     Unary operations.
     """
@@ -2495,7 +2510,7 @@ _NON_ASSOCIATIVE_OPS = frozenset(
 )
 
 
-class CBinaryOp(CExpression):
+class CBinaryOp(CExpression, BinaryOpNode):
     """
     Binary operations.
     """
@@ -3044,7 +3059,7 @@ def _float32_repr(v: float) -> str:
     return s
 
 
-class CConstant(CExpression):
+class CConstant(CExpression, ConstantNode):
     __slots__ = (
         "reference_values",
         "value",
@@ -3500,7 +3515,7 @@ class CDirtyExpression(CExpression):
         yield ")", paren
 
 
-class CClosingObject:
+class CClosingObject(ClosingObjectNode):
     """
     A class to represent all objects that can be closed by it's correspodning character.
     Examples: (), {}, []
@@ -6153,6 +6168,11 @@ class CStructuredCodeWalker:
         obj.cond = self.handle(obj.cond)
         obj.iftrue = self.handle(obj.iftrue)
         obj.iffalse = self.handle(obj.iffalse)
+        return obj
+
+    def handle_CMultiStatementExpression(self, obj):
+        obj.stmts = self.handle(obj.stmts)
+        obj.expr = self.handle(obj.expr)
         return obj
 
     def handle_CVectorConvert(self, obj):

@@ -44,6 +44,8 @@ SEED_SCHEMA: JsonSchemaObject = {
     },
     "required": ["name"],
 }
+# Examples load `externalValue` over the network, and a drawn URL may point at a real host that never answers.
+EXTERNAL_VALUE = "http://127.0.0.1:1/example.json"
 # A drawn media type names no serializer; these do.
 MEDIA_TYPES = (
     "application/json",
@@ -357,6 +359,8 @@ def _rewritten(document: dict[str, Any], media_types: list[str], pointer: str) -
             result: dict[str, JsonValue] = {key: walk(item) for key, item in value.items()}
             if isinstance(result.get("$ref"), str):
                 result["$ref"] = pointer
+            if isinstance(result.get("externalValue"), str):
+                result["externalValue"] = EXTERNAL_VALUE
             content = result.get("content")
             if isinstance(content, dict):
                 entries = list(content.values()) or [{"schema": {"$ref": pointer}}]
@@ -383,17 +387,26 @@ def catch_all_url(app_runner):
 
 
 @pytest.mark.parametrize("version", sorted(SPECS))
-@given(data=st.data())
-@settings(phases=[Phase.generate], deadline=None, suppress_health_check=list(HealthCheck))
-def test_random_schemas(catch_all_url, version, data):
-    raw = data.draw(openapi_documents(version))
-    assert SPECS[version].validator.is_valid(raw), raw
-    schema = schemathesis.openapi.from_dict(raw, config=config)
-    schema.config.update(base_url=catch_all_url)
-    for event in schemathesis.engine.from_schema(schema).execute():
-        assert not isinstance(event, events.FatalError), repr(event)
-        if isinstance(event, events.NonFatalError) and not _is_rejection(event.value):
-            raise AssertionError(str(event.info)) from event.value
+def test_random_schemas(catch_all_url, version, hypothesis_max_examples):
+    # Each document is a full engine run; the nightly CI profile raises the budget.
+    @given(data=st.data())
+    @settings(
+        phases=[Phase.generate],
+        deadline=None,
+        suppress_health_check=list(HealthCheck),
+        max_examples=hypothesis_max_examples or 25,
+    )
+    def run(data):
+        raw = data.draw(openapi_documents(version))
+        assert SPECS[version].validator.is_valid(raw), raw
+        schema = schemathesis.openapi.from_dict(raw, config=config)
+        schema.config.update(base_url=catch_all_url)
+        for event in schemathesis.engine.from_schema(schema).execute():
+            assert not isinstance(event, events.FatalError), repr(event)
+            if isinstance(event, events.NonFatalError) and not _is_rejection(event.value):
+                raise AssertionError(str(event.info)) from event.value
+
+    run()
 
 
 _OK_RESPONSES = {"responses": {"200": {"description": "OK"}}}

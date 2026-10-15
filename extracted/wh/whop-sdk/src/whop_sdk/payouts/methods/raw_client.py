@@ -207,12 +207,13 @@ class RawMethodsClient:
         fields: typing.Optional[typing.Dict[str, str]] = OMIT,
         is_default: typing.Optional[bool] = OMIT,
         nickname: typing.Optional[str] = OMIT,
+        paypal_link_token: typing.Optional[str] = OMIT,
         recipient: typing.Optional[CreateMethodsRequestRecipient] = OMIT,
         user_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateMethodsResponse]:
         """
-        Saves a new place an account or user can pay out to. Sensitive details are vaulted in transit and never stored raw.
+        Saves a bank account, wallet, or crypto address an account or user can pay out to, from a method listed by `GET /payouts/supported_methods`. Sensitive details are vaulted in transit and never stored raw.
 
         Parameters
         ----------
@@ -233,6 +234,9 @@ class RawMethodsClient:
 
         nickname : typing.Optional[str]
             A label for the payout method, unique per destination.
+
+        paypal_link_token : typing.Optional[str]
+            The token your `return_url` received after a Log in with PayPal session started with `POST /payouts/paypal_link_sessions`. Use it for a PayPal supported payout method instead of `fields`. Sending `fields` or `plaid_public_token` alongside it is rejected, and `nickname` is ignored because Whop names the method after the PayPal email. The PayPal holder's name must match the name on the account's payout setup. An account PayPal reports as unverified, or with an unconfirmed email, is saved and flagged on the method's log rather than refused. Single use; expires 15 minutes after the login.
 
         recipient : typing.Optional[CreateMethodsRequestRecipient]
             Creates a recipient payout account linked to the funding ledger as a non-default account, then saves the bank method on it. No Whop user, company, or recipient ledger is created. A valid recipient email is required. Recipient methods cannot be default or recurring methods and cannot use Plaid.
@@ -258,6 +262,7 @@ class RawMethodsClient:
                 "fields": fields,
                 "is_default": is_default,
                 "nickname": nickname,
+                "paypal_link_token": paypal_link_token,
                 "recipient": convert_and_respect_annotation_metadata(
                     object_=recipient, annotation=CreateMethodsRequestRecipient, direction="write"
                 ),
@@ -709,12 +714,13 @@ class AsyncRawMethodsClient:
         fields: typing.Optional[typing.Dict[str, str]] = OMIT,
         is_default: typing.Optional[bool] = OMIT,
         nickname: typing.Optional[str] = OMIT,
+        paypal_link_token: typing.Optional[str] = OMIT,
         recipient: typing.Optional[CreateMethodsRequestRecipient] = OMIT,
         user_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateMethodsResponse]:
         """
-        Saves a new place an account or user can pay out to. Sensitive details are vaulted in transit and never stored raw.
+        Saves a bank account, wallet, or crypto address an account or user can pay out to, from a method listed by `GET /payouts/supported_methods`. Sensitive details are vaulted in transit and never stored raw.
 
         Parameters
         ----------
@@ -735,6 +741,9 @@ class AsyncRawMethodsClient:
 
         nickname : typing.Optional[str]
             A label for the payout method, unique per destination.
+
+        paypal_link_token : typing.Optional[str]
+            The token your `return_url` received after a Log in with PayPal session started with `POST /payouts/paypal_link_sessions`. Use it for a PayPal supported payout method instead of `fields`. Sending `fields` or `plaid_public_token` alongside it is rejected, and `nickname` is ignored because Whop names the method after the PayPal email. The PayPal holder's name must match the name on the account's payout setup. An account PayPal reports as unverified, or with an unconfirmed email, is saved and flagged on the method's log rather than refused. Single use; expires 15 minutes after the login.
 
         recipient : typing.Optional[CreateMethodsRequestRecipient]
             Creates a recipient payout account linked to the funding ledger as a non-default account, then saves the bank method on it. No Whop user, company, or recipient ledger is created. A valid recipient email is required. Recipient methods cannot be default or recurring methods and cannot use Plaid.
@@ -760,6 +769,7 @@ class AsyncRawMethodsClient:
                 "fields": fields,
                 "is_default": is_default,
                 "nickname": nickname,
+                "paypal_link_token": paypal_link_token,
                 "recipient": convert_and_respect_annotation_metadata(
                     object_=recipient, annotation=CreateMethodsRequestRecipient, direction="write"
                 ),

@@ -38,7 +38,7 @@ import arrow as ar
 import numpy as np
 import pandas as pd
 
-from geocif.experiments.s2s_eligibility import window_state
+from geocif.experiments.s2s_eligibility import month_end, window_state
 from geocif.experiments.s2s_pooled_model import (
     MIN_OFFSET, REAL_INIT_YEARS, init_calendar, lead_map, season_months)
 from geocif.experiments.s2s_simple_model import (
@@ -434,6 +434,21 @@ FEATURE_SETS = {
     "no_interact": ["z_PRCPTOT", "z_TMEAN", "z_P_GF"],
 }
 DEFAULT_FEATURE_SET = "rain"
+
+
+def parse_init(init):
+    """(year, month) from ``"YYYY-MM"``, the form ``init_used`` is written in."""
+    m = re.fullmatch(r"(\d{4})-(\d{2})", str(init).strip())
+    if not m or not 1 <= int(m.group(2)) <= 12:
+        raise ValueError(f"init must be 'YYYY-MM', got {init!r}")
+    return int(m.group(1)), int(m.group(2))
+
+
+def offset_for_init(planting, wraps, harvest_year, init_year, init_month):
+    """Months before planting at which an init was issued; the inverse of
+    ``init_calendar``. Negative when the init follows planting."""
+    plant_year = harvest_year - 1 if wraps else harvest_year
+    return (plant_year * 12 + planting) - (init_year * 12 + init_month)
 
 
 def features_for_offset(offset, feature_set=DEFAULT_FEATURE_SET):
@@ -1068,6 +1083,41 @@ def predictor_panel_rows(country, crop, season_name, fx_h, fx_f, feats,
 # ---------------------------------------------------------------------------
 # config
 # ---------------------------------------------------------------------------
+def resolve_paths(parser):
+    """(project, ``<dir_output>/<project>``, metadata dir) from a config.
+
+    ``dir_metadata`` is optional and defaults to the ``inputs/metadata``
+    sibling of the output tree.
+    """
+    project = parser.get("DEFAULT", "project_name", fallback="geocif")
+    root = Path(parser.get("PATHS", "dir_output")) / project
+    meta = (Path(parser.get("PATHS", "dir_metadata"))
+            if parser.has_option("PATHS", "dir_metadata")
+            else root.parent / "inputs" / "metadata")
+    return project, root, meta
+
+
+def run_stamp():
+    """The run-folder timestamp, ``October_14_2026_16h50``."""
+    return ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY_HH[h]mm")
+
+
+def analysis_dir(root, name, stamp=None):
+    """``<root>/ml/analysis/<stamp>/explore/<name>``: the run-dir
+    convention. ``stamp`` defaults to now; a job made of several runs (the
+    shift maps' replays) passes one stamp so they share a dated folder."""
+    return root / "ml" / "analysis" / (stamp or run_stamp()) / "explore" / name
+
+
+def region_suffix(label):
+    """``_southern_africa`` for a region label, '' for none.
+
+    The region goes in the directory name: two regional runs launched in
+    the same minute would otherwise land in the same timestamped dir.
+    """
+    return ("_" + re.sub(r"\W+", "_", label.lower()).strip("_")) if label else ""
+
+
 def config_list(parser, key, section="ML"):
     """A `["a", "b"]`-style config value as a list, or None when absent.
 
@@ -1115,23 +1165,39 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         threshold_dir="crop_t0", crops=("maize", "beans"), today=None,
         hvstat_csv=None, calendar_xlsx=None, countries=None,
         eval_years=None, out_dir=None, n_perm=N_PERM, figures=True,
-        feature_set=None, forecast_offset=None):
+        feature_set=None, forecast_offset=None, as_of_init=None,
+        stamp=None):
     """Enumerate, score and forecast every eligible HarvestStat combination.
 
     ``forecast_offset`` pins the init used for the forecast to that many
     months before planting (0 = the planting month, negative = after
     planting), instead of taking the freshest usable one.
+
+    ``as_of_init`` (``"YYYY-MM"``) replays the run as issued from that init:
+    every combination is forecast from it at its own offset (planting
+    months differ), the window is judged as of the end of that month unless
+    ``today`` is given, and a combination the init cannot serve is
+    excluded. Past inits never change, so a replay with today's code and
+    data is the series the shift maps compare, free of the code and data
+    fixes applied between the original issues.
+
+    ``stamp`` names the dated output folder (default: now), so the runs of
+    one job land side by side; ``out_dir`` overrides the path outright.
     """
     if forecast_offset is not None and forecast_offset not in OFFSETS:
         raise ValueError(f"forecast_offset must be {MIN_OFFSET}..{MAX_OFFSET}, "
                          f"got {forecast_offset}")
+    if as_of_init is not None:
+        if forecast_offset is not None:
+            raise ValueError("as_of_init and forecast_offset both pin the "
+                             "init; give one of them")
+        as_of_year, as_of_month = parse_init(as_of_init)
+        if today is None:
+            today = month_end(as_of_year, as_of_month)
     if parser is None:
         from geocif import logger as log
         logger_obj, parser = log.setup_logger_parser(path_config_files)
-    project = parser.get("DEFAULT", "project_name", fallback="geocif")
-    root = Path(parser.get("PATHS", "dir_output")) / project
-    meta = Path(parser.get("PATHS", "dir_metadata")) if parser.has_option(
-        "PATHS", "dir_metadata") else root.parent / "inputs" / "metadata"
+    project, root, meta = resolve_paths(parser)
     hvstat_csv = hvstat_csv or (meta / "production_statistics"
                                 / "hvstat_africa_data_v1.0.csv")
     calendar_xlsx = calendar_xlsx or (meta / "crop_calendars"
@@ -1152,19 +1218,17 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
                          f"choose from {sorted(FEATURE_SETS)}")
     logger.info(f"feature set {feature_set!r}: "
                 f"{FEATURE_SETS[feature_set]}")
-    ts = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY_HH[h]mm")
     suffix = "" if feature_set == DEFAULT_FEATURE_SET else f"_{feature_set}"
-    if region_label:
-        # Region goes in the directory name: two regional runs launched in
-        # the same minute would otherwise land in the same timestamped dir.
-        suffix += "_" + re.sub(r"\W+", "_", region_label.lower()).strip("_")
+    suffix += region_suffix(region_label)
     if forecast_offset is not None:
         # A pinned-offset run must not land on the free-running run's path:
         # the two differ only in the forecast, and the maps look identical
         # at a glance. ("is not None": offset 0, the planting month, is valid.)
         suffix += f"_off{forecast_offset}"
-    out = Path(out_dir) if out_dir else (
-        root / "ml" / "analysis" / ts / "explore" / f"s2s_africa{suffix}")
+    if as_of_init is not None:
+        suffix += f"_asof{as_of_year}{as_of_month:02d}"
+    out = (Path(out_dir) if out_dir
+           else analysis_dir(root, f"s2s_africa{suffix}", stamp))
     out.mkdir(parents=True, exist_ok=True)
 
     raw = pd.read_csv(hvstat_csv)
@@ -1230,6 +1294,25 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             combos.append(rec)
             excluded.append(rec)
             continue
+
+        # The init the forecast is issued from, when pinned: by offset
+        # (forecast_offset) or by date (as_of_init, one offset per
+        # combination since planting months differ). None = freshest.
+        # After the history gate, so a replay excludes a short record as
+        # too_short exactly as the live run does.
+        off_pin = forecast_offset
+        if as_of_init is not None:
+            off_pin = offset_for_init(cal["planting_month"], cal["wraps"],
+                                      st["harvest_year"], as_of_year,
+                                      as_of_month)
+            if off_pin not in OFFSETS:
+                rec.update(status="no_init",
+                           reason=f"init {as_of_init} is {off_pin} months "
+                                  f"before planting; the window spans "
+                                  f"{MIN_OFFSET}..{MAX_OFFSET}")
+                combos.append(rec)
+                excluded.append(rec)
+                continue
 
         # --- S2S ---
         slug = country_slug(country, root / threshold_dir)
@@ -1312,8 +1395,7 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         # skill is measured on, so a pinned run is not an honest forecast.
         # OFFSETS ascends, so the freshest init (latest issued, smallest
         # offset) is tried first; an init not yet published builds nothing.
-        cand_offsets = ([forecast_offset] if forecast_offset is not None
-                        else OFFSETS)
+        cand_offsets = [off_pin] if off_pin is not None else OFFSETS
         fx_f = None
         for off in cand_offsets:
             iy, im = init_calendar(cal["planting_month"], off, hy, cal["wraps"])
@@ -1329,9 +1411,9 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
                 break
         if fx_f is None:
             rec.update(status="no_init",
-                       reason=(f"offset {forecast_offset} builds no features "
+                       reason=(f"offset {off_pin} builds no features "
                                f"for the pending season"
-                               if forecast_offset is not None
+                               if off_pin is not None
                                else "no published init covers the pending "
                                     "season"))
             combos.append(rec)

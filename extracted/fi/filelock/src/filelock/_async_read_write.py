@@ -2,22 +2,25 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = ["asyncio", "concurrent.futures", "filelock._async", "functools", "threading"]
+
 import asyncio
 import functools
 import os
 import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import thread as executor_threads
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Literal, ParamSpec, TypeVar, cast
 
-from ._api import (
+from filelock._api import (
     _append_exception_context,
     _ensure_current_process,
     _fork_transition,
     _register_fork_object,
 )
-from ._async import (
+from filelock._async import (
     _BackendOutcome,
     _capture_call,
     _drain_future,
@@ -26,10 +29,10 @@ from ._async import (
     _task_owners_for,
     _wait_until_done,
 )
-from ._read_write import ReadWriteLock
+from filelock._read_write import ReadWriteLock
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable
+    from collections.abc import AsyncGenerator, Callable, MutableMapping
     from concurrent import futures
     from types import TracebackType
 
@@ -326,6 +329,17 @@ class AsyncReadWriteLock:
 
     def _reset_after_fork_in_child(self) -> None:  # pragma: forked child
         self._fork_invalidated = True
+        if self._owns_executor:
+            # The worker did not survive the fork, yet before 3.12 the child's exit still wakes it through its queue. On
+            # PyPy that queue is pure Python, and its lock may have been held by the worker at fork time, so exit hangs.
+            # CPython 3.12+ forgets every inherited worker in the child; do the same for the one this lock owns.
+            # typeshed declares the registry read-only; it is a WeakKeyDictionary the exit hook iterates.
+            registry = cast(
+                "MutableMapping[threading.Thread, object]",
+                executor_threads._threads_queues,  # ruff:ignore[private-member-access]  # the exit hook's registry
+            )
+            for worker in cast("ThreadPoolExecutor", self._executor)._threads:  # ruff:ignore[private-member-access]  # only the executor lists its workers
+                registry.pop(worker, None)
 
     def __del__(self) -> None:
         # Safety net when close() was never called: shut down the executor we own so its worker thread does not

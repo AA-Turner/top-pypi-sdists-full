@@ -1,10 +1,3 @@
-from graphdatascience.procedure_surface.api.node_embedding.config import (
-    FastRPConfig,
-    GBClassifierConfig,
-    GraphSAGEConfig,
-    IdentityConfig,
-    MLPClassifierConfig,
-)
 from graphdatascience.procedure_surface.api.node_embedding.embedding_endpoints import (
     EmbeddingCreateResult,
     EmbeddingEndpoints,
@@ -23,7 +16,6 @@ from graphdatascience.procedure_surface.api.node_embedding.fastrp_endpoints impo
 )
 from graphdatascience.procedure_surface.api.node_embedding.graphsage_endpoints import (
     GraphSageEndpoints,
-    SessionGraphSageEndpoints,
 )
 from graphdatascience.procedure_surface.api.node_embedding.graphsage_predict_endpoints import (
     GraphSageMutateResult,
@@ -69,7 +61,6 @@ __all__ = [
     "EmbeddingEndpoints",
     "EmbeddingCreateResult",
     "EmbeddingTrainResult",
-    "FastRPConfig",
     "FastRPEndpoints",
     "FastRPMutateResult",
     "FastRPStatsResult",
@@ -77,8 +68,6 @@ __all__ = [
     "FastPathEndpoints",
     "FastPathMutateResult",
     "FastPathWriteResult",
-    "GBClassifierConfig",
-    "GraphSAGEConfig",
     "GraphSageEndpoints",
     "GraphSageMutateResult",
     "GraphSagePredictEndpoints",
@@ -98,10 +87,7 @@ __all__ = [
     "HashGNNEndpoints",
     "HashGNNMutateResult",
     "HashGNNWriteResult",
-    "IdentityConfig",
-    "MLPClassifierConfig",
     "Node2VecEndpoints",
     "Node2VecMutateResult",
     "Node2VecWriteResult",
-    "SessionGraphSageEndpoints",
 ]

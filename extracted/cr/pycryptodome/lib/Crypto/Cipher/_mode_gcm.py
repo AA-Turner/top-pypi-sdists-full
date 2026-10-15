@@ -1,54 +1,41 @@
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
 """
 Galois/Counter Mode (GCM).
 """
 
-__all__ = ['GcmMode']
+from __future__ import annotations
+
+from hmac import compare_digest
+from typing import TYPE_CHECKING, Any, Optional, Union, overload
+
+__all__ = ["GcmMode"]
 
 from binascii import unhexlify
 
-from Crypto.Util.py3compat import bord, _copy_bytes
-
-from Crypto.Util._raw_api import is_buffer
-
-from Crypto.Util.number import long_to_bytes, bytes_to_long
-from Crypto.Hash import BLAKE2s
+from Crypto import MessageTooLongError
+from Crypto.Cipher._state_machine import Method
 from Crypto.Random import get_random_bytes
-
-from Crypto.Util._raw_api import (load_pycryptodome_raw_lib, VoidPointer,
-                                  create_string_buffer, get_raw_buffer,
-                                  SmartPointer, c_size_t, c_uint8_ptr)
-
 from Crypto.Util import _cpu_features
+from Crypto.Util._raw_api import (
+    SmartPointer,
+    VoidPointer,
+    c_size_t,
+    c_uint8_ptr,
+    c_uint8_ptr_len,
+    create_string_buffer,
+    get_raw_buffer,
+    is_buffer,
+    load_pycryptodome_raw_lib,
+)
+from Crypto.Util._threads import range_boundaries, run_in_threads
+from Crypto.Util.number import bytes_to_long, long_to_bytes
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+Buffer = Union[bytes, bytearray, memoryview]
 
 
 # C API by module implementing GHASH
@@ -61,17 +48,29 @@ _ghash_api_template = """
     int ghash_expand_%imp%(const uint8_t h[16],
                            void **ghash_tables);
     int ghash_destroy_%imp%(void *ghash_tables);
+    int ghash_at_%imp%(uint8_t y_out[16],
+                       const uint8_t block_data[],
+                       size_t offset,
+                       size_t len,
+                       const uint8_t y_in[16],
+                       const void *exp_key);
+    int ghash_combine_%imp%(uint8_t y_out[16],
+                            const uint8_t y_in[16],
+                            size_t n_blocks,
+                            const uint8_t g[16],
+                            const void *exp_key);
 """
+
 
 def _build_impl(lib, postfix):
     from collections import namedtuple
 
-    funcs = ( "ghash", "ghash_expand", "ghash_destroy" )
-    GHASH_Imp = namedtuple('_GHash_Imp', funcs)
+    funcs = ("ghash", "ghash_expand", "ghash_destroy", "ghash_at", "ghash_combine")
+    GHASH_Imp = namedtuple("_GHash_Imp", funcs)
     try:
-        imp_funcs = [ getattr(lib, x + "_" + postfix) for x in funcs ]
-    except AttributeError:      # Make sphinx stop complaining with its mocklib
-        imp_funcs = [ None ] * 3
+        imp_funcs = [getattr(lib, x + "_" + postfix) for x in funcs]
+    except AttributeError:  # Make sphinx stop complaining with its mocklib
+        imp_funcs = [None] * len(funcs)
     params = dict(zip(funcs, imp_funcs))
     return GHASH_Imp(**params)
 
@@ -81,6 +80,8 @@ def _get_ghash_portable():
     lib = load_pycryptodome_raw_lib("Crypto.Hash._ghash_portable", api)
     result = _build_impl(lib, "portable")
     return result
+
+
 _ghash_portable = _get_ghash_portable()
 
 
@@ -96,10 +97,24 @@ def _get_ghash_clmul():
     except OSError:
         result = None
     return result
+
+
 _ghash_clmul = _get_ghash_clmul()
 
+# Minimum amount of data that each thread must authenticate:
+# with less, starting the thread costs more than what it saves.
+# The CLMUL implementation is much faster, so it needs more data.
+_MIN_BYTES_PER_THREAD_CLMUL = 2 * 1024 * 1024
+_MIN_BYTES_PER_THREAD_PORTABLE = 256 * 1024
 
-class _GHASH(object):
+
+# See NIST SP 800 38D, 5.2.1.1: at most 2**39 - 256 bits of plaintext
+# (the 32-bit block counter must not wrap around), and 2**64 - 1 bits of AAD
+_MAX_MSG_LEN = 2**36 - 32
+_MAX_AAD_LEN = 2**61 - 1
+
+
+class _GHASH:
     """GHASH function defined in NIST SP 800-38D, Algorithm 2.
 
     If X_1, X_2, .. X_m are the blocks of input data, the function
@@ -109,21 +124,25 @@ class _GHASH(object):
 
     in the Galois field GF(2^256) using the reducing polynomial
     (x^128 + x^7 + x^2 + x + 1).
+
+    With more than one thread, long data is split into ranges,
+    which are hashed in parallel and then combined with:
+
+       GHASH(A || B) = GHASH(A) * H^{len(B)} + GHASH(B)
     """
 
-    def __init__(self, subkey, ghash_c):
+    def __init__(self, subkey, ghash_c, threads=1):
         assert len(subkey) == 16
 
         self.ghash_c = ghash_c
+        self._threads = threads
 
         self._exp_key = VoidPointer()
-        result = ghash_c.ghash_expand(c_uint8_ptr(subkey),
-                                      self._exp_key.address_of())
+        result = ghash_c.ghash_expand(c_uint8_ptr(subkey), self._exp_key.address_of())
         if result:
             raise ValueError("Error %d while expanding the GHASH key" % result)
 
-        self._exp_key = SmartPointer(self._exp_key.get(),
-                                     ghash_c.ghash_destroy)
+        self._exp_key = SmartPointer(self._exp_key.get(), ghash_c.ghash_destroy)
 
         # create_string_buffer always returns a string of zeroes
         self._last_y = create_string_buffer(16)
@@ -131,28 +150,80 @@ class _GHASH(object):
     def update(self, block_data):
         assert len(block_data) % 16 == 0
 
-        result = self.ghash_c.ghash(self._last_y,
-                                    c_uint8_ptr(block_data),
-                                    c_size_t(len(block_data)),
-                                    self._last_y,
-                                    self._exp_key.get())
+        block_data_ptr, block_data_len = c_uint8_ptr_len(block_data)
+
+        if self.ghash_c is _ghash_clmul:
+            min_bytes = _MIN_BYTES_PER_THREAD_CLMUL
+        else:
+            min_bytes = _MIN_BYTES_PER_THREAD_PORTABLE
+        threads = min(self._threads, block_data_len // min_bytes)
+        if threads > 1:
+            self._update_threaded(block_data_ptr, block_data_len, threads)
+            return self
+
+        result = self.ghash_c.ghash(
+            self._last_y,
+            block_data_ptr,
+            c_size_t(block_data_len),
+            self._last_y,
+            self._exp_key.get(),
+        )
         if result:
             raise ValueError("Error %d while updating GHASH" % result)
 
         return self
+
+    def _update_threaded(self, block_data_ptr: Any, block_data_len: int, threads: int) -> None:
+        """Hash the data in ``threads`` contiguous ranges, in parallel.
+        The calling thread processes the first range.
+
+        ``block_data_ptr`` is a C pointer, whose type depends on the
+        backend (cffi or ctypes): see :mod:`Crypto.Util._raw_api`."""
+
+        # Ranges differ by at most one block
+        bounds = range_boundaries(block_data_len, threads, 16)
+
+        # The first range continues from the current value;
+        # the others start from zero, and are combined later
+        partials: list[Any] = [self._last_y] + [create_string_buffer(16) for _ in range(1, threads)]
+
+        def worker(i: int) -> int:
+            return self.ghash_c.ghash_at(
+                partials[i],
+                block_data_ptr,
+                c_size_t(bounds[i]),
+                c_size_t(bounds[i + 1] - bounds[i]),
+                partials[i],
+                self._exp_key.get(),
+            )
+
+        for result in run_in_threads(worker, threads):
+            if result:
+                raise ValueError("Error %d while updating GHASH" % result)
+
+        for i in range(1, threads):
+            result = self.ghash_c.ghash_combine(
+                self._last_y,
+                self._last_y,
+                c_size_t((bounds[i + 1] - bounds[i]) // 16),
+                partials[i],
+                self._exp_key.get(),
+            )
+            if result:
+                raise ValueError("Error %d while combining GHASH" % result)
 
     def digest(self):
         return get_raw_buffer(self._last_y)
 
 
 def enum(**enums):
-    return type('Enum', (), enums)
+    return type("Enum", (), enums)
 
 
 MacStatus = enum(PROCESSING_AUTH_DATA=1, PROCESSING_CIPHERTEXT=2)
 
 
-class GcmMode(object):
+class GcmMode:
     """Galois Counter Mode (GCM).
 
     This is an Authenticated Encryption with Associated Data (`AEAD`_) mode.
@@ -177,12 +248,19 @@ class GcmMode(object):
     :undocumented: __init__
     """
 
-    def __init__(self, factory, key, nonce, mac_len, cipher_params, ghash_c):
-
+    def __init__(
+        self,
+        factory: ModuleType,
+        key: Buffer,
+        nonce: Buffer,
+        mac_len: int,
+        cipher_params: dict,
+        ghash_c: Any,
+        threads: int = 1,
+    ) -> None:
         self.block_size = factory.block_size
         if self.block_size != 16:
-            raise ValueError("GCM mode is only available for ciphers"
-                             " that operate on 128 bits blocks")
+            raise ValueError("GCM mode is only available for ciphers that operate on 128 bits blocks")
 
         if len(nonce) == 0:
             raise ValueError("Nonce cannot be empty")
@@ -194,21 +272,19 @@ class GcmMode(object):
         if len(nonce) > 2**64 - 1:
             raise ValueError("Nonce exceeds maximum length")
 
-
-        self.nonce = _copy_bytes(None, None, nonce)
+        self.nonce = bytes(nonce)
         """Nonce"""
 
         self._factory = factory
-        self._key = _copy_bytes(None, None, key)
-        self._tag = None  # Cache for MAC tag
+        self._key = bytes(key)
+        self._tag: Optional[bytes] = None  # Cache for MAC tag
 
         self._mac_len = mac_len
         if not (4 <= mac_len <= 16):
             raise ValueError("Parameter 'mac_len' must be in the range 4..16")
 
         # Allowed transitions after initialization
-        self._next = ["update", "encrypt", "decrypt",
-                      "digest", "verify"]
+        self._next = [Method.UPDATE, Method.ENCRYPT, Method.DECRYPT, Method.DIGEST, Method.VERIFY]
 
         self._no_more_assoc_data = False
 
@@ -220,46 +296,43 @@ class GcmMode(object):
 
         # Step 1 in SP800-38D, Algorithm 4 (encryption) - Compute H
         # See also Algorithm 5 (decryption)
-        hash_subkey = factory.new(key,
-                                  self._factory.MODE_ECB,
-                                  **cipher_params
-                                  ).encrypt(b'\x00' * 16)
+        hash_subkey = factory.new(key, self._factory.MODE_ECB, **cipher_params).encrypt(b"\x00" * 16)
 
         # Step 2 - Compute J0
         if len(self.nonce) == 12:
             j0 = self.nonce + b"\x00\x00\x00\x01"
         else:
             fill = (16 - (len(self.nonce) % 16)) % 16 + 8
-            ghash_in = (self.nonce +
-                        b'\x00' * fill +
-                        long_to_bytes(8 * len(self.nonce), 8))
+            ghash_in = self.nonce + b"\x00" * fill + long_to_bytes(8 * len(self.nonce), 8)
             j0 = _GHASH(hash_subkey, ghash_c).update(ghash_in).digest()
 
         # Step 3 - Prepare GCTR cipher for encryption/decryption
         nonce_ctr = j0[:12]
         iv_ctr = (bytes_to_long(j0) + 1) & 0xFFFFFFFF
-        self._cipher = factory.new(key,
-                                   self._factory.MODE_CTR,
-                                   initial_value=iv_ctr,
-                                   nonce=nonce_ctr,
-                                   **cipher_params)
+        self._cipher = factory.new(
+            key,
+            self._factory.MODE_CTR,
+            initial_value=iv_ctr,
+            nonce=nonce_ctr,
+            threads=threads,
+            **cipher_params,
+        )
 
         # Step 5 - Bootstrap GHASH
-        self._signer = _GHASH(hash_subkey, ghash_c)
+        # (it uses as many threads as the CTR cipher, which checks the parameter)
+        self._signer = _GHASH(hash_subkey, ghash_c, self._cipher._threads)
 
         # Step 6 - Prepare GCTR cipher for GMAC
-        self._tag_cipher = factory.new(key,
-                                       self._factory.MODE_CTR,
-                                       initial_value=j0,
-                                       nonce=b"",
-                                       **cipher_params)
+        self._tag_cipher = factory.new(
+            key, self._factory.MODE_CTR, initial_value=j0, nonce=b"", **cipher_params
+        )
 
         # Cache for data to authenticate
         self._cache = b""
 
         self._status = MacStatus.PROCESSING_AUTH_DATA
 
-    def update(self, assoc_data):
+    def update(self, assoc_data: Buffer) -> GcmMode:
         """Protect associated data
 
         If there is any associated data, the caller has to invoke
@@ -282,28 +355,26 @@ class GcmMode(object):
             A piece of associated data. There are no restrictions on its size.
         """
 
-        if "update" not in self._next:
-            raise TypeError("update() can only be called"
-                            " immediately after initialization")
+        if Method.UPDATE not in self._next:
+            raise TypeError("update() can only be called immediately after initialization")
 
-        self._next = ["update", "encrypt", "decrypt",
-                      "digest", "verify"]
+        # See NIST SP 800 38D, 5.2.1.1
+        if self._auth_len + len(assoc_data) > _MAX_AAD_LEN:
+            raise MessageTooLongError("Additional Authenticated Data exceeds maximum length")
+
+        self._next = [Method.UPDATE, Method.ENCRYPT, Method.DECRYPT, Method.DIGEST, Method.VERIFY]
 
         self._update(assoc_data)
         self._auth_len += len(assoc_data)
 
-        # See NIST SP 800 38D, 5.2.1.1
-        if self._auth_len > 2**64 - 1:
-            raise ValueError("Additional Authenticated Data exceeds maximum length")
-
         return self
 
     def _update(self, data):
-        assert(len(self._cache) < 16)
+        assert len(self._cache) < 16
 
         if len(self._cache) > 0:
             filler = min(16 - len(self._cache), len(data))
-            self._cache += _copy_bytes(None, filler, data)
+            self._cache += bytes(data[:filler])
             data = data[filler:]
 
             if len(self._cache) < 16:
@@ -314,12 +385,15 @@ class GcmMode(object):
             self._cache = b""
 
         update_len = len(data) // 16 * 16
-        self._cache = _copy_bytes(update_len, None, data)
+        self._cache = bytes(data[update_len:])
         if update_len > 0:
-            self._signer.update(data[:update_len])
+            if update_len < len(data):
+                # Do not copy the data
+                data = memoryview(data)[:update_len]
+            self._signer.update(data)
 
     def _pad_cache_and_update(self):
-        assert(len(self._cache) < 16)
+        assert len(self._cache) < 16
 
         # The authenticated data A is concatenated to the minimum
         # number of zero bytes (possibly none) such that the
@@ -329,9 +403,22 @@ class GcmMode(object):
         #   See step 6 in section 7.2
         len_cache = len(self._cache)
         if len_cache > 0:
-            self._update(b'\x00' * (16 - len_cache))
+            self._update(b"\x00" * (16 - len_cache))
 
-    def encrypt(self, plaintext, output=None):
+    @overload
+    def encrypt(self, plaintext: Buffer) -> bytes: ...
+
+    @overload
+    def encrypt(self, plaintext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
+
+    @overload
+    def encrypt(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]: ...
+
+    def encrypt(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Encrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have encrypted a message
@@ -364,10 +451,11 @@ class GcmMode(object):
           Otherwise, ``None``.
         """
 
-        if "encrypt" not in self._next:
-            raise TypeError("encrypt() can only be called after"
-                            " initialization or an update()")
-        self._next = ["encrypt", "digest"]
+        if Method.ENCRYPT not in self._next:
+            raise TypeError("encrypt() can only be called after initialization or an update()")
+        if self._msg_len + len(plaintext) > _MAX_MSG_LEN:
+            raise MessageTooLongError("Plaintext exceeds maximum length")
+        self._next = [Method.ENCRYPT, Method.DIGEST]
 
         ciphertext = self._cipher.encrypt(plaintext, output=output)
 
@@ -378,14 +466,22 @@ class GcmMode(object):
         self._update(ciphertext if output is None else output)
         self._msg_len += len(plaintext)
 
-        # See NIST SP 800 38D, 5.2.1.1
-        # Maximum size is 2**39 - 256 bits
-        if self._msg_len > 68719476704:
-            raise ValueError("Plaintext exceeds maximum length")
-
         return ciphertext
 
-    def decrypt(self, ciphertext, output=None):
+    @overload
+    def decrypt(self, ciphertext: Buffer) -> bytes: ...
+
+    @overload
+    def decrypt(self, ciphertext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
+
+    @overload
+    def decrypt(
+        self, ciphertext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]: ...
+
+    def decrypt(
+        self, ciphertext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Decrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have decrypted a message
@@ -418,10 +514,11 @@ class GcmMode(object):
           Otherwise, ``None``.
         """
 
-        if "decrypt" not in self._next:
-            raise TypeError("decrypt() can only be called"
-                            " after initialization or an update()")
-        self._next = ["decrypt", "verify"]
+        if Method.DECRYPT not in self._next:
+            raise TypeError("decrypt() can only be called after initialization or an update()")
+        if self._msg_len + len(ciphertext) > _MAX_MSG_LEN:
+            raise MessageTooLongError("Ciphertext exceeds maximum length")
+        self._next = [Method.DECRYPT, Method.VERIFY]
 
         if self._status == MacStatus.PROCESSING_AUTH_DATA:
             self._pad_cache_and_update()
@@ -432,7 +529,7 @@ class GcmMode(object):
 
         return self._cipher.decrypt(ciphertext, output=output)
 
-    def digest(self):
+    def digest(self) -> bytes:
         """Compute the *binary* MAC tag in an AEAD mode.
 
         The caller invokes this function at the very end.
@@ -443,10 +540,9 @@ class GcmMode(object):
         :Return: the MAC, as a byte string.
         """
 
-        if "digest" not in self._next:
-            raise TypeError("digest() cannot be called when decrypting"
-                            " or validating a message")
-        self._next = ["digest"]
+        if Method.DIGEST not in self._next:
+            raise TypeError("digest() cannot be called when decrypting or validating a message")
+        self._next = [Method.DIGEST]
 
         return self._compute_mac()
 
@@ -463,20 +559,20 @@ class GcmMode(object):
         s_tag = self._signer.digest()
 
         # Step 6 - Compute T
-        self._tag = self._tag_cipher.encrypt(s_tag)[:self._mac_len]
+        self._tag = self._tag_cipher.encrypt(s_tag)[: self._mac_len]
 
         return self._tag
 
-    def hexdigest(self):
+    def hexdigest(self) -> str:
         """Compute the *printable* MAC tag.
 
         This method is like `digest`.
 
         :Return: the MAC, as a hexadecimal string.
         """
-        return "".join(["%02x" % bord(x) for x in self.digest()])
+        return self.digest().hex()
 
-    def verify(self, received_mac_tag):
+    def verify(self, received_mac_tag: Buffer) -> None:
         """Validate the *binary* MAC tag.
 
         The caller invokes this function at the very end.
@@ -493,22 +589,14 @@ class GcmMode(object):
             or the key is incorrect.
         """
 
-        if "verify" not in self._next:
-            raise TypeError("verify() cannot be called"
-                            " when encrypting a message")
-        self._next = ["verify"]
+        if Method.VERIFY not in self._next:
+            raise TypeError("verify() cannot be called when encrypting a message")
+        self._next = [Method.VERIFY]
 
-        secret = get_random_bytes(16)
-
-        mac1 = BLAKE2s.new(digest_bits=160, key=secret,
-                           data=self._compute_mac())
-        mac2 = BLAKE2s.new(digest_bits=160, key=secret,
-                           data=received_mac_tag)
-
-        if mac1.digest() != mac2.digest():
+        if not compare_digest(self._compute_mac(), received_mac_tag):
             raise ValueError("MAC check failed")
 
-    def hexverify(self, hex_mac_tag):
+    def hexverify(self, hex_mac_tag: str) -> None:
         """Validate the *printable* MAC tag.
 
         This method is like `verify`.
@@ -523,7 +611,17 @@ class GcmMode(object):
 
         self.verify(unhexlify(hex_mac_tag))
 
-    def encrypt_and_digest(self, plaintext, output=None):
+    @overload
+    def encrypt_and_digest(self, plaintext: Buffer) -> tuple[bytes, bytes]: ...
+
+    @overload
+    def encrypt_and_digest(
+        self, plaintext: Buffer, output: Union[bytearray, memoryview]
+    ) -> tuple[None, bytes]: ...
+
+    def encrypt_and_digest(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> tuple[Optional[bytes], bytes]:
         """Perform encrypt() and digest() in one step.
 
         :Parameters:
@@ -545,7 +643,20 @@ class GcmMode(object):
 
         return self.encrypt(plaintext, output=output), self.digest()
 
-    def decrypt_and_verify(self, ciphertext, received_mac_tag, output=None):
+    @overload
+    def decrypt_and_verify(self, ciphertext: Buffer, received_mac_tag: Buffer) -> bytes: ...
+
+    @overload
+    def decrypt_and_verify(
+        self, ciphertext: Buffer, received_mac_tag: Buffer, output: Union[bytearray, memoryview]
+    ) -> None: ...
+
+    def decrypt_and_verify(
+        self,
+        ciphertext: Buffer,
+        received_mac_tag: Buffer,
+        output: Optional[Union[bytearray, memoryview]] = None,
+    ) -> Optional[bytes]:
         """Perform decrypt() and verify() in one step.
 
         :Parameters:
@@ -599,6 +710,10 @@ def _create_gcm_cipher(factory, **kwargs):
       mac_len : integer
         Length of the MAC, in bytes.
         It must be no larger than 16 bytes (which is the default).
+
+      threads : integer
+        The maximum number of threads used to encrypt or decrypt long data
+        (default: 1, no extra threads; 0 for all CPU cores).
     """
 
     try:
@@ -610,6 +725,7 @@ def _create_gcm_cipher(factory, **kwargs):
     if nonce is None:
         nonce = get_random_bytes(16)
     mac_len = kwargs.pop("mac_len", 16)
+    threads = kwargs.pop("threads", 1)
 
     # Not documented - only used for testing
     use_clmul = kwargs.pop("use_clmul", True)
@@ -618,4 +734,4 @@ def _create_gcm_cipher(factory, **kwargs):
     else:
         ghash_c = _ghash_portable
 
-    return GcmMode(factory, key, nonce, mac_len, kwargs, ghash_c)
+    return GcmMode(factory, key, nonce, mac_len, kwargs, ghash_c, threads)

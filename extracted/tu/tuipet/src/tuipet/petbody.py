@@ -54,6 +54,18 @@ class BodyMixin:
             self._special_idle()
         self._maybe_evolve()
 
+    WARD_LAPSES = ("vitamin_lapse", "tonic_lapse", "ward_lapse")
+    BOUT_WARD_MINUTES = 60.0      # one bout ~ a minute of real play (measured ~60s)
+
+    def burn_wards(self, minutes):
+        """Spend the battle wards (Vitamin, Gold Pill, Vitamin G) on time the
+        life clock never sees: the road and the arena run behind a paused
+        menu, so a "24-hour" pill used to last unlimited runs (shop/loot
+        audit 2026-10-14)."""
+        for g in self.WARD_LAPSES:
+            if getattr(self, g, 0.0) > 0:
+                setattr(self, g, max(0.0, getattr(self, g) - minutes))
+
     def _tick_clock(self, dt):
         """The world clock: hour rollover (tournament alarm) + weather -- these
         run even over the grave."""
@@ -163,14 +175,14 @@ class BodyMixin:
     def _tick_asleep(self, dt):
         """The sleep branch: lights neglect, deep-sleep regen, the awakeLapse
         clock with the restless jitter, asleep death checks, desperate poop."""
-        # lightsCall (DVPet): sleeping with the room light ON is neglect.
-        # AfterMistakeMinutesPostponed is -60, NOT a latch: the mistake REPEATS
-        # every 120 lit minutes (a fully lit night is ~4 mistakes); the
-        # obedience ding lands ONCE per night (_lightsOffMistake flag).
+        # lightsCall: sleeping with the room light ON is neglect -- ten real
+        # minutes of grace like every call, then ONE mistake for the night
+        # (care call #15 = A, 2026-10-15): the -inf latch holds until the
+        # next sleep resets the clock (_fall_asleep)
         if self.lights:
             self._lights_t = getattr(self, "_lights_t", 0.0) + dt
             if self._lights_t >= LIGHTS_MISTAKE_SEC:
-                self._lights_t = LIGHTS_MISTAKE_POSTPONE
+                self._lights_t = float("-inf")
                 if not getattr(self, "_lit_obed_hit", False):
                     self._lit_obed_hit = True
                     self._set_obedience(self.obedience + LIGHTS_MISTAKE_OBED)
@@ -871,6 +883,8 @@ class BodyMixin:
         self._calm_discipline_call()                # bedtime placates the tantrum (canon
         #                                             sleep-onset setDisciplineCall(false))
         self._lights_t = 0.0                        # setAsleep resets _callMinutesLights
+        # care audit 2026-10-14: the obedience ding is once per NIGHT.
+        self._lit_obed_hit = False
         gain = max(1, getattr(self, "_sleep_energy_gain", 3))
         need = math.ceil(max(0, self.max_energy - self.energy) / gain) * 60.0
         self.awake_limit = _clamp(need, MIN_AWAKE_LIMIT, MAX_AWAKE_LIMIT)

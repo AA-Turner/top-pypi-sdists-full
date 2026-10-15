@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import atexit
 import os
-import platform
 import sys
 import threading
 import time
@@ -19,6 +18,7 @@ from inspect import (
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, TypeVar, overload
 
+from . import _platform_info
 from .config import load_config
 from .db import setup_db
 from .serialize import monkeypatch_queryset_repr
@@ -34,10 +34,9 @@ if TYPE_CHECKING:
 
 logger = __import__("logging").getLogger("kolo")
 
-# Throttling for auto-emit subprocess spawning
 _auto_emit_lock = threading.Lock()
 _auto_emit_last_spawn: float = 0.0
-_AUTO_EMIT_COOLDOWN_SECONDS: float = 0.5  # Max one spawn per 500ms
+_AUTO_EMIT_COOLDOWN_SECONDS: float = 0.5
 _auto_emit_followup_timer: threading.Timer | None = None
 _auto_emit_pending_db_paths: list[Path | None] = []
 # Emit subprocesses we spawned and haven't reaped yet. An emit killed before it
@@ -116,41 +115,16 @@ def save_trace_in_thread(
         if auto_emit:
             _spawn_auto_emit(db_path=db_path)
 
-    if platform.machine() == "wasm32":  # pragma: no cover
+    if _platform_info.machine() == "wasm32":  # pragma: no cover
         save_then_emit()
     else:
         _run_on_save_worker(save_then_emit)
 
 
 SAVE_WORKER_THREAD_NAME = "kolo-save_trace_in_db"
-# Set on the Thread of a save worker that waits for further saves.
 SAVE_WORKER_REUSED_MARKER = "_kolo_reused_save_worker"
 
-# Starting a thread costs more than saving a small trace, and a process that
-# traces many short sessions (a test suite, a busy dev server) starts one per
-# trace. A save worker therefore waits a moment after its save for the next
-# one before it exits. Nothing else about the threads changes: they have the
-# same name, are Kolo worker threads from their first event (so never
-# traced), are not daemons (so the interpreter waits for their saves at
-# exit), and each save still runs on a worker of its own while others are
-# busy.
-#
-# - Joining a save worker by name still waits for its save; it returns up to
-#   the linger after the save finished, or, while further saves keep
-#   arriving, once the worker reaches its maximum age.
-#   ``wait_for_pending_saves`` returns as soon as the saves are done.
-# - Each save runs in the context a thread started for it would have had:
-#   a copy of the submitter's where threads inherit one, else an empty one.
-# - At interpreter exit the waiting workers are told to stop before threading
-#   joins its threads, so exit does not wait out the linger. That needs
-#   ``threading._register_atexit`` (Python 3.9+); without it workers exit
-#   after their save, as before.
-# - A forked child has none of the parent's threads: it starts with no
-#   workers and no pending saves.
-# - KOLO_REUSE_SAVE_WORKERS=0 (read when Kolo is imported) turns it off: a
-#   thread per save again, which exits when its save is done. The Rust
-#   extension reads the same variable and then starts a writer thread per
-#   capture instead of parking one.
+# Save workers stay non-daemon, receive submitter context, and are discarded after fork; pending-save waits skip linger.
 _SAVE_WORKER_LINGER_SECONDS = 0.02
 # A worker stops waiting for further saves once it is this old, so that under
 # a steady stream of saves a join of it still returns.
@@ -178,7 +152,6 @@ _save_workers_pending = 0
 # Bumped in a forked child, where the parent's workers and saves do not exist.
 _save_workers_generation = 0
 _save_workers_pid = os.getpid()
-# None until the first save: whether workers may wait for further saves.
 _save_workers_linger: bool | None = (
     False if os.environ.get("KOLO_REUSE_SAVE_WORKERS") == "0" else None
 )
@@ -244,7 +217,6 @@ def _save_worker_main(worker: _SaveWorker, generation: int) -> None:
         try:
             job()
         except BaseException:
-            # An exception ends the worker, as it ended a save's own thread.
             _forget_save_workers_of_another_process()
             with _save_workers_lock:
                 if generation == _save_workers_generation:
@@ -253,7 +225,6 @@ def _save_worker_main(worker: _SaveWorker, generation: int) -> None:
             raise
         _forget_save_workers_of_another_process()
         with _save_workers_lock:
-            # In a forked child this thread is no worker any more.
             if generation != _save_workers_generation:
                 return
             # In one step, so whoever waited for this save finds the worker
@@ -309,12 +280,8 @@ def _run_on_save_worker(job: Callable[[], None]) -> None:
             return
         generation = _save_workers_generation
     worker = _SaveWorker(job)
-    # daemon=False explicitly: Thread inherits the parent's daemon flag
-    # by default, so if kolo.enable() is called from a daemon thread, the
-    # save thread would also be daemon and CPython would not wait for it
-    # at interpreter shutdown, re-exposing the C-extension-teardown race.
-    # sys.monitoring is interpreter-global, so a later Kolo activation can
-    # observe this worker even though it belongs to the preceding trace.
+    # daemon=False explicitly: Thread inherits the daemon flag, and CPython won't wait for a daemon
+    # save at shutdown, re-exposing the C-extension-teardown race.
     thread = kolo_worker_thread(
         _save_worker_main,
         name=SAVE_WORKER_THREAD_NAME,
@@ -359,7 +326,6 @@ def _build_emit_subprocess_kwargs(db_path: Path | None) -> dict[str, Any]:
     env["KOLO_DISABLE"] = "1"
     env.pop("KOLO", None)
 
-    # db_path is <parent>/.kolo/.internal/db.sqlite3, so KOLO_PATH is <parent>.
     if db_path is not None:
         env["KOLO_PATH"] = str(db_path.parent.parent.parent)
 
@@ -371,16 +337,8 @@ def _build_emit_subprocess_kwargs(db_path: Path | None) -> dict[str, Any]:
     }
 
     if sys.platform == "win32":  # pragma: no cover
-        # CREATE_NO_WINDOW, not DETACHED_PROCESS: venv pythons on Windows are
-        # launcher shims (all uv venvs, and modern CPython `python -m venv`)
-        # that relaunch the real python.exe as a *child* process with default
-        # CreateProcess flags. A DETACHED_PROCESS shim has no console, so the
-        # relaunched python allocated a brand new visible console window --
-        # one cmd flash per traced request. CREATE_NO_WINDOW runs the whole
-        # chain without a console window while still isolating it from the
-        # parent's console (no Ctrl+C delivery, survives the parent console
-        # closing). The two flags are mutually exclusive: CREATE_NO_WINDOW
-        # is ignored if combined with DETACHED_PROCESS.
+        # CREATE_NO_WINDOW, not DETACHED_PROCESS: venv launcher shims relaunch python.exe, which would
+        # open a visible console. The flags are mutually exclusive.
         CREATE_NO_WINDOW = 0x08000000
         CREATE_NEW_PROCESS_GROUP = 0x00000200
         popen_kwargs["creationflags"] = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
@@ -402,10 +360,8 @@ def _emit_in_flight(db_path: Path | None) -> bool:
     """
     if db_path is None:
         return False
-    # _emit_auto's top-level imports are cheap; lazy-import to keep core import light.
     from ._emit_auto import _lock_holder_alive
 
-    # db_path is .kolo/.internal/db.sqlite3; emit.lock lives in .internal/.
     return _lock_holder_alive(db_path.parent / "emit.lock")
 
 
@@ -515,7 +471,7 @@ def _spawn_auto_emit(db_path: Path | None = None) -> None:
 
     global _auto_emit_followup_timer, _auto_emit_last_spawn
 
-    if platform.machine() == "wasm32":  # pragma: no cover
+    if _platform_info.machine() == "wasm32":  # pragma: no cover
         from ._emit_auto import auto_emit
 
         try:
@@ -577,7 +533,7 @@ def upload_trace_in_thread(
         except httpx.HTTPError:
             logger.exception("Failed to upload trace to Kolo dashboard.")
 
-    if platform.machine() == "wasm32":  # pragma: no cover
+    if _platform_info.machine() == "wasm32":  # pragma: no cover
         upload()
     else:
         name = "kolo-upload_to_dashboard"
@@ -648,12 +604,8 @@ class Enabled:
             _profiler_sessions.session = None
 
     def __call__(self, func):
-        # Calling a coroutine or generator function only creates the object
-        # that runs its body later, so these wrappers hold the session open
-        # for as long as the body runs. They keep the session they started
-        # in their own frame rather than in _nested_enters: a generator can be
-        # resumed, and finalized, from a context other than the one that
-        # started it.
+        # The session lives in the wrapper's frame, not _nested_enters: a generator can be resumed
+        # or finalized from a different context than the one that started it.
         if iscoroutinefunction(func):
 
             @wraps(func)
@@ -673,12 +625,7 @@ class Enabled:
                 session = self._start_session()
                 try:
                     agen = func(*args, **kwargs)
-                    # Only this wrapper is registered with the event loop.
-                    # A loop shutting down closes every generator it knows at
-                    # once, and would close the inner one while this wrapper
-                    # is closing it. The same goes for the garbage collector
-                    # finalizing both, so the inner one's finalizer does
-                    # nothing and leaves closing it to the wrapper.
+                    # Only the wrapper is loop-registered; during loop shutdown or GC finalization it closes the inner generator itself.
                     hooks = sys.get_asyncgen_hooks()
                     sys.set_asyncgen_hooks(None, _leave_to_wrapper)
                     try:
@@ -691,9 +638,6 @@ class Enabled:
                             try:
                                 sent = yield value
                             except BaseException as exc:
-                                # Includes the GeneratorExit of a close: the
-                                # inner generator then finishes or raises it
-                                # back, which ends this wrapper too.
                                 value = await agen.athrow(exc)
                             else:
                                 value = await agen.asend(sent)
@@ -750,7 +694,6 @@ class Enabled:
         # Only reachable with the profiler: its session can only be ended
         # from the thread it traces, and this thread may have its own.
         if not session.thread.is_alive():
-            # Nothing is left to trace, and no later activation to end it.
             session.__exit__()
             session.save()
             if self.config.get("auto_emit", True):
@@ -777,7 +720,6 @@ class Enabled:
         Returns:
             True if profiling is active, False otherwise
         """
-        # Default to monitoring on Python 3.12+
         default_use_monitoring = sys.version_info >= (3, 12)
         use_monitoring = self.config.get("use_monitoring", default_use_monitoring)
 
@@ -807,7 +749,6 @@ class Enabled:
         if sys.getprofile() is not None:
             return True
 
-        # Check threading profile for Python < 3.12
         if sys.version_info < (3, 12) or not use_monitoring:
             try:
                 thread_profiler = threading.getprofile()  # type: ignore[attr-defined]
@@ -832,13 +773,9 @@ class Enabled:
         Returns:
             True if activation succeeded, False if already active or failed.
         """
-        # Acquire lock to prevent race condition between check and activation.
-        # This ensures only one thread can be in the activation window at a time.
         with _activation_lock:
             _end_orphaned_profiler_session()
             if self._is_already_active():
-                # Another profiler may be what blocks this session; the tool
-                # kept armed for it is then of no use.
                 _release_idle_kolo_tool()
                 logger.debug(
                     "Kolo already active, skipping duplicate activation from %s",
@@ -852,8 +789,6 @@ class Enabled:
                 pass
             else:
                 if writer_circuit_open():
-                    # The session that opened the circuit may have left the
-                    # tool armed; no later activation can use it.
                     _release_idle_kolo_tool()
                     logger.warning(
                         "Cannot activate Kolo: the trace writer circuit breaker "
@@ -861,13 +796,8 @@ class Enabled:
                     )
                     return False
 
-            # Resolve db_path once during activation so that _deactivate
-            # and _output_inline_trace use the same path, even if cwd or
-            # KOLO_PATH changes during tracing.  Stored in _active_db_path
-            # (not self.db_path) so reused instances (e.g. @kolo.enable
-            # decorator) re-resolve on each call. .resolve() turns
-            # relative paths into absolute ones so they don't drift with
-            # cwd changes mid-trace.
+            # Resolve once (absolute) so _deactivate uses the same path if cwd/KOLO_PATH change; not on
+            # self.db_path so reused instances (the decorator) re-resolve each call.
             if self.db_path is not None:
                 self._active_db_path = self.db_path.resolve()
             else:
@@ -876,7 +806,6 @@ class Enabled:
 
             monkeypatch_queryset_repr()
 
-            # Default to monitoring on Python 3.12+
             default_use_monitoring = sys.version_info >= (3, 12)
             use_monitoring = self.config.get("use_monitoring", default_use_monitoring)
             if sys.version_info >= (3, 12) and use_monitoring:
@@ -887,7 +816,6 @@ class Enabled:
                     self._monitor = monitor
                     self.trace_id = monitor.trace_id
                 else:
-                    # Another profiler has claimed the tool ID; skip activation
                     return False
             else:
                 from .profiler import KoloProfiler
@@ -920,7 +848,6 @@ class Enabled:
             try:
                 from ._kolo import register_monitor
             except ImportError as e:  # pragma: no cover
-                # Rust extension not available (e.g. PyPy), fall back to pure Python
                 logger.debug("Rust monitor import failed (%s), using Python monitor", e)
             else:
                 return register_monitor(
@@ -1014,7 +941,6 @@ class Enabled:
         Deactivates profiling/monitoring, saves traces, and handles inline output.
         """
         did_deactivate = False
-        # A caught Rust callback panic stops tracing and drops the trace.
         trace_abandoned = False
 
         if self._profiler is not None:
@@ -1037,7 +963,6 @@ class Enabled:
             did_deactivate = True
 
         if trace_abandoned:
-            # No trace was saved, so don't hand out the id reserved for it.
             self.trace_id = None
 
         if did_deactivate and self._save_sync and not trace_abandoned:
@@ -1101,7 +1026,6 @@ class _AutoEnabled:
         inline: bool = False,
         inline_returns: bool = False,
     ):
-        # Create an Enabled instance internally
         self._enabled = Enabled(
             config=config,
             source=source,
@@ -1128,12 +1052,10 @@ class _AutoEnabled:
             return False
 
         if not self._enabled._activate():
-            # Activation failed (e.g., another tool claimed the ID)
             return False
 
         self._activated = True
 
-        # Expose trace_id for external access
         self.trace_id = self._enabled.trace_id
 
         return True
@@ -1151,13 +1073,11 @@ class _AutoEnabled:
         try:
             self._enabled._deactivate(None, None, None)
             if self._enabled.trace_id is None:
-                # A caught Rust callback panic dropped the trace.
                 self.trace_id = None
                 return
             if self._enabled.config.get("auto_emit", True):
                 self._print_kolotxt_path()
         except Exception as e:  # pragma: no cover
-            # Don't crash during shutdown - log to stderr
             import sys
 
             print(f"Kolo cleanup error during shutdown: {e}", file=sys.stderr)
@@ -1173,7 +1093,6 @@ class _AutoEnabled:
         _deactivate(). The file may not exist yet (subprocess is
         fire-and-forget), but it will be created shortly.
         """
-        # _active_db_path is resolved during _activate() and always set
         assert self._enabled._active_db_path is not None
         kolotxt_path = self._enabled._active_db_path.parent.parent / "kolo.txt"
         print(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.251.0
+Version: 0.259.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -237,7 +237,7 @@ import probe
 probe.init(
     project="folding",
     experiment="dockq-sweep",
-    question="temp 0.7 wins",
+    question="does temperature 0.7 beat 1.0 on DockQ?",
 )
 probe.log({"loss": 0.42, "dockq": 0.71}, step=42)    # from anywhere, any thread
 probe.finish()
@@ -262,7 +262,7 @@ client = probe.Client()  # resolves creds from env / the stored login
 
 # run() resolves by default. `question=` is the one opt-in to creation, so the
 # FIRST run in a new experiment says what you expect to see:
-run = client.run(experiment="dockq-sweep", question="temp 0.7 wins",
+run = client.run(experiment="dockq-sweep", question="does temperature 0.7 beat 1.0 on DockQ?",
                  name="run-1", project="folding",
                  description="DockQ baseline at temperature 0.7",
                  source="runpod", external_id="rp-9931")
@@ -480,7 +480,7 @@ transport does not need the split, so this is a shaping layer on `Client`.
 
 ```bash
 probe project create folding
-probe experiment create dockq --question "temp 0.7 wins" --project folding
+probe experiment create dockq --question "does temperature 0.7 beat 1.0 on DockQ?" --project folding
 RUN=$(probe run start --experiment dockq --name run-1 \
         --project folding --source runpod --external-id rp-9931 \
         --description "DockQ baseline at temperature 0.7")
@@ -733,11 +733,16 @@ the flat modes each read one route and refuse arguments they do not read:
 | `workspaces` | the team's filing locations, by name | — |
 | `notes` | the notes catalog, sub-notes included; each row is an address `entity` opens | `query` (literal) |
 | `files` | the Shared folder, or one workspace's files | `workspace_id`, `prefix` (a folder) |
+| `datasets` | named team datasets (`dataset:<name>`, latest version, runs using it, sources) and run-logged dataset files nobody registered (`artifact:<uuid>`) | `query`, `project`, `registered` (`all` / `yes` / `no`) |
+| `checkpoints` | every checkpoint team-wide: step, best, stored or a reference, its run and project; `totals` sums bytes for the filter | `project`, `experiment`, `run`, `best`, `stored` (`stored` / `reference`) |
+| `sources` | external sources (Hub ids, buckets, URLs) with how many runs use each | `query`, `provider`, `kind` |
 
 A flat listing resumes after the last row it sent, in the route's own order (the runs
 and notes lists' keysets, a workspace's `lower(name), id`, a file's name), never by
 skipping a count, so a row that ends, is renamed or is deleted between pages moves
-nothing else.
+nothing else. The data catalog's lists resume on their own cursor at a page's end, and
+inside a page by finding the last row sent again from the same position (a row deleted
+there is refused with `source_changed`, never skipped).
 
 **Thin harness, fat skills.** Coverage grows through `entity`'s `view` and `filters`
 parameters, never through more tools. `browse` is the one addition that cleared
@@ -759,9 +764,20 @@ or UUID returned by browse/search; `team-note` addresses the shared team documen
 | session | `card` · `record` · `transcript` |
 | team note | `card` · `record` |
 | sub-note (`sub_note:<uuid>`) | `card` — the whole document |
+| dataset (`dataset:<name>[@<N>\|@latest]`, `dataset:<uuid>`) | `card` · `record` · `versions` · `lineage` |
+| checkpoint (`checkpoint:<uuid>`, `checkpoint:<run ref>@best[:<callback>]\|latest\|step<N>`) | `card` · `record` · `versions` (the run's other saves) · `lineage` |
+| source (`source:<uuid>`, `source:<canonical_key>[@<revision>]`) | `card` · `record` · `lineage` |
 
 A run's `diff` is one trial's sandbox filesystem diff (`view_options.trial`, optionally
 `path_prefix`); `sessions` names the captured coding sessions behind a run or file.
+
+On a dataset, checkpoint or source, `lineage` is the provenance walk (`GET /v1/provenance`):
+typed nodes, sources included, and edges with roles and provenance, rooted at the resolved
+ref (the version the card shows, the checkpoint a `@best` named).
+`view_options={"direction": "downstream", "depth": 8}` turns and widens it (default
+upstream, 4 hops, at most 8); `{"steps": true}` is the methods view instead, the upstream
+chain as ordered steps, source first. A dataset version that does not exist answers
+`state="no_match"` with the versions that do, as the reuse check does.
 
 `card` (the default) returns `available_views` for that entity, so one call tells you what
 else you can ask for — the matrix above is documentation, not something to memorise.

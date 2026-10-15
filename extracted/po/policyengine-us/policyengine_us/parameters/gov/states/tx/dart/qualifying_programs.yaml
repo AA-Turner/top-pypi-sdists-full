@@ -1,0 +1,22 @@
+description: Dallas Area Rapid Transit (DART) provides the Discount GoPass Program to individuals enrolled in these assistance programs.
+values:
+  2024-01-01:
+    - chip
+    - medicaid_enrolled
+    - is_medicare_eligible # medicare
+    - wic
+    - receives_wic # Reported WIC receipt, for people the model gives a $0 benefit.
+    - snap
+    - receives_snap # Reported SNAP receipt, for households the model gives a $0 allotment.
+    - tanf
+    - receives_tanf # Reported TANF receipt, for households the model gives a $0 benefit.
+    # Comprehensive Energy Assistance Program (CEAP)
+    # Housing Choice Voucher Program (Section 8)
+    
+metadata:
+  label: DART Discount GoPass qualifying assistance programs
+  reference:
+    - title: Dallas Area Rapid Transit (DART) Discount GoPass Tap Card
+      href: https://www.dart.org/fare/general-fares-and-overview/discount-gopass-tap-card
+    - title: Ask DART, What is the Discount GoPass® Tap card?
+      href: https://dartdaily.dart.org/home/ask-dart-what-is-the-discount-gopass-tap-card

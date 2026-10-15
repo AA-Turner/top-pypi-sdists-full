@@ -205,6 +205,22 @@ EVENT_KINDS: frozenset[str] = frozenset(
         "credential.copy",
         "credential.copy_refused",
         "credential.copy_applied",
+        # A recipient's lifecycle ack (credential lifecycle L1): the owner recorded
+        # that `sub` acknowledged the named material generation / login-chain
+        # revision. Counters and keys only, never material.
+        "credential.lifecycle_acked",
+        # The owner's sender: a recipient APPLIED (or already held) the named
+        # counters. `sub` is the recipient. Counters and the key only.
+        "credential.lifecycle_announced",
+        # The consent reconciler (credentials/reconcile.py): a holder the owner DERIVED
+        # from a signed approval, and a candidate it refused (with the machine code).
+        # Keys, device ids and a code only — never material, never an approval body.
+        "credential.permission_projected",
+        "credential.permission_refused",
+        # A derived holder taken back because its approval is gone, and a push the
+        # recipient could not take (with the machine reason). Keys/ids/codes only.
+        "credential.permission_withdrawn",
+        "credential.permission_undelivered",
         # The github narrowing's delivery receipts (the adapter's §3.4 bound):
         # the owner's designated repositories reached a borrowing device and
         # were written to its config — or were refused, with the machine reason.
@@ -480,6 +496,18 @@ DETAIL_KEYS: dict[str, frozenset[str]] = {
     "credential.copy": frozenset({"credential_key", "act", "sub", "gen"}),
     "credential.copy_refused": frozenset({"credential_key", "act", "sub", "reason"}),
     "credential.copy_applied": frozenset({"credential_key", "act", "sub", "gen"}),
+    # The lifecycle ack's two integers are the generation and login-chain revision
+    # the recipient acknowledged (owner.py's ack arm) — counters, never material.
+    "credential.lifecycle_acked": frozenset(
+        {"credential_key", "material_generation", "login_chain_revision"}
+    ),
+    "credential.lifecycle_announced": frozenset(
+        {"credential_key", "material_generation", "login_chain_revision"}
+    ),
+    "credential.permission_projected": frozenset({"credential_key", "act", "sub"}),
+    "credential.permission_refused": frozenset({"credential_key", "act", "sub", "code"}),
+    "credential.permission_withdrawn": frozenset({"credential_key", "act", "sub", "code"}),
+    "credential.permission_undelivered": frozenset({"credential_key", "act", "sub", "code"}),
     # The narrowing's delivery (the github adapter's §3.4 bound): `repositories`
     # is the LIST APPLIED (a config value, never material); a refused delivery
     # carries the machine reason instead.

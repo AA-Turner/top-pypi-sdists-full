@@ -10,7 +10,6 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
@@ -23,7 +22,6 @@ import unicodedata
 from urllib.parse import urlsplit, urlunsplit
 import uuid
 
-from .._compat import fromisoformat
 from ..sdk.durable import file_lock, now_iso, read_json, write_text_atomic
 from .backfill_ledger import default_dir, fingerprint
 
@@ -119,11 +117,13 @@ class Scope:
 
 
 def _default_workspace(rows: list[dict], identity: dict) -> dict:
-    """Choose from the full in-tenant list, independent of alphabetical API order.
+    """The import's workspace when neither the import nor this computer names one.
 
-    New workspaces are shared team rows. Legacy kind/owner metadata does not
-    identify their creator; only the recorded actor does. When this user has
-    created none, retain the server's oldest-workspace fallback.
+    Only a team's ONLY workspace is chosen for it: with several, the folder
+    import stops and says how to pick this computer's (the setup wizard asks;
+    `probe workspace use` changes it) -- the same rule the server applies to an
+    unaddressed project create, and for the same reason: a guess (the oldest,
+    the newest one you made) filed work under the wrong person.
     """
     candidates = [row for row in rows
                   if row.get("customer_id") == identity["customer_id"] and row.get("id")]
@@ -134,24 +134,10 @@ def _default_workspace(rows: list[dict], identity: dict) -> dict:
         )
     if len(candidates) == 1:
         return candidates[0]
-    actor = f"user:{identity['user_id']}" if identity.get("user_id") else None
-    created = [row for row in candidates if actor and row.get("created_by") == actor]
-
-    def created_order(row: dict) -> tuple[datetime, str]:
-        try:
-            when = row["created_at"]
-            if not isinstance(when, datetime):
-                when = fromisoformat(when)
-            if when.tzinfo is None:
-                when = when.replace(tzinfo=timezone.utc)
-            return when, str(row["id"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise CoverageError(
-                "Cannot determine the default workspace from its creation date. "
-                "Select a workspace with `probe workspace use`, then retry."
-            ) from exc
-
-    return max(created, key=created_order) if created else min(candidates, key=created_order)
+    raise CoverageError(
+        "This team has several workspaces and this computer has none set. "
+        "Pick one with `probe workspace use <slug>` (see `probe workspace list`), then retry."
+    )
 
 
 def _signature_tuple(value) -> tuple[int, int, int, int, int]:

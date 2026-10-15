@@ -221,10 +221,6 @@ class ReportData:
         return self.untested_operations if self.stop_reason is not StopReason.COMPLETED else 0
 
     @property
-    def skipped_operations(self) -> int:
-        return self.untested_operations if self.stop_reason is StopReason.COMPLETED else 0
-
-    @property
     def errored_operations(self) -> int:
         return self.summary.operations.errored if self.summary.operations is not None else 0
 
@@ -273,4 +269,6 @@ class ReportData:
         # Rendering links this to the first warning.
         if self.warnings:
             return f"Exit code {self.exit_code}: warnings fail the run", "warnings"
+        if self.startup_warnings:
+            return f"Exit code {self.exit_code}: warnings fail the run", "w-heading"
         return f"Exit code {self.exit_code}", ""

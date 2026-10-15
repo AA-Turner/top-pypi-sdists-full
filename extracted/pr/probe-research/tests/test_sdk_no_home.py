@@ -26,6 +26,15 @@ import pytest
 
 from probe.sdk import homedir
 from tests.served_fake_app import serve
+from tests.conftest import _WS_MINE
+
+
+@pytest.fixture(autouse=True)
+def _set_up_computer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A computer whose setup picked its workspace (the fake seeds two, and an
+    unaddressed create in a team with several is refused)."""
+    monkeypatch.setenv("PROBE_WORKSPACE", _WS_MINE)
+
 
 SDK = Path(__file__).resolve().parent.parent / "src" / "probe" / "sdk"
 
@@ -293,6 +302,7 @@ def test_home_slash_still_captures_the_run_log_and_reads(app, tmp_path):
 _RECORDER_CHILD = """
 import json, os, subprocess, sys
 from probe.sdk import inputs
+
 data, out, worker_read = sys.argv[1:4]
 assert inputs.start("run-homeless") and inputs.bind_workers("run-homeless")
 state = inputs._active["run-homeless"]

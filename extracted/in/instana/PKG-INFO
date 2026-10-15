@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: instana
-Version: 3.19.2
+Version: 3.20.0
 Summary: Python Distributed Tracing & Metrics Sensor for Instana.
 Project-URL: Documentation, https://ibm.biz/monitoring-python
 Project-URL: Issues, https://github.com/instana/python-sensor/issues
@@ -17,18 +17,18 @@ Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Networking :: Monitoring
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: autowrapt>=1.0
 Requires-Dist: fysom>=2.1.2
 Requires-Dist: opentelemetry-api>=1.27.0
@@ -37,7 +37,7 @@ Requires-Dist: psutil>=5.9.0; sys_platform == 'win32'
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: requests>=2.6.0
 Requires-Dist: typing-extensions>=4.12.2
-Requires-Dist: urllib3>=1.26.5
+Requires-Dist: urllib3>=2.7.0
 Provides-Extra: dev
 Requires-Dist: gunicorn; extra == 'dev'
 Requires-Dist: pre-commit>=3.0.0; extra == 'dev'

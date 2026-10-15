@@ -176,7 +176,7 @@ class KeysPanel:
         for r in shown:
             out.append_text(menu.row(r))
         out.append_text(menu.blanks(self.VISIBLE - len(shown) + 1))
-        out.append_text(menu.footer("↑↓ scroll  ESC back"))
+        out.append_text(menu.footer(""))
         return out
 
 
@@ -229,7 +229,7 @@ class OptionsPanel(menu.SubHost):
             return menu.hints(("ENTER", "restart now"), ("ESC", "later"))
         if self.confirm_new:
             return menu.hints(("ENTER", "retire"), ("ESC", "keep"))
-        return menu.hints(("↑↓", "pick"), ("ENTER", "go"), ("ESC", "out"))
+        return menu.hints(("↑↓", "pick"), ("ENTER", "open"), ("ESC", "back"))
 
     # ---- the update check (threaded: latest_if_newer blocks up to 4s) ----
     def _check_updates(self):
@@ -439,7 +439,8 @@ class OptionsPanel(menu.SubHost):
     def text(self):
         if self.sub is not None:
             return self.sub.text()
-        out = menu.header("OPTIONS", persistence.get_account()[0] or "")
+        # menus audit 2026-10-14: keep the title beside a cell-bounded login.
+        out = menu.header("OPTIONS", menu._clip(persistence.get_account()[0] or "", 24))
         if self.confirm_restart:
             out.append_text(menu.blanks(1))
             out.append_text(menu.note("Update installed."))
@@ -459,7 +460,7 @@ class OptionsPanel(menu.SubHost):
             out.right_crop(1)          # the strip owns the keys (QOL 2026-07-23)
             return out
         for i, row in enumerate(_ROWS):
-            out.append_text(menu.row(f"{_LABEL[row]:<16} {self._value(row)[:18]}",
+            out.append_text(menu.row(f"{_LABEL[row]:<16} {menu._clip(self._value(row), 18)}",
                                      i == self.cursor))
         out.append_text(menu.blanks(7 - len(_ROWS)))
         out.append_text(menu.note(self.msg or _DESC[_ROWS[self.cursor]],

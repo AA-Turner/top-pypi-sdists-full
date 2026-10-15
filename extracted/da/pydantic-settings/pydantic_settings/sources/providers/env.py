@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
+    cast,
     get_args,
     get_origin,
 )
@@ -24,6 +25,8 @@ from ..utils import (
     _annotation_contains_types,
     _annotation_enum_name_to_val,
     _annotation_is_complex,
+    _get_field_annotation_and_metadata,
+    _get_model_config,
     _get_model_fields,
     _literal_has_numeric_enum,
     _union_has_strict_types,
@@ -107,7 +110,9 @@ class EnvSettingsSource(PydanticBaseEnvSettingsSource):
         """
 
         env_val: str | None = None
-        for field_key, env_name, value_is_complex in self._extract_field_info(field, field_name):
+        # `field_key` and `value_is_complex` are deliberately read after the loop, so B007's
+        # "unused loop variable" report doesn't apply here.
+        for field_key, env_name, value_is_complex in self._extract_field_info(field, field_name):  # noqa: B007
             env_val = self.env_vars.get(env_name)
             if env_val is not None:
                 break
@@ -139,7 +144,7 @@ class EnvSettingsSource(PydanticBaseEnvSettingsSource):
         if is_complex or value_is_complex:
             if isinstance(value, EnvNoneType):
                 return value
-            elif value is None:
+            if value is None:
                 # field is complex but no value found so far, try explode_env_vars
                 env_val_built = self.explode_env_vars(field_name, field, self.env_vars)
                 if env_val_built:
@@ -154,11 +159,13 @@ class EnvSettingsSource(PydanticBaseEnvSettingsSource):
 
                 if isinstance(value, dict):
                     return deep_update(value, self.explode_env_vars(field_name, field, self.env_vars))
-                else:
-                    return value
+                return value
         elif value is not None:
             # simplest case, field is not complex, we only need to add the value if it was found
             return self._coerce_env_val_strict(field, value)
+
+        # No value resolved for this field; `None` tells the caller to skip it.
+        return None
 
     def _matches_alias_path_head(self, field: FieldInfo | Any | None, key: str) -> bool:
         """
@@ -194,11 +201,10 @@ class EnvSettingsSource(PydanticBaseEnvSettingsSource):
         """
         Find out if a field is complex, and if so whether JSON errors should be ignored
         """
+        annotation, metadata = _get_field_annotation_and_metadata(field)
         if self.field_is_complex(field):
             allow_parse_failure = False
-        elif is_union_origin(get_origin(field.annotation)) and _union_is_complex(
-            field.annotation, field.metadata, self._init_state
-        ):
+        elif is_union_origin(get_origin(annotation)) and _union_is_complex(annotation, metadata, self._init_state):
             allow_parse_failure = True
         else:
             return False, False
@@ -250,13 +256,15 @@ class EnvSettingsSource(PydanticBaseEnvSettingsSource):
                 return type_has_key
         if _lenient_issubclass(get_origin(annotation), dict):
             # get value type if it's a dict
-            return get_args(annotation)[-1]
-        elif is_model_class(annotation) or is_pydantic_dataclass(annotation):  # type: ignore[arg-type]
+            args = get_args(annotation)
+            return args[-1] if args else None
+        if is_model_class(annotation) or is_pydantic_dataclass(annotation):  # type: ignore[arg-type]
             fields = _get_model_fields(annotation)
+            model_config = _get_model_config(annotation)
             # `case_sensitive is None` is here to be compatible with the old behavior.
             # Has to be removed in V3.
             for field_name, f in fields.items():
-                for _, env_name, _ in self._extract_field_info(f, field_name):
+                for _, env_name, _ in self._extract_field_info(f, field_name, model_config):
                     if case_sensitive is None or case_sensitive:
                         if field_name == key or env_name == key:
                             return f
@@ -351,21 +359,24 @@ class EnvSettingsSource(PydanticBaseEnvSettingsSource):
         """
         try:
             should_coerce = self.config.get('strict')
-            if not should_coerce and isinstance(field, FieldInfo):
-                should_coerce = (
-                    is_union_origin(get_origin(field.annotation)) and _union_has_strict_types(field.annotation)
-                ) or _literal_has_numeric_enum(field.annotation)
+            if isinstance(field, FieldInfo):
+                annotation, metadata = _get_field_annotation_and_metadata(field)
+                if not should_coerce:
+                    should_coerce = (
+                        is_union_origin(get_origin(annotation)) and _union_has_strict_types(annotation)
+                    ) or _literal_has_numeric_enum(annotation)
             if should_coerce and isinstance(value, str) and isinstance(field, FieldInfo):
                 if value == self.env_parse_none_str:
                     return value
-                if not _annotation_contains_types(field.annotation, (Json,), is_instance=True):
+                has_json = any(isinstance(md, Json) for md in metadata)  # type: ignore[misc]
+                if not has_json and not _annotation_contains_types(annotation, (Json,), is_instance=True):
                     try:
-                        return TypeAdapter(field.annotation).validate_python(value)
+                        return TypeAdapter(cast('Any', field.annotation)).validate_python(value)
                     except ValidationError:
                         # Try JSON decoding as fallback (e.g. 'true' -> True for StrictBool)
                         decoded = json.loads(value)
                         if not isinstance(decoded, str):
-                            return TypeAdapter(field.annotation).validate_python(decoded)
+                            return TypeAdapter(cast('Any', field.annotation)).validate_python(decoded)
                         raise
         except (ValidationError, json.JSONDecodeError):
             # Allow validation error to be raised at time of instantiation

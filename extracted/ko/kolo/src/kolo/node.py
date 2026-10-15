@@ -47,6 +47,12 @@ def unattached_assignment_label(frame: dict) -> str:
     return f"{frame.get('path')} {name}"
 
 
+def exception_type_name(exception: str) -> str:
+    """``DataError`` from the ``DataError: message`` a SQL query's end event
+    records when the query raised."""
+    return exception.split(":", 1)[0]
+
+
 class ProcessedNode(ABC):
     def __init__(
         self,
@@ -65,14 +71,12 @@ class ProcessedNode(ABC):
         self.data = tree_node.data
         self.subtype = tree_node.subtype
 
-        # Extract timestamps - subclasses may override
         self.start, self.end = self._extract_timestamps(tree_node)
         if self.start and self.end:
             self.duration_ms = (self.end - self.start) * 1000
         else:
             self.duration_ms = 0
 
-        # Create child nodes
         self.children = [
             make_processed_node(child, self, trace_id) for child in tree_node.children
         ]
@@ -85,7 +89,6 @@ class ProcessedNode(ABC):
 
         Subclasses can override for type-specific logic.
         """
-        # Default: try to find timestamps in data
         start = self.data.get("call_timestamp")
         end = self.data.get("return_timestamp")
         return start, end
@@ -129,26 +132,20 @@ class ProcessedNode(ABC):
         ms = self.duration_ms
 
         if ms < 0.001:
-            # nanoseconds
             ns = ms * 1000000
             return f"{round(ns)}ns"
         elif ms < 1:
-            # microseconds
             μs = ms * 1000
             return f"{round(μs)}μs"
         elif ms < 1000:
-            # milliseconds
             return f"{round(ms)}ms"
         elif ms < 60000:
-            # seconds
             s = ms / 1000
             return f"{s:.1f}s".rstrip("0").rstrip(".")
         elif ms < 3600000:
-            # minutes
             min_val = ms / 60000
             return f"{min_val:.1f}min".rstrip("0").rstrip(".")
         else:
-            # hours
             h = ms / 3600000
             return f"{h:.1f}h".rstrip("0").rstrip(".")
 
@@ -161,6 +158,13 @@ class ProcessedNode(ABC):
     def compact_tree_line(self) -> str:
         """Return compact tree line content. Subclasses must override."""
         ...
+
+    def compact_line(self) -> str:
+        """``compact_tree_line``, saying so if the call has no recorded exit."""
+        core = self.compact_tree_line()
+        if self.data.get("exit_not_recorded"):
+            return f"{core} {EXIT_NOT_RECORDED_LABEL}"
+        return core
 
     def input_value(self) -> str:
         """Input into the node as a string. Subclasses can override."""
@@ -179,11 +183,8 @@ class ProcessedNode(ABC):
         """Generate the full compact representation line."""
 
         indent = "  " * self.ancestor_count
-        # space based indentation is better for humans.
-        # if we learn later that models can't handle spaces, we can go back to
-        # "->" based indentation.
         idx = self.index
-        core = self.compact_tree_line()
+        core = self.compact_line()
         formatted_dur = self.formatted_duration()
         dur = formatted_dur if formatted_dur != "0ns" else ""
         input_output_indent = " " * (self.ancestor_count * 2 + len(str(idx)))
@@ -202,8 +203,9 @@ class ProcessedNode(ABC):
         return output
 
 
-# A frame Kolo recorded without its values, too close to the C stack limit.
 VALUES_OMITTED = "<not recorded: too close to the C stack limit>"
+EXIT_NOT_RECORDED_LABEL = "[did not return: no exit recorded]"
+EXIT_NOT_RECORDED = "<not recorded: the trace has no exit for this call>"
 
 
 class FrameSpanNode(ProcessedNode):
@@ -236,13 +238,14 @@ class FrameSpanNode(ProcessedNode):
 
     def return_value(self) -> str:
         return_frame = self.data["return_frame"]
+        if return_frame.get("exit_not_recorded"):
+            return EXIT_NOT_RECORDED
         if return_frame.get("values_omitted"):
             return VALUES_OMITTED
 
         try:
             return_value = return_frame["arg"]
         except KeyError:
-            # some frames (module frames for example) don't have arg set at all
             return ""
 
         return repr(return_value)
@@ -267,6 +270,11 @@ class SQLQueryNode(ProcessedNode):
         return "s"
 
     def return_value(self) -> str:
+        if self.data.get("exit_not_recorded"):
+            return EXIT_NOT_RECORDED
+        exception = self.data.get("exception")
+        if exception:
+            return f"raised {exception}"
         query_data = self.data["query_data"]
         if query_data is None:
             return ""
@@ -276,6 +284,9 @@ class SQLQueryNode(ProcessedNode):
         query = self.data["query"]
         if not query:
             return "SQL query"
+        exception = self.data.get("exception")
+        if exception:
+            return f"{query} [raised {exception_type_name(exception)}]"
 
         return query
 
@@ -287,7 +298,7 @@ class BackgroundJobNode(ProcessedNode):
         return "bgj"
 
     def return_value(self) -> str:
-        return ""  # We don't collect return values for background jobs
+        return ""
 
     def compact_tree_line(self) -> str:
         subtype = self.data["subtype"]
@@ -301,7 +312,6 @@ class ServedRequestNode(ProcessedNode):
     def _extract_timestamps(
         self, tree_node: ExecutionTreeNode
     ) -> tuple[Optional[float], Optional[float]]:
-        # Served requests store duration directly, not timestamps
         response = self.data["response"]
         ms_duration = response["ms_duration"]
         self.duration_ms = ms_duration
@@ -315,7 +325,6 @@ class ServedRequestNode(ProcessedNode):
         content = response["content"]
         if content is None:
             return ""
-        # TODO: Figure out how to format this for newlines..
 
         return content
 
@@ -335,7 +344,7 @@ class OutboundRequestNode(ProcessedNode):
         request = self.data["request"]
         response = self.data["response"]
         start = request["timestamp"]
-        end = response["timestamp"] if response else None
+        end = response["timestamp"] if response else self.data.get("return_timestamp")
         return start, end
 
     def compact_type(self) -> str:
@@ -348,7 +357,6 @@ class OutboundRequestNode(ProcessedNode):
         body = response["body"]
         if body is None:
             return ""
-        # TODO: Figure out how to format this for newlines..
         body_str = str(body)[:100].replace("\n", " ")
         return body_str
 
@@ -368,7 +376,7 @@ class TestNode(ProcessedNode):
         return "t"
 
     def return_value(self) -> str:
-        return ""  # TODO: could show test outcome
+        return ""
 
     def compact_tree_line(self) -> str:
         test_class = self.data["test_class"]
@@ -398,7 +406,6 @@ class LogMessageNode(ProcessedNode):
     def _extract_timestamps(
         self, tree_node: ExecutionTreeNode
     ) -> tuple[Optional[float], Optional[float]]:
-        # Log messages are leaf nodes with no duration
         return None, None
 
     def compact_type(self) -> str:

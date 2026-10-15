@@ -18,6 +18,9 @@ from istari_digital_client.sdk._generated.v3.models.resource_create_dto import R
 from istari_digital_client.sdk._generated.v3.models.resource_create_type_dto import ResourceCreateTypeDto
 from istari_digital_client.sdk._generated.v3.models.resource_type_dto import ResourceTypeDto
 from istari_digital_client.sdk._generated.v3.models.token_create_dto import TokenCreateDto
+from istari_digital_client.sdk._generated.v3.models.connected_resource_dto import (
+    ConnectedResourceDto,
+)
 from istari_digital_client.sdk._common._capabilities import (
     _SupportsAccess,
     _SupportsControlTags,
@@ -349,6 +352,23 @@ class Resources(_SupportsRead, _SupportsAccess, _SupportsControlTags, _SupportsI
         dto = self._call_healing_id(self._engine.v3_api.restore_resource, resource_id)
         return Resource._bind(dto, mgr=self)
 
+    def get_connection(self, connected_resource_id: str) -> ConnectedResourceDto:
+        """Fetch a connected resource's source-connection details.
+
+        Mutates: false
+
+        For a resource whose content is observed at an external source (see
+        ``Resource.is_connected_pointer``), this returns the connection record,
+        including ``locator`` (the connector-specific address of the external
+        content), ``connector`` (the integration key), ``canonical_external_id``,
+        and ``file_id``.
+
+        ``connected_resource_id`` is the id of the connection.
+        """
+        return self._call(
+            self._engine.v3_api.get_connection, connected_resource_id
+        )
+
     def get_related_resources(
         self,
         resource_id: str,
@@ -405,7 +425,12 @@ class Resources(_SupportsRead, _SupportsAccess, _SupportsControlTags, _SupportsI
         want_in = direction in ("incoming", "both")
         rev_id = obj.file_revision_id
 
-        related_file_ids: list[str] = []
+        # The embedded revision already carries its owner (owning_entity_id /
+        # owning_entity_type), so resolve the resource id inline — no per-edge
+        # get_file lookup. Edges whose other end isn't resource-owned (jobs,
+        # secrets, unowned revisions) have a non-"resource" type and are dropped.
+        resource_ids: list[str] = []
+        seen: set[str] = set()
         for edge in self.relationships.list(rev_id):
             left_id = edge.left_revision.file_revision_id
             right_id = edge.right_revision.file_revision_id
@@ -417,17 +442,9 @@ class Resources(_SupportsRead, _SupportsAccess, _SupportsControlTags, _SupportsI
                 continue
             if relationship and edge.relationship_type_name != relationship:
                 continue
-            related_file_ids.append(other.file_id)
-
-        # Resolve each related revision's file to its owning resource id (one lookup
-        # each), de-dup, then fetch them all in a single list() call. Edges whose
-        # other end has no owning resource (jobs, secrets, unowned revisions) resolve
-        # to None and are dropped.
-        # ponytail: one get_file per edge; batch the file lookups if edge counts grow.
-        resource_ids: list[str] = []
-        seen: set[str] = set()
-        for fid in related_file_ids:
-            rid = self._resource_id_from_file_id(fid)
+            if other.owning_entity_type != "resource":
+                continue
+            rid = other.owning_entity_id
             if rid and rid not in seen:
                 seen.add(rid)
                 resource_ids.append(rid)

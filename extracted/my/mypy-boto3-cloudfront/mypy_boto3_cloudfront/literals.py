@@ -95,6 +95,7 @@ __all__ = (
     "ValidationTokenHostType",
     "ViewerMtlsModeType",
     "ViewerProtocolPolicyType",
+    "VpcIpAddressTypeType",
     "WaiterName",
 )
 
@@ -225,6 +226,7 @@ TrustStoreStatusType = Literal["active", "failed", "pending"]
 ValidationTokenHostType = Literal["cloudfront", "self-hosted"]
 ViewerMtlsModeType = Literal["optional", "passthrough", "required"]
 ViewerProtocolPolicyType = Literal["allow-all", "https-only", "redirect-to-https"]
+VpcIpAddressTypeType = Literal["dualstack", "ipv4"]
 CloudFrontServiceName = Literal["cloudfront"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -589,6 +591,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

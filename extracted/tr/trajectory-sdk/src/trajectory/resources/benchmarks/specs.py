@@ -24,7 +24,9 @@ class Specs(APIResource):
     self,
     bench_id: str,
     *,
-    include_tasks: bool | Omit = omit,
+    include_tasks: bool | None | Omit = omit,
+    include_tools: bool | None | Omit = omit,
+    include_runtimes: bool | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -33,6 +35,15 @@ class Specs(APIResource):
     """Benchmark Spec
 
     Args:
+      include_tasks: Include every task; listBenchmarkSpecTasks pages them. Defaults to false with
+        Trajectory-API-Version: tmp-contract and to true otherwise.
+
+      include_tools: Include every bound tool; listBenchmarkSpecTools pages them. Defaults to false
+        with Trajectory-API-Version: tmp-contract and to true otherwise.
+
+      include_runtimes: Include every task runtime; listBenchmarkSpecRuntimes pages them. Defaults to
+        false with Trajectory-API-Version: tmp-contract and to true otherwise.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -53,6 +64,8 @@ class Specs(APIResource):
         params=maybe_transform(
           {
             "include_tasks": include_tasks,
+            "include_tools": include_tools,
+            "include_runtimes": include_runtimes,
           }
         ),
         extra_headers=extra_headers,

@@ -45,7 +45,7 @@ class ForumsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ForumListItem, ListForumsResponse]:
         """
-        Returns a paginated list of forums within a specific company, with optional filtering by product.
+        Returns a paginated list of forums for an account, with optional filtering by product.
 
         Required permissions:
          - `forum:read`
@@ -83,7 +83,7 @@ class ForumsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -134,7 +134,7 @@ class ForumsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -195,7 +195,7 @@ class ForumsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -242,7 +242,7 @@ class AsyncForumsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ForumListItem, ListForumsResponse]:
         """
-        Returns a paginated list of forums within a specific company, with optional filtering by product.
+        Returns a paginated list of forums for an account, with optional filtering by product.
 
         Required permissions:
          - `forum:read`
@@ -282,7 +282,7 @@ class AsyncForumsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -342,7 +342,7 @@ class AsyncForumsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -411,7 +411,7 @@ class AsyncForumsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

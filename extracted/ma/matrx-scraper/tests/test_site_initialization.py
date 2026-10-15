@@ -701,6 +701,131 @@ async def test_initialization_step_failure_does_not_stop_independent_steps(
 
 
 @pytest.mark.asyncio
+async def test_initialization_screenshots_reuse_the_identity_render_desktop_shots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    summary = PageSummary(
+        url="https://acme.example/",
+        final_url="https://acme.example/",
+        title="Acme",
+    )
+    state = CrawlPersistenceState(
+        site_id="site-1",
+        session_id="session-1",
+        user_id="user-1",
+        organization_id="org-1",
+        file_owner_id="user-1",
+        coverage_qualified=False,
+        site_initialization=True,
+        brand_id="brand-1",
+        initialization_shots=[
+            SimpleNamespace(kind=k, width=100, height=100, bytes=b"png") for k in ("desktop_fold", "desktop_full")
+        ],
+        homepage_capture=HomepageCapture(
+            html="<html><title>Acme</title></html>",
+            summary=summary,
+            page_id="page-1",
+            snapshot_id="snapshot-1",
+            final_url="https://acme.example/",
+        ),
+    )
+    async def persist_discovered_items(state_arg, candidates, *, snapshot_id):
+        # Stand-in for the DB write: counts what it was HANDED, so the step's
+        # reported counts exist only if the extracted candidates reach it.
+        assert snapshot_id == "snapshot-1"
+        counts: dict[str, int] = {}
+        for candidate in candidates:
+            counts[candidate.category] = counts.get(candidate.category, 0) + 1
+        return counts
+
+    repository = SimpleNamespace(
+        persist_event=AsyncMock(),
+        persist_command_event=AsyncMock(),
+        update_initialization=AsyncMock(),
+        update_site_identity=AsyncMock(
+            return_value={"written": ["description"], "skipped_existing": []}
+        ),
+        persist_discovered_items=AsyncMock(side_effect=persist_discovered_items),
+        fail_session=AsyncMock(),
+    )
+    broker = CrawlEventBroker("session-1")
+    prepared = PreparedCrawl(
+        site_id="site-1",
+        session_id="session-1",
+        root_url="https://acme.example/",
+        request=CrawlStartRequest(
+            max_pages=1,
+            max_depth=0,
+            list_mode=True,
+            capture_screenshots=False,
+            screenshot_kinds=[],
+        ),
+        repository=repository,
+        state=state,
+        broker=broker,
+    )
+    crawler = SimpleNamespace(run=AsyncMock())
+    async def persist_initialization_screenshots(shots, *, capture):
+        # One stored row per shot actually handed over — never a fixed answer.
+        return ({shot.kind: f"shot-{shot.kind}" for shot in shots}, {"superseded": 1, "pruned": 0})
+
+    persister = SimpleNamespace(
+        persist_initialization_screenshots=AsyncMock(
+            side_effect=persist_initialization_screenshots
+        )
+    )
+    async def fetch_with_capture(url, **kwargs):
+        # Answers only what was asked for, like the real pool.
+        return SimpleNamespace(screenshots=[
+            SimpleNamespace(kind=kind, width=100, height=100, bytes=b"png")
+            for kind in kwargs["screenshot_kinds"]
+        ])
+
+    browser = SimpleNamespace(fetch_with_capture=AsyncMock(side_effect=fetch_with_capture))
+    emitter = SimpleNamespace(send_data=AsyncMock(), send_end=AsyncMock())
+    service = WebCrawlService()
+    monkeypatch.setattr(
+        service,
+        "_build_crawler",
+        # `_build_crawler` is async since 2026-08-20 — it loads the site's
+        # host-pacing memory before constructing the crawler.
+        _async_stub((crawler, persister)),
+    )
+    monkeypatch.setattr(service, "_watch_for_cancel", AsyncMock())
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.service.sync_site_sitemaps",
+        AsyncMock(side_effect=RuntimeError("sitemap service unavailable")),
+    )
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.service.extract_homepage_candidates",
+        lambda *args, **kwargs: [
+            DiscoveredCandidate(
+                category="identity",
+                guessed_kind="title",
+                value={"text": "Acme"},
+                confidence=0.99,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.service.has_ext",
+        lambda name: name == "browser_pool",
+    )
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.service.get_ext",
+        lambda name: browser if name == "browser_pool" else None,
+    )
+
+    await service.run_initialize(emitter, prepared)
+
+    # Only the mobile kinds are navigated for; the desktop kinds came with the identity render.
+    assert browser.fetch_with_capture.await_count == 1
+    assert browser.fetch_with_capture.await_args.kwargs["screenshot_kinds"] == ["mobile_full", "mobile_fold"]
+    handed = persister.persist_initialization_screenshots.await_args.args[0]
+    assert [shot.kind for shot in handed] == ["desktop_full", "desktop_fold", "mobile_full", "mobile_fold"]
+
+
+@pytest.mark.asyncio
 async def test_initialization_records_root_fetch_failure_once_and_skips_dependents(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -825,7 +950,10 @@ async def test_prepare_initialize_uses_browser_for_authoritative_identity(
 
     request = prepare_start.await_args.args[2]
     assert request.render_mode == RENDER_BROWSER_ALWAYS
-    assert request.capture_screenshots is False
+    # The identity render also takes the desktop-profile screenshots (one fewer homepage navigation); the
+    # mobile kinds stay with the screenshots step.
+    assert request.capture_screenshots is True
+    assert request.screenshot_kinds == ["desktop_full", "desktop_fold"]
     assert result.state.brand_id == "brand-1"
 
 

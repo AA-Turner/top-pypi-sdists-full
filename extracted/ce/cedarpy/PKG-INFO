@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cedarpy
-Version: 4.12.1
+Version: 4.12.2
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -27,7 +27,7 @@ Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 <table>
 <thead><tr><th>Cedar Policy (engine) release</th><th>cedarpy release</th><th>cedarpy branch</th></tr></thead>
 <tbody>
-    <tr><td>v4.12.0</td><td>v4.12.1</td><td>main</td></tr>
+    <tr><td>v4.12.0</td><td>v4.12.2</td><td>main</td></tr>
     <tr><td>v4.8.2</td><td>v4.8.7</td><td>release/4.8.x</td></tr>
     <tr><td>v4.7.2</td><td>v4.7.1</td><td>release/4.7.x</td></tr>
     <tr><td>v4.1.0</td><td>v4.1.0</td><td>release/4.1.x</td></tr>
@@ -216,6 +216,29 @@ Passing a plain string or dict still works unchanged — the handle is purely op
 When a `Schema` handle is used,
 the authorization response sets `metrics["schema_pre_parsed"]` to `1`
 (vs. `0` when a string is parsed on the fly).
+
+### Calling cedarpy from threads and asyncio
+
+By default, a cedarpy call holds the GIL until it returns, so no other Python thread runs during it.
+`validate_policies` and the `from_*` constructors of `PolicySet`, `Schema` and `Entities`
+take a keyword-only `release_gil` argument.
+With `release_gil=True`, other Python threads run while Cedar works,
+so `asyncio.to_thread` moves slow validation off an event loop:
+
+```python
+import asyncio
+from cedarpy import Schema, validate_policies
+
+async def policies_are_valid(policies: str, schema: Schema) -> bool:
+    result = await asyncio.to_thread(validate_policies, policies, schema, release_gil=True)
+    return result.validation_passed
+```
+
+When another thread is busy, a released call typically waits about `sys.getswitchinterval()` (5 ms by default),
+sometimes longer, to resume.
+That makes it worth it for calls that take milliseconds or more, not for ones that take microseconds.
+Reading the arguments and building the result still hold the GIL.
+See the [Threads and asyncio Guide](docs/guides/threads-and-asyncio-guide.md) for measurements and a case study.
 
 ### Linking policy templates
 

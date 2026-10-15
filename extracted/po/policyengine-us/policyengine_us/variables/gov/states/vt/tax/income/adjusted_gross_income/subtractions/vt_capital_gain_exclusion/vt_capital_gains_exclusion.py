@@ -1,0 +1,42 @@
+from policyengine_us.model_api import *
+
+
+class vt_capital_gains_exclusion(Variable):
+    value_type = float
+    entity = TaxUnit
+    label = "Vermont capital gains exclusion"
+    unit = USD
+    definition_period = YEAR
+    defined_for = StateCode.VT
+    reference = (
+        "https://tax.vermont.gov/sites/tax/files/documents/IN-153-2024.pdf#page=1",
+        "https://legislature.vermont.gov/statutes/section/32/151/05811",
+    )
+
+    def formula(tax_unit, period, parameters):
+        # Get adjusted net capital gains (used for flat exclusion). Like the
+        # federal amount, the qualified dividends taken out of it are the head
+        # and spouse's; a tax unit dependent's are on the dependent's own return.
+        adjusted_net_capital_gain = tax_unit("adjusted_net_capital_gain", period)
+        qualified_dividend_income = tax_unit_non_dep_add(
+            tax_unit, period, ["qualified_dividend_income"]
+        )
+        reduced_adjusted_net_capital_gain = max_(
+            adjusted_net_capital_gain - qualified_dividend_income, 0
+        )
+        p = parameters(period).gov.states.vt.tax.income.agi.exclusions.capital_gain
+
+        # Flat $5,000 exclusion applies to ALL capital gains (including financial instruments)
+        flat_exclusion = min_(reduced_adjusted_net_capital_gain, p.flat.cap)
+
+        # 40% exclusion only applies to explicitly eligible capital gains
+        # (excludes stocks, bonds, financial instruments, real estate)
+        percentage_exclusion = tax_unit("vt_percentage_capital_gains_exclusion", period)
+
+        # Filer chooses the larger exclusion
+        chosen_exclusion = max_(flat_exclusion, percentage_exclusion)
+
+        # The chosen exclusion cannot exceed 40% of federal taxable income
+        federal_taxable_income = tax_unit("taxable_income", period)
+        cap = federal_taxable_income * p.income_share_cap
+        return min_(chosen_exclusion, cap)

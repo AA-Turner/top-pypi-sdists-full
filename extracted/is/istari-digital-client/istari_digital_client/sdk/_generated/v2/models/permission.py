@@ -42,7 +42,6 @@ class Permission(str, Enum):
     ACCESS_ADMINISTRATE_MANAGE = 'access_administrate_manage'
     ACCESS_EDIT_MANAGE = 'access_edit_manage'
     ACCESS_VIEW_MANAGE = 'access_view_manage'
-    UPSTREAM_REMOTE_SYNC = 'upstream_remote_sync'
     ACCESS = 'access'
 
     @classmethod

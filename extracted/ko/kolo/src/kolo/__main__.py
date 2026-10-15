@@ -21,11 +21,14 @@ import httpx
 
 from ._kolotxt import update_kolotxt
 from .cli_mcp_shared import (
+    TraceUnreadableError,
     format_trace_for_display,
     get_compact_traces,
     get_formatted_traces,
     get_node_data,
-    parse_trace_timestamp,
+    parse_trace_timestamp_or_now,
+    resolve_display_name,
+    unreadable_reason,
 )
 from .config import load_config
 from .core import enable
@@ -94,11 +97,9 @@ def _run_auto_migration_if_needed():
 
         migrate_traces_to_files(db_path)
     except Exception as e:
-        # Don't let migration errors block CLI commands
         logger.debug(f"Auto-migration failed: {e}")
 
 
-# Commands that should NOT trigger auto-migration (performance-sensitive or migration-related)
 _SKIP_MIGRATION_COMMANDS = {"run", "attach", "migrate"}
 
 
@@ -113,13 +114,10 @@ def cli(ctx):
     # This probably doesn't matter for our use case, but it doesn't hurt.
     sys.path.insert(1, ".")
 
-    # Run auto-migration if needed before interactive commands
-    # Skip for performance-sensitive commands like `run`
     if ctx.invoked_subcommand not in _SKIP_MIGRATION_COMMANDS:
         _run_auto_migration_if_needed()
 
     if ctx.invoked_subcommand is None:
-        # Show help and last 5 traces as a preview
         click.echo(ctx.get_help())
         click.echo()
         click.echo("Recent traces:")
@@ -144,6 +142,17 @@ def cli(ctx):
             else:
                 click.echo()
                 click.echo(f"  kolo.txt: {kolotxt_path}")
+
+
+def _load_trace_or_fail(msgpack_data: bytes, trace_id: str) -> Trace:
+    """Decode and build a stored trace, or exit with an error naming it."""
+    try:
+        data = load_trace(msgpack_data)
+        return Trace(unprocessed_data=data, size=len(msgpack_data))
+    except Exception as error:
+        raise click.ClickException(
+            str(TraceUnreadableError(trace_id, unreadable_reason(error)))
+        )
 
 
 def python_noop_profiler(frame, event, arg):  # pragma: no cover
@@ -380,7 +389,6 @@ def list(count, reverse, pinned):
     found_any = False
 
     if not pinned:
-        # Regular trace listing
         for formatted_trace in get_formatted_traces(
             db_path, count=count, reverse=reverse
         ):
@@ -391,7 +399,6 @@ def list(count, reverse, pinned):
             click.echo("No traces found")
         return
 
-    # Pinned trace listing
     for (
         trace_id,
         timestamp_str,
@@ -400,14 +407,15 @@ def list(count, reverse, pinned):
         auto_generated_name,
     ) in get_pinned_traces(db_path):
         found_any = True
-        timestamp = parse_trace_timestamp(timestamp_str)
+        timestamp, bad_timestamp = parse_trace_timestamp_or_now(timestamp_str)
 
-        trace_name = Trace.resolve_display_name(
+        trace_name, unreadable = resolve_display_name(
             msgpack_data, auto_generated_name, db_path, trace_id
         )
+        unreadable = unreadable or bad_timestamp
 
         formatted_trace = format_trace_for_display(
-            trace_id, timestamp, size, trace_name
+            trace_id, timestamp, size, trace_name, unreadable=unreadable
         )
         click.echo(formatted_trace)
 
@@ -555,7 +563,6 @@ def compact(trace_id: str | None, pinned: bool, returns: bool, recent: int | Non
 
     When called without arguments, shows the most recent trace.
     """
-    # Default to showing the most recent trace if no arguments provided
     if not any([pinned, trace_id is not None, recent is not None]):
         recent = 1
 
@@ -575,6 +582,8 @@ def compact(trace_id: str | None, pinned: bool, returns: bool, recent: int | Non
             click.echo(compact_repr)
     except TraceNotFoundError as e:
         raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=e.args[0]))
+    except TraceUnreadableError as e:
+        raise click.ClickException(str(e))
 
 
 @cli.command(hidden=True)
@@ -694,7 +703,6 @@ def migrate(status):
             click.echo("\nAll traces are already migrated to file storage.")
         return
 
-    # Check if migration is needed
     migration_status = get_migration_status(db_path)
     needs_migration = migration_status["needs_migration"]
     if needs_migration == 0:
@@ -749,34 +757,31 @@ def emit(trace_id: Optional[str], output_dir: Optional[Path]):
 
     db_path = setup_db()
 
-    # Default to .kolo/traces/ directory (db_path is .kolo/.internal/db.sqlite3)
     if output_dir is None:
         output_dir = db_path.parent.parent / "traces"
     output_dir = output_dir.resolve()
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
 
-    # If specific trace_id provided, emit just that one
     if trace_id is not None:
         try:
             msgpack_data, _ = load_trace_from_db(db_path, trace_id)
         except TraceNotFoundError:
             raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
 
-        data = load_trace(msgpack_data)
-        trace = Trace(unprocessed_data=data, size=len(msgpack_data))
+        trace = _load_trace_or_fail(msgpack_data, trace_id)
         trace_dir = emit_trace(trace, output_dir)
         write_manual_emit_marker(trace_dir)
         click.echo(f"Browse: {trace_dir}/{trace_id}.txt")
         return
 
-    # No trace_id: emit/update the 5 most recent traces
     traces = list_traces_from_db(db_path, count=5)
     if not traces:
         raise click.ClickException("No traces found in the database.")
 
     first_trace_dir = None
     first_trace_id = None
+    failures = []
     for row in traces:
         tid = row[0]
         try:
@@ -788,11 +793,17 @@ def emit(trace_id: Optional[str], output_dir: Optional[Path]):
             if first_trace_dir is None:
                 first_trace_dir = trace_dir
                 first_trace_id = tid
-        except (TraceNotFoundError, KeyError, ValueError):
+        except Exception as error:
+            logger.debug("Could not emit trace %s", tid, exc_info=True)
+            failures.append(f"{tid}: {unreadable_reason(error)}")
             continue
 
+    for failure in failures:
+        click.echo(f"Could not emit trace {failure}", err=True)
     if first_trace_dir:
         click.echo(f"Browse: {first_trace_dir}/{first_trace_id}.txt")
+    elif failures:
+        raise click.ClickException("None of the recent traces could be emitted.")
 
 
 @trace.command(hidden=True)
@@ -816,7 +827,6 @@ def flat(trace_id: Optional[str]):
 
     db_path = setup_db()
 
-    # Default to most recent trace if no trace_id provided
     if trace_id is None:
         traces = list_traces_from_db(db_path, count=1)
         if not traces:
@@ -824,16 +834,13 @@ def flat(trace_id: Optional[str]):
         trace_id = traces[0][0]
         click.echo(f"Using most recent trace: {trace_id}", err=True)
 
-    # Load trace
     try:
         msgpack_data, _ = load_trace_from_db(db_path, trace_id)
     except TraceNotFoundError:
         raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
 
-    data = load_trace(msgpack_data)
-    trace_obj = Trace(unprocessed_data=data, size=len(msgpack_data))
+    trace_obj = _load_trace_or_fail(msgpack_data, trace_id)
 
-    # Emit to stdout
     content = emit_trace_flat(trace_obj)
     click.echo(content)
 
@@ -866,7 +873,6 @@ def cat(trace_id: str | None, pinned: bool, returns: bool, recent: int | None):
 
     When called without arguments, shows the most recent trace.
     """
-    # Default to showing the most recent trace if no arguments provided
     if not any([pinned, trace_id is not None, recent is not None]):
         recent = 1
 
@@ -886,6 +892,8 @@ def cat(trace_id: str | None, pinned: bool, returns: bool, recent: int | None):
             click.echo(compact_repr)
     except TraceNotFoundError as e:
         raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=e.args[0]))
+    except TraceUnreadableError as e:
+        raise click.ClickException(str(e))
 
 
 @cli.group(hidden=True)

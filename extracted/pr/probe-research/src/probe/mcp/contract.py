@@ -157,6 +157,17 @@ class EntityType(StrEnum):
     # of each sub-note and pointed at the dashboard for the rest, so the whole
     # body of a caveat tab was unreadable on this surface.
     SUB_NOTE = "sub_note"
+    # The data catalog (C3/C4), reached by PREFIX only, never by a bare id:
+    # `dataset:<name>[@<N>|@latest]` / `dataset:<uuid>` (a team dataset and its
+    # versions), `source:<uuid>` / `source:<canonical_key>[@<revision>]` (an
+    # external source), `checkpoint:<uuid>` /
+    # `checkpoint:<run ref>@best[:<callback>]|latest|step<N>`. The server
+    # resolves every form (`app/catalog/refs.py`); this side only routes it.
+    # `artifact:<name>` is NOT one of these: it stays the Shared reuse check,
+    # and a catalog dataset IS a Shared row, so that check still sees it.
+    DATASET = "dataset"
+    SOURCE = "source"
+    CHECKPOINT = "checkpoint"
 
 
 class CollapseMode(StrEnum):
@@ -226,16 +237,77 @@ class SeriesSmoothing(StrEnum):
 # and "what is in Shared" without a tree walk -- the reads the dashboard
 # assistant had and this surface lacked. Each mode REFUSES the arguments it does
 # not read (`server._BROWSE_MODE_ARGS`), for the reason `MetricMode` does.
+# The data catalog (C4) added three more, each over its own `/v1/catalog/*` list:
+# team datasets, every checkpoint team-wide, and the external sources.
 class BrowseMode(StrEnum):
     """What browse lists: `tree` (projects/experiments/runs, the default),
     `runs` (flat, newest first), `workspaces`, `notes` (the notes catalog),
-    or `files` (Shared, or one workspace's)."""
+    `files` (Shared, or one workspace's), or the data catalog's `datasets`,
+    `checkpoints` and `sources`."""
 
     TREE = "tree"
     RUNS = "runs"
     WORKSPACES = "workspaces"
     NOTES = "notes"
     FILES = "files"
+    DATASETS = "datasets"
+    CHECKPOINTS = "checkpoints"
+    SOURCES = "sources"
+
+
+# -- the data catalog's closed vocabularies, as this server sends them ---------
+#
+# Mirrored, not imported (this package never imports `app/`), and held
+# value-for-value to the server's enums by tests/test_mcp_catalog.py:
+# `Direction` (app/catalog/provenance.py), `Registered` and `StoredState`
+# (app/catalog/router.py), `SourceKind` and `SourceProvider`
+# (app/core/catalog_vocab.py). The browse ones type browse's arguments, so a
+# typo is refused by the schema before a request is built.
+#
+# DOCSTRINGS ONE LINE: an enum on a tool signature ships its `__doc__` into
+# the schema every session loads.
+class ProvenanceDirection(StrEnum):
+    """Up to the sources, or down to what used it."""
+
+    UPSTREAM = "upstream"
+    DOWNSTREAM = "downstream"
+
+
+class DatasetRegistered(StrEnum):
+    """Named team datasets (yes), unregistered run-logged dataset files (no), or both."""
+
+    ALL = "all"
+    YES = "yes"
+    NO = "no"
+
+
+class CheckpointStored(StrEnum):
+    """Bytes Probe holds (stored), or a location it points at (reference)."""
+
+    STORED = "stored"
+    REFERENCE = "reference"
+
+
+class SourceKind(StrEnum):
+    """What an external source is."""
+
+    DATASET = "dataset"
+    MODEL = "model"
+    OTHER = "other"
+
+
+class SourceProvider(StrEnum):
+    """Where an external source lives."""
+
+    HUGGINGFACE = "huggingface"
+    S3 = "s3"
+    GCS = "gcs"
+    AZURE = "azure"
+    HTTP = "http"
+    GIT = "git"
+    DATABASE = "database"
+    LOCAL = "local"
+    OTHER = "other"
 
 
 class ReadmeState(StrEnum):
@@ -521,10 +593,15 @@ class MissingMarker(StrEnum):
     # and serve at most 1,000 rows per read, so a folder past that is not
     # reachable by paging. Narrow with `prefix`.
     FILES_BEYOND_BACKEND_LIMIT = "files_beyond_backend_limit"
-    # browse(mode="runs"/"notes") under `X-Probe-Hide-Session-Work`: every row
-    # the backend pages this read covered was the caller's own session's work and
-    # was left out, up to the read's own bound. NOT "nothing exists": the empty
-    # page says nothing about what lies past `next_cursor`, which continues.
+    # entity(checkpoint, view="versions"): the checkpoint read carries one page
+    # of the run's other saves (`saves_next_cursor`). The rest is reachable as
+    # browse(mode="checkpoints", run=...), which pages; the payload names it.
+    SAVES_BEYOND_SERVER_PAGE = "saves_beyond_server_page"
+    # browse(mode="runs"/"notes"/"datasets"/"checkpoints") under
+    # `X-Probe-Hide-Session-Work`: every row the backend pages this read covered
+    # was the caller's own session's work and was left out, up to the read's
+    # own bound. NOT "nothing exists": the empty page says nothing about what
+    # lies past `next_cursor`, which continues.
     PAGE_HIDDEN_AS_OWN_SESSION_WORK = "page_hidden_as_own_session_work"
     # metrics(mode="series"): the backend answered, and some series could not be
     # read (a provider-backed run's source failed). Those failures are listed in

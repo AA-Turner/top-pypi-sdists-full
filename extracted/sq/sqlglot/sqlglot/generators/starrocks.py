@@ -79,6 +79,7 @@ class StarRocksGenerator(MySQLGenerator):
 
     TYPE_MAPPING = {
         **MySQLGenerator.TYPE_MAPPING,
+        exp.DType.HLLSKETCH: "HLL",
         exp.DType.INT128: "LARGEINT",
         exp.DType.TEXT: "STRING",
         exp.DType.TIMESTAMP: "DATETIME",
@@ -379,3 +380,23 @@ class StarRocksGenerator(MySQLGenerator):
         every = f" EVERY (INTERVAL {every} {unit})" if every and unit else ""
 
         return f"REFRESH{method}{kind}{starts}{every}"
+
+    def refresh_sql(self, expression: exp.Refresh) -> str:
+        this = self.sql(expression, "this")
+        kind = "" if isinstance(expression.this, exp.Literal) else f"{expression.text('kind')} "
+        partition_start = self.sql(expression, "partition_start")
+        partition_end = self.sql(expression, "partition_end")
+        partition = (
+            f" PARTITION START ({partition_start}) END ({partition_end})" if partition_start else ""
+        )
+        force = " FORCE" if expression.args.get("force") else ""
+        mode = self.sql(expression, "mode")
+        mode = f" WITH {mode} MODE" if mode else ""
+
+        return f"REFRESH {kind}{this}{partition}{force}{mode}"
+
+    def timeslice_sql(self, expression: exp.TimeSlice) -> str:
+        interval = exp.Interval(this=expression.expression, unit=expression.unit)
+        kind = expression.text("kind").upper()
+        boundary = exp.var("CEIL" if kind == "END" else "FLOOR") if kind else None
+        return self.func("TIME_SLICE", expression.this, interval, boundary)

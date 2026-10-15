@@ -30,10 +30,7 @@ const FORMAT: &str = "tensorfs.source-custody/1";
 const EVIDENCE_MAX_BYTES: usize = 1024;
 
 fn io(what: &str, error: std::io::Error) -> Refusal {
-    Refusal {
-        code: Code::IO_FAILED,
-        detail: format!("source custody {what}: {error}"),
-    }
+    crate::store::classify_io(format!("source custody {what}"), error)
 }
 
 /// Every object this operation's custodian holds, with the evidence that says where.
@@ -173,16 +170,16 @@ pub(crate) fn read_session(store_root: &Path, session: &str) -> Result<Custody> 
     Custody::parse(&bytes)
 }
 
-/// Every live session's custody, for the readers that walk more than one operation:
-/// GC's census and a derivation over a prepared model.
+/// Every live session's custody and every origin's ([`crate::origin`]), for the readers that
+/// walk more than one operation: GC's census and a derivation over a prepared model.
 pub fn live(store_root: &Path) -> Result<BTreeSet<String>> {
+    let mut out = crate::origin::custodied(store_root)?;
     let base = store_root.join("tmp").join("ingest");
     let entries = match fs::read_dir(&base) {
         Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(BTreeSet::new()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(out),
         Err(error) => return Err(io("list sessions", error)),
     };
-    let mut out = BTreeSet::new();
     for entry in entries {
         let entry = entry.map_err(|error| io("list sessions", error))?;
         if !entry.path().is_dir() {

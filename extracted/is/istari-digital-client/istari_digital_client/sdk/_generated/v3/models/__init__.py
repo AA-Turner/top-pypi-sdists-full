@@ -27,9 +27,6 @@ from istari_digital_client.sdk._generated.v3.models.batch_resolve_users_response
 from istari_digital_client.sdk._generated.v3.models.browse_entry_dto import BrowseEntryDto
 from istari_digital_client.sdk._generated.v3.models.bulk_inbox_action_dto import BulkInboxActionDto
 from istari_digital_client.sdk._generated.v3.models.bulk_inbox_action_result_dto import BulkInboxActionResultDto
-from istari_digital_client.sdk._generated.v3.models.chat_message import ChatMessage
-from istari_digital_client.sdk._generated.v3.models.chat_request import ChatRequest
-from istari_digital_client.sdk._generated.v3.models.chat_response import ChatResponse
 from istari_digital_client.sdk._generated.v3.models.comment_dto import CommentDto
 from istari_digital_client.sdk._generated.v3.models.connected_container_create_dto import ConnectedContainerCreateDto
 from istari_digital_client.sdk._generated.v3.models.connected_container_dto import ConnectedContainerDto
@@ -41,7 +38,9 @@ from istari_digital_client.sdk._generated.v3.models.connected_resource_status_dt
 from istari_digital_client.sdk._generated.v3.models.connected_source_create_dto import ConnectedSourceCreateDto
 from istari_digital_client.sdk._generated.v3.models.connected_source_credential_kind import ConnectedSourceCredentialKind
 from istari_digital_client.sdk._generated.v3.models.connected_source_dto import ConnectedSourceDto
+from istari_digital_client.sdk._generated.v3.models.connection_dto import ConnectionDto
 from istari_digital_client.sdk._generated.v3.models.connection_update_outcomes_dto import ConnectionUpdateOutcomesDto
+from istari_digital_client.sdk._generated.v3.models.connections_response import ConnectionsResponse
 from istari_digital_client.sdk._generated.v3.models.container_selection_dto import ContainerSelectionDto
 from istari_digital_client.sdk._generated.v3.models.container_snapshot_child_dto import ContainerSnapshotChildDto
 from istari_digital_client.sdk._generated.v3.models.container_snapshot_child_status import ContainerSnapshotChildStatus
@@ -68,6 +67,8 @@ from istari_digital_client.sdk._generated.v3.models.cursor_page_shareable_sendin
 from istari_digital_client.sdk._generated.v3.models.cursor_page_sync_status_update_dto_customized import CursorPageSyncStatusUpdateDtoCustomized
 from istari_digital_client.sdk._generated.v3.models.cursor_page_workflow_log_entry_dto import CursorPageWorkflowLogEntryDto
 from istari_digital_client.sdk._generated.v3.models.data import Data
+from istari_digital_client.sdk._generated.v3.models.discovered_model_dto import DiscoveredModelDto
+from istari_digital_client.sdk._generated.v3.models.discovered_models_response import DiscoveredModelsResponse
 from istari_digital_client.sdk._generated.v3.models.else_tag_rule_create_dto import ElseTagRuleCreateDto
 from istari_digital_client.sdk._generated.v3.models.else_tag_rule_dto import ElseTagRuleDto
 from istari_digital_client.sdk._generated.v3.models.evaluate_sending_tag_sets_with_hypothetical_rule_set_dto import EvaluateSendingTagSetsWithHypotheticalRuleSetDto
@@ -157,6 +158,8 @@ from istari_digital_client.sdk._generated.v3.models.tag_rule_then_clause_kind im
 from istari_digital_client.sdk._generated.v3.models.tag_rule_transformation_create_dto import TagRuleTransformationCreateDto
 from istari_digital_client.sdk._generated.v3.models.tag_rule_transformation_dto import TagRuleTransformationDto
 from istari_digital_client.sdk._generated.v3.models.tag_rule_verdict import TagRuleVerdict
+from istari_digital_client.sdk._generated.v3.models.test_connection_request import TestConnectionRequest
+from istari_digital_client.sdk._generated.v3.models.test_connection_response import TestConnectionResponse
 from istari_digital_client.sdk._generated.v3.models.token_create_dto import TokenCreateDto
 from istari_digital_client.sdk._generated.v3.models.token_dto import TokenDto
 from istari_digital_client.sdk._generated.v3.models.update_comment_dto import UpdateCommentDto
@@ -164,6 +167,7 @@ from istari_digital_client.sdk._generated.v3.models.update_conversation_request 
 from istari_digital_client.sdk._generated.v3.models.update_receiving_connection_dto import UpdateReceivingConnectionDto
 from istari_digital_client.sdk._generated.v3.models.update_sending_connection_dto import UpdateSendingConnectionDto
 from istari_digital_client.sdk._generated.v3.models.update_user_steering_request import UpdateUserSteeringRequest
+from istari_digital_client.sdk._generated.v3.models.upsert_connection_request import UpsertConnectionRequest
 from istari_digital_client.sdk._generated.v3.models.upsert_endpoint_request import UpsertEndpointRequest
 from istari_digital_client.sdk._generated.v3.models.upsert_model_request import UpsertModelRequest
 from istari_digital_client.sdk._generated.v3.models.upstream_info_create_dto import UpstreamInfoCreateDto

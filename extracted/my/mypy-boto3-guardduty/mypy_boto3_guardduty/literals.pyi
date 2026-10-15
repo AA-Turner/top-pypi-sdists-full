@@ -188,7 +188,7 @@ DataSourceType = Literal[
 DescribeMalwareScansPaginatorName = Literal["describe_malware_scans"]
 DestinationTypeType = Literal["S3"]
 DetectionRuleConfigurationStatusType = Literal["ACTIVE", "FAILED", "PROCESSING"]
-DetectionRuleDataSourceType = Literal["CloudTrailManagementEvent"]
+DetectionRuleDataSourceType = Literal["CloudTrailManagementEvent", "RuntimeMonitoring"]
 DetectionRuleFilterConditionType = Literal["CONTAINS", "EQUALS"]
 DetectionRuleSeverityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
 DetectionSourceType = Literal["AMAZON", "BITDEFENDER"]
@@ -840,6 +840,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

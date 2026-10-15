@@ -71,6 +71,8 @@ from matrx_ai.tools.kinds.execution import (  # noqa: E402
 )
 from matrx_ai.tools.kinds.fact_check import FactCheckReviewSet  # noqa: E402
 from matrx_ai.tools.kinds.google import GOOGLE_TOOL_RESULT_KINDS  # noqa: E402
+from matrx_ai.tools.kinds.outlook import OUTLOOK_TOOL_RESULT_KINDS  # noqa: E402
+from matrx_ai.tools.kinds.computers import COMPUTERS_TOOL_RESULT_KINDS  # noqa: E402
 from matrx_ai.tools.kinds.filesystem import (  # noqa: E402
     DirectoryCreateResult,
     DirectoryListing,
@@ -262,6 +264,11 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     # __kind at all; google_marketing_result is new with its tool. The twelve-
     # action `google_read` these two replaced had no kind and no row here.
     **GOOGLE_TOOL_RESULT_KINDS,
+    # outlook (aidream services/outlook): the channel ladder, compose and read only.
+    **OUTLOOK_TOOL_RESULT_KINDS,
+    # computers (aidream tools/computers_tool.py): the person's Matrx 2 computers, and a
+    # coding session started on the one the agent chose.
+    **COMPUTERS_TOOL_RESULT_KINDS,
     # scope_system (aidream/services/scope_system/tools.py): render actions
     # reshaped from a bare string into `context` (a scalar cannot carry __kind).
     "scope_system": ScopeSystemResult,

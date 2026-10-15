@@ -69,7 +69,10 @@ _REQUEST_TIMEOUT_S = 10.0
 _EXTERNAL_STATUS_TTL = timedelta(hours=24)
 _USER_AGENT = "MatrxScraperBot/0.1 (+https://aimatrx.com)"
 # Statuses that mean "this host dislikes HEAD", not "this target is broken".
-_HEAD_FALLBACK_STATUSES = frozenset({400, 403, 405, 500, 501})
+# 404/410 are here because hosts exist that answer HEAD 404 and GET 200 (Azure
+# Front Door in front of zenoti); a real 404 is simply confirmed by the GET.
+# 429/503 are rate-limit / transient answers a second request may not repeat.
+_HEAD_FALLBACK_STATUSES = frozenset({400, 403, 404, 405, 410, 429, 500, 501, 503})
 
 ProgressCallback = Callable[[str, LinkCheckSummary], Awaitable[None]]
 

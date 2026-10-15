@@ -28,35 +28,111 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # ===================================================================
 
-from __future__ import print_function
 
+from __future__ import annotations
+
+import binascii
 import re
 import struct
-import binascii
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    TypedDict,
+    Union,
+    cast,
+    overload,
+)
 
-from Crypto.Util.py3compat import bord, tobytes, tostr, bchr, is_string
-
-from Crypto.Math.Numbers import Integer
-from Crypto.Util.asn1 import (DerObjectId, DerOctetString, DerSequence,
-                              DerBitString)
-
-from Crypto.PublicKey import (_expand_subject_public_key_info,
-                              _create_subject_public_key_info,
-                              _extract_subject_public_key_info)
-
+from Crypto import IncorrectPassphraseError, KdfLimitError, PassphraseRequiredError
 from Crypto.Hash import SHA512, SHAKE256
-
+from Crypto.Math.Numbers import Integer
+from Crypto.PublicKey import (
+    _create_subject_public_key_info,
+    _expand_subject_public_key_info,
+    _extract_subject_public_key_info,
+)
 from Crypto.Random import get_random_bytes
+from Crypto.Util._bytes import tobytes
+from Crypto.Util.asn1 import DerBitString, DerObjectId, DerOctetString, DerSequence
 
-from ._point import EccPoint, EccXPoint, _curves
 from ._point import CurveID as _CurveID
+from ._point import EccPoint, EccXPoint, _curves
+
+if TYPE_CHECKING:
+    from typing_extensions import Unpack
+
+    from Crypto.IO._PBES import ProtParams
+
+RNG = Callable[[int], bytes]
+Int = Union[int, Integer]
+
+
+class ExportParams(TypedDict, total=False):
+    passphrase: Union[bytes, str]
+    use_pkcs8: bool
+    protection: str
+    compress: bool
+    prot_params: ProtParams
+    threads: int
+
+
+class _CurveRequired(TypedDict):
+    curve: str
+
+
+class ConstructParams(_CurveRequired, total=False):
+    d: Union[int, Integer]
+    seed: bytes
+    point_x: Optional[Union[int, Integer]]
+    point_y: Optional[Union[int, Integer]]
+
+
+# The curves whose private key is a seed, and its length
+_SEED_LENGTHS = {
+    _CurveID.ED25519: 32,
+    _CurveID.ED448: 57,
+    _CurveID.CURVE25519: 32,
+    _CurveID.CURVE448: 56,
+}
+
+
+def _seed_to_scalar(curve_id: int, seed: bytes) -> tuple[Optional[bytes], Integer]:
+    """The prefix (EdDSA only) and the secret scalar of a seed.
+
+    RFC 8032 (5.1.5 and 5.2.5) for Ed25519 and Ed448: the scalar comes from
+    the hash of the seed. RFC 7748 (5) for X25519 and X448: the seed is the
+    scalar. In both cases, the scalar is clamped (little endian).
+    """
+
+    prefix = None
+    if curve_id == _CurveID.ED25519:
+        seed_hash = SHA512.new(seed).digest()
+        prefix, scalar = seed_hash[32:], bytearray(seed_hash[:32])
+    elif curve_id == _CurveID.ED448:
+        seed_hash = SHAKE256.new(seed).read(114)
+        prefix, scalar = seed_hash[57:], bytearray(seed_hash[:57])
+    else:
+        scalar = bytearray(seed)
+
+    if curve_id in (_CurveID.ED25519, _CurveID.CURVE25519):
+        scalar[0] &= 0xF8
+        scalar[31] = (scalar[31] & 0x7F) | 0x40
+    else:
+        scalar[0] &= 0xFC
+        scalar[55] |= 0x80
+        if curve_id == _CurveID.ED448:
+            scalar[56] = 0
+    return prefix, Integer.from_bytes(scalar, byteorder="little")
 
 
 class UnsupportedEccFeature(ValueError):
     pass
 
 
-class EccKey(object):
+class EccKey:
     r"""Class defining an ECC key.
     Do not instantiate directly.
     Use :func:`generate`, :func:`construct` or :func:`import_key` instead.
@@ -78,7 +154,14 @@ class EccKey(object):
     :vartype seed: bytes
     """
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        *,
+        curve: Optional[str] = None,
+        d: Optional[Union[int, Integer]] = None,
+        seed: Optional[bytes] = None,
+        point: Optional[Union[EccPoint, EccXPoint]] = None,
+    ) -> None:
         """Create a new ECC key
 
         Keywords:
@@ -97,15 +180,13 @@ class EccKey(object):
         Only one parameter among ``d``, ``seed`` or ``point`` may be used.
         """
 
-        kwargs_ = dict(kwargs)
-        curve_name = kwargs_.pop("curve", None)
-        self._d = kwargs_.pop("d", None)
-        self._seed = kwargs_.pop("seed", None)
-        self._point = kwargs_.pop("point", None)
+        curve_name = curve
+        # Which of these attributes are set depends on the type of key
+        self._d: Any = cast(Any, d)
+        self._seed: Any = cast(Any, seed)
+        self._point: Any = cast(Any, point)
         if curve_name is None and self._point:
             curve_name = self._point.curve
-        if kwargs_:
-            raise TypeError("Unknown parameters: " + str(kwargs_))
 
         if curve_name not in _curves:
             raise ValueError("Unsupported curve (%s)" % curve_name)
@@ -122,61 +203,25 @@ class EccKey(object):
         if count == 2:
             raise ValueError("Parameters d and seed are mutually exclusive")
 
-        # NIST P curves work with d, EdDSA works with seed
-
-        # RFC 8032, 5.1.5
-        if self._curve.id == _CurveID.ED25519:
-            if self._d is not None:
-                raise ValueError("Parameter d can only be used with NIST P curves")
-            if len(self._seed) != 32:
-                raise ValueError("Parameter seed must be 32 bytes long for Ed25519")
-            seed_hash = SHA512.new(self._seed).digest()   # h
-            self._prefix = seed_hash[32:]
-            tmp = bytearray(seed_hash[:32])
-            tmp[0] &= 0xF8
-            tmp[31] = (tmp[31] & 0x7F) | 0x40
-            self._d = Integer.from_bytes(tmp, byteorder='little')
-        # RFC 8032, 5.2.5
-        elif self._curve.id == _CurveID.ED448:
-            if self._d is not None:
-                raise ValueError("Parameter d can only be used with NIST P curves")
-            if len(self._seed) != 57:
-                raise ValueError("Parameter seed must be 57 bytes long for Ed448")
-            seed_hash = SHAKE256.new(self._seed).read(114)  # h
-            self._prefix = seed_hash[57:]
-            tmp = bytearray(seed_hash[:57])
-            tmp[0] &= 0xFC
-            tmp[55] |= 0x80
-            tmp[56] = 0
-            self._d = Integer.from_bytes(tmp, byteorder='little')
-        # RFC 7748, 5
-        elif self._curve.id == _CurveID.CURVE25519:
-            if self._d is not None:
-                raise ValueError("Parameter d can only be used with NIST P curves")
-            if len(self._seed) != 32:
-                raise ValueError("Parameter seed must be 32 bytes long for Curve25519")
-            tmp = bytearray(self._seed)
-            tmp[0] &= 0xF8
-            tmp[31] = (tmp[31] & 0x7F) | 0x40
-            self._d = Integer.from_bytes(tmp, byteorder='little')
-        elif self._curve.id == _CurveID.CURVE448:
-            if self._d is not None:
-                raise ValueError("Parameter d can only be used with NIST P curves")
-            if len(self._seed) != 56:
-                raise ValueError("Parameter seed must be 56 bytes long for Curve448")
-            tmp = bytearray(self._seed)
-            tmp[0] &= 0xFC
-            tmp[55] |= 0x80
-            self._d = Integer.from_bytes(tmp, byteorder='little')
-
-        else:
+        # NIST P curves work with d, the other curves with a seed
+        seed_len = _SEED_LENGTHS.get(self._curve.id)
+        if seed_len is None:
             if self._seed is not None:
                 raise ValueError("Parameter 'seed' cannot be used with NIST P-curves")
             self._d = Integer(self._d)
             if not 1 <= self._d < self._curve.order:
                 raise ValueError("Parameter d must be an integer smaller than the curve order")
+            return
 
-    def __eq__(self, other):
+        if self._d is not None:
+            raise ValueError("Parameter d can only be used with NIST P curves")
+        if len(self._seed) != seed_len:
+            raise ValueError(
+                "Parameter seed must be %d bytes long for %s" % (seed_len, self._curve.canonical)
+            )
+        self._prefix, self._d = _seed_to_scalar(self._curve.id, self._seed)
+
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, EccKey):
             return False
 
@@ -185,16 +230,15 @@ class EccKey(object):
 
         return other.pointQ == self.pointQ
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.has_private():
             if self._curve.is_edwards:
-                extra = ", seed=%s" % tostr(binascii.hexlify(self._seed))
+                extra = ", seed=%s" % binascii.hexlify(self._seed).decode("latin-1")
             else:
                 extra = ", d=%d" % int(self._d)
         else:
             extra = ""
-        if self._curve.id in (_CurveID.CURVE25519,
-                              _CurveID.CURVE448):
+        if self._curve.id in (_CurveID.CURVE25519, _CurveID.CURVE448):
             x = self.pointQ.x
             result = "EccKey(curve='%s', point_x=%d%s)" % (self._curve.canonical, x, extra)
         else:
@@ -202,7 +246,7 @@ class EccKey(object):
             result = "EccKey(curve='%s', point_x=%d, point_y=%d%s)" % (self._curve.canonical, x, y, extra)
         return result
 
-    def has_private(self):
+    def has_private(self) -> bool:
         """``True`` if this key can be used for making signatures or decrypting data."""
 
         return self._d is not None
@@ -212,13 +256,12 @@ class EccKey(object):
         assert 0 < k < self._curve.order
 
         order = self._curve.order
-        blind = Integer.random_range(min_inclusive=1,
-                                     max_exclusive=order)
+        blind = Integer.random_range(min_inclusive=1, max_exclusive=order)
 
         blind_d = self._d * blind
         inv_blind_k = (blind * k).inverse(order)
 
-        r = (self._curve.G * k).x % order
+        r = (self._curve.G * k)._x % order
         s = inv_blind_k * (blind * z + blind_d * r) % order
         return (r, s)
 
@@ -228,27 +271,27 @@ class EccKey(object):
         sinv = rs[1].inverse(order)
         point1 = self._curve.G * ((sinv * z) % order)
         point2 = self.pointQ * ((sinv * rs[0]) % order)
-        return (point1 + point2).x % order == rs[0]
+        return (point1 + point2)._x % order == rs[0]
 
     @property
-    def d(self):
+    def d(self) -> int:
         if not self.has_private():
             raise ValueError("This is not a private ECC key")
-        return self._d
+        return int(self._d)
 
     @property
-    def seed(self):
+    def seed(self) -> bytes:
         if not self.has_private():
             raise ValueError("This is not a private ECC key")
         return self._seed
 
     @property
-    def pointQ(self):
+    def pointQ(self) -> EccPoint:
         if self._point is None:
             self._point = self._curve.G * self._d
         return self._point
 
-    def public_key(self):
+    def public_key(self) -> EccKey:
         """A matching ECC public key.
 
         Returns:
@@ -272,27 +315,25 @@ class EccKey(object):
 
         modulus_bytes = self.pointQ.size_in_bytes()
 
+        x, y = self.pointQ._xy
         if compress:
-            if self.pointQ.y.is_odd():
-                first_byte = b'\x03'
+            if y.is_odd():
+                first_byte = b"\x03"
             else:
-                first_byte = b'\x02'
-            public_key = (first_byte +
-                          self.pointQ.x.to_bytes(modulus_bytes))
+                first_byte = b"\x02"
+            public_key = first_byte + x.to_bytes(modulus_bytes)
         else:
-            public_key = (b'\x04' +
-                          self.pointQ.x.to_bytes(modulus_bytes) +
-                          self.pointQ.y.to_bytes(modulus_bytes))
+            public_key = b"\x04" + x.to_bytes(modulus_bytes) + y.to_bytes(modulus_bytes)
         return public_key
 
     def _export_eddsa_public(self):
-        x, y = self.pointQ.xy
+        x, y = self.pointQ._xy
         if self._curve.id == _CurveID.ED25519:
-            result = bytearray(y.to_bytes(32, byteorder='little'))
-            result[31] = ((x & 1) << 7) | result[31]
+            result = bytearray(y.to_bytes(32, byteorder="little"))
+            result[31] = (int(x.is_odd()) << 7) | result[31]
         elif self._curve.id == _CurveID.ED448:
-            result = bytearray(y.to_bytes(57, byteorder='little'))
-            result[56] = (x & 1) << 7
+            result = bytearray(y.to_bytes(57, byteorder="little"))
+            result[56] = int(x.is_odd()) << 7
         else:
             raise ValueError("Not an EdDSA key to export")
         return bytes(result)
@@ -300,9 +341,9 @@ class EccKey(object):
     def _export_montgomery_public(self):
         if not self._curve.is_montgomery:
             raise ValueError("Not a Montgomery key to export")
-        x = self.pointQ.x
+        x = self.pointQ._x
         field_size = self.pointQ.size_in_bytes()
-        result = bytearray(x.to_bytes(field_size, byteorder='little'))
+        result = bytearray(x.to_bytes(field_size, byteorder="little"))
         return bytes(result)
 
     def _export_subjectPublicKeyInfo(self, compress):
@@ -315,16 +356,13 @@ class EccKey(object):
             public_key = self._export_montgomery_public()
             params = None
         else:
-            oid = "1.2.840.10045.2.1"   # unrestricted
+            oid = "1.2.840.10045.2.1"  # unrestricted
             public_key = self._export_SEC1(compress)
             params = DerObjectId(self._curve.oid)
 
-        return _create_subject_public_key_info(oid,
-                                               public_key,
-                                               params)
+        return _create_subject_public_key_info(oid, public_key, params)
 
     def _export_rfc5915_private_der(self, include_ec_params=True):
-
         assert self.has_private()
 
         # ECPrivateKey ::= SEQUENCE {
@@ -336,14 +374,15 @@ class EccKey(object):
 
         # Public key - uncompressed form
         modulus_bytes = self.pointQ.size_in_bytes()
-        public_key = (b'\x04' +
-                      self.pointQ.x.to_bytes(modulus_bytes) +
-                      self.pointQ.y.to_bytes(modulus_bytes))
+        x, y = self.pointQ._xy
+        public_key = b"\x04" + x.to_bytes(modulus_bytes) + y.to_bytes(modulus_bytes)
 
-        seq = [1,
-               DerOctetString(self.d.to_bytes(modulus_bytes)),
-               DerObjectId(self._curve.oid, explicit=0),
-               DerBitString(public_key, explicit=1)]
+        seq = [
+            1,
+            DerOctetString(self._d.to_bytes(modulus_bytes)),
+            DerObjectId(self._curve.oid, explicit=0),
+            DerBitString(public_key, explicit=1),
+        ]
 
         if not include_ec_params:
             del seq[2]
@@ -352,9 +391,6 @@ class EccKey(object):
 
     def _export_pkcs8(self, **kwargs):
         from Crypto.IO import PKCS8
-
-        if kwargs.get('passphrase', None) is not None and 'protection' not in kwargs:
-            raise ValueError("At least the 'protection' parameter must be present")
 
         if self._seed is not None:
             oid = self._curve.oid
@@ -365,10 +401,7 @@ class EccKey(object):
             private_key = self._export_rfc5915_private_der(include_ec_params=False)
             params = DerObjectId(self._curve.oid)
 
-        result = PKCS8.wrap(private_key,
-                            oid,
-                            key_params=params,
-                            **kwargs)
+        result = PKCS8.wrap(private_key, oid, key_params=params, **kwargs)
         return result
 
     def _export_public_pem(self, compress):
@@ -393,8 +426,6 @@ class EccKey(object):
         from Crypto.IO import PEM
 
         assert passphrase
-        if 'protection' not in kwargs:
-            raise ValueError("At least the 'protection' parameter should be present")
         encoded_der = self._export_pkcs8(passphrase=passphrase, **kwargs)
         return PEM.encode(encoded_der, "ENCRYPTED PRIVATE KEY")
 
@@ -412,22 +443,28 @@ class EccKey(object):
         else:
             modulus_bytes = self.pointQ.size_in_bytes()
 
+            x, y = self.pointQ._xy
             if compress:
-                first_byte = 2 + self.pointQ.y.is_odd()
-                public_key = (bchr(first_byte) +
-                              self.pointQ.x.to_bytes(modulus_bytes))
+                first_byte = 2 + y.is_odd()
+                public_key = bytes([first_byte]) + x.to_bytes(modulus_bytes)
             else:
-                public_key = (b'\x04' +
-                              self.pointQ.x.to_bytes(modulus_bytes) +
-                              self.pointQ.y.to_bytes(modulus_bytes))
+                public_key = b"\x04" + x.to_bytes(modulus_bytes) + y.to_bytes(modulus_bytes)
 
             middle = desc.split("-")[2]
             comps = (tobytes(desc), tobytes(middle), public_key)
 
         blob = b"".join([struct.pack(">I", len(x)) + x for x in comps])
-        return desc + " " + tostr(binascii.b2a_base64(blob))
+        return desc + " " + binascii.b2a_base64(blob).decode("latin-1")
 
-    def export_key(self, **kwargs):
+    @overload
+    def export_key(self, *, format: Literal["PEM", "OpenSSH"], **kwargs: Unpack[ExportParams]) -> str: ...
+
+    @overload
+    def export_key(
+        self, *, format: Literal["DER", "SEC1", "raw"], **kwargs: Unpack[ExportParams]
+    ) -> bytes: ...
+
+    def export_key(self, **kwargs: Any) -> Union[str, bytes]:
         """Export this ECC key.
 
         Args:
@@ -467,15 +504,17 @@ class EccKey(object):
             It must be ``True`` for Ed25519, Ed448, Curve25519, and Curve448.
 
             If ``False`` and a passphrase is present, the obsolete PEM
-            encryption will be used.
+            encryption will be used. It derives the key with a single round
+            of MD5, and is therefore easy to brute force: use it only with
+            a high-entropy passphrase (like 16 random bytes), for
+            compatibility with old software.
 
           protection (string):
-            When a private key is exported with password-protection
-            and PKCS#8 (both ``DER`` and ``PEM`` formats), this parameter MUST be
-            present,
+            The encryption scheme used when a private key is exported with
+            password-protection and PKCS#8 (both ``DER`` and ``PEM`` formats).
             For all possible protection schemes,
             refer to :ref:`the encryption parameters of PKCS#8<enc_params>`.
-            It is recommended to use ``'PBKDF2WithHMAC-SHA512AndAES128-CBC'``.
+            The default is ``'PBKDF2WithHMAC-SHA256AndAES256-CBC'``.
 
           compress (boolean):
             If ``True``, the method returns a more compact representation
@@ -493,8 +532,16 @@ class EccKey(object):
             from the passphrase.
             For all possible values,
             refer to :ref:`the encryption parameters of PKCS#8<enc_params>`.
-            The recommendation is to use ``{'iteration_count':21000}`` for PBKDF2,
-            and ``{'iteration_count':131072}`` for scrypt.
+            The defaults meet the OWASP recommendations (with the default
+            ``protection``): there is no need to set them.
+
+          threads (integer):
+            (*Private keys only*)
+            The maximum number of threads used to derive the encryption key
+            with scrypt (default: 1, no extra threads; 0 for all CPU cores).
+            Only useful with PKCS#8, a scrypt ``protection`` and a
+            ``parallelization`` larger than 1 in ``prot_params``.
+            The output does not depend on the number of threads.
 
         .. warning::
             If you don't provide a passphrase, the private key will be
@@ -505,8 +552,8 @@ class EccKey(object):
             (both ``DER`` and ``PEM`` formats), any extra parameters
             to ``export_key()`` will be passed to :mod:`Crypto.IO.PKCS8`.
 
-        .. _PEM:        http://www.ietf.org/rfc/rfc1421.txt
-        .. _`PEM encryption`: http://www.ietf.org/rfc/rfc1423.txt
+        .. _PEM:        https://www.rfc-editor.org/rfc/rfc1421
+        .. _`PEM encryption`: https://www.rfc-editor.org/rfc/rfc1423
         .. _OpenSSH:    http://www.openssh.com/txt/rfc5656.txt
         .. _RFC5480:    https://tools.ietf.org/html/rfc5480
         .. _SEC1:       https://www.secg.org/sec1-v2.pdf
@@ -525,11 +572,17 @@ class EccKey(object):
         compress = args.pop("compress", False)
 
         if self.has_private():
+            from Crypto.IO import PKCS8
+
+            threads = args.pop("threads", 1)
+            PKCS8._check_kdf_params(threads=threads)
             passphrase = args.pop("passphrase", None)
-            if is_string(passphrase):
+            if passphrase is not None:
                 passphrase = tobytes(passphrase)
                 if not passphrase:
                     raise ValueError("Empty passphrase")
+            elif args.get("protection") or args.get("prot_params"):
+                raise ValueError("'protection' and 'prot_params' require a passphrase")
 
             use_pkcs8 = args.pop("use_pkcs8", True)
             if use_pkcs8 is False:
@@ -537,13 +590,15 @@ class EccKey(object):
                     raise ValueError("'pkcs8' must be True for EdDSA curves")
                 if self._curve.is_montgomery:
                     raise ValueError("'pkcs8' must be True for Curve25519")
-                if 'protection' in args:
+                if "protection" in args:
                     raise ValueError("'protection' is only supported for PKCS#8")
 
             if ext_format == "PEM":
                 if use_pkcs8:
                     if passphrase:
-                        return self._export_private_encrypted_pkcs8_in_clear_pem(passphrase, **args)
+                        return self._export_private_encrypted_pkcs8_in_clear_pem(
+                            passphrase, threads=threads, **args
+                        )
                     else:
                         return self._export_private_clear_pkcs8_in_clear_pem()
                 else:
@@ -551,14 +606,13 @@ class EccKey(object):
             elif ext_format == "DER":
                 # DER
                 if passphrase and not use_pkcs8:
-                    raise ValueError("Private keys can only be encrpyted with DER using PKCS#8")
+                    raise ValueError("Private keys can only be encrypted with DER using PKCS#8")
                 if use_pkcs8:
-                    return self._export_pkcs8(passphrase=passphrase, **args)
+                    return self._export_pkcs8(passphrase=passphrase, threads=threads, **args)
                 else:
                     return self._export_rfc5915_private_der()
             else:
-                raise ValueError("Private keys cannot be exported "
-                                 "in the '%s' format" % ext_format)
+                raise ValueError("Private keys cannot be exported in the '%s' format" % ext_format)
         else:  # Public key
             if args:
                 raise ValueError("Unexpected parameters: '%s'" % args)
@@ -579,7 +633,7 @@ class EccKey(object):
                 return self._export_openssh(compress)
 
 
-def generate(**kwargs):
+def generate(*, curve: str, randfunc: Optional[RNG] = None) -> EccKey:
     """Generate a new private key on the given curve.
 
     Args:
@@ -592,11 +646,10 @@ def generate(**kwargs):
         If ``None``, :func:`Crypto.Random.get_random_bytes` is used.
     """
 
-    curve_name = kwargs.pop("curve")
-    curve = _curves[curve_name]
-    randfunc = kwargs.pop("randfunc", get_random_bytes)
-    if kwargs:
-        raise TypeError("Unknown parameters: " + str(kwargs))
+    curve_name = curve
+    curve_info = _curves[curve_name]
+    if randfunc is None:
+        randfunc = get_random_bytes
 
     if _curves[curve_name].id == _CurveID.ED25519:
         seed = randfunc(32)
@@ -613,15 +666,13 @@ def generate(**kwargs):
         new_key = EccKey(curve=curve_name, seed=seed)
         _curves[curve_name].validate(new_key.pointQ)
     else:
-        d = Integer.random_range(min_inclusive=1,
-                                 max_exclusive=curve.order,
-                                 randfunc=randfunc)
+        d = Integer.random_range(min_inclusive=1, max_exclusive=curve_info.order, randfunc=randfunc)
         new_key = EccKey(curve=curve_name, d=d)
 
     return new_key
 
 
-def construct(**kwargs):
+def construct(**kwargs: Unpack[ConstructParams]) -> EccKey:
     """Build a new ECC key (private or public) starting
     from some base components.
 
@@ -654,39 +705,32 @@ def construct(**kwargs):
       :class:`EccKey` : a new ECC key object
     """
 
-    curve_name = kwargs["curve"]
-    curve = _curves[curve_name]
-    point_x = kwargs.pop("point_x", None)
-    point_y = kwargs.pop("point_y", None)
+    params = cast(dict[str, Any], kwargs)
 
-    if "point" in kwargs:
+    curve_name = params["curve"]
+    curve = _curves[curve_name]
+    point_x = params.pop("point_x", None)
+    point_y = params.pop("point_y", None)
+
+    if "point" in params:
         raise TypeError("Unknown keyword: point")
 
-    if curve.id == _CurveID.CURVE25519:
-
+    if curve.id == _CurveID.CURVE25519 or curve.id == _CurveID.CURVE448:
         if point_x is not None:
-            kwargs["point"] = EccXPoint(point_x, curve_name)
-        new_key = EccKey(**kwargs)
-        curve.validate(new_key.pointQ)
-
-    elif curve.id == _CurveID.CURVE448:
-
-        if point_x is not None:
-            kwargs["point"] = EccXPoint(point_x, curve_name)
-        new_key = EccKey(**kwargs)
+            params["point"] = EccXPoint(point_x, curve_name)
+        new_key = EccKey(**params)
         curve.validate(new_key.pointQ)
 
     else:
-
         if None not in (point_x, point_y):
-            kwargs["point"] = EccPoint(point_x, point_y, curve_name)
-        new_key = EccKey(**kwargs)
+            params["point"] = EccPoint(point_x, point_y, curve_name)
+        new_key = EccKey(**params)
 
         # Validate that the private key matches the public one
         # because EccKey will not do that automatically
-        if new_key.has_private() and 'point' in kwargs:
-            pub_key = curve.G * new_key.d
-            if pub_key.xy != (point_x, point_y):
+        if new_key.has_private() and "point" in params:
+            pub_key = curve.G * new_key._d
+            if pub_key.xy != (int(point_x), int(point_y)):
                 raise ValueError("Private and public ECC keys do not match")
 
     return new_key
@@ -723,27 +767,35 @@ def _import_public_der(ec_point, curve_oid=None, curve_name=None):
     # PAI is in theory encoded as 0x00.
 
     modulus_bytes = curve.p.size_in_bytes()
-    point_type = bord(ec_point[0])
+    point_type = ec_point[0]
 
     # Uncompressed point
     if point_type == 0x04:
         if len(ec_point) != (1 + 2 * modulus_bytes):
             raise ValueError("Incorrect EC point length")
-        x = Integer.from_bytes(ec_point[1:modulus_bytes+1])
-        y = Integer.from_bytes(ec_point[modulus_bytes+1:])
+        x = Integer.from_bytes(ec_point[1 : modulus_bytes + 1])
+        y = Integer.from_bytes(ec_point[modulus_bytes + 1 :])
     # Compressed point
     elif point_type in (0x02, 0x03):
         if len(ec_point) != (1 + modulus_bytes):
             raise ValueError("Incorrect EC point length")
         x = Integer.from_bytes(ec_point[1:])
-        # Right now, we only support Short Weierstrass curves
-        y = (x**3 - x*3 + curve.b).sqrt(curve.p)
+        if x >= curve.p:
+            raise ValueError("The EC point does not belong to the curve")
+        # Right now, we only support Short Weierstrass curves:
+        # y^2 = x^3 - 3x + b, computed without negative intermediate values
+        y = (x**3 + curve.b + (curve.p - x) * 3).sqrt(curve.p)
         if point_type == 0x02 and y.is_odd():
             y = curve.p - y
         if point_type == 0x03 and y.is_even():
             y = curve.p - y
     else:
         raise ValueError("Incorrect EC point encoding")
+
+    # SEC1 3.2.2.1: the coordinates must be smaller than p
+    # (EccPoint would reduce them)
+    if x >= curve.p or y >= curve.p:
+        raise ValueError("The EC point does not belong to the curve")
 
     return construct(curve=_curve_name, point_x=x, point_y=y)
 
@@ -757,17 +809,17 @@ def _import_subjectPublicKeyInfo(encoded, *kwargs):
     oid, ec_point, params = _expand_subject_public_key_info(encoded)
 
     nist_p_oids = (
-        "1.2.840.10045.2.1",        # id-ecPublicKey (unrestricted)
-        "1.3.132.1.12",             # id-ecDH
-        "1.3.132.1.13"              # id-ecMQV
+        "1.2.840.10045.2.1",  # id-ecPublicKey (unrestricted)
+        "1.3.132.1.12",  # id-ecDH
+        "1.3.132.1.13",  # id-ecMQV
     )
     eddsa_oids = {
-        "1.3.101.112": ("Ed25519", _import_ed25519_public_key),     # id-Ed25519
-        "1.3.101.113": ("Ed448",   _import_ed448_public_key)        # id-Ed448
+        "1.3.101.112": ("Ed25519", _import_ed25519_public_key),  # id-Ed25519
+        "1.3.101.113": ("Ed448", _import_ed448_public_key),  # id-Ed448
     }
     xdh_oids = {
-        "1.3.101.110": ("Curve25519", _import_curve25519_public_key),   # id-X25519
-        "1.3.101.111": ("Curve448", _import_curve448_public_key),       # id-X448
+        "1.3.101.110": ("Curve25519", _import_curve25519_public_key),  # id-X25519
+        "1.3.101.111": ("Curve448", _import_curve448_public_key),  # id-X448
     }
 
     if oid in nist_p_oids:
@@ -815,8 +867,9 @@ def _import_subjectPublicKeyInfo(encoded, *kwargs):
         raise UnsupportedEccFeature("Unsupported ECC OID: %s" % oid)
 
 
-def _import_rfc5915_der(encoded, passphrase, curve_oid=None):
-
+def _import_rfc5915_der(
+    encoded: bytes, passphrase: Optional[bytes], curve_oid: Optional[str] = None
+) -> EccKey:
     # See RFC5915 https://tools.ietf.org/html/rfc5915
     #
     # ECPrivateKey ::= SEQUENCE {
@@ -848,7 +901,7 @@ def _import_rfc5915_der(encoded, passphrase, curve_oid=None):
     if curve_oid is None:
         raise ValueError("No curve found")
 
-    for curve_name, curve in _curves.items():
+    for curve_name, curve in _curves.items():  # noqa: B007 (used after the loop)
         if curve.oid == curve_oid:
             break
     else:
@@ -874,23 +927,25 @@ def _import_rfc5915_der(encoded, passphrase, curve_oid=None):
     return construct(curve=curve_name, d=d, point_x=point_x, point_y=point_y)
 
 
-def _import_pkcs8(encoded, passphrase):
+def _import_pkcs8(encoded, passphrase, max_iteration_count=None, threads=1, max_memory=None):
     from Crypto.IO import PKCS8
 
-    algo_oid, private_key, params = PKCS8.unwrap(encoded, passphrase)
+    algo_oid, private_key, params = PKCS8.unwrap(
+        encoded, passphrase, max_iteration_count, threads=threads, max_memory=max_memory
+    )
 
     nist_p_oids = (
-        "1.2.840.10045.2.1",        # id-ecPublicKey (unrestricted)
-        "1.3.132.1.12",             # id-ecDH
-        "1.3.132.1.13"              # id-ecMQV
+        "1.2.840.10045.2.1",  # id-ecPublicKey (unrestricted)
+        "1.3.132.1.12",  # id-ecDH
+        "1.3.132.1.13",  # id-ecMQV
     )
     eddsa_oids = {
-        "1.3.101.112": "Ed25519",   # id-Ed25519
-        "1.3.101.113": "Ed448",     # id-Ed448
+        "1.3.101.112": "Ed25519",  # id-Ed25519
+        "1.3.101.113": "Ed448",  # id-Ed448
     }
     xdh_oids = {
         "1.3.101.110": "Curve25519",  # id-X25519
-        "1.3.101.111": "Curve448",    # id-X448
+        "1.3.101.111": "Curve448",  # id-X448
     }
 
     if algo_oid in nist_p_oids:
@@ -905,8 +960,7 @@ def _import_pkcs8(encoded, passphrase):
     elif algo_oid in xdh_oids:
         curve_name = xdh_oids[algo_oid]
         if params is not None:
-            raise ValueError("%s ECC private key must not have parameters" %
-                             curve_name)
+            raise ValueError("%s ECC private key must not have parameters" % curve_name)
         curve_oid = None
         seed = DerOctetString().decode(private_key).payload
         return construct(curve=xdh_oids[algo_oid], seed=seed)
@@ -915,13 +969,11 @@ def _import_pkcs8(encoded, passphrase):
 
 
 def _import_x509_cert(encoded, *kwargs):
-
     sp_info = _extract_subject_public_key_info(encoded)
     return _import_subjectPublicKeyInfo(sp_info)
 
 
-def _import_der(encoded, passphrase):
-
+def _import_der(encoded, passphrase, max_iteration_count=None, threads=1, max_memory=None):
     try:
         return _import_subjectPublicKeyInfo(encoded, passphrase)
     except UnsupportedEccFeature as err:
@@ -944,9 +996,9 @@ def _import_der(encoded, passphrase):
         pass
 
     try:
-        return _import_pkcs8(encoded, passphrase)
-    except UnsupportedEccFeature as err:
-        raise err
+        return _import_pkcs8(encoded, passphrase, max_iteration_count, threads, max_memory)
+    except (UnsupportedEccFeature, KdfLimitError, PassphraseRequiredError, IncorrectPassphraseError):
+        raise
     except (ValueError, TypeError, IndexError):
         pass
 
@@ -954,7 +1006,7 @@ def _import_der(encoded, passphrase):
 
 
 def _import_openssh_public(encoded):
-    parts = encoded.split(b' ')
+    parts = encoded.split(b" ")
     if len(parts) not in (2, 3):
         raise ValueError("Not an openssh public key")
 
@@ -964,16 +1016,15 @@ def _import_openssh_public(encoded):
         keyparts = []
         while len(keystring) > 4:
             lk = struct.unpack(">I", keystring[:4])[0]
-            keyparts.append(keystring[4:4 + lk])
-            keystring = keystring[4 + lk:]
+            keyparts.append(keystring[4 : 4 + lk])
+            keystring = keystring[4 + lk :]
 
         if parts[0] != keyparts[0]:
             raise ValueError("Mismatch in openssh public key")
 
         # NIST P curves
         if parts[0].startswith(b"ecdsa-sha2-"):
-
-            for curve_name, curve in _curves.items():
+            for _curve_name, curve in _curves.items():
                 if curve.openssh is None:
                     continue
                 if not curve.openssh.startswith("ecdsa-sha2"):
@@ -999,12 +1050,10 @@ def _import_openssh_public(encoded):
     return ecc_key
 
 
-def _import_openssh_private_ecc(data, password):
+def _import_openssh_private_ecc(data, password, max_iteration_count=None):
+    from ._openssh import check_padding, import_openssh_private_generic, read_bytes, read_string
 
-    from ._openssh import (import_openssh_private_generic,
-                           read_bytes, read_string, check_padding)
-
-    key_type, decrypted = import_openssh_private_generic(data, password)
+    key_type, decrypted = import_openssh_private_generic(data, password, max_iteration_count)
 
     eddsa_keys = {
         "ssh-ed25519": ("Ed25519", _import_ed25519_public_key, 32),
@@ -1012,7 +1061,6 @@ def _import_openssh_private_ecc(data, password):
 
     # https://datatracker.ietf.org/doc/html/draft-miller-ssh-agent-04
     if key_type.startswith("ecdsa-sha2"):
-
         ecdsa_curve_name, decrypted = read_string(decrypted)
         if ecdsa_curve_name not in _curves:
             raise UnsupportedEccFeature("Unsupported ECC curve %s" % ecdsa_curve_name)
@@ -1021,21 +1069,20 @@ def _import_openssh_private_ecc(data, password):
 
         public_key, decrypted = read_bytes(decrypted)
 
-        if bord(public_key[0]) != 4:
+        if public_key[0] != 4:
             raise ValueError("Only uncompressed OpenSSH EC keys are supported")
         if len(public_key) != 2 * modulus_bytes + 1:
             raise ValueError("Incorrect public key length")
 
-        point_x = Integer.from_bytes(public_key[1:1+modulus_bytes])
-        point_y = Integer.from_bytes(public_key[1+modulus_bytes:])
+        point_x = Integer.from_bytes(public_key[1 : 1 + modulus_bytes])
+        point_y = Integer.from_bytes(public_key[1 + modulus_bytes :])
 
         private_key, decrypted = read_bytes(decrypted)
         d = Integer.from_bytes(private_key)
 
-        params = {'d': d, 'curve': ecdsa_curve_name}
+        params = {"d": d, "curve": ecdsa_curve_name}
 
     elif key_type in eddsa_keys:
-
         curve_name, import_eddsa_public_key, seed_len = eddsa_keys[key_type]
 
         public_key, decrypted = read_bytes(decrypted)
@@ -1044,9 +1091,9 @@ def _import_openssh_private_ecc(data, password):
         private_public_key, decrypted = read_bytes(decrypted)
         seed = private_public_key[:seed_len]
 
-        params = {'seed': seed, 'curve': curve_name}
+        params = {"seed": seed, "curve": curve_name}
     else:
-        raise ValueError("Unsupport SSH agent key type:" + key_type)
+        raise ValueError("Unsupported SSH agent key type: " + key_type)
 
     _, padded = read_string(decrypted)  # Comment
     check_padding(padded)
@@ -1054,7 +1101,7 @@ def _import_openssh_private_ecc(data, password):
     return construct(point_x=point_x, point_y=point_y, **params)
 
 
-def _import_ed25519_public_key(encoded):
+def _import_ed25519_public_key(encoded: bytes) -> tuple[Int, Int]:
     """Import an Ed25519 ECC public key, encoded as raw bytes as described
     in RFC8032_.
 
@@ -1074,29 +1121,11 @@ def _import_ed25519_public_key(encoded):
     if len(encoded) != 32:
         raise ValueError("Incorrect length. Only Ed25519 public keys are supported.")
 
-    p = Integer(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed)  # 2**255 - 19
-    d = 37095705934669439343138083508754565189542113879843219016388785533085940283555
-
-    y = bytearray(encoded)
-    x_lsb = y[31] >> 7
-    y[31] &= 0x7F
-    point_y = Integer.from_bytes(y, byteorder='little')
-    if point_y >= p:
-        raise ValueError("Invalid Ed25519 key (y)")
-    if point_y == 1:
-        return 0, 1
-
-    u = (point_y**2 - 1) % p
-    v = ((point_y**2 % p) * d + 1) % p
     try:
-        v_inv = v.inverse(p)
-        x2 = (u * v_inv) % p
-        point_x = Integer._tonelli_shanks(x2, p)
-        if (point_x & 1) != x_lsb:
-            point_x = p - point_x
+        point = EccPoint._decode_eddsa(encoded, "Ed25519")
     except ValueError:
         raise ValueError("Invalid Ed25519 public key")
-    return point_x, point_y
+    return point.xy
 
 
 def _import_curve25519_public_key(encoded):
@@ -1122,7 +1151,7 @@ def _import_curve25519_public_key(encoded):
     x = bytearray(encoded)
     # RFC 7741, Section 5
     x[31] &= 0x7F
-    point_x = Integer.from_bytes(x, byteorder='little')
+    point_x = Integer.from_bytes(x, byteorder="little")
 
     return point_x
 
@@ -1147,12 +1176,12 @@ def _import_curve448_public_key(encoded):
     if len(encoded) != 56:
         raise ValueError("Incorrect Curve448 key length")
 
-    point_x = Integer.from_bytes(encoded, byteorder='little')
+    point_x = Integer.from_bytes(encoded, byteorder="little")
 
     return point_x
 
 
-def _import_ed448_public_key(encoded):
+def _import_ed448_public_key(encoded: bytes) -> tuple[Int, Int]:
     """Import an Ed448 ECC public key, encoded as raw bytes as described
     in RFC8032_.
 
@@ -1172,31 +1201,22 @@ def _import_ed448_public_key(encoded):
     if len(encoded) != 57:
         raise ValueError("Incorrect length. Only Ed448 public keys are supported.")
 
-    p = _curves['curve448'].p
-    d = p - 39081
-
-    y = encoded[:56]
-    x_lsb = bord(encoded[56]) >> 7
-    point_y = Integer.from_bytes(y, byteorder='little')
-    if point_y >= p:
-        raise ValueError("Invalid Ed448 key (y)")
-    if point_y == 1:
-        return 0, 1
-
-    u = (point_y**2 - 1) % p
-    v = ((point_y**2 % p) * d - 1) % p
     try:
-        v_inv = v.inverse(p)
-        x2 = (u * v_inv) % p
-        point_x = Integer._tonelli_shanks(x2, p)
-        if (point_x & 1) != x_lsb:
-            point_x = p - point_x
+        point = EccPoint._decode_eddsa(encoded, "Ed448")
     except ValueError:
         raise ValueError("Invalid Ed448 public key")
-    return point_x, point_y
+    return point.xy
 
 
-def import_key(encoded, passphrase=None, curve_name=None):
+def import_key(
+    encoded: Union[bytes, str],
+    passphrase: Optional[Union[str, bytes]] = None,
+    curve_name: Optional[str] = None,
+    *,
+    max_iteration_count: Optional[int] = None,
+    threads: int = 1,
+    max_memory: Optional[int] = None,
+) -> EccKey:
     """Import an ECC key (public or private).
 
     Args:
@@ -1235,6 +1255,35 @@ def import_key(encoded, passphrase=None, curve_name=None):
         For a SEC1 encoding only. This is the name of the curve,
         as defined in the `ECC table`_.
 
+      max_iteration_count (integer):
+        The maximum value allowed for the PBKDF2 iteration count or
+        the scrypt cost *N·r·p/8* (that is, *N* for the usual *r=8* and *p=1*)
+        of a `PKCS#8`_ encrypted key, or for the number of rounds of
+        bcrypt_pbkdf of an encrypted OpenSSH key.
+        A malicious key could require an extremely high number of
+        iterations, tying up the CPU for hours.
+        The default value is None: a limit for each KDF, which keeps
+        the key derivation to about one minute at most
+        (see :ref:`the limits for decryption<pkcs8_limits>`).
+        Set it to ``0`` to disable the check.
+
+      threads (integer):
+        The maximum number of threads used to derive the decryption key
+        with scrypt (default: 1, no extra threads; 0 for all CPU cores).
+        Only a `PKCS#8`_ key protected with scrypt and a parallelization
+        parameter larger than 1 can use them.
+
+      max_memory (integer):
+        The maximum memory (in bytes) for the key derivation of a `PKCS#8`_
+        encrypted key, as a limit on the **total** of all threads together
+        (not on each thread).
+        Only scrypt uses a significant amount: 128 · (*N* + 2) · *r* bytes for
+        **each** thread, plus 256 · *r* · *p* bytes for all the flows together.
+        If the requested threads do not fit, fewer are used (down to one);
+        if a single thread does not fit, the key is rejected.
+        The default value is None (a limit of 256 MiB).
+        Set it to ``0`` to disable the check.
+
     .. note::
 
         To import EdDSA private and public keys, when encoded as raw ``bytes``, use:
@@ -1255,8 +1304,16 @@ def import_key(encoded, passphrase=None, curve_name=None):
       :class:`EccKey` : a new ECC key object
 
     Raises:
-      ValueError: when the given key cannot be parsed (possibly because
-        the pass phrase is wrong).
+      PassphraseRequiredError:
+        (a ``ValueError``) when the private key is encrypted,
+        but no passphrase was provided.
+      IncorrectPassphraseError:
+        (a ``ValueError``) when the private key cannot be decrypted
+        with the passphrase (most likely, the passphrase is wrong).
+      UnsupportedEccFeature:
+        (a ``ValueError``) when the key uses a curve or a feature
+        that is not supported.
+      ValueError: when the given key cannot be parsed.
 
     .. _RFC1421: https://datatracker.ietf.org/doc/html/rfc1421
     .. _RFC1423: https://datatracker.ietf.org/doc/html/rfc1423
@@ -1264,79 +1321,62 @@ def import_key(encoded, passphrase=None, curve_name=None):
     .. _RFC5656: https://datatracker.ietf.org/doc/html/rfc5656
     .. _RFC8709: https://datatracker.ietf.org/doc/html/rfc8709
     .. _RFC5958: https://datatracker.ietf.org/doc/html/rfc5958
-    .. _`PKCS#8`: https://datatracker.ietf.org/doc/html/rfc5208
+    .. _`PKCS#8`: https://datatracker.ietf.org/doc/html/rfc5958
     .. _`OpenSSH 6.5`: https://flak.tedunangst.com/post/new-openssh-key-format-and-bcrypt-pbkdf
     .. _SEC1: https://www.secg.org/sec1-v2.pdf
     """
 
-    from Crypto.IO import PEM
+    from Crypto.IO import PEM, PKCS8
 
+    PKCS8._check_kdf_params(max_iteration_count, threads, max_memory)
     encoded = tobytes(encoded)
     if passphrase is not None:
         passphrase = tobytes(passphrase)
 
     # PEM
-    if encoded.startswith(b'-----BEGIN OPENSSH PRIVATE KEY'):
-        text_encoded = tostr(encoded)
-        openssh_encoded, marker, enc_flag = PEM.decode(text_encoded, passphrase)
-        result = _import_openssh_private_ecc(openssh_encoded, passphrase)
+    if encoded.startswith(b"-----BEGIN OPENSSH PRIVATE KEY"):
+        text_encoded = encoded.decode("latin-1")
+        openssh_encoded, _marker, enc_flag = PEM.decode(text_encoded, passphrase)
+        result = _import_openssh_private_ecc(openssh_encoded, passphrase, max_iteration_count)
         return result
 
-    elif encoded.startswith(b'-----'):
-
-        text_encoded = tostr(encoded)
+    elif encoded.startswith(b"-----"):
+        text_encoded = encoded.decode("latin-1")
 
         # Remove any EC PARAMETERS section
         # Ignore its content because the curve type must be already given in the key
         ecparams_start = "-----BEGIN EC PARAMETERS-----"
         ecparams_end = "-----END EC PARAMETERS-----"
-        text_encoded = re.sub(ecparams_start + ".*?" + ecparams_end, "",
-                              text_encoded,
-                              flags=re.DOTALL)
+        text_encoded = re.sub(ecparams_start + ".*?" + ecparams_end, "", text_encoded, flags=re.DOTALL)
 
-        der_encoded, marker, enc_flag = PEM.decode(text_encoded, passphrase)
+        der_encoded, _marker, enc_flag = PEM.decode(text_encoded, passphrase)
         if enc_flag:
             passphrase = None
         try:
-            result = _import_der(der_encoded, passphrase)
-        except UnsupportedEccFeature as uef:
-            raise uef
+            result = _import_der(der_encoded, passphrase, max_iteration_count, threads, max_memory)
+        except (
+            UnsupportedEccFeature,
+            KdfLimitError,
+            PassphraseRequiredError,
+            IncorrectPassphraseError,
+        ):
+            raise
         except ValueError:
             raise ValueError("Invalid DER encoding inside the PEM file")
         return result
 
     # OpenSSH
-    if encoded.startswith((b'ecdsa-sha2-', b'ssh-ed25519')):
+    if encoded.startswith((b"ecdsa-sha2-", b"ssh-ed25519")):
         return _import_openssh_public(encoded)
 
     # DER
-    if len(encoded) > 0 and bord(encoded[0]) == 0x30:
-        return _import_der(encoded, passphrase)
+    if len(encoded) > 0 and encoded[0] == 0x30:
+        return _import_der(encoded, passphrase, max_iteration_count, threads, max_memory)
 
     # SEC1
-    if len(encoded) > 0 and bord(encoded[0]) in (0x02, 0x03, 0x04):
+    if len(encoded) > 0 and encoded[0] in (0x02, 0x03, 0x04):
         if curve_name is None:
             raise ValueError("No curve name was provided")
         return _import_public_der(encoded, curve_name=curve_name)
 
     raise ValueError("ECC key format is not supported")
-
-
-if __name__ == "__main__":
-
-    import time
-
-    d = 0xc51e4753afdec1e6b6c6a5b992f43f8dd0c7a8933072708b6522468b2ffb06fd
-
-    point = _curves['p256'].G.copy()
-    count = 3000
-
-    start = time.time()
-    for x in range(count):
-        pointX = point * d
-    print("(P-256 G)", (time.time() - start) / count * 1000, "ms")
-
-    start = time.time()
-    for x in range(count):
-        pointX = pointX * d
-    print("(P-256 arbitrary point)", (time.time() - start) / count * 1000, "ms")

@@ -489,8 +489,8 @@ namespace arith {
                 });
             lp_bounds occs(m_bounds[v]);
 
-            std::sort(atoms.begin(), atoms.end(), compare_bounds());
-            std::sort(occs.begin(), occs.end(), compare_bounds());
+            std::stable_sort(atoms.begin(), atoms.end(), compare_bounds());
+            std::stable_sort(occs.begin(), occs.end(), compare_bounds());
 
             iterator begin1 = occs.begin();
             iterator begin2 = occs.begin();
@@ -1472,6 +1472,8 @@ namespace arith {
     }
     
     sat::literal solver::mk_ineq_literal(nla::ineq const& ineq) {
+        // see theory_lra::mk_literal(nla::ineq const&)
+        lp::lar_solver::scoped_auxiliary _sa(lp());
         bool is_lower = true, sign = true, is_eq = false;
         switch (ineq.cmp()) {
         case lp::LE: is_lower = false; sign = false; break;

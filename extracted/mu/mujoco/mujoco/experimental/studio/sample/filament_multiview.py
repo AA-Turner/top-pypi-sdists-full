@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from absl import app
 import mujoco
-import mujoco._render_filament as mjrf
+from mujoco import mjrf
 from mujoco.experimental.studio import window
 from mujoco.rendering.filament import renderer
 import numpy as np
@@ -62,11 +62,11 @@ def main(argv: Sequence[str]) -> None:
   r = renderer.Renderer(ctx)
 
   # create GPU objects (textures, meshes, etc.) from the model
-  model_objects = mjrf.ModelObjects(ctx, model)
+  model_resources = mjrf.ModelResources(ctx, model)
 
   # add model lights and renderables to a scene
-  model_lights = mjrf.ModelLights(r.scene("scn"), model_objects)
-  model_renderables = mjrf.ModelRenderables(r.scene("scn"), model_objects)
+  model_lights = mjrf.ModelLights(r.scene("scn"), model_resources)
+  model_renderables = mjrf.ModelRenderables(r.scene("scn"), model_resources)
 
   # define multiple views
   dx = 1.0 / ncam

@@ -1,0 +1,147 @@
+- name: Case 1, married dependent below the itemizing spouse threshold is not required to file.
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 18
+        employment_income: 4
+      person2:
+        age: 18
+    tax_units:
+      tax_unit1:
+        members: [person1]
+        separate_filer_itemizes: true
+      tax_unit2:
+        members: [person2]
+    marital_units:
+      marital_unit:
+        members: [person1, person2]
+  output:
+    medicaid_person_is_required_to_file: [false, false]
+
+- name: Case 2, married dependent at the itemizing spouse threshold is required to file.
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 18
+        employment_income: 5
+      person2:
+        age: 18
+    tax_units:
+      tax_unit1:
+        members: [person1]
+        separate_filer_itemizes: true
+      tax_unit2:
+        members: [person2]
+    marital_units:
+      marital_unit:
+        members: [person1, person2]
+  output:
+    medicaid_person_is_required_to_file: [true, false]
+
+- name: Case 3, single dependent with gross income at the 2024 earned income plus $450 limit is not required to file.
+  # IRS Pub. 501 (2024), p. 4, Table 2, single dependents not 65 or older or
+  # blind: must file if gross income is more than the larger of $1,300 or
+  # earned income (up to $14,150) plus $450. $3,000 + $450 = $3,450, not more
+  # than $3,450.
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 17
+        employment_income: 3_000
+        taxable_interest_income: 450
+    tax_units:
+      tax_unit:
+        members: [person1]
+  output:
+    medicaid_person_is_required_to_file: false
+
+- name: Case 4, single dependent with gross income above the 2024 earned income plus $450 limit is required to file.
+  # Same Pub. 501 (2024), p. 4, Table 2 test: $3,000 + $451 = $3,451, more
+  # than $3,450.
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 17
+        employment_income: 3_000
+        taxable_interest_income: 451
+    tax_units:
+      tax_unit:
+        members: [person1]
+  output:
+    medicaid_person_is_required_to_file: true
+
+- name: Case 6, the Case 5 filer in 2026, at the earned income plus $450 limit, is required to file.
+  # Rev. Proc. 2025-32 sec. 4.14(2) keeps the addition at $450 for 2026:
+  # $3,000 + $480 = $3,480, more than max($1,350, $3,000 + $450) = $3,450.
+  period: 2026
+  input:
+    people:
+      person1:
+        age: 17
+        employment_income: 3_000
+        taxable_interest_income: 480
+    tax_units:
+      tax_unit:
+        members: [person1]
+  output:
+    medicaid_person_is_required_to_file: true
+
+- name: Case 5, single dependent with gross income within the 2027 earned income plus $500 limit is not required to file.
+  # 26 U.S.C. 63(c)(4)(B)(ii) raises the earned income addition to $500 for
+  # 2027 (derivation in basic_standard_deduction.yaml): $3,000 + $480 =
+  # $3,480 <= $3,500. Case 6 is the same filer in 2026, over the $3,450
+  # limit.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 17
+        employment_income: 3_000
+        taxable_interest_income: 480
+    tax_units:
+      tax_unit:
+        members: [person1]
+  output:
+    medicaid_person_is_required_to_file: false
+
+- name: Case 7, a self-employment loss does not count as unearned income.
+  # IRS Pub. 501 (2025), p. 4, Table 2: unearned income is interest,
+  # dividends, capital gain distributions, pensions and the like; earned
+  # income is wages and pay for work. Here unearned income is the 100 of
+  # interest, not 100 less the 5,000 loss, so it is not more than 1,350, and
+  # gross income, 100, is not more than 1,350. The dependent is not required
+  # to file.
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 17
+        self_employment_income: -5_000
+        taxable_interest_income: 100
+    tax_units:
+      tax_unit:
+        members: [person1]
+  output:
+    medicaid_person_is_required_to_file: false
+
+- name: Case 8, wages deferred to a 401(k) plan do not hide unearned income.
+  # Box 1 wages leave out the 2,000 deferral, so gross income is 8,000 of
+  # wages and 1,500 of interest. Unearned income, 1,500, is more than 1,350
+  # (Pub. 501 (2025), Table 2), so the dependent must file.
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 17
+        employment_income: 10_000
+        traditional_401k_contributions: 2_000
+        taxable_interest_income: 1_500
+    tax_units:
+      tax_unit:
+        members: [person1]
+  output:
+    medicaid_person_is_required_to_file: true

@@ -23,6 +23,7 @@ import asyncio
 import binascii
 import copy
 import functools
+import gc
 import os
 import platform
 import re
@@ -538,6 +539,11 @@ class UnifiedSpecTestMixinV1(IntegrationTest):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.knobs.disable()
+        # Workaround for sockets leaked by tests (PYTHON-3923): force garbage
+        # collection so they are closed here, rather than during a later test
+        # where their ResourceWarnings could cause failures. Remove once the
+        # leaks are fixed.
+        gc.collect()
 
     def setUp(self):
         # super call creates internal client cls.client
@@ -611,9 +617,6 @@ class UnifiedSpecTestMixinV1(IntegrationTest):
                 "maxTimeMS value in the command is less than timeoutMS",
                 "timeoutMS applies to whole operation.*",
             ]
-            slow_pypy = [
-                "timeoutMS applies to whole operation.*",
-            ]
             if "CI" in os.environ and sys.platform == "win32" and "gridfs" in class_name:
                 self.skipTest("PYTHON-3522 CSOT GridFS test runs too slow on Windows")
             if "CI" in os.environ and sys.platform == "win32":
@@ -624,10 +627,6 @@ class UnifiedSpecTestMixinV1(IntegrationTest):
                 for pat in slow_macos:
                     if re.match(pat.lower(), description):
                         self.skipTest("PYTHON-3522 CSOT test runs too slow on MacOS")
-            if "CI" in os.environ and sys.implementation.name.lower() == "pypy":
-                for pat in slow_pypy:
-                    if re.match(pat.lower(), description):
-                        self.skipTest("PYTHON-3522 CSOT test runs too slow on PyPy")
             if "change" in description or "change" in class_name:
                 self.skipTest("CSOT not implemented for watch()")
             if "cursors" in class_name:

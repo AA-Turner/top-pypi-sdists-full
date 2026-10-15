@@ -14,6 +14,10 @@ if TYPE_CHECKING:
     from istari_digital_client.sdk._integrations.agents import Agents
     from istari_digital_client.sdk._integrations.agent_pools import AgentPools
 from istari_digital_client.sdk._generated.v2.models.agent import Agent as AgentDto
+from istari_digital_client.sdk._generated.v2.models.agent_information import (
+    AgentInformation,
+)
+from istari_digital_client.sdk._generated.v2.models.agent_modules import AgentModules
 from istari_digital_client.sdk._generated.v2.models.agent_pool import AgentPool as AgentPoolDto
 from istari_digital_client.sdk._generated.v2.models.function import Function as FunctionDto
 from istari_digital_client.sdk._generated.v2.models.function_auth_secret import (
@@ -60,6 +64,27 @@ class Agent(AgentDto, ClientHaving):
         """The current host OS (from most recent information_history entry)."""
         if self.information_history:
             return self.information_history[-1].host_os
+        return None
+
+    @property
+    def information(self) -> AgentInformation | None:
+        """The current information record (most recent information_history entry).
+
+        Carries agent_version, host_os, tenant_id, worker_mode, api_hashes,
+        and capabilities.
+        """
+        if self.information_history:
+            return self.information_history[-1]
+        return None
+
+    @property
+    def modules(self) -> AgentModules | None:
+        """The current modules record (most recent modules_history entry).
+
+        Its ``module_versions`` lists the modules currently loaded on the agent.
+        """
+        if self.modules_history:
+            return self.modules_history[-1]
         return None
 
     def archive(self, *, reason: str | None = None) -> "Agent":

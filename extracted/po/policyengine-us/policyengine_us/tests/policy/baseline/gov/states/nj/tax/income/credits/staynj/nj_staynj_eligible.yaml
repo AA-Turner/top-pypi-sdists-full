@@ -1,0 +1,269 @@
+# Unit tests for nj_staynj_eligible variable.
+# Eligibility: age 65+ (head or spouse), homeowner, and income below the limit.
+# 2026: $500,000 limit (original P.L.2023 c.75). 2027+: $200,000 limit
+# (FY2027 Appropriations Act, A-5327). Strict less-than. Stay NJ begins in 2026.
+
+# --- 2026: $500,000 income limit ---
+
+- name: 2026 senior homeowner with income below the $500,000 limit is eligible.
+  period: 2026
+  input:
+    people:
+      person1:
+        age: 65
+        employment_income: 300_000
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj_eligible: true
+
+- name: 2026 income at the $500,000 limit is ineligible.
+  period: 2026
+  input:
+    people:
+      person1:
+        age: 65
+        employment_income: 500_000
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj_eligible: false
+
+# --- 2027: $200,000 income limit ---
+
+- name: 2027 income one dollar below the $200,000 limit is eligible.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 199_999
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj_eligible: true
+
+- name: 2027 income exactly $200,000 is eligible (not in excess of $200,000).
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 65
+        employment_income: 200_000
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj_eligible: true
+
+- name: 2027 income just over $200,000 is ineligible.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 65
+        employment_income: 200_001
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj_eligible: false
+
+- name: 2027 income between the old and new limits ($300K) is now ineligible.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 68
+        employment_income: 300_000
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj_eligible: false
+
+- name: 2027 PAS-1 income includes Social Security, pushing above the limit.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 190_000
+        social_security_retirement: 15_000
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    # $190,000 + $15,000 Social Security = $205,000 >= $200,000
+    nj_staynj_eligible: false
+
+# --- eligibility gates (year-independent) ---
+
+- name: Under age 65 is ineligible.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 64
+        employment_income: 100_000
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj_eligible: false
+
+- name: Senior renter is ineligible.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 100_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: RENTER
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj_eligible: false
+
+- name: Couple where only the spouse is 65+ is eligible.
+  period: 2027
+  input:
+    people:
+      person1:
+        age: 50
+        employment_income: 100_000
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+      person2:
+        age: 66
+        employment_income: 0
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 34
+  output:
+    # greater_age_head_spouse = max(50, 66) = 66 >= 65
+    nj_staynj_eligible: true
+
+- name: Stay NJ eligibility is inactive before 2026.
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 70
+        employment_income: 100_000
+        real_estate_taxes: 10_000
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+    spm_units:
+      spm_unit:
+        members: [person1]
+        spm_unit_tenure_type: OWNER_WITH_MORTGAGE
+    households:
+      household:
+        members: [person1]
+        state_fips: 34
+  output:
+    nj_staynj_eligible: false

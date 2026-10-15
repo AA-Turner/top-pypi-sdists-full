@@ -74,6 +74,7 @@ public static class GeoIp
             ["CM"] = "fr-CM", ["AO"] = "pt-AO", ["MZ"] = "pt-MZ", ["ZM"] = "en-ZM", ["ZW"] = "en-ZW",
             ["HN"] = "es-HN", ["NI"] = "es-NI", ["SV"] = "es-SV", ["PA"] = "es-PA", ["JM"] = "en-JM",
             ["TT"] = "en-TT", ["PR"] = "es-PR",
+            ["SC"] = "en-SC",
         };
 
     /// <summary>
@@ -130,6 +131,12 @@ public static class GeoIp
             var timezone = resp.Location?.TimeZone;
             var country = resp.Country?.IsoCode;
             string? locale = country != null && CountryLocaleMap.TryGetValue(country, out var l) ? l : null;
+            if (locale == null)
+            {
+                // Map gap, not a lookup failure — don't abort the launch over it
+                CloakLog.Warning("GeoIP: no locale for country {0} (IP {1}), using en-US", country, ip);
+                locale = "en-US";
+            }
             CloakLog.Debug("GeoIP: {0} -> tz={1}, country={2}, locale={3}", ip, timezone, country, locale);
             return (timezone, locale, ip);
         }

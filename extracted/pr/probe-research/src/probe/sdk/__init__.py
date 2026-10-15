@@ -26,6 +26,9 @@ _LAZY: dict[str, str] = {
     "Aligned": "analysis",
     "Comparison": "analysis",
     "Client": "client",
+    "DatasetRef": "catalog",
+    "SourceRef": "catalog",
+    "source": "catalog",
     "Rewind": "client",
     "Reader": "reader",
     "Reference": "reader",
@@ -64,6 +67,7 @@ def __dir__() -> list[str]:
 
 if TYPE_CHECKING:  # eager names for type checkers / IDEs; never executed at runtime
     from .analysis import Aligned, Comparison
+    from .catalog import DatasetRef, SourceRef, source
     from .capture import (
         CaptureLedger,
         CaptureState,
@@ -96,6 +100,7 @@ __all__ = [
     "CaptureState",
     "Client",
     "Comparison",
+    "DatasetRef",
     "EventsReadClient",
     "FailureContext",
     "Reader",
@@ -103,6 +108,7 @@ __all__ = [
     "Rewind",
     "Run",
     "Settings",
+    "SourceRef",
     "SpanHandle",
     "UnitContext",
     "active_run",
@@ -114,6 +120,7 @@ __all__ = [
     "log_artifact",
     "log_hw",
     "resolve",
+    "source",
     "span",
     "stable_external_key",
     "stable_span_id",

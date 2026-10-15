@@ -34,6 +34,15 @@ FOLLOWED_FIELDS: tuple[str, ...] = (
     "auto_context_disabled",
     "tool_config",
     "skill_config",
+    # The trigger watches it and ``agx_reset_agent_to_source`` copies it; it shapes the instructions a run sends.
+    "prompt_blocks",
+)
+
+# Every column ``agent._follows_source_stops_on_edit`` watches (an edit to one turns follow off) — each MUST be
+# in FOLLOWED_FIELDS, or an edit to the source never reaches a following copy at run time.
+TRIGGER_WATCHED_FIELDS: tuple[str, ...] = (
+    "messages", "tools", "custom_tools", "mcp_servers", "model_id", "model_tiers", "settings",
+    "output_schema", "context_policies", "tool_config", "prompt_blocks", "skill_config",
 )
 
 # What a variable keeps from the COPY: the person's own binding (her tables).

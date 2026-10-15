@@ -126,12 +126,10 @@ def _stop_session(session: _AttachedSession, *, reply: bool) -> None:
             try:
                 _send_message(session.connection, message)
             except OSError:
-                # The controller may already be gone; saving has completed.
                 pass
         try:
             session.connection.close()
         except OSError:
-            # Best-effort cleanup during target shutdown.
             pass
 
 
@@ -162,7 +160,6 @@ def _control_session(session: _AttachedSession) -> None:
                 },
             )
         except OSError:
-            # The error response is best-effort; session shutdown still follows.
             pass
         _stop_session(session, reply=False)
         return
@@ -307,7 +304,6 @@ def _write_payload(source: str, *, owner: tuple[int, int] | None) -> Path:
         try:
             payload_path.unlink()
         except OSError:
-            # Best-effort cleanup must not replace the original ownership error.
             pass
         raise
     return payload_path
@@ -517,6 +513,5 @@ def attach_process(
             try:
                 payload_path.unlink()
             except OSError:
-                # The target may still hold the script open on Windows. Temporary
-                # file cleanup must not mask the attach result or original error.
+                # The target may still hold the script open on Windows.
                 pass

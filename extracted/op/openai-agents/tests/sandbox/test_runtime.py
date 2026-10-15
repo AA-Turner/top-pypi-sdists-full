@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import io
 import json
 import logging
@@ -104,17 +105,17 @@ from agents.sandbox.session.sandbox_session_state import SandboxSessionState
 from agents.sandbox.snapshot import LocalSnapshotSpec, NoopSnapshot, SnapshotBase
 from agents.sandbox.types import ExecResult
 from agents.stream_events import RunItemStreamEvent
-from agents.testing import ScriptedModel, scripted_sandbox_session
+from agents.testing import ModelStep, ScriptedModel, scripted_sandbox_session
 from agents.tool import FunctionTool, Tool
 from agents.tool_context import ToolContext
-from agents.tracing import trace
+from agents.tracing import custom_span, get_current_span, get_current_trace, trace
 from tests.test_responses import (
     get_final_output_message,
     get_function_tool,
     get_function_tool_call,
     get_handoff_tool_call,
 )
-from tests.testing_processor import fetch_normalized_spans
+from tests.testing_processor import fetch_events, fetch_normalized_spans, fetch_ordered_spans
 from tests.utils.factories import TestSessionState
 from tests.utils.simple_session import SimpleListSession
 
@@ -272,7 +273,7 @@ def _assert_mount_error_redacted(
     assert sentinel not in str(error)
     assert error.__cause__ is None
     assert error.__context__ is None
-    assert cast(Any, BaseException.args).__get__(source_error, type(source_error)) == ()
+    assert error is not source_error
     assert cast(Any, BaseException.__traceback__).__get__(source_error, type(source_error)) is None
     traceback = error.__traceback__
     while traceback is not None:
@@ -2951,6 +2952,90 @@ async def test_wrapped_unix_local_helpers_reject_symlink_escape_paths(tmp_path: 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("disabled", [False, True])
+@pytest.mark.parametrize("outcome", ["success", "cleanup-error", "run-error", "cancel"])
+async def test_streamed_sandbox_cleanup_honors_tracing_opt_out(
+    disabled: bool,
+    outcome: str,
+) -> None:
+    model_entered = asyncio.Event()
+    cleanup_entered = asyncio.Event()
+    release_cleanup = asyncio.Event()
+
+    # Stop-time blocking and failure injection need the session lifecycle boundary,
+    # which scripted_sandbox_session does not expose as a scriptable method.
+    class CleanupSession(_FakeSession):
+        async def stop(self) -> None:
+            await super().stop()
+            with custom_span("session-stop"):
+                cleanup_entered.set()
+                await release_cleanup.wait()
+                if outcome == "cleanup-error":
+                    raise RuntimeError("synthetic cleanup failure")
+
+    async def respond(_call):
+        model_entered.set()
+        if outcome == "cancel":
+            await asyncio.Event().wait()
+        if outcome == "run-error":
+            raise ValueError("synthetic run failure")
+        return [get_final_output_message("done")]
+
+    session = CleanupSession(Manifest())
+    client = _FakeClient(session)
+    agent = SandboxAgent(name="sandbox", model=ScriptedModel([ModelStep.respond(respond)]))
+    config = _sandbox_run_config(client)
+    config.tracing_disabled = disabled
+
+    with trace("caller") as caller_trace, custom_span("caller-parent") as caller_span:
+        result = Runner.run_streamed(agent, "hello", run_config=config)
+
+        async def consume() -> None:
+            async for _ in result.stream_events():
+                pass
+
+        consumer = asyncio.create_task(consume())
+        try:
+            await asyncio.wait_for(model_entered.wait(), timeout=5)
+            if outcome == "cancel":
+                result.cancel()
+            await asyncio.wait_for(cleanup_entered.wait(), timeout=5)
+            assert get_current_trace() is caller_trace
+            assert get_current_span() is caller_span
+            with custom_span("during-cleanup"):
+                pass
+        finally:
+            release_cleanup.set()
+            if not model_entered.is_set() or not cleanup_entered.is_set():
+                result.cancel()
+            if outcome == "run-error":
+                with pytest.raises(ValueError, match="synthetic run failure"):
+                    await asyncio.wait_for(consumer, timeout=5)
+            else:
+                await asyncio.wait_for(consumer, timeout=5)
+            if result._sandbox_cleanup_task is not None:
+                await asyncio.wait_for(result._sandbox_cleanup_task, timeout=5)
+        assert get_current_trace() is caller_trace
+        assert get_current_span() is caller_span
+        with custom_span("after-cleanup"):
+            pass
+
+    assert session.stop_calls == 1
+    assert session.shutdown_calls == 1
+    assert session.close_dependency_calls == 1
+    assert client.delete_calls == 1
+    assert result._sandbox_session is None
+    if outcome in {"success", "cleanup-error"}:
+        assert result.final_output == "done"
+    names = [getattr(span.span_data, "name", None) for span in fetch_ordered_spans()]
+    if disabled:
+        assert names == ["caller-parent", "during-cleanup", "after-cleanup"]
+        assert fetch_events().count("span_start") == 3
+    else:
+        assert {"sandbox.cleanup", "sandbox.cleanup_sessions", "session-stop"} <= set(names)
+
+
+@pytest.mark.asyncio
 async def test_runner_streamed_ignores_sandbox_cleanup_failures_after_success() -> None:
     session = _FailingStopSession(Manifest())
     client = _FakeClient(session)
@@ -4375,6 +4460,7 @@ def test_process_manifest_preserves_value_free_process_control_with_authority(
     source_error: BaseException = (
         SystemExit(sentinel) if error_kind == "system_exit" else KeyboardInterrupt(sentinel)
     )
+    source_args = cast(Any, BaseException.args).__get__(source_error, type(source_error))
 
     class ProcessControlCapability(Capability):
         type: str = "process-control"
@@ -4407,7 +4493,7 @@ def test_process_manifest_preserves_value_free_process_control_with_authority(
     assert type(exc_info.value) is expected_type
     assert exc_info.value.args == expected_args
     assert exc_info.value is not source_error
-    assert source_error.args == ()
+    assert source_error.args == source_args
     assert source_error.__traceback__ is None
     assert sentinel not in repr(exc_info.value)
 
@@ -5039,6 +5125,38 @@ async def test_unix_local_exec_confines_commands_to_workspace_root() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_native_macos_sandbox
+@pytest.mark.skipif(
+    sys.platform != "darwin" or shutil.which("sandbox-exec") is None,
+    reason="sandbox-exec is only available on macOS when installed",
+)
+async def test_unix_local_exec_denies_launch_services(tmp_path: Path) -> None:
+    # Query the OS decision without depending on a GUI session or launching a host app.
+    sandbox_check = ctypes.CDLL("/usr/lib/libsandbox.1.dylib").sandbox_check
+    sandbox_check.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
+    sandbox_check.restype = ctypes.c_int
+    assert sandbox_check(os.getpid(), b"lsopen", 0) == 0
+
+    check_launch_services = """
+import ctypes
+import os
+
+sandbox_check = ctypes.CDLL("/usr/lib/libsandbox.1.dylib").sandbox_check
+sandbox_check.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
+sandbox_check.restype = ctypes.c_int
+print(sandbox_check(os.getpid(), b"lsopen", 0))
+"""
+    client = UnixLocalSandboxClient(inherit_host_environment=False)
+    async with await client.create(manifest=Manifest(root=str(tmp_path / "workspace"))) as session:
+        result = await session.exec(
+            sys.executable, "-I", "-c", check_launch_services, shell=False, timeout=10
+        )
+
+    assert result.ok(), result.stderr.decode("utf-8", errors="replace")
+    assert int(result.stdout.strip()) > 0
+
+
+@pytest.mark.asyncio
 async def test_unix_local_exec_rejects_when_confinement_is_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -5181,6 +5299,7 @@ def test_unix_local_confined_exec_command_allows_common_darwin_interpreter_roots
     profile = command[2]
 
     assert command[:2] == ["/usr/bin/sandbox-exec", "-p"]
+    assert "(deny lsopen)" in profile
     assert '(allow file-read-data file-read-metadata (subpath "/opt/homebrew"))' in profile
     assert '(allow file-read-data file-read-metadata (subpath "/usr/local"))' in profile
     assert (
@@ -7192,3 +7311,51 @@ async def test_sandbox_mcp_names_remain_distinct_from_conditional_handoffs(strea
     assert len(call.tools) == 1
     assert call.tools[0].name.startswith("mcp_docs__lookup")
     assert call.tools[0].name not in {item.tool_name for item in call.handoffs}
+
+
+@pytest.mark.parametrize("mode", ["async", "sync", "stream"])
+def test_runner_protected_start_preserves_caller_error_without_exposing_it(mode: str) -> None:
+    source = RuntimeError("provider-start-secret")
+    earlier = ValueError("caller-context-secret")
+    source.__cause__ = earlier
+
+    class FailingSession(_FakeSession):
+        start = cast(Any, BaseSandboxSession.start)
+
+        async def _ensure_backend_started(self) -> None:
+            raise source
+
+    session = FailingSession(_external_mount_manifest("mount-secret"))
+    cast(Any, session.state).type = "docker"
+    agent = SandboxAgent(name="test", model=ScriptedModel(steps=[]))
+    config = RunConfig(tracing_disabled=True, sandbox=SandboxRunConfig(session=session))
+
+    async def invoke_async() -> BaseException:
+        try:
+            raise earlier
+        except ValueError:
+            with pytest.raises(RuntimeError, match="protected mount configuration") as exc:
+                if mode == "stream":
+                    result = Runner.run_streamed(agent, "hello", run_config=config)
+                    async for _ in result.stream_events():
+                        pass
+                else:
+                    await Runner.run(agent, "hello", run_config=config)
+            return exc.value
+
+    if mode == "sync":
+        try:
+            raise earlier
+        except ValueError:
+            with pytest.raises(RuntimeError, match="protected mount configuration") as exc:
+                Runner.run_sync(agent, "hello", run_config=config)
+            outward = exc.value
+    else:
+        outward = asyncio.run(invoke_async())
+
+    assert earlier.args == ("caller-context-secret",)
+    assert source.args == ("provider-start-secret",)
+    assert source.__cause__ is earlier
+    assert outward.__context__ is None
+    assert outward.__cause__ is None
+    _assert_mount_error_redacted(outward, source_error=source, sentinel="mount-secret")

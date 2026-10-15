@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agenticstar-platform
-Version: 3.0.15
+Version: 3.1.0
 Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
 Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
 Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
@@ -64,12 +64,14 @@ Requires-Dist: httpx>=0.26.0; extra == 'security'
 Provides-Extra: security-aws
 Requires-Dist: boto3>=1.34.0; extra == 'security-aws'
 Provides-Extra: storage
+Requires-Dist: azure-identity>=1.15.0; extra == 'storage'
 Requires-Dist: azure-storage-blob>=12.19.0; extra == 'storage'
 Requires-Dist: boto3>=1.34.0; extra == 'storage'
 Requires-Dist: google-cloud-storage>=2.14.0; extra == 'storage'
 Provides-Extra: storage-aws
 Requires-Dist: boto3>=1.34.0; extra == 'storage-aws'
 Provides-Extra: storage-azure
+Requires-Dist: azure-identity>=1.15.0; extra == 'storage-azure'
 Requires-Dist: azure-storage-blob>=12.19.0; extra == 'storage-azure'
 Provides-Extra: storage-gcp
 Requires-Dist: google-cloud-storage>=2.14.0; extra == 'storage-gcp'
@@ -453,6 +455,20 @@ config = AzureBlobConfig.from_dict({
 })
 client = AzureBlobStorageClient(config)
 result = await client.upload_file("local/file.pdf", prefix="docs/")
+```
+
+Azure without a connection string (3.1.0): leave `connection_string` out (or empty) and give
+`storage_account_name`. The client then signs in with `DefaultAzureCredential` (Workload Identity
+or Managed Identity on AKS, Azure CLI on a workstation), which is what you need once the storage
+account has Shared Key access disabled. The identity needs **Storage Blob Data Contributor** on the
+account (or container). `endpoint_suffix` defaults to `core.windows.net`.
+
+```python
+config = AzureBlobConfig.from_dict({
+    "bucket_name": "your-container",
+    "storage_account_name": "yourstorageaccount",
+})
+client = AzureBlobStorageClient(config)
 ```
 
 ### Telemetry / LLM Usage Tracking (Marketplace)
@@ -913,6 +929,8 @@ vector_size = 1536
 [storage.azure]
 bucket_name = "your-container"
 connection_string = "DefaultEndpointsProtocol=https;..."
+# Without a connection string (Shared Key disabled): leave connection_string = ""
+# and set storage_account_name = "yourstorageaccount" (DefaultAzureCredential)
 prefix = "uploads/"
 
 [memory.llm]
@@ -940,6 +958,17 @@ api_version = "2024-02-15-preview"
 See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) for the SDK guides and API reference.
 
 ## Changelog
+
+### 3.1.0 (2026-10-14) — db: the proxy's drain answer is retried, idle connections expire before the proxy closes them, extra request headers / storage: Azure Blob without a connection string (`DefaultAzureCredential`)
+
+The version follows the platform release (3.1.0); it does not mean a breaking change. 3.0.16 was not published: its storage change ships here.
+
+- **`ApiPostgreSQLManager` (the `/db/execute` proxy used in CLI and Pod mode) resends the proxy's "not processed" answers.** The proxy answers `503` before running the query while a replica is being recycled (`detail`: `cli-api is draining for memory recycle, retry on another replica`) and when it cannot check the calling Pod yet (`caller binding unavailable (retryable)`). Only these exact JSON answers are resent: the SDK waits at least `Retry-After` (seconds or an HTTP date, capped at 10 s; a missing or unusable value falls back to the backoff) within the same 5-attempt budget as connection failures (waits of 1, 2, 4 and 8 s, about 15 s with the proxy's `Retry-After: 1`, at most about 40 s). Any other `503` or `5xx`, including one from something else on the way, may arrive after the query ran and is still returned as `API_ERROR` without a retry; so is a resendable answer on the last attempt.
+- **Idle connections to the proxy expire after 4 s** (`httpx` keep-alive expiry). The proxy closes idle keep-alive connections after 5 s; reusing one at that moment failed after the request was sent (`Server disconnected without sending a response`), which cannot be retried safely. The pool sizes stay at httpx's defaults (100 connections, 20 kept alive).
+- **New optional `headers_provider`** on `ApiPostgreSQLManager(config, token_provider=..., headers_provider=...)`: a callable returning a mapping of extra headers for each request (for example the caller's execution id, so the proxy can check the caller). Only headers that can be sent are added: the name must be an HTTP token and the value visible ASCII without leading or trailing spaces (a `str` or `int`). Headers the client owns (`Authorization`, `Host`, `Content-Type`, `Content-Length`, ...) cannot be set, and a provider that raises adds nothing. Without it, requests are exactly as before.
+- **`AzureBlobStorageClient` can now sign in without a connection string.** `AzureBlobConfig.connection_string` is optional; when it is absent (or an empty string, which is how a config file says "none"), the client builds the account URL from the new `storage_account_name` (plus `endpoint_suffix`, default `core.windows.net`) and authenticates with `DefaultAzureCredential` (Workload Identity / Managed Identity on AKS, Azure CLI locally). This is the path to use once a storage account has Shared Key access disabled. The identity needs Storage Blob Data Contributor on the account. A config with neither value raises `StorageConfigError` at construction, as a missing connection string did before.
+- **Compatibility**: a config with a connection string behaves exactly as before, including positional construction (`AzureBlobConfig("container", "DefaultEndpointsProtocol=...")`). `str(config)` never prints the connection string and now says which of the two it uses. `close()` also closes the credential.
+- **Dependencies**: `azure-identity>=1.15.0` is added to the `storage-azure` and `storage` extras. It is imported only on the credential-less path, so `AzureBlobStorageClient` still resolves with `azure-storage-blob` alone.
 
 ### 3.0.15 (2026-10-10) — db: a text parameter that looks like a date is no longer turned into a date by the proxy
 
@@ -1329,4 +1358,4 @@ Marketplace SDK reliability fixes (surfaced while building agents from the guide
 
 ## Version
 
-3.0.15
+3.1.0

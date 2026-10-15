@@ -181,6 +181,36 @@ describe("maybeResolveGeoip", () => {
     await expect(resolveProxyGeo(null)).rejects.toThrow("GeoIP lookup failed");
   });
 
+  it("falls back to en-US for a country missing from the locale map (#591)", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloak-geoip-unmapped-"));
+    tempDirs.push(cacheDir);
+    const geoipDir = path.join(cacheDir, "geoip");
+    fs.mkdirSync(geoipDir, { recursive: true });
+    fs.writeFileSync(path.join(geoipDir, "GeoLite2-City.mmdb"), "stub");
+    process.env.CLOAKBROWSER_CACHE_DIR = cacheDir;
+
+    class Reader {
+      get() {
+        return { location: { time_zone: "Indian/Mahe" }, country: { iso_code: "XX" } };
+      }
+    }
+    vi.doMock("mmdb-lib", () => ({ default: { Reader }, Reader }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => "5.6.7.8",
+    } as Response);
+
+    try {
+      await expect(resolveProxyGeo(null)).resolves.toEqual({
+        timezone: "Indian/Mahe",
+        locale: "en-US",
+        exitIp: "5.6.7.8",
+      });
+    } finally {
+      vi.doUnmock("mmdb-lib");
+    }
+  });
+
   it("downloads the database once under concurrent first-use launches (#458)", async () => {
     const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloak-geoip-concurrent-"));
     tempDirs.push(cacheDir);
@@ -309,6 +339,10 @@ describe("COUNTRY_LOCALE_MAP", () => {
     for (const code of ["US", "GB", "DE", "FR", "JP", "BR", "IL", "RU"]) {
       expect(COUNTRY_LOCALE_MAP[code]).toBeDefined();
     }
+  });
+
+  it("maps Seychelles (issue #591)", () => {
+    expect(COUNTRY_LOCALE_MAP["SC"]).toBe("en-SC");
   });
 
   it("values are BCP 47 language-REGION format", () => {

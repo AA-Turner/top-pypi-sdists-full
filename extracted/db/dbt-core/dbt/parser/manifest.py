@@ -2576,11 +2576,11 @@ def process_node(config: RuntimeConfig, manifest: Manifest, node: ManifestNode):
 
 
 # Plugins whose get_nodes contribution has a native equivalent inside the
-# fusion parser. The fusion parser reads the same env-var contract
+# v2 parser. The v2 parser reads the same env-var contract
 # (DBT_CLOUD_AUTO_EXPOSURES_FILE_PATH, DBT_CLOUD_PUBLICATIONS_DIR, ...) and
 # produces the same downstream nodes/artifacts, so skipping the Python hook
 # is safe — running it would double-inject.
-FUSION_PARITY_GET_NODES_PLUGINS = {
+V2_PARITY_GET_NODES_PLUGINS = {
     "dbtCloudAutoExposures",
     "dbtCloudCrossProjectRef",
 }
@@ -2588,13 +2588,13 @@ FUSION_PARITY_GET_NODES_PLUGINS = {
 
 def assert_no_get_nodes_plugins(project_name: str) -> None:
     """Fail fast if any registered plugin advertises a get_nodes hook
-    that fusion does not natively cover.
+    that the v2 parser does not natively cover.
 
-    get_nodes plugins inject manifest nodes mid-parse; fusion mode skips
+    get_nodes plugins inject manifest nodes mid-parse; v2 mode skips
     dbt-core's parse entirely, so those nodes never make it into the
     runtime manifest and downstream compile/run would silently miss them.
-    Plugins listed in FUSION_PARITY_GET_NODES_PLUGINS are exempt because
-    fusion implements the same contribution natively.
+    Plugins listed in V2_PARITY_GET_NODES_PLUGINS are exempt because
+    the v2 parser implements the same contribution natively.
     """
     pm = plugins.get_plugin_manager(project_name)
     get_nodes_hooks = pm.hooks.get("get_nodes", [])
@@ -2602,13 +2602,13 @@ def assert_no_get_nodes_plugins(project_name: str) -> None:
         {
             h.__self__.name  # type: ignore[attr-defined]
             for h in get_nodes_hooks
-            if h.__self__.name not in FUSION_PARITY_GET_NODES_PLUGINS  # type: ignore[attr-defined]
+            if h.__self__.name not in V2_PARITY_GET_NODES_PLUGINS  # type: ignore[attr-defined]
         }
     )
     if offenders:
         raise dbtPluginError(
             f"Plugin(s) {offenders} register a get_nodes hook, which is not "
-            f"supported in fusion parser mode."
+            f"supported in v2 parser mode."
         )
 
 
@@ -2616,7 +2616,7 @@ def enrich_manifest_with_plugin_artifacts(manifest: Manifest, project_name: str)
     """Run the read-only plugin enrichment hook against a fully-loaded
     manifest and write the resulting artifacts.
 
-    Called from both parse paths (parse_manifest and parse_with_fusion) after
+    Called from both parse paths (parse_manifest and parse_with_v2) after
     the manifest has been written. Callers must have already run
     assert_no_get_nodes_plugins; this function only handles the
     artifact-writing side and assumes the check has passed.
@@ -2632,17 +2632,26 @@ def enrich_manifest_with_plugin_artifacts(manifest: Manifest, project_name: str)
 
 def write_semantic_manifest(manifest: Manifest, target_path: str) -> None:
     semantic_manifest = SemanticManifest(manifest)
-    semantic_manifest.write_json_to_file(os.path.join(target_path, SEMANTIC_MANIFEST_FILE_NAME))
+    semantic_manifest_path = os.path.join(target_path, SEMANTIC_MANIFEST_FILE_NAME)
+    semantic_manifest.write_json_to_file(semantic_manifest_path)
+    add_artifact_produced(semantic_manifest_path)
     semantic_manifest.write_osi_document_to_file(os.path.join(target_path, OSI_DOCUMENT_FILE_NAME))
 
 
 def write_manifest(manifest: Manifest, target_path: str, which: Optional[str] = None):
-    if get_flags().USE_V2_PARSER:
-        return
     file_name = MANIFEST_FILE_NAME
     path = os.path.join(target_path, file_name)
     manifest.write(path)
     add_artifact_produced(path)
+
+    # Under USE_V2_PARSER, semantic_manifest.json is already written by
+    # parse_with_v2 (copied straight from the v2 parser's own output) and
+    # must not be clobbered by a stale/differently-shaped one built here
+    # from the runtime Manifest. manifest.json itself has no such conflict:
+    # it still needs to be (re)written after compile/run so runtime-populated
+    # fields like compiled_code make it to disk.
+    if get_flags().USE_V2_PARSER:
+        return
 
     write_semantic_manifest(manifest=manifest, target_path=target_path)
 

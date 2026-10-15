@@ -74,6 +74,7 @@ class _TTGlyphSet(Mapping):
         if reset:
             self.location = self.originalLocation.copy()
             self.rawLocation = self.defaultLocationNormalized.copy()
+            self.rawLocation.update(self.originalLocation)
         else:
             self.location = self.location.copy()
             self.rawLocation = {}
@@ -147,12 +148,13 @@ class _TTGlyphSetCFF(_TTGlyphSet):
 
     @contextmanager
     def pushLocation(self, location, reset: bool):
-        self.setLocation(location)
-        with _TTGlyphSet.pushLocation(self, location, reset) as value:
-            try:
-                yield value
-            finally:
+        try:
+            with _TTGlyphSet.pushLocation(self, location, reset) as value:
                 self.setLocation(self.location)
+                yield value
+        finally:
+            # Restore the blender after the base context pops the parent location.
+            self.setLocation(self.location)
 
 
 class _TTGlyphSetVARC(_TTGlyphSet):
@@ -213,6 +215,32 @@ class _TTGlyph(ABC):
 
 
 class _TTGlyphGlyf(_TTGlyph):
+    def __init__(self, glyphSet, glyphName, *, recalcBounds=True):
+        super().__init__(glyphSet, glyphName, recalcBounds=recalcBounds)
+        # Without HVAR the advance at a non-default location comes from the
+        # gvar phantom points: compute it lazily on first access.
+        if (
+            glyphSet.location
+            and glyphSet.hvarTable is None
+            and glyphSet.gvarTable is not None
+        ):
+            self._width = None
+
+    @property
+    def width(self):
+        if self._width is None:
+            if self.name in self.glyphSet.gvarTable.variations:
+                # no HVAR: this also sets self._width from the phantom points
+                self._getGlyphInstance()
+            else:
+                # no gvar entry: glyph doesn't vary, hmtx advance is right
+                self._width = self.glyphSet.hMetrics[self.name][0]
+        return self._width
+
+    @width.setter
+    def width(self, value):
+        self._width = value
+
     def draw(self, pen):
         """Draw the glyph onto ``pen``. See fontTools.pens.basePen for details
         how that works.
@@ -309,7 +337,9 @@ def _evaluateCondition(condition, axes, location, instancer):
     elif condition.Format == 2:
         # ConditionValue
         value = condition.DefaultValue
-        value += instancer[condition.VarIdx][0]
+        deltas = instancer[condition.VarIdx]
+        if deltas:
+            value += deltas[0]
         return value > 0
     elif condition.Format == 3:
         # ConditionAnd
@@ -356,7 +386,7 @@ class _TTGlyphVARC(_TTGlyph):
         )
 
         for comp in glyph.components:
-            if comp.flags & VarComponentFlags.HAVE_CONDITION:
+            if comp.conditionIndex is not None:
                 condition = varc.ConditionList.ConditionTable[comp.conditionIndex]
                 if not _evaluateCondition(
                     condition, axes, self.glyphSet.location, instancer

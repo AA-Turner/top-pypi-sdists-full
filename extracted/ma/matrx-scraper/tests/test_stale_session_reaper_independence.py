@@ -48,9 +48,16 @@ def reap_calls(monkeypatch: pytest.MonkeyPatch) -> list[int]:
             calls.append(1)
             return 0
 
+    import matrx_scraper.web_crawl.lease_reaper as lease_reaper
     import matrx_scraper.web_crawl.persistence as persistence
 
+    async def no_dead_runs(**_: object) -> list[str]:
+        return []
+
     monkeypatch.setattr(persistence, "WebCrawlRepository", _Repo)
+    # The loops also run the lease sweeps (dead-lease handoff, 6 h backstop).
+    monkeypatch.setattr(lease_reaper, "fail_dead_lease_sessions", no_dead_runs)
+    monkeypatch.setattr(lease_reaper, "settle_lease_expired_sessions", no_dead_runs)
     return calls
 
 

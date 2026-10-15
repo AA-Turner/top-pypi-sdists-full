@@ -196,11 +196,9 @@ mod tests {
                     let _inner = Suspended::new();
                     assert_eq!(get(), WORKER | SUSPENDED);
                 }
-                // The inner section doesn't end the outer one.
                 assert_eq!(get(), WORKER | SUSPENDED);
             }
             assert_eq!(get(), WORKER);
-            // Even an explicit unsuspend leaves the worker mark alone.
             set(SUSPENDED, true);
             set(SUSPENDED, false);
             assert_eq!(get(), WORKER);
@@ -230,7 +228,6 @@ mod tests {
             let second = AssignmentOwner::new();
             set_assignment(&first, PENDING_ASSIGNMENT, true);
             assert_eq!(get() & ASSIGNMENTS, ASSIGNMENTS);
-            // Another owner never sees, clears or claims the first's.
             assert_eq!(assignments_for(&second), 0);
             set_assignment(&second, PENDING_ASSIGNMENT, false);
             assert_eq!(assignments_for(&first), PENDING_ASSIGNMENT);
@@ -238,14 +235,12 @@ mod tests {
             set_assignment(&second, DEFERRED_STORE, false);
             assert_eq!(assignments_for(&first), PENDING_ASSIGNMENT);
             assert_eq!(get() & ASSIGNMENTS, ASSIGNMENTS);
-            // A live owner's entry survives pruning; a dead one's doesn't.
             drop_dead_assignments();
             assert_eq!(assignments_for(&first), PENDING_ASSIGNMENT);
             drop(first);
             drop_dead_assignments();
             assert_eq!(get() & ASSIGNMENTS, 0);
             assert_eq!(WAITING.with(|waiting| waiting.borrow().len()), 1);
-            // Clearing a flag never needs to remove or allocate an entry.
             set_assignment(&second, PENDING_ASSIGNMENT, true);
             set_assignment(&second, PENDING_ASSIGNMENT, false);
             assert_eq!(get() & ASSIGNMENTS, 0);

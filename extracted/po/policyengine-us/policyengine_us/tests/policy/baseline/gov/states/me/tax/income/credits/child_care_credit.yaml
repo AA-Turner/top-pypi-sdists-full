@@ -1,0 +1,79 @@
+- name: Outside Maine, no refundable Maine child care credit
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    state_code: NY
+    filing_status: SINGLE
+  output:
+    me_refundable_child_care_credit: 0
+- name: No federal child care credit, no refundable child care credit
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    state_code: ME
+    filing_status: SINGLE
+    cdcc: 0
+  output:
+    me_refundable_child_care_credit: 0
+- name: $1000 federal child care credit, all regular, 25% received in Maine credit
+    ($250), all will be refundable
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    state_code: ME
+    filing_status: SINGLE
+    cdcc: 1000
+    me_step_4_share_of_child_care_expenses: 0
+    me_income_tax_before_credits: 1000000
+  output:
+    me_child_care_credit: 250
+    me_refundable_child_care_credit: 250
+    me_non_refundable_child_care_credit: 0
+- name: $4000 federal child care credit, 50% received in Maine credit ($2000), only
+    some (500, the max) will be refundable, rest unrefundable
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    state_code: ME
+    filing_status: SINGLE
+    tax_unit_childcare_expenses: 4000
+    me_step_4_share_of_child_care_expenses: 1
+    cdcc: 4000
+    me_income_tax_before_credits: 1000000
+  output:
+    me_child_care_credit: 2000
+    me_refundable_child_care_credit: 500
+    me_non_refundable_child_care_credit: 1500
+- name: $2000 federal child care credit, 0.5 step 4 expenses, half cdcc multiplied
+    by step 4 factor, half by regular factor
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    state_code: ME
+    filing_status: SINGLE
+    tax_unit_childcare_expenses: 2000
+    me_step_4_share_of_child_care_expenses: 0.5
+    cdcc: 2000
+    me_income_tax_before_credits: 1000000
+  output:
+    me_child_care_credit: 750
+    me_refundable_child_care_credit: 500
+    me_non_refundable_child_care_credit: 250
+
+# 36 M.R.S. § 111(1-A) freezes Maine's "Code" at December 31, 2024, so from 2026
+# the credit is 25% of the pre-OBBBA federal credit (pre_obbba_cdcc), not the
+# OBBBA-inflated live cdcc. Inject both to confirm the pin reads the frozen
+# variable.
+- name: 2026 uses the pre-OBBBA federal credit under static conformity
+  period: 2026
+  absolute_error_margin: 0
+  input:
+    state_code: ME
+    filing_status: SINGLE
+    cdcc: 4_000
+    pre_obbba_cdcc: 1_000
+    me_step_4_share_of_child_care_expenses: 0
+    me_income_tax_before_credits: 1_000_000
+  output:
+    # 25% of the frozen $1,000, ignoring the $4,000 live credit.
+    me_child_care_credit: 250

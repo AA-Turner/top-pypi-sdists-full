@@ -256,6 +256,8 @@ class VarComponent:
         if self.conditionIndex is not None:
             flags |= VarComponentFlags.HAVE_CONDITION
             data.append(_write_uint32var(self.conditionIndex))
+        else:
+            flags &= ~VarComponentFlags.HAVE_CONDITION
 
         numAxes = len(self.axisValues)
 
@@ -369,6 +371,9 @@ class VarComponent:
                 self.flags |= VAR_TRANSFORM_MAPPING[name].flag
             else:
                 assert False, name
+
+        if not (self.flags & VarComponentFlags.HAVE_SCALE_Y):
+            self.transform.scaleY = self.transform.scaleX
 
     def applyTransformDeltas(self, deltas):
         i = 0
@@ -1509,6 +1514,15 @@ class AlternateSubst(FormatSwitchingBaseTable):
 
 
 class LigatureSubst(FormatSwitchingBaseTable):
+    def ensureDecompiled(self, recurse=False):
+        super().ensureDecompiled(recurse)
+        if recurse:
+            # The ligature dictionary is not described by otData converters.
+            for ligatures in getattr(self, "ligatures", {}).values():
+                if isinstance(ligatures, list):
+                    for ligature in ligatures:
+                        ligature.ensureDecompiled(recurse)
+
     def populateDefaults(self, propagator=None):
         if not hasattr(self, "ligatures"):
             self.ligatures = {}

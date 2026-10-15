@@ -1,0 +1,64 @@
+description: The government counts these sources as household benefits.
+values:
+  2022-01-01:
+    - social_security
+    - ssi
+    - snap
+    - wic
+    - free_school_meals
+    - reduced_price_school_meals
+    # Broadband subsidies.
+    - acp
+    - ebb
+    - tanf
+    - high_efficiency_electric_home_rebate
+    - residential_efficiency_electrification_rebate
+    - total_unemployment_compensation
+    - child_support_received
+    - workers_compensation
+    - educational_assistance
+    - financial_assistance
+    - survivor_benefits
+    - household_head_start_benefits
+    # One-time energy relief payments.
+    # Paid at the same time as the Alaska Permanent Fund Dividend,
+    # which is part of IRS gross income.
+    - ak_energy_relief
+    # Contributed.
+    - basic_income
+    - trump_dividend
+    - housing_assistance
+    - household_state_benefits
+    - household_health_benefits
+  2024-01-01:
+    - social_security
+    - ssi
+    - snap
+    - wic
+    - free_school_meals
+    - reduced_price_school_meals
+    # Broadband subsidies.
+    - acp
+    - ebb
+    - tanf
+    - high_efficiency_electric_home_rebate
+    - residential_efficiency_electrification_rebate
+    - total_unemployment_compensation
+    - child_support_received
+    - workers_compensation
+    - educational_assistance
+    - financial_assistance
+    - survivor_benefits
+    - household_head_start_benefits
+    # Contributed.
+    - basic_income
+    - trump_dividend
+    - housing_assistance
+    - household_state_benefits
+    - commodity_supplemental_food_program
+    - household_health_benefits
+
+metadata:
+  unit: list
+  period: year
+  label: Household benefits

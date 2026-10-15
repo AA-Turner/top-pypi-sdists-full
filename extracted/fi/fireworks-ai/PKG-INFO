@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: fireworks-ai
-Version: 1.2.24
+Version: 1.2.25
 Summary: The official Python library for the fireworks API
 Project-URL: Homepage, https://github.com/fw-ai-external/python-sdk
 Project-URL: Repository, https://github.com/fw-ai-external/python-sdk
@@ -32,24 +32,30 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: training
 Requires-Dist: datasets; extra == 'training'
+Requires-Dist: httpx[http2]<1,>=0.23.0; extra == 'training'
 Requires-Dist: numpy; extra == 'training'
+Requires-Dist: numpy>=1.24.0; (python_version >= '3.11') and extra == 'training'
 Requires-Dist: orjson>=3.10.0; extra == 'training'
+Requires-Dist: protobuf<8,>=4.25.3; (python_version >= '3.11') and extra == 'training'
 Requires-Dist: pydantic<2.13,>=2.9.2; extra == 'training'
 Requires-Dist: pyqwest==0.10.0; (python_version >= '3.11') and extra == 'training'
 Requires-Dist: requests; extra == 'training'
 Requires-Dist: tiktoken; extra == 'training'
-Requires-Dist: tinker==0.23.0; (python_version >= '3.11') and extra == 'training'
 Requires-Dist: torch>=2.0.0; extra == 'training'
 Requires-Dist: transformers; extra == 'training'
 Requires-Dist: urllib3<3,>=1.26; extra == 'training'
 Requires-Dist: wandb; extra == 'training'
+Requires-Dist: zstandard>=0.22.0; (python_version >= '3.11') and extra == 'training'
 Provides-Extra: training-sdk
+Requires-Dist: httpx[http2]<1,>=0.23.0; extra == 'training-sdk'
+Requires-Dist: numpy>=1.24.0; (python_version >= '3.11') and extra == 'training-sdk'
 Requires-Dist: orjson>=3.10.0; extra == 'training-sdk'
+Requires-Dist: protobuf<8,>=4.25.3; (python_version >= '3.11') and extra == 'training-sdk'
 Requires-Dist: pydantic<2.13,>=2.9.2; extra == 'training-sdk'
 Requires-Dist: pyqwest==0.10.0; (python_version >= '3.11') and extra == 'training-sdk'
 Requires-Dist: requests; extra == 'training-sdk'
-Requires-Dist: tinker==0.23.0; (python_version >= '3.11') and extra == 'training-sdk'
 Requires-Dist: urllib3<3,>=1.26; extra == 'training-sdk'
+Requires-Dist: zstandard>=0.22.0; (python_version >= '3.11') and extra == 'training-sdk'
 Description-Content-Type: text/markdown
 
 # Fireworks AI Python SDK API library

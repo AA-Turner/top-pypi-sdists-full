@@ -70,6 +70,11 @@ DB_REQUIREMENTS = {
         # public.
         {"key": "OpsIssueClass", "table": "ops.ops_issue_class"},
         {"key": "OpsIssueEvent", "table": "ops.ops_issue_event"},
+        # scheduler + the person's computers — desktop_schedule saves a task that runs on one
+        # chosen computer (tools/implementations/desktop.py).
+        {"key": "SchTask", "table": "scheduler.sch_task"},
+        {"key": "SchTrigger", "table": "scheduler.sch_trigger"},
+        {"key": "AppInstances", "table": "public.app_instances"},
         # users — feedback bridge (tools/implementations/feedback_tools.py).
         {"key": "UserFeedback", "table": "users.user_feedback"},
         # write-failure recovery engine (persistence/replay.py).
@@ -100,6 +105,8 @@ DB_REQUIREMENTS = {
         {"key": "KindEdge", "table": "content_ir.kind_edge"},
         {"key": "KindExample", "table": "content_ir.kind_example"},
         {"key": "KindComponent", "table": "content_ir.kind_component"},
+        # per-person / per-organization views of a shape (shape-layers slice 3)
+        {"key": "KindComponentLayer", "table": "content_ir.kind_component_layer"},
         {"key": "KindSurface", "table": "content_ir.kind_surface"},
         {"key": "KindComponentIncident", "table": "content_ir.kind_component_incident"},
         {"key": "KindInstance", "table": "content_ir.kind_instance"},

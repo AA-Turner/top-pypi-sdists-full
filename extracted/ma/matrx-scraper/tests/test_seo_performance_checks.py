@@ -107,7 +107,7 @@ def test_status_and_score_satisfy_the_db_constraint(check) -> None:
             delivery_audits={"unused-javascript": 99_000.0},
             cache_static_bytes=500_000,
             cache_short_ttl_resources=[
-                {"url": "https://x/a.js", "cache_lifetime_ms": 0, "total_bytes": 500_000}
+                {"url": "https://example.com/a.js", "cache_lifetime_ms": 0, "total_bytes": 500_000}
             ],
         ),
     ]
@@ -221,7 +221,7 @@ def test_caching_policy_is_byte_weighted_not_file_counted() -> None:
         _evidence(
             cache_static_bytes=1_000_000.0,
             cache_short_ttl_resources=[
-                {"url": "https://x/hero.png", "cache_lifetime_ms": DAY_MS, "total_bytes": 800_000},
+                {"url": "https://example.com/hero.png", "cache_lifetime_ms": DAY_MS, "total_bytes": 800_000},
             ],
         )
     )
@@ -237,7 +237,7 @@ def test_caching_policy_ignores_resources_already_cached_long_enough() -> None:
             cache_short_ttl_resources=[
                 # Reported by Lighthouse but at/above our 30-day bar — not a defect.
                 {
-                    "url": "https://x/a.js",
+                    "url": "https://example.com/a.js",
                     "cache_lifetime_ms": CACHE_WELL_CACHED_MIN_MS,
                     "total_bytes": 900_000,
                 },
@@ -253,7 +253,7 @@ def test_caching_policy_cannot_score_below_zero_well_cached_bytes() -> None:
         _evidence(
             cache_static_bytes=100_000.0,
             cache_short_ttl_resources=[
-                {"url": "https://x/a.js", "cache_lifetime_ms": 0, "total_bytes": 999_999_999},
+                {"url": "https://example.com/a.js", "cache_lifetime_ms": 0, "total_bytes": 999_999_999},
             ],
         )
     )

@@ -107,7 +107,7 @@ impl fmt::Display for LockKind {
 }
 
 impl LockKind {
-    fn from_lock_mode(lock_mode: ast::LockMode) -> LockKind {
+    fn from_lock_mode(lock_mode: &ast::LockMode) -> LockKind {
         match lock_mode {
             ast::LockMode::AccessExclusive(_) => LockKind::AccessExclusive,
             ast::LockMode::AccessShare(_) => LockKind::AccessShare,
@@ -244,7 +244,7 @@ impl LockKind {
             ast::Stmt::Lock(lock) => lock
                 .lock_mode_clause()
                 .and_then(|clause| clause.lock_mode())
-                .map(Self::from_lock_mode)
+                .map(|lock_mode| Self::from_lock_mode(&lock_mode))
                 .unwrap_or(LockKind::AccessExclusive),
             ast::Stmt::Refresh(refresh) => {
                 if refresh.concurrently_token().is_some() {
@@ -335,21 +335,16 @@ pub(crate) fn require_timeout_settings(ctx: &mut Linter, parse: &Parse<SourceFil
         match stmt {
             ast::Stmt::Set(set) => {
                 if let Some(ast::SetTarget::SetConfig(set_config)) = set.set_target()
-                    && let Some(path) = set_config
-                        .config_parameter_ref()
-                        .and_then(|config_parameter| config_parameter.path_ref())
-                {
                     // only want to check for `set lock_timeout = '1s'`, not `set foo.lock_timeout = '1s'`
-                    if path.qualifier().is_some() {
-                        continue;
-                    }
-                    if let Some(segment) = path.segment() {
-                        let name = segment.text();
-                        if name == "lock_timeout" {
-                            lock_timeout = ReportOnce::Present;
-                        } else if name == "statement_timeout" {
-                            stmt_timeout = ReportOnce::Present;
-                        }
+                    && let Some(segment) = set_config
+                        .config_parameter_ref()
+                        .and_then(|config_parameter| config_parameter.path_ref()?.unqualified_segment())
+                {
+                    let name = segment.text();
+                    if name == "lock_timeout" {
+                        lock_timeout = ReportOnce::Present;
+                    } else if name == "statement_timeout" {
+                        stmt_timeout = ReportOnce::Present;
                     }
                 }
             }

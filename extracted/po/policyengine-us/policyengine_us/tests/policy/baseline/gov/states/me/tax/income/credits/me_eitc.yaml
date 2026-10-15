@@ -1,0 +1,189 @@
+- name: Zero dollar federal EITC, no Maine EITC
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    people:
+      person1:
+        age: 10
+      person2:
+        age: 35
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        eitc: 0
+    households:
+      household:
+        members: [person1, person2]
+        state_code: ME
+  output:
+    me_eitc: 0
+
+- name: Outside of Maine, credit should be zero
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    people:
+      person1:
+        age: 10
+      person2:
+        age: 35
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        eitc: 500
+    households:
+      household:
+        members: [person1, person2]
+        state_code: NY
+  output:
+    me_eitc: 0
+
+- name: Federal EITC of $500 and no qualifying children, Maine EITC should be $250
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    people:
+      person1:
+        age: 33
+      person2:
+        age: 35
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        eitc: 500
+    households:
+      household:
+        members: [person1, person2]
+        state_code: ME
+  output:
+    me_eitc: 250
+
+- name: Federal EITC of $500 and has a qualifying child, Maine EITC should be $125
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    people:
+      person1:
+        age: 10
+      person2:
+        age: 35
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        eitc: 500
+    households:
+      household:
+        members: [person1, person2]
+        state_code: ME
+  output:
+    me_eitc: 125
+
+- name: Federal EITC of $500 and two qualifying children, Maine EITC should be $125 (same as one qualifying child)
+  period: 2022
+  absolute_error_margin: 0
+  input:
+    people:
+      person1:
+        age: 10
+      person2:
+        age: 10
+      person3:
+        age: 35
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        eitc: 500
+    households:
+      household:
+        members: [person1, person2, person3]
+        state_code: ME
+  output:
+    me_eitc: 125
+
+# 36 M.R.S. § 5219-S(5)-(6): childless filers aged 18-24 receive the Maine
+# EITC computed as if they qualified federally, even though federal § 32 bars
+# them on the minimum-age floor. Issue #8927; reported household from
+# PolicyEngine/policyengine-taxsim#1056 (TaxAct return shows $325 on 1040ME).
+- name: 2025 MFJ childless couple aged 23 and 24 gets the Maine expansion credit
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 23
+        employment_income: 10_476
+      spouse:
+        age: 24
+    tax_units:
+      tax_unit:
+        members: [head, spouse]
+    households:
+      household:
+        members: [head, spouse]
+        state_code: ME
+  output:
+    eitc: 0
+    me_pro_forma_childless_eitc: 649
+    me_eitc: 324.50
+
+- name: 2025 childless couple aged 25 and 26 unaffected (federal EITC path)
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 25
+        employment_income: 10_476
+      spouse:
+        age: 26
+    tax_units:
+      tax_unit:
+        members: [head, spouse]
+    households:
+      household:
+        members: [head, spouse]
+        state_code: ME
+  output:
+    eitc: 649
+    me_eitc: 324.50
+
+- name: 2025 childless single aged 17 below Maine floor gets no credit
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 17
+        employment_income: 8_000
+    tax_units:
+      tax_unit:
+        members: [head]
+    households:
+      household:
+        members: [head]
+        state_code: ME
+  output:
+    me_childless_eitc_age_eligible: false
+    me_eitc: 0
+
+- name: 2025 childless single aged 70 outside the expansion gets no credit
+  # Federal Sec. 32 already bars childless filers above age 64; Maine does not
+  # extend the upper bound, and 70 is outside the added 18-24 cohort.
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 70
+        employment_income: 8_000
+    tax_units:
+      tax_unit:
+        members: [head]
+    households:
+      household:
+        members: [head]
+        state_code: ME
+  output:
+    eitc: 0
+    me_childless_eitc_age_eligible: false
+    me_eitc: 0

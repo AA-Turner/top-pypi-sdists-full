@@ -6,11 +6,13 @@ import inspect
 import os
 import time
 
+import pydantic_ai
 import pytest
 from braintrust import logger, setup_pydantic_ai, traced
 from braintrust.integrations.test_utils import verify_autoinstrument_script
 from braintrust.span_types import SpanTypeAttribute
 from braintrust.test_helpers import init_test_logger
+from packaging.version import Version
 from pydantic import BaseModel
 from pydantic_ai import Agent, ModelSettings
 from pydantic_ai.messages import ModelRequest, UserPromptPart
@@ -21,6 +23,7 @@ PROJECT_NAME = "test-pydantic-ai-integration"
 MODEL = "openai:gpt-4o-mini"  # Use cheaper model for tests
 TEST_PROMPT = "What is 2+2? Answer with just the number."
 MAX_REASONABLE_TTFT_SECONDS = 30.0
+CONVERSATION_SUPPORTED = Version(pydantic_ai.__version__) >= Version("2.55.0")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -209,127 +212,61 @@ def test_audio_seconds_is_recorded_as_metadata():
     # pylint: enable=unsupported-membership-test,unsubscriptable-object
 
 
-@pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_direct_model_request_creates_nested_chat_span_without_class_scan(memory_logger, direct):
-    """Direct calls should resolve and wrap models via _prepare_model, not class scanning."""
-    assert not memory_logger.pop()
+@pytest.mark.parametrize(
+    "agent_kind",
+    [
+        pytest.param("configured", marks=pytest.mark.vcr(cassette_name="test_agent_run_async")),
+        pytest.param("runtime_model", marks=pytest.mark.vcr(cassette_name="test_no_model_agent_run")),
+        pytest.param("wrapper", marks=pytest.mark.vcr(cassette_name="test_wrapper_agent_run_is_traced")),
+    ],
+)
+async def test_agent_run_async(memory_logger, agent_kind):
+    """Configured, runtime-selected, and wrapped agents emit the same span tree.
 
-    messages = [ModelRequest(parts=[UserPromptPart(content=TEST_PROMPT)])]
+    Runtime model selection covers #1324; WrapperAgent exercises tracing inherited
+    from AbstractAgent rather than patched directly on Agent.
+    """
+    assert not memory_logger.pop()
+    run_kwargs = {}
+    if agent_kind == "runtime_model":
+        agent = Agent(model_settings=ModelSettings(max_tokens=50))
+        run_kwargs["model"] = MODEL
+    elif agent_kind == "wrapper":
+        from pydantic_ai.agent.wrapper import WrapperAgent
+
+        agent = WrapperAgent(Agent(MODEL, name="wrapped-agent", model_settings=ModelSettings(max_tokens=50)))
+    else:
+        agent = Agent(MODEL, model_settings=ModelSettings(max_tokens=50))
 
     start = time.time()
-    response = await direct.model_request(model=MODEL, messages=messages)
+    result = await agent.run(TEST_PROMPT, **run_kwargs)
     end = time.time()
-
-    assert response.parts
-    assert "4" in str(response.parts[0].content)
-
-    spans = memory_logger.pop()
-    assert len(spans) >= 2, f"Expected at least 2 spans (model_request + chat), got {len(spans)}"
-
-    direct_span = next((s for s in spans if s["span_attributes"]["name"] == "model_request"), None)
-    chat_span = next((s for s in spans if "chat" in s["span_attributes"]["name"]), None)
-
-    assert direct_span is not None, "model_request span not found"
-    assert chat_span is not None, "chat span not found"
-    assert direct_span["context"]["span_origin"]["instrumentation"]["name"] == "pydantic-ai-auto"
-    assert chat_span["span_parents"] == [direct_span["span_id"]]
-    assert chat_span["metadata"]["model"] == "gpt-4o-mini"
-    assert chat_span["metadata"]["provider"] == "openai"
-    _assert_metrics_are_valid(direct_span["metrics"], start, end)
-    _assert_metrics_are_valid(chat_span["metrics"], start, end)
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_agent_run_async(memory_logger):
-    """Test Agent.run() async method."""
-    assert not memory_logger.pop()
-
-    agent = Agent(MODEL, model_settings=ModelSettings(max_tokens=50))
-
-    start = time.time()
-    result = await agent.run(TEST_PROMPT)
-    end = time.time()
-
-    # Verify the result
-    assert result.output
     assert "4" in str(result.output)
 
-    # Check spans - should now have parent agent_run + nested chat span
     spans = memory_logger.pop()
-    assert len(spans) == 2, f"Expected 2 spans (agent_run + chat), got {len(spans)}"
-
-    # Find agent_run and chat spans
+    assert len(spans) == 2
     agent_span = _find_agent_span(spans)
-    chat_span = next((s for s in spans if "chat" in s["span_attributes"]["name"]), None)
-
-    assert agent_span is not None, "agent_run span not found"
-    assert chat_span is not None, "chat span not found"
-
-    # Check agent span
+    chat_span = next(span for span in spans if span["span_attributes"]["type"] == SpanTypeAttribute.LLM)
+    assert agent_span is not None
     assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
-    assert agent_span["metadata"]["model"] == "gpt-4o-mini"
-    assert agent_span["metadata"]["provider"] == "openai"
-    assert TEST_PROMPT in str(agent_span["input"])
+    if agent_kind == "wrapper":
+        assert agent_span["span_attributes"]["name"] == "agent_run [wrapped-agent]"
+    assert agent_span["input"]["user_prompt"] == TEST_PROMPT
     assert "4" in str(agent_span["output"])
-    _assert_metrics_are_valid(agent_span["metrics"], start, end)
+    assert chat_span["span_parents"] == [agent_span["span_id"]]
+    assert chat_span["span_attributes"]["name"].startswith("chat gpt-4o-mini")
+    for span in (agent_span, chat_span):
+        assert span["metadata"]["model"] == "gpt-4o-mini"
+        assert span["metadata"]["provider"] == "openai"
+        assert span["context"]["span_origin"]["instrumentation"]["name"] == "pydantic-ai-auto"
+        _assert_metrics_are_valid(span["metrics"], start, end)
 
-    # Check chat span is nested under agent span (use span_id, not id which is the row ID)
-    assert chat_span["span_parents"] == [agent_span["span_id"]], "chat span should be nested under agent_run"
-    assert chat_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
-    assert chat_span["span_attributes"]["name"].startswith("chat ")
-    assert "gpt-4o-mini" in chat_span["span_attributes"]["name"]
-    assert chat_span["metadata"]["model"] == "gpt-4o-mini"
-    assert chat_span["metadata"]["provider"] == "openai"
-    _assert_metrics_are_valid(chat_span["metrics"], start, end)
-
-    # Regression: wrapper agent_run span must NOT log token metrics. The leaf chat
-    # span already logs them, and trace-tree rollup (self + descendants) plus any
-    # unfiltered sum over metrics would otherwise double-count tokens/cost at the
-    # parent regardless of span type.
+    # Only the leaf LLM owns token metrics; parents would double-count rollups.
     for token_key in ("prompt_tokens", "completion_tokens", "tokens", "prompt_cached_tokens"):
-        assert token_key not in agent_span["metrics"], (
-            f"wrapper span must not log {token_key}; it duplicates the leaf chat span"
-        )
-
-    # Only the leaf chat span should be type=LLM, and it must own the token totals.
-    llm_spans = [s for s in spans if s["span_attributes"]["type"] == SpanTypeAttribute.LLM]
-    assert len(llm_spans) == 1, f"expected exactly one LLM-typed span, got {len(llm_spans)}"
-    assert llm_spans[0]["span_id"] == chat_span["span_id"]
+        assert token_key not in agent_span["metrics"]
     assert chat_span["metrics"]["prompt_tokens"] > 0
     assert chat_span["metrics"]["completion_tokens"] > 0
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_wrapper_agent_run_is_traced(memory_logger):
-    """WrapperAgent inherits AbstractAgent methods and should be traced by setup()."""
-    from pydantic_ai.agent.wrapper import WrapperAgent
-
-    assert not memory_logger.pop()
-
-    wrapped = WrapperAgent(Agent(MODEL, name="wrapped-agent", model_settings=ModelSettings(max_tokens=50)))
-
-    start = time.time()
-    result = await wrapped.run(TEST_PROMPT)
-    end = time.time()
-
-    assert result.output
-    assert "4" in str(result.output)
-
-    spans = memory_logger.pop()
-    assert len(spans) >= 2, f"Expected at least 2 spans (agent_run + chat), got {len(spans)}"
-
-    agent_span = _find_agent_span(spans)
-    chat_span = next((s for s in spans if "chat" in s["span_attributes"]["name"]), None)
-
-    assert agent_span is not None, "agent_run span not found"
-    assert chat_span is not None, "chat span not found"
-    assert agent_span["span_attributes"]["name"] == "agent_run [wrapped-agent]"
-    assert chat_span["span_parents"] == [agent_span["span_id"]]
-    _assert_metrics_are_valid(agent_span["metrics"], start, end)
-    _assert_metrics_are_valid(chat_span["metrics"], start, end)
 
 
 @pytest.mark.vcr
@@ -569,8 +506,9 @@ async def test_agent_run_stream(memory_logger):
     ttft = agent_span["metrics"]["time_to_first_token"]
     duration = agent_span["metrics"]["duration"]
 
-    # time_to_first_token should be reasonable: > 0 and < duration
-    assert ttft > 0, f"time_to_first_token should be > 0, got {ttft}"
+    # time_to_first_token should be reasonable: >= 0 and <= duration. VCR replay is near-instant
+    # and Windows clocks tick coarsely, so the first chunk can land in the same tick as start.
+    assert ttft >= 0, f"time_to_first_token should be >= 0, got {ttft}"
     assert ttft <= duration, f"time_to_first_token ({ttft}s) should be <= duration ({duration}s)"
     assert ttft < MAX_REASONABLE_TTFT_SECONDS, (
         f"time_to_first_token should be < {MAX_REASONABLE_TTFT_SECONDS}s for API call, got {ttft}s"
@@ -604,12 +542,10 @@ async def test_direct_model_request(memory_logger, direct):
 
     # Check spans
     spans = memory_logger.pop()
-    # Direct API calls may create 1 or 2 spans depending on model wrapping
-    assert len(spans) >= 1
-
-    # Find the direct API span
-    direct_span = next((s for s in spans if s["span_attributes"]["name"] == "model_request"), None)
-    assert direct_span is not None
+    # A custom subclass can emit both its own span and its base model's span.
+    assert len(spans) >= 2
+    direct_span = next(span for span in spans if span["span_attributes"]["name"] == "model_request")
+    assert direct_span["context"]["span_origin"]["instrumentation"]["name"] == "pydantic-ai-auto"
 
     assert direct_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert direct_span["metadata"]["model"] == "gpt-4o-mini"
@@ -687,6 +623,12 @@ async def test_direct_model_request_with_settings(memory_logger, direct):
 
     # Security invariant: `instrument` is telemetry-routing config, not user input.
     assert "instrument" not in direct_span["input"]
+    chat_span = next(span for span in spans if span["span_attributes"]["type"] == SpanTypeAttribute.LLM)
+    assert direct_span["context"]["span_origin"]["instrumentation"]["name"] == "pydantic-ai-auto"
+    assert chat_span["span_parents"] == [direct_span["span_id"]]
+    assert chat_span["metadata"]["model"] == "gpt-4o-mini"
+    assert chat_span["metadata"]["provider"] == "openai"
+    _assert_metrics_are_valid(chat_span["metrics"], start, end)
 
     assert direct_span["metadata"]["model"] == "gpt-4o-mini"
     assert direct_span["metadata"]["provider"] == "openai"
@@ -697,7 +639,8 @@ async def test_direct_model_request_with_settings(memory_logger, direct):
 @pytest.mark.vcr
 @pytest.mark.asyncio
 async def test_direct_model_request_stream(memory_logger, direct):
-    """Test direct API model_request_stream() - verifies time_to_first_token is captured."""
+    """Test direct API model_request_stream() - verifies time_to_first_token is captured
+    and that all text is surfaced, including the first chunk from PartStartEvent."""
     assert not memory_logger.pop()
 
     model, customization_calls = _model_with_customization_counter()
@@ -705,14 +648,30 @@ async def test_direct_model_request_stream(memory_logger, direct):
 
     start = time.time()
     chunk_count = 0
+    collected_text = ""
+    seen_delta = False
     async with direct.model_request_stream(model=model, messages=messages) as stream:
         async for chunk in stream:
             chunk_count += 1
+            # Extract text, skipping final PartStartEvent after deltas
+            if hasattr(chunk, "part") and hasattr(chunk.part, "content") and not seen_delta:
+                # PartStartEvent has part.content with initial text
+                collected_text += str(chunk.part.content)
+            elif hasattr(chunk, "delta") and chunk.delta:
+                seen_delta = True
+                # PartDeltaEvent has delta.content_delta
+                if hasattr(chunk.delta, "content_delta") and chunk.delta.content_delta:
+                    collected_text += chunk.delta.content_delta
     end = time.time()
 
     # Verify we got chunks and tracing did not rerun request customization.
     assert chunk_count > 0
     assert len(customization_calls) == 1
+
+    # Verify we got complete output including the first chunk ("1")
+    assert "1" in collected_text
+    assert "2" in collected_text
+    assert "3" in collected_text
 
     # Check spans
     spans = memory_logger.pop()
@@ -734,8 +693,9 @@ async def test_direct_model_request_stream(memory_logger, direct):
     ttft = direct_span["metrics"]["time_to_first_token"]
     duration = direct_span["metrics"]["duration"]
 
-    # time_to_first_token should be reasonable: > 0 and < duration
-    assert ttft > 0, f"time_to_first_token should be > 0, got {ttft}"
+    # time_to_first_token should be reasonable: >= 0 and <= duration. VCR replay is near-instant
+    # and Windows clocks tick coarsely, so the first chunk can land in the same tick as start.
+    assert ttft >= 0, f"time_to_first_token should be >= 0, got {ttft}"
     assert ttft <= duration, f"time_to_first_token ({ttft}s) should be <= duration ({duration}s)"
     assert ttft < MAX_REASONABLE_TTFT_SECONDS, (
         f"time_to_first_token should be < {MAX_REASONABLE_TTFT_SECONDS}s for API call, got {ttft}s"
@@ -749,38 +709,6 @@ async def test_direct_model_request_stream(memory_logger, direct):
         assert token_key not in direct_span["metrics"], (
             f"wrapper span must not log {token_key}; it duplicates the leaf chat span"
         )
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_direct_model_request_stream_complete_output(memory_logger, direct):
-    """Test that direct API streaming captures all text including first chunk from PartStartEvent."""
-    assert not memory_logger.pop()
-
-    messages = [ModelRequest(parts=[UserPromptPart(content="Say exactly: 1, 2, 3")])]
-
-    collected_text = ""
-    seen_delta = False
-    async with direct.model_request_stream(model=MODEL, messages=messages) as stream:
-        async for chunk in stream:
-            # Extract text, skipping final PartStartEvent after deltas
-            if hasattr(chunk, "part") and hasattr(chunk.part, "content") and not seen_delta:
-                # PartStartEvent has part.content with initial text
-                collected_text += str(chunk.part.content)
-            elif hasattr(chunk, "delta") and chunk.delta:
-                seen_delta = True
-                # PartDeltaEvent has delta.content_delta
-                if hasattr(chunk.delta, "content_delta") and chunk.delta.content_delta:
-                    collected_text += chunk.delta.content_delta
-
-    # Verify we got complete output including "1"
-    assert "1" in collected_text
-    assert "2" in collected_text
-    assert "3" in collected_text
-
-    # Check spans were created
-    spans = memory_logger.pop()
-    assert len(spans) >= 1
 
 
 @pytest.mark.vcr
@@ -850,97 +778,57 @@ async def test_agent_structured_output(memory_logger):
     assert chat_span["metrics"]["completion_tokens"] > 0
 
 
-@pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_agent_with_model_settings_in_metadata(memory_logger):
-    """Test that model_settings from agent config appears in metadata, not input."""
-    assert not memory_logger.pop()
+@pytest.mark.parametrize(
+    "settings_source",
+    [
+        pytest.param("agent", marks=pytest.mark.vcr(cassette_name="test_agent_with_model_settings_in_metadata")),
+        pytest.param("run", marks=pytest.mark.vcr(cassette_name="test_agent_with_model_settings_override_in_input")),
+    ],
+)
+async def test_agent_model_settings(memory_logger, settings_source):
+    """Agent defaults go in metadata; run overrides go in input and reach the model."""
+    from pydantic_ai.usage import RunUsage
 
-    custom_settings = ModelSettings(max_tokens=100, temperature=0.5)
-    agent = Agent(MODEL, model_settings=custom_settings)
+    assert not memory_logger.pop()
+    run_kwargs = {}
+    if settings_source == "run":
+        agent = Agent(MODEL, model_settings=ModelSettings(max_tokens=50))
+        settings = ModelSettings(max_tokens=200, temperature=0.9)
+        prompt = "Tell me a story"
+        run_kwargs = {"model_settings": settings, "infer_name": False, "usage": RunUsage()}
+    else:
+        settings = ModelSettings(max_tokens=100, temperature=0.5)
+        agent = Agent(MODEL, model_settings=settings)
+        prompt = "Say hello"
 
     start = time.time()
-    result = await agent.run("Say hello")
+    result = await agent.run(prompt, **run_kwargs)
     end = time.time()
-
     assert result.output
 
-    # Check spans
     spans = memory_logger.pop()
-    assert len(spans) == 2, f"Expected 2 spans (agent_run + chat), got {len(spans)}"
-
-    # Find agent_run and chat spans
+    assert len(spans) == 2
     agent_span = _find_agent_span(spans)
-    chat_span = next((s for s in spans if "chat" in s["span_attributes"]["name"]), None)
+    chat_span = next(span for span in spans if span["span_attributes"]["type"] == SpanTypeAttribute.LLM)
+    assert agent_span is not None
+    if settings_source == "run":
+        assert agent_span["input"]["model_settings"] == settings
+        assert "model_settings" not in agent_span["metadata"]
+    else:
+        assert agent_span["metadata"]["model_settings"] == settings
+        assert "model_settings" not in agent_span["input"]
+    assert "infer_name" not in agent_span["input"]
+    assert "usage" not in agent_span["input"]
 
-    assert agent_span is not None, "agent_run span not found"
-    assert chat_span is not None, "chat span not found"
-
-    # Verify model_settings is in agent METADATA (not input, since it's agent config)
-    assert "model_settings" in agent_span["metadata"], "model_settings should be in agent_run metadata"
-    agent_settings = agent_span["metadata"]["model_settings"]
-    assert agent_settings["max_tokens"] == 100
-    assert agent_settings["temperature"] == 0.5
-
-    # Verify model_settings is NOT in agent input (it wasn't passed to run())
-    assert "model_settings" not in agent_span["input"], (
-        "model_settings should NOT be in agent_run input when not passed to run()"
-    )
-
-    # Verify model_settings is in chat input (passed to the model)
-    assert "model_settings" in chat_span["input"], "model_settings should be in chat span input"
-    chat_settings = chat_span["input"]["model_settings"]
-    assert chat_settings["max_tokens"] == 100
-    assert chat_settings["temperature"] == 0.5
-
-    assert chat_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
-    invocation_params = chat_span["metadata"]["invocation_params"]
-    assert invocation_params["max_tokens"] == 100
-    assert invocation_params["temperature"] == 0.5
-
-    assert "model_settings" not in chat_span["metadata"], "model_settings should NOT be in chat span metadata"
-
-    assert chat_span["metadata"]["model"] == "gpt-4o-mini"
-    assert chat_span["metadata"]["provider"] == "openai"
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_agent_with_model_settings_override_in_input(memory_logger):
-    """Test that model_settings passed to run() appears in input, not metadata."""
-    assert not memory_logger.pop()
-
-    # Agent has default settings
-    default_settings = ModelSettings(max_tokens=50)
-    agent = Agent(MODEL, model_settings=default_settings)
-
-    # Override with different settings in run() call
-    override_settings = ModelSettings(max_tokens=200, temperature=0.9)
-
-    start = time.time()
-    result = await agent.run("Tell me a story", model_settings=override_settings)
-    end = time.time()
-
-    assert result.output
-
-    # Check spans
-    spans = memory_logger.pop()
-    assert len(spans) == 2, f"Expected 2 spans (agent_run + chat), got {len(spans)}"
-
-    # Find agent_run span
-    agent_span = _find_agent_span(spans)
-    assert agent_span is not None, "agent_run span not found"
-
-    # Verify override settings are in agent INPUT (because they were passed to run())
-    assert "model_settings" in agent_span["input"], "model_settings should be in agent_run input when passed to run()"
-    input_settings = agent_span["input"]["model_settings"]
-    assert input_settings["max_tokens"] == 200, "Should use override settings from run() call"
-    assert input_settings["temperature"] == 0.9
-
-    # Verify agent default settings are NOT in metadata (when overridden in input, we don't duplicate in metadata)
-    assert "model_settings" not in agent_span["metadata"], (
-        "model_settings should NOT be in metadata when explicitly passed to run()"
-    )
+    assert chat_span["input"]["model_settings"] == settings
+    assert chat_span["metadata"]["invocation_params"] == settings
+    assert "model_settings" not in chat_span["metadata"]
+    assert chat_span["span_parents"] == [agent_span["span_id"]]
+    for span in (agent_span, chat_span):
+        assert span["metadata"]["model"] == "gpt-4o-mini"
+        assert span["metadata"]["provider"] == "openai"
+        _assert_metrics_are_valid(span["metrics"], start, end)
 
 
 @pytest.mark.vcr
@@ -1014,83 +902,6 @@ async def test_agent_with_instructions_and_dynamic_system_prompt(memory_logger):
 
 
 @pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_agent_with_message_history(memory_logger):
-    """Test Agent with conversation history."""
-    assert not memory_logger.pop()
-
-    agent = Agent(MODEL, model_settings=ModelSettings(max_tokens=100))
-
-    # First message
-    result1 = await agent.run("My name is Alice")
-    assert result1.output
-    memory_logger.pop()  # Clear first span
-
-    # Second message with history
-    start = time.time()
-    result2 = await agent.run("What is my name?", message_history=result1.all_messages())
-    end = time.time()
-
-    # Verify it remembers
-    assert "Alice" in str(result2.output)
-
-    # Check spans - should now have parent agent_run + nested chat span
-    spans = memory_logger.pop()
-    assert len(spans) == 2, f"Expected 2 spans (agent_run + chat), got {len(spans)}"
-
-    # Find agent_run and chat spans
-    agent_span = _find_agent_span(spans)
-
-    assert agent_span is not None, "agent_run span not found"
-    assert "message_history" in str(agent_span["input"])
-    assert "Alice" in str(agent_span["output"])
-    _assert_metrics_are_valid(agent_span["metrics"], start, end)
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_agent_with_custom_settings(memory_logger):
-    """Test Agent with custom model settings, and that non-allowlisted kwargs
-    (`infer_name`, `usage`) do not leak into span input."""
-    from pydantic_ai.usage import RunUsage
-
-    assert not memory_logger.pop()
-
-    agent = Agent(MODEL)
-
-    start = time.time()
-    result = await agent.run(
-        "Say hello",
-        model_settings=ModelSettings(max_tokens=20, temperature=0.5, top_p=0.9),
-        # Neither affects the outbound HTTP request; both must be dropped from span input.
-        infer_name=False,
-        usage=RunUsage(),
-    )
-    end = time.time()
-
-    assert result.output
-
-    spans = memory_logger.pop()
-    assert len(spans) >= 2, f"Expected at least 2 spans (agent_run + chat), got {len(spans)}"
-
-    agent_span = _find_agent_span(spans)
-    assert agent_span is not None, "agent_run span not found"
-
-    # Model settings passed to run() should be in input (not metadata)
-    assert "model_settings" in agent_span["input"]
-    settings = agent_span["input"]["model_settings"]
-    assert settings["max_tokens"] == 20
-    assert settings["temperature"] == 0.5
-    assert settings["top_p"] == 0.9
-
-    # Security invariant: non-allowlisted kwargs must not leak into span input.
-    assert "infer_name" not in agent_span["input"]
-    assert "usage" not in agent_span["input"]
-
-    _assert_metrics_are_valid(agent_span["metrics"], start, end)
-
-
-@pytest.mark.vcr
 def test_agent_run_stream_sync(memory_logger):
     """Test Agent.run_stream_sync() synchronous streaming method - verifies time_to_first_token."""
     assert not memory_logger.pop()
@@ -1132,8 +943,9 @@ def test_agent_run_stream_sync(memory_logger):
     ttft = agent_span["metrics"]["time_to_first_token"]
     duration = agent_span["metrics"]["duration"]
 
-    # time_to_first_token should be reasonable: > 0 and < duration
-    assert ttft > 0, f"time_to_first_token should be > 0, got {ttft}"
+    # time_to_first_token should be reasonable: >= 0 and <= duration. VCR replay is near-instant
+    # and Windows clocks tick coarsely, so the first chunk can land in the same tick as start.
+    assert ttft >= 0, f"time_to_first_token should be >= 0, got {ttft}"
     assert ttft <= duration, f"time_to_first_token ({ttft}s) should be <= duration ({duration}s)"
     assert ttft < MAX_REASONABLE_TTFT_SECONDS, (
         f"time_to_first_token should be < {MAX_REASONABLE_TTFT_SECONDS}s for API call, got {ttft}s"
@@ -1267,8 +1079,9 @@ def test_direct_model_request_stream_sync(memory_logger, direct):
     ttft = span["metrics"]["time_to_first_token"]
     duration = span["metrics"]["duration"]
 
-    # time_to_first_token should be reasonable: > 0 and < duration
-    assert ttft > 0, f"time_to_first_token should be > 0, got {ttft}"
+    # time_to_first_token should be reasonable: >= 0 and <= duration. VCR replay is near-instant
+    # and Windows clocks tick coarsely, so the first chunk can land in the same tick as start.
+    assert ttft >= 0, f"time_to_first_token should be >= 0, got {ttft}"
     assert ttft <= duration, f"time_to_first_token ({ttft}s) should be <= duration ({duration}s)"
     assert ttft < MAX_REASONABLE_TTFT_SECONDS, (
         f"time_to_first_token should be < {MAX_REASONABLE_TTFT_SECONDS}s for API call, got {ttft}s"
@@ -1362,14 +1175,10 @@ async def test_agent_stream_early_break(memory_logger):
     spans = memory_logger.pop()
     assert len(spans) >= 1, f"Expected at least 1 span, got {len(spans)}"
 
-    # Find agent_run_stream span (if created)
     agent_span = next((s for s in spans if "agent_run_stream" in s["span_attributes"]["name"]), None)
-
-    # Verify at least agent_run_stream span exists and has basic structure
-    if agent_span:
-        assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
-        # Metrics may be incomplete due to early break
-        assert "start" in agent_span["metrics"]
+    assert agent_span is not None, "agent_run_stream span should survive an early break"
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
+    _assert_metrics_are_valid(agent_span["metrics"], start, end)
 
 
 @pytest.mark.vcr
@@ -1520,10 +1329,24 @@ async def test_agent_stream_buffer_pattern_early_return(memory_logger):
     assert "start" in agent_span["metrics"]
 
 
+# Small test image (1x1 PNG)
+_TINY_PNG = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+# Minimal PDF (this is a valid but minimal PDF structure)
+_TINY_PDF = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R>>endobj 4 0 obj<</Length 44>>stream\nBT /F1 12 Tf 100 700 Td (Test Document) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\n0000000214 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n307\n%%EOF"
+
+
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_agent_with_binary_content(memory_logger):
-    """Test that agents with binary content (images) work correctly.
+@pytest.mark.parametrize(
+    "data,media_type,prompt,max_tokens",
+    [
+        (_TINY_PNG, "image/png", "What color is this image?", 50),
+        (_TINY_PDF, "application/pdf", "What is in this document?", 150),
+    ],
+    ids=["image", "pdf"],
+)
+async def test_agent_with_binary_input(memory_logger, data, media_type, prompt, max_tokens):
+    """Test that agents with binary input (images, PDFs) work correctly.
 
     Verifies that BinaryContent is properly converted to Braintrust attachments
     in both the agent_run span (parent) and chat span (child).
@@ -1532,16 +1355,13 @@ async def test_agent_with_binary_content(memory_logger):
 
     assert not memory_logger.pop()
 
-    # Use a small test image (1x1 PNG)
-    image_data = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-
-    agent = Agent(MODEL, model_settings=ModelSettings(max_tokens=50))
+    agent = Agent(MODEL, model_settings=ModelSettings(max_tokens=max_tokens))
 
     start = time.time()
     result = await agent.run(
         [
-            BinaryContent(data=image_data, media_type="image/png"),
-            "What color is this image?",
+            BinaryContent(data=data, media_type=media_type),
+            prompt,
         ]
     )
     end = time.time()
@@ -1565,79 +1385,21 @@ async def test_agent_with_binary_content(memory_logger):
     assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     _assert_metrics_are_valid(agent_span["metrics"], start, end)
+    _assert_metrics_are_valid(chat_span["metrics"], start, end)
 
     # CRITICAL: Verify that BOTH spans properly serialize BinaryContent to attachments
     # Verify agent_run span has attachment
-    agent_has_attachment = _has_binary_attachment(agent_span.get("input", {}))
-    assert agent_has_attachment, (
+    assert _has_binary_attachment(agent_span.get("input", {}), media_type), (
         "agent_run span should have BinaryContent converted to Braintrust Attachment. "
         f"Input: {agent_span.get('input', {})}"
     )
 
     # Verify chat span has attachment (this is the key test for the bug)
-    chat_has_attachment = _has_binary_attachment(chat_span.get("input", {}))
-    assert chat_has_attachment, (
+    assert _has_binary_attachment(chat_span.get("input", {}), media_type), (
         "chat span should have BinaryContent converted to Braintrust Attachment. "
         "The child span should process attachments the same way as the parent. "
         f"Input: {chat_span.get('input', {})}"
     )
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_agent_with_document_input(memory_logger):
-    """Test that agents with document input (PDF) properly serialize attachments.
-
-    Verifies that both agent_run and chat spans convert BinaryContent to Braintrust
-    attachments for document files like PDFs.
-    """
-    from pydantic_ai.models.function import BinaryContent
-
-    assert not memory_logger.pop()
-
-    # Create a minimal PDF (this is a valid but minimal PDF structure)
-    pdf_data = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R>>endobj 4 0 obj<</Length 44>>stream\nBT /F1 12 Tf 100 700 Td (Test Document) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\n0000000214 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n307\n%%EOF"
-
-    agent = Agent(MODEL, model_settings=ModelSettings(max_tokens=150))
-
-    start = time.time()
-    result = await agent.run(
-        [
-            BinaryContent(data=pdf_data, media_type="application/pdf"),
-            "What is in this document?",
-        ]
-    )
-    end = time.time()
-
-    assert result.output
-    assert isinstance(result.output, str)
-
-    # Check spans
-    spans = memory_logger.pop()
-    assert len(spans) >= 2, f"Expected at least 2 spans (agent_run + chat), got {len(spans)}"
-
-    # Find spans
-    agent_span = _find_agent_span(spans)
-    chat_span = next((s for s in spans if "chat" in s["span_attributes"]["name"]), None)
-
-    assert agent_span is not None, "agent_run span not found"
-    assert chat_span is not None, "chat span not found"
-
-    # Verify agent_run span has PDF attachment
-    assert _has_binary_attachment(agent_span.get("input", {}), "application/pdf"), (
-        "agent_run span should have PDF BinaryContent converted to Braintrust Attachment"
-    )
-
-    # Verify chat span has PDF attachment (critical for document input)
-    assert _has_binary_attachment(chat_span.get("input", {}), "application/pdf"), (
-        "chat span should have PDF BinaryContent converted to Braintrust Attachment. "
-        "This ensures documents are properly traced in the low-level model call. "
-        f"Chat span input: {chat_span.get('input', {})}"
-    )
-
-    # Verify metrics
-    _assert_metrics_are_valid(agent_span["metrics"], start, end)
-    _assert_metrics_are_valid(chat_span["metrics"], start, end)
 
 
 @pytest.mark.vcr
@@ -1880,6 +1642,12 @@ def test_agent_tool_metadata_extraction(memory_logger):
         """Search the database."""
         return "Results"
 
+    # Tool registered under a custom name (differs from the function name)
+    @agent.tool_plain(name="custom_calculator")
+    def calc(a: int, b: int) -> int:
+        """Add two numbers."""
+        return a + b
+
     # Extract metadata using the actual function signature
     args = ("Test prompt",)
     kwargs = {}
@@ -1907,13 +1675,15 @@ def test_agent_tool_metadata_extraction(memory_logger):
     # Verify all tools are present with FULL SCHEMAS
     tools = agent_toolset["tools"]
     assert isinstance(tools, list), "tools should be a list"
-    assert len(tools) == 3, f"Should have exactly 3 tools, got {len(tools)}"
+    assert len(tools) == 4, f"Should have exactly 4 tools, got {len(tools)}"
 
     # Check each tool has full schema information
     tool_names = [t["name"] for t in tools]
     assert "calculate" in tool_names, f"calculate tool should be present, got: {tool_names}"
     assert "get_weather" in tool_names, f"get_weather tool should be present, got: {tool_names}"
     assert "search_database" in tool_names, f"search_database tool should be present, got: {tool_names}"
+    assert "custom_calculator" in tool_names, f"Should use custom tool name, got: {tool_names}"
+    assert "calc" not in tool_names, f"Should not use the function name for a custom-named tool, got: {tool_names}"
 
     # Verify calculate tool has full schema
     calculate_tool = next(t for t in tools if t["name"] == "calculate")
@@ -1937,41 +1707,6 @@ def test_agent_tool_metadata_extraction(memory_logger):
     assert "limit" in search_params["properties"]
     # 'query' should be required, 'limit' should be optional (has default)
     assert "query" in search_params.get("required", [])
-
-
-def test_agent_tool_with_custom_name():
-    """Test that tools with custom names are properly extracted with schemas in input."""
-    from braintrust.integrations.pydantic_ai.tracing import _build_agent_input_and_metadata
-
-    agent = Agent(MODEL)
-
-    # Add tool with custom name
-    @agent.tool_plain(name="custom_calculator")
-    def calc(a: int, b: int) -> int:
-        """Add two numbers."""
-        return a + b
-
-    args = ("Test",)
-    kwargs = {}
-    input_data, metadata = _build_agent_input_and_metadata(args, kwargs, agent)
-
-    # Verify custom name is used in input (not metadata)
-    assert "toolsets" in input_data
-    assert "toolsets" not in metadata, "toolsets should not be in metadata"
-
-    agent_toolset = next((ts for ts in input_data["toolsets"] if ts.get("id") == "<agent>"), None)
-    assert agent_toolset is not None
-    tools = agent_toolset.get("tools", [])
-
-    # The tool should be a dict with schema info
-    assert len(tools) == 1, f"Should have 1 tool, got {len(tools)}"
-    tool = tools[0]
-    assert isinstance(tool, dict), "Tool should be a dict with schema"
-    assert tool["name"] == "custom_calculator", f"Should use custom name, got: {tool.get('name')}"
-    assert "description" in tool, "Tool should have description"
-    assert "parameters" in tool, "Tool should have parameters schema"
-    assert "a" in tool["parameters"]["properties"]
-    assert "b" in tool["parameters"]["properties"]
 
 
 @pytest.mark.vcr(match_on=["method", "scheme", "host", "port", "path"])
@@ -2018,10 +1753,31 @@ async def test_agent_run_anthropic_reasoning_tokens(memory_logger):
     # pylint: enable=unsupported-membership-test,unsubscriptable-object
 
 
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_agent_run_openai_web_search_usage(memory_logger):
+    """Capture native web-search usage reported in RequestUsage.details."""
+    if os.environ.get("BRAINTRUST_TEST_PACKAGE_VERSION") != "latest":
+        pytest.skip("Native web search usage is covered by the latest pydantic-ai cassette")
+
+    from pydantic_ai.capabilities import NativeTool
+    from pydantic_ai.native_tools import WebSearchTool
+
+    agent = Agent("openai-responses:gpt-4.1-mini", capabilities=[NativeTool(WebSearchTool())])
+    result = await agent.run("Search the web for the current weather in Paris and answer in one sentence.")
+    assert result.output
+
+    spans = memory_logger.pop()
+    chat_span = next((s for s in spans if "chat" in s["span_attributes"]["name"]), None)
+    assert chat_span is not None, "chat span not found"
+    # pylint: disable=unsupported-membership-test,unsubscriptable-object
+    assert chat_span["metadata"]["pydantic_ai_usage"]["web_search_requests"] > 0
+    # pylint: enable=unsupported-membership-test,unsubscriptable-object
+
+
 @pytest.mark.parametrize(
     "details_key",
     [
-        "reasoning_tokens",  # OpenAI
         "thinking_tokens",  # Anthropic
         "thoughts_tokens",  # Google
     ],
@@ -2030,7 +1786,8 @@ def test_reasoning_tokens_extraction_provider_keys(details_key):
     """pydantic_ai stashes the reasoning-token count under a provider-specific key:
     OpenAI "reasoning_tokens", Anthropic "thinking_tokens", Google "thoughts_tokens".
     All three must surface as `completion_reasoning_tokens` (previously only OpenAI's
-    key was read, silently dropping Anthropic/Google reasoning).
+    key was read, silently dropping Anthropic/Google reasoning). OpenAI's key is
+    covered by `test_extract_response_metrics_leaf_fields`.
     """
     from types import SimpleNamespace
 
@@ -2045,8 +1802,6 @@ def test_reasoning_tokens_extraction_provider_keys(details_key):
     assert metrics is not None
     # pylint: disable=unsupported-membership-test,unsubscriptable-object
     assert metrics["completion_reasoning_tokens"] == 128.0
-    # pylint: enable=unsupported-membership-test,unsubscriptable-object
-
     # pylint: enable=unsupported-membership-test,unsubscriptable-object
 
 
@@ -2201,21 +1956,6 @@ def test_v2_model_provider_inference():
     assert _extract_model_info_from_model_instance(xai_model) == ("grok-2", "xai")
 
 
-def test_model_classes_patcher_marker_check_is_mro_safe():
-    from braintrust.integrations.pydantic_ai.patchers import ModelClassesPatcher
-
-    class WrapperModel:
-        pass
-
-    class InstrumentedModel(WrapperModel):
-        pass
-
-    ModelClassesPatcher.mark_patched(WrapperModel)
-
-    assert ModelClassesPatcher.has_patch_marker(WrapperModel) is True
-    assert ModelClassesPatcher.has_patch_marker(InstrumentedModel) is False
-
-
 def test_wrap_model_class_is_idempotent():
     from braintrust.integrations.pydantic_ai.patchers import ModelClassesPatcher, wrap_model_class
 
@@ -2270,98 +2010,6 @@ def test_setup_pydantic_ai_is_idempotent_across_new_patch_points():
     assert AbstractAgent.__dict__["run"] is run
     assert direct_module.__dict__["_prepare_model"] is prepare_model
     assert agent_graph_module.ToolManager.__dict__[tool_method_name] is tool_method
-
-
-def test_shape_messages_with_binary_content():
-    """Unit test to verify _shape_messages handles ModelRequest with BinaryContent in parts.
-
-    This tests the full message shaping path that's used for the chat span,
-    ensuring that nested BinaryContent in UserPromptPart is properly converted.
-    """
-    from braintrust.integrations.pydantic_ai.tracing import _shape_messages
-    from braintrust.logger import Attachment
-    from pydantic_ai.messages import ModelRequest, UserPromptPart
-    from pydantic_ai.models.function import BinaryContent
-
-    # Create a ModelRequest with UserPromptPart containing BinaryContent
-    pdf_data = b"%PDF-1.4 test document content"
-    binary = BinaryContent(data=pdf_data, media_type="application/pdf")
-    user_prompt_part = UserPromptPart(content=[binary, "What is in this document?"])
-    model_request = ModelRequest(parts=[user_prompt_part])
-
-    # Shape the messages
-    messages = [model_request]
-    result = _shape_messages(messages)
-
-    # Verify structure
-    assert len(result) == 1, f"Should have 1 message, got {len(result)}"
-    msg = result[0]
-    assert "parts" in msg, f"Message should have 'parts'. Keys: {msg.keys()}"
-
-    parts = msg["parts"]
-    assert len(parts) == 1, f"Should have 1 part, got {len(parts)}"
-
-    part = parts[0]
-    assert isinstance(part, dict), f"Part should be dict, got {type(part)}"
-    assert "content" in part, f"Part should have 'content'. Keys: {part.keys()}"
-
-    content = part["content"]
-    assert isinstance(content, list), f"Content should be list, got {type(content)}"
-    assert len(content) == 2, f"Should have 2 content items, got {len(content)}"
-
-    # CRITICAL: First content item should be shaped BinaryContent with Attachment
-    binary_item = content[0]
-    assert isinstance(binary_item, dict), f"Binary item should be dict, got {type(binary_item)}"
-    assert binary_item.get("type") == "binary", f"Binary item should have type='binary'. Got: {binary_item}"
-    assert "attachment" in binary_item, f"Binary item should have 'attachment'. Keys: {binary_item.keys()}"
-    assert isinstance(binary_item["attachment"], Attachment), (
-        f"Should be Braintrust Attachment, got {type(binary_item.get('attachment'))}"
-    )
-    assert binary_item["media_type"] == "application/pdf"
-    assert binary_item["attachment"]._reference["content_type"] == "application/pdf"
-
-    # Second content item should be the string
-    assert content[1] == "What is in this document?"
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_no_model_agent_run(memory_logger):
-    """Agent created without a model should work when model is passed at runtime.
-
-    Reproduces https://github.com/braintrustdata/braintrust-sdk-python/issues/1324:
-    _ensure_model_wrapped() calls type(instance._model) without checking for None,
-    crashing with: AttributeError: type object 'NoneType' has no attribute 'request'
-    """
-    assert not memory_logger.pop()
-
-    agent = Agent(model_settings=ModelSettings(max_tokens=50))
-
-    start = time.time()
-    result = await agent.run(TEST_PROMPT, model=MODEL)
-    end = time.time()
-
-    assert result.output
-    assert "4" in str(result.output)
-
-    spans = memory_logger.pop()
-    assert len(spans) == 2, f"Expected 2 spans (agent_run + chat), got {len(spans)}"
-
-    agent_span = _find_agent_span(spans)
-    chat_span = next((s for s in spans if "chat" in s["span_attributes"]["name"]), None)
-
-    assert agent_span is not None, "agent_run span not found"
-    assert chat_span is not None, "chat span not found"
-
-    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.TASK
-    assert agent_span["metadata"]["model"] == "gpt-4o-mini"
-    assert agent_span["metadata"]["provider"] == "openai"
-    assert TEST_PROMPT in str(agent_span["input"])
-    assert "4" in str(agent_span["output"])
-
-    assert chat_span["span_parents"] == [agent_span["span_id"]]
-    assert chat_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
-    assert chat_span["metadata"]["model"] == "gpt-4o-mini"
 
 
 class TestAutoInstrumentPydanticAI:
@@ -2474,6 +2122,93 @@ def test_start_producer_wrapper_exception_does_not_double_invoke_producer():
         wrapper(wrapped, instance, (), {})
 
     assert instance.call_count == 1
+
+
+def _assert_conversation_input(spans, conversation, output, method):
+    agent_spans = [span for span in spans if span["span_attributes"]["name"].startswith("agent_run")]
+    assert any(span["span_attributes"]["name"] == f"agent_{method} [conversation-agent]" for span in agent_spans)
+    for span in agent_spans:
+        assert span["span_attributes"]["type"] == SpanTypeAttribute.TASK
+        assert span["context"]["span_origin"]["instrumentation"]["name"] == "pydantic-ai-auto"
+        assert span["input"]["user_prompt"] == "What is my name? Answer with just the name."
+        captured = span["input"]
+        assert "conversation" not in captured
+        assert captured["conversation_id"] == conversation.conversation_id
+        assert len(captured["message_history"]) == len(conversation.messages) == 2
+        assert captured["message_history"][0]["parts"][0]["content"] == "My name is Ada. Reply with just my name."
+        assert captured["message_history"][1]["parts"][0]["content"] == conversation.messages[1].parts[0].content
+
+    assert "Ada" in output
+    chat_span = next(span for span in spans if span["span_attributes"]["name"].startswith("chat "))
+    assert chat_span["metadata"]["model"] == "gpt-4o-mini"
+    assert chat_span["metadata"]["provider"] == "openai"
+    assert chat_span["metrics"]["prompt_tokens"] > 0
+    assert chat_span["metrics"]["completion_tokens"] > 0
+    span_by_id = {span["span_id"]: span for span in spans}
+    assert all(_is_descendant(span_by_id, chat_span, span["span_id"]) for span in agent_spans)
+
+
+@pytest.mark.skipif(not CONVERSATION_SUPPORTED, reason="conversation= requires pydantic-ai >= 2.55.0")
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "method",
+    [
+        pytest.param("run", marks=pytest.mark.vcr(cassette_name="test_agent_with_conversation")),
+        pytest.param("run_stream", marks=pytest.mark.vcr(cassette_name="test_agent_with_conversation_stream")),
+        pytest.param("run_stream_events", marks=pytest.mark.vcr(cassette_name="test_agent_with_conversation_stream")),
+    ],
+)
+async def test_agent_with_conversation(memory_logger, method):
+    """Conversation history is captured on every async agent wrapper span."""
+    # Python 3.10 lint uses an older SDK; the version gate excludes it at runtime.
+    # pylint: disable=unexpected-keyword-arg
+    agent = Agent(MODEL, name="conversation-agent", model_settings=ModelSettings(max_tokens=50))
+    first_result = await agent.run("My name is Ada. Reply with just my name.")
+    conversation = first_result.conversation
+    memory_logger.pop()
+    prompt = "What is my name? Answer with just the name."
+
+    if method == "run":
+        result = await agent.run(prompt, conversation=conversation)
+        output = result.output
+    elif method == "run_stream":
+        async with agent.run_stream(prompt, conversation=conversation) as result:
+            output = await result.get_output()
+    else:
+        async with agent.run_stream_events(prompt, conversation=conversation) as events:
+            async for event in events:
+                pass
+        output = events.result.output
+
+    _assert_conversation_input(memory_logger.pop(), conversation, output, method)
+
+
+@pytest.mark.skipif(not CONVERSATION_SUPPORTED, reason="conversation= requires pydantic-ai >= 2.55.0")
+@pytest.mark.parametrize(
+    "method",
+    [
+        pytest.param("run_sync", marks=pytest.mark.vcr(cassette_name="test_agent_with_conversation")),
+        pytest.param("run_stream_sync", marks=pytest.mark.vcr(cassette_name="test_agent_with_conversation_stream")),
+    ],
+)
+def test_agent_with_conversation_sync(memory_logger, method):
+    """Conversation history is captured on every sync agent wrapper span."""
+    # Python 3.10 lint uses an older SDK; the version gate excludes it at runtime.
+    # pylint: disable=unexpected-keyword-arg
+    agent = Agent(MODEL, name="conversation-agent", model_settings=ModelSettings(max_tokens=50))
+    first_result = agent.run_sync("My name is Ada. Reply with just my name.")
+    conversation = first_result.conversation
+    memory_logger.pop()
+    prompt = "What is my name? Answer with just the name."
+
+    if method == "run_sync":
+        result = agent.run_sync(prompt, conversation=conversation)
+        output = result.output
+    else:
+        result = agent.run_stream_sync(prompt, conversation=conversation)
+        output = "".join(result.stream_text(delta=True))
+
+    _assert_conversation_input(memory_logger.pop(), conversation, output, method)
 
 
 @pytest.mark.vcr

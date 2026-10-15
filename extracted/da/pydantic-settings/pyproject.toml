@@ -20,11 +20,11 @@ classifiers = [
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3 :: Only',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
     'Intended Audience :: Developers',
     'Intended Audience :: Information Technology',
     'Intended Audience :: System Administrators',
@@ -38,19 +38,22 @@ classifiers = [
     'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Internet',
 ]
-requires-python = '>=3.10'
+requires-python = '>=3.11'
 dependencies = [
     'pydantic>=2.7.0',
-    'python-dotenv>=0.21.0',
+    'python-dotenv>=1.2.2',
+    'typing-extensions>=4.0.0',
     'typing-inspection>=0.4.0',
 ]
 dynamic = ['version']
 
 [project.optional-dependencies]
 yaml = ["pyyaml>=6.0.1"]
-toml = ["tomli>=2.0.1"]
+# kept for backwards compatibility, `tomllib` is part of the standard library since Python 3.11
+toml = []
 azure-key-vault = ["azure-keyvault-secrets>=4.8.0", "azure-identity>=1.16.0"]
 aws-secrets-manager = ["boto3>=1.35.0"]
+aws-systems-manager = ["boto3>=1.35.0"]
 gcp-secret-manager = [
     "google-cloud-secret-manager>=2.23.1",
 ]
@@ -70,7 +73,7 @@ linting = [
     "pyyaml",
     "ruff",
     "types-pyyaml",
-    "types-boto3[secretsmanager]",
+    "types-boto3[secretsmanager,ssm]",
 ]
 testing = [
     "coverage[toml]",
@@ -78,7 +81,7 @@ testing = [
     "pytest-examples",
     "pytest-mock",
     "pytest-pretty",
-    "moto[secretsmanager]",
+    "moto[secretsmanager,ssm]",
     "diff-cover>=9.2.0",
     "chardet<6",
 ]
@@ -93,9 +96,13 @@ filterwarnings = [
 
 # https://coverage.readthedocs.io/en/latest/config.html#run
 [tool.coverage.run]
-include = [
-    "pydantic_settings/**/*.py",
-    "tests/**/*.py",
+# `source` rather than `include`: `include` only filters files that were imported during
+# the run, so a new module that nothing imports yet would be missing from the report
+# entirely and the 100% library gate in CI would still pass. `source` makes coverage
+# discover the packages, reporting such a module at 0%.
+source = [
+    "pydantic_settings",
+    "tests",
 ]
 branch = true
 
@@ -129,20 +136,27 @@ source = [
 
 [tool.ruff]
 line-length = 120
-target-version = 'py310'
+target-version = 'py311'
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
 
 [tool.ruff.lint]
-extend-select = ['Q', 'RUF100', 'C90', 'UP', 'I']
+extend-select = [
+    'Q', 'RUF100', 'C90', 'UP', 'I', 'B', 'RUF036',
+    # Rule sets the codebase already satisfies; selected to keep it that way.
+    'C4', 'PIE', 'PERF', 'ISC', 'ICN', 'LOG', 'G', 'INT', 'DTZ', 'YTT', 'ASYNC', 'FLY',
+    'FURB110', 'PTH201', 'RSE102', 'RUF043', 'RET',
+]
 ignore = [
-    # Defensive/fallback code in the settings sources intentionally catches broad
-    # exceptions (thread boundaries, best-effort docstring and secret lookups).
+    # Selecting `B` also matches the `BLE` prefix. Defensive/fallback code in the
+    # settings sources intentionally catches broad exceptions (thread boundaries,
+    # best-effort docstring and secret lookups).
     'BLE001',
     'S110',
-    # We target 3.10+ and use PEP 604/585 syntax without `from __future__ import
-    # annotations`; the future-annotations rules would fight that (and our docs).
+    # `pytest-examples` lints the docs snippets with its own (broader) rule set, which
+    # selects `FA`. We target 3.11+ and use PEP 604/585 syntax without `from __future__
+    # import annotations`, so these would fail every example in docs/index.md.
     'FA100',
     'FA102',
 ]
@@ -160,7 +174,7 @@ pydocstyle = { convention = 'google' }
 quote-style = 'single'
 
 [tool.mypy]
-python_version = '3.10'
+python_version = '3.11'
 show_error_codes = true
 follow_imports = 'silent'
 strict_optional = true

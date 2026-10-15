@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kolo
-Version: 3.6.0
+Version: 3.6.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
@@ -24,7 +24,6 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development
-Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Debuggers
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Software Development :: Testing

@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, Union
 
-# Add scripts/ to path for wheel_utils import
 sys.path.insert(0, str(Path(__file__).parent / "scripts"))
 
 from maturin import build_sdist as maturin_build_sdist
@@ -61,9 +60,7 @@ def build_editable(
         wheel_directory, config_settings, metadata_directory
     )
 
-    # For editable installs, the .pth file goes directly in the wheel root,
-    # not in .data/purelib/. maturin creates kolo.pth for src/ path, we add
-    # kolo1.pth separately for KOLO=1 auto-activation.
+    # Put kolo1.pth beside maturin’s kolo.pth in the wheel root; .data/purelib/ is wrong for editable installs.
     wheel_path = Path(wheel_directory) / wheel_name
     pth_source = Path("kolo1.pth")
 
@@ -100,21 +97,16 @@ def build_sdist(
     config_settings: Union[Dict[str, Any], None] = None,
 ) -> str:
     """Build sdist using maturin, then add our .pth file and wheel_utils."""
-    # First build the sdist with maturin
     sdist_name = maturin_build_sdist(sdist_directory, config_settings)
 
-    # Now we need to add the .pth file to the sdist
     sdist_path = Path(sdist_directory) / sdist_name
 
-    # Extract tarball, add file, rebuild
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
 
-        # Extract the sdist
         with tarfile.open(sdist_path, "r:gz") as tar:
             tar.extractall(temp_path)
 
-        # Find the extracted directory (should be kolo-{version})
         extracted_dirs = [d for d in temp_path.iterdir() if d.is_dir()]
         if not extracted_dirs:
             raise RuntimeError("No directory found in sdist")
@@ -122,7 +114,6 @@ def build_sdist(
             raise RuntimeError(f"Multiple directories found in sdist: {extracted_dirs}")
         extracted_dir = extracted_dirs[0]
 
-        # Copy kolo1.pth to the extracted directory
         pth_source = Path("kolo1.pth")
         if pth_source.exists():
             shutil.copy2(pth_source, extracted_dir / "kolo1.pth")
@@ -152,7 +143,6 @@ def build_sdist(
     return sdist_name
 
 
-# Re-export other required functions from maturin
 __all__ = [
     "build_wheel",
     "build_sdist",

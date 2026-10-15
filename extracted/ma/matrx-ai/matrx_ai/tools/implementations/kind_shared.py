@@ -450,6 +450,24 @@ def ctx_is_admin(ctx: ToolContext) -> bool:
         return False
 
 
+def asset_organization_id(kd: Any, ctx: ToolContext | None, *, system_job: bool = False) -> str | None:
+    """The organization a kind's teaching assets (generated skill, render block) are written to.
+
+    The RLS INSERT policy on ``skill.definition`` / ``agent.prompt_block`` lets a person
+    write into an organization only when they have access to it (platform admins and the
+    scheduler's admin lane excepted). A shape in the Matrx System org is therefore only
+    writable there from an admin lane; an ordinary owner/editor of such a shape (RLS already
+    let them edit the shape) gets the assets in THEIR OWN organization, never a refused
+    insert that leaves the shape live with no teaching assets. Every other shape keeps its
+    own organization."""
+    kd_org = getattr(kd, "organization_id", None)
+    if str(kd_org) != system_organization_id():
+        return str(kd_org) if kd_org else None
+    if system_job or (ctx is not None and ctx_is_admin(ctx)):
+        return str(kd_org)
+    return ctx_org_id(ctx) if ctx is not None else str(kd_org)
+
+
 def system_organization_id() -> str:
     """The Matrx System org — the one home of platform-owned rows. Read from
     matrx-orm (the canonical constant, session/fallback.py) so there is exactly

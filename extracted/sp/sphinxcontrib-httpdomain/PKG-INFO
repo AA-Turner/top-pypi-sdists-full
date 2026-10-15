@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinxcontrib-httpdomain
-Version: 2.2.0
+Version: 2.2.1
 Summary: Sphinx extension that provides domains for documenting HTTP and WebSocket APIs.
 Keywords: Sphinx,extension,documentation,contrib,HTTP,WebSocket,API,domain
 Author: Hong Minhee, Ash Berlin-Taylor
@@ -27,7 +27,7 @@ Requires-Dist: sphinx>=8.1.3
 Maintainer: Steve Piercy, Adam Turner
 Maintainer-email: Steve Piercy <spiercy@plone.org>
 Requires-Python: >=3.10
-Project-URL: Changelog, https://github.com/me/spam/blob/master/CHANGELOG.md
+Project-URL: Changelog, https://sphinxcontrib-httpdomain.readthedocs.io/en/stable/#changelog
 Project-URL: Documentation, https://sphinxcontrib-httpdomain.readthedocs.io/en/stable/
 Project-URL: Download, https://pypi.org/project/sphinxcontrib-httpdomain/
 Project-URL: Funding, https://github.com/sponsors/stevepiercy

@@ -14,6 +14,7 @@ from bitfab.assertion_categories import (
     AssertionCategory,
     AssertionCategorySummary,
 )
+from bitfab.categories import CategoriesClient, Category, CategorySummary
 from bitfab.client import (
     AllowedEnvVars,
     Bitfab,
@@ -201,6 +202,9 @@ __all__ = [
     "BitfabFunction",
     "CaptureWhen",
     "CapturedSpan",
+    "CategoriesClient",
+    "Category",
+    "CategorySummary",
     "CodeChangeFile",
     "CommitRef",
     "ConcurrencyPrimitive",

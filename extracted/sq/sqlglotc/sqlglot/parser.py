@@ -674,6 +674,7 @@ class Parser:
             TokenType.HEREDOC_STRING,
             TokenType.HEX_STRING,
             TokenType.IDENTIFIER,
+            TokenType.NATIONAL_RAW_STRING,
             TokenType.NATIONAL_STRING,
             TokenType.RAW_STRING,
             TokenType.STRING,
@@ -1201,9 +1202,10 @@ class Parser:
         TokenType.HEREDOC_STRING: lambda self, token: self.expression(
             exp.RawString(this=token.text), token
         ),
-        TokenType.NATIONAL_STRING: lambda self, token: self.expression(
-            exp.National(this=token.text), token
-        ),
+        **{
+            token_type: lambda self, token: self.expression(exp.National(this=token.text), token)
+            for token_type in (TokenType.NATIONAL_STRING, TokenType.NATIONAL_RAW_STRING)
+        },
         TokenType.RAW_STRING: lambda self, token: self.expression(
             exp.RawString(this=token.text), token
         ),
@@ -1541,6 +1543,9 @@ class Parser:
         "BUCKET",
         "TRUNCATE",
     }
+
+    # Kinds that can't be a constraint name, so `CONSTRAINT` directly followed by one is unnamed
+    RESERVED_CONSTRAINT_KINDS: t.ClassVar[set[str]] = set()
 
     NO_PAREN_FUNCTION_PARSERS: t.ClassVar = {
         "ANY": lambda self: self.expression(exp.Any(this=self._parse_bitwise())),
@@ -5190,6 +5195,12 @@ class Parser:
 
         if self.dialect.ALIAS_POST_TABLESAMPLE:
             this.set("sample", self._parse_table_sample())
+            if (
+                this.args.get("sample")
+                and self.dialect.ALIAS_POST_VERSION
+                and not this.args.get("version")
+            ):
+                this.set("version", self._parse_version())
 
         alias = self._parse_table_alias(alias_tokens=alias_tokens or self.TABLE_ALIAS_TOKENS)
         if alias:
@@ -5265,7 +5276,7 @@ class Parser:
         else:
             self._match_text_seq("AS", "OF")
             kind = "AS OF"
-            expression = self._parse_type()
+            expression = self._parse_bitwise()
 
         return self.expression(exp.Version(this=this, expression=expression, kind=kind))
 
@@ -7860,7 +7871,12 @@ class Parser:
         return None
 
     def _parse_column_constraint(self) -> exp.Expr | None:
-        this = self._parse_id_var() if self._match(TokenType.CONSTRAINT) else None
+        this = (
+            self._parse_id_var()
+            if self._match(TokenType.CONSTRAINT)
+            and not self._match_texts(self.RESERVED_CONSTRAINT_KINDS, advance=False)
+            else None
+        )
 
         procedure_option_follows = (
             self._match(TokenType.WITH, advance=False)
@@ -7890,7 +7906,9 @@ class Parser:
         return this
 
     def _parse_constraint(self) -> exp.Expr | None:
-        if not self._match(TokenType.CONSTRAINT):
+        if not self._match(TokenType.CONSTRAINT) or self._match_texts(
+            self.RESERVED_CONSTRAINT_KINDS, advance=False
+        ):
             return self._parse_unnamed_constraint(constraints=self.SCHEMA_UNNAMED_CONSTRAINTS)
 
         return self.expression(
@@ -9157,6 +9175,8 @@ class Parser:
         return self.expression(exp.Commit(chain=chain))
 
     def _parse_refresh(self) -> exp.Refresh | exp.Command:
+        start = self._prev
+
         if self._match_text_seq("EXTERNAL", "TABLE"):
             kind = "EXTERNAL TABLE"
         elif self._match(TokenType.TABLE):
@@ -9166,11 +9186,11 @@ class Parser:
         else:
             kind = ""
 
-        this = self._parse_string() or self._parse_table()
+        this = self._parse_string()
         if not kind and not isinstance(this, exp.Literal):
-            return self._parse_as_command(self._prev)
+            return self._parse_as_command(start)
 
-        return self.expression(exp.Refresh(this=this, kind=kind))
+        return self.expression(exp.Refresh(this=this or self._parse_table(), kind=kind))
 
     def _parse_column_def_with_exists(self):
         start = self._index
@@ -10624,17 +10644,17 @@ class Parser:
 
         return self.expression(exp_class(**kwargs))
 
-    def _parse_json_value(self) -> exp.JSONValue:
+    def _parse_json_value(self, json_path: bool = True) -> exp.JSONValue:
         this = self._parse_bitwise()
         self._match(TokenType.COMMA)
         path = self._parse_bitwise()
 
-        returning = self._match(TokenType.RETURNING) and self._parse_type()
+        returning = self._match(TokenType.RETURNING) and self._parse_types()
 
         return self.expression(
             exp.JSONValue(
                 this=this,
-                path=self.dialect.to_json_path(path),
+                path=self.dialect.to_json_path(path) if json_path else path,
                 returning=returning,
                 on_condition=self._parse_on_condition(),
             )

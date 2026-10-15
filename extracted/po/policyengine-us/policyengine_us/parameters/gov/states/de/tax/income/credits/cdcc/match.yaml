@@ -1,0 +1,23 @@
+description: Delaware matches up to this share of the federal Child and Dependent Care Credit.
+values:
+  # 50% of the federal credit; on the Delaware return since well before 2021
+  # (Del. Code tit. 30 § 1114). Dated to 2021 here to match the earliest year
+  # PolicyEngine models and the state_cdccs aggregate (taxsim #1188).
+  2021-01-01: 0.5
+metadata:
+  reference:
+    - title: Del. Code tit. 30 § 1114
+      href: https://delcode.delaware.gov/title30/c011/sc02/index.html#1114
+    - title: 2021 Delaware Individual Income Tax Return Line 30
+      href: https://revenuefiles.delaware.gov/2021/PIT-RES_TY21_2021-01_Instructions.pdf#page=9
+    - title: Delaware Individual Income Tax Return Line 30
+      href: https://revenuefiles.delaware.gov/2023/PIT-RES_TY23_2023-01_Instructions.pdf#page=9
+    - title: Delaware Individual Income Tax Return Line 30
+      href: https://revenuefiles.delaware.gov/2022/PIT-RES_TY22_2022-02_Instructions.pdf#page=9
+    - title: 2024 Delaware Individual Income Tax Return Line 31
+      href: https://revenuefiles.delaware.gov/2024/PIT_2024_Forms/PIT_Instructions/PIT-RES_TY24_2024-01_Instructions.pdf#page=9
+    - title: 2025 Delaware Individual Income Tax Return Instructions
+      href: https://revenuefiles.delaware.gov/2025/PITForms_Instructions/Instructions/PIT-RES_Instructions_2025-01.pdf#page=9
+  unit: /1
+  period: year
+  label: Delaware federal CDCC match

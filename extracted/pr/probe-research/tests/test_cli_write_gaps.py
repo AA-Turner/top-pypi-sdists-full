@@ -1062,6 +1062,78 @@ def test_experiment_set_edits_through_the_experiment_route(wired, capsys):
     assert experiment["question"] == "does warmup help?"
 
 
+def test_experiment_set_conclusion_reaches_the_patch(wired, capsys, tmp_path):
+    """`--conclusion` is the experiment's answer: it rides the same PATCH as the
+    question, reads `@file` like `--summary`, and the echo carries it back."""
+    experiment = _experiment(wired)
+    answer = "warmup wins val loss, 1.92 vs 2.05"
+    rc = cli.main(
+        ["experiment", "set", "e", "--conclusion", answer, "--authored-by", "agent"]
+    )
+    assert rc == 0
+    out = _json_out(capsys)
+    (body,) = _patches(wired, f"/experiments/{experiment['id']}")
+    assert body == {"conclusion": answer, "authored_by": "agent"}
+    assert out["conclusion"] == answer and out["conclusion_source"] == "agent"
+    assert experiment["conclusion"] == answer
+
+    path = tmp_path / "conclusion.txt"
+    path.write_text("dead end: OOM at batch 64 on 80 GB")
+    assert cli.main(["experiment", "set", "e", "--conclusion", f"@{path}"]) == 0
+    capsys.readouterr()
+    assert _patches(wired, f"/experiments/{experiment['id']}")[-1]["conclusion"] == (
+        "dead end: OOM at batch 64 on 80 GB"
+    )
+
+
+def test_experiment_set_empty_conclusion_clears_it(wired, capsys):
+    """`--conclusion ""` is a value, not an absent flag: it is sent, and clears."""
+    experiment = _experiment(wired)
+    experiment.update(conclusion="old answer", conclusion_source="agent")
+    assert cli.main(["experiment", "set", "e", "--conclusion", "", "--authored-by", "agent"]) == 0
+    out = _json_out(capsys)
+    (body,) = _patches(wired, f"/experiments/{experiment['id']}")
+    assert body["conclusion"] == ""
+    assert out["conclusion"] is None and out["conclusion_source"] is None
+    assert experiment["conclusion"] is None
+
+
+def test_experiment_set_refuses_two_flags_reading_stdin(wired, capsys, monkeypatch):
+    """`--conclusion -` and `--summary -` cannot both read stdin: the second
+    would read it empty and clear the overview document without saying so."""
+    import io
+
+    _experiment(wired)
+    monkeypatch.setattr("sys.stdin", io.StringIO("the answer"))
+    assert cli.main(["experiment", "set", "e", "--conclusion", "-", "--summary", "-"]) == 2
+    assert "only one of --conclusion and --summary can read stdin" in capsys.readouterr().err
+    assert _patches(wired) == []
+
+
+def test_experiment_set_with_nothing_names_the_conclusion_flag(wired, capsys):
+    assert cli.main(["experiment", "set", "e"]) == 2
+    assert "--conclusion" in capsys.readouterr().err
+    assert _patches(wired) == []
+
+
+def test_an_agent_write_over_a_persons_conclusion_prints_the_servers_reason(
+    wired, capsys
+):
+    """The server refuses an agent's write over a person's conclusion with a
+    plain-string 409; the CLI prints that sentence as is, and nothing changes."""
+    from tests.conftest import CONCLUSION_LOCKED_DETAIL
+
+    experiment = _experiment(wired)
+    experiment.update(conclusion="the researcher's answer", conclusion_source="human")
+    rc = cli.main(
+        ["experiment", "set", "e", "--conclusion", "mine", "--authored-by", "agent"]
+    )
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert CONCLUSION_LOCKED_DETAIL in captured.err and captured.out == ""
+    assert experiment["conclusion"] == "the researcher's answer"
+
+
 def test_experiment_tag_flags_are_refused_and_write_nothing(wired, capsys):
     """An experiment's tags are read-only since it moved to its own record (the
     server refuses tag writes on one since R3), so every tag flag says so."""

@@ -42,6 +42,7 @@ from .literals import (
     ExecutionErrorTypeType,
     ExecutionStatusType,
     HomeDirectoryTypeType,
+    HostKeyStorageTypeType,
     IdentityProviderTypeType,
     IpAddressTypeType,
     MapTypeType,
@@ -740,6 +741,8 @@ ListedHostKeyTypeDef = TypedDict(
         "Description": NotRequired[str],
         "Type": NotRequired[str],
         "DateImported": NotRequired[datetime],
+        "StorageType": NotRequired[HostKeyStorageTypeType],
+        "SecretId": NotRequired[str],
     },
 )
 
@@ -918,7 +921,9 @@ class UpdateConnectorVpcLatticeEgressConfigTypeDef(TypedDict):
 class UpdateHostKeyRequestTypeDef(TypedDict):
     ServerId: str
     HostKeyId: str
-    Description: str
+    Description: NotRequired[str]
+    StorageType: NotRequired[HostKeyStorageTypeType]
+    KmsKey: NotRequired[str]
 
 
 class UpdateProfileRequestTypeDef(TypedDict):
@@ -1224,6 +1229,8 @@ DescribedHostKeyTypeDef = TypedDict(
         "Type": NotRequired[str],
         "DateImported": NotRequired[datetime],
         "Tags": NotRequired[list[TagTypeDef]],
+        "StorageType": NotRequired[HostKeyStorageTypeType],
+        "SecretId": NotRequired[str],
     },
 )
 
@@ -1242,6 +1249,8 @@ class ImportHostKeyRequestTypeDef(TypedDict):
     HostKeyBody: str
     Description: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    StorageType: NotRequired[HostKeyStorageTypeType]
+    KmsKey: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
@@ -1853,6 +1862,7 @@ class CreateServerRequestTypeDef(TypedDict):
     StructuredLogDestinations: NotRequired[Sequence[str]]
     S3StorageOptions: NotRequired[S3StorageOptionsTypeDef]
     IpAddressType: NotRequired[IpAddressTypeType]
+    HostKeyStorageType: NotRequired[HostKeyStorageTypeType]
 
 
 class UpdateServerRequestTypeDef(TypedDict):

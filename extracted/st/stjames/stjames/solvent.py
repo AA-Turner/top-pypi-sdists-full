@@ -54,6 +54,7 @@ class SolventModel(LowercaseStrEnum):
     GBSA = "gbsa"
     CPCMX = "cpcmx"
     SMD = "smd"
+    ANYSOLV = "anysolv"
 
 
 ALPB_SOLVENTS: frozenset[Solvent] = frozenset(

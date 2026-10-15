@@ -18,7 +18,7 @@ from . import statusbox
 from .appactions import ActionsMixin
 from .appboot import (  # noqa: F401  (re-export: tuipet.app.X keeps resolving)
     MIN_COLS, MIN_ROWS, _load_sound, _lobby_uri, _preflight, _save_sound,
-    _sound_path, host_platform)
+    _sound_path, host_platform, warm_data)
 from . import data
 from . import menu
 from . import eggselectscreen
@@ -31,6 +31,7 @@ from . import sound
 from . import update as update_check
 from . import cloudsync
 from . import shop
+from .petbase import TRAIN_ENERGY_COST
 from .pet import Pet
 from .petbase import POOPDANCE_AT, GCELL_FRAG_DROPPERS, GCELL_FRAG_CHANCE
 
@@ -161,7 +162,7 @@ class TuiPetApp(ActionsMixin, App):
     """
     # the release-news line (title-screen msg box, first launch per build) --
     # UPDATE THIS WITH EVERY RELEASE that ships something player-visible
-    WHATS_NEW = ("ADVENTURE REBUILT. 30 maps, one per backdrop, each a single run: march, rest at the town halfway, then beat the boss to open the next map. Bosses pay a reward the first time, the road finds food that fits the land, and Godzilla's kaiju roam Monster Island. Road items are now Life Recovery, Shortcut and Rest Kit; your old transport tickets convert automatically.")
+    WHATS_NEW = ("VITAL BRACELET EGGS. Four official VB cards are egg lines -- Volcanic Beat, Infinite Tide, Nu Metal Empire, Blizzard Fang -- earned on their adventure roads. Crests sell in adventure towns; fights flip a coin for first strike; attribute powers and trained HP count in battle.")
 
 
     BINDINGS = [
@@ -413,10 +414,90 @@ class TuiPetApp(ActionsMixin, App):
 
     def _post_title(self):
         if self._new_game:
+            if not persistence.get_account()[0] and persistence.sync_enabled():
+                # A FRESH INSTALL asks first (Joel 2026-10-14: "theyre forced
+                # to choose an egg without signing in. Then that creates a
+                # shit load of problems") -- a player with a pet in the cloud
+                # signs in and gets it, ESC starts a new pet like before
+                self._open_first_signin()
+                return
             self._open_mode(eggselectscreen.EggSelectPanel(self.pet), self._after_egg_pick)
         else:
             self._hud(self._welcome)
             self.repaint()
+
+    def _open_first_signin(self, note=None, name=""):
+        from .accountscreen import AccountPanel, FIRST_RUN_NOTE
+        self._open_mode(AccountPanel(name=name, note=note or FIRST_RUN_NOTE),
+                        self._after_first_signin)
+
+    def _after_first_signin(self, result):
+        if not result:                      # ESC: a new pet, the old flow
+            self._open_mode(eggselectscreen.EggSelectPanel(self.pet), self._after_egg_pick)
+            return
+        name, pw = result
+        from .accountscreen import CloudWaitPanel
+        self._open_mode(CloudWaitPanel(name))
+        self.run_worker(self._first_signin(name, pw), name="first-signin",
+                        exclusive=False)
+
+    async def _first_signin(self, name, pw):
+        """The fresh install's sign-in.  A cloud pet comes onto THIS device
+        the same way the boot gate's take does -- the cartridge moves here,
+        so this device's saves are the ones the cloud keeps (signing in
+        without the take left them dropped as a non-holder).  No cloud pet:
+        the account is set and the egg carousel opens."""
+        uri = _lobby_uri()
+        st, save, _holder = await _to_thread(
+            cloudsync.gate, uri, name, pw, cloudsync.BOOT_TIMEOUT)
+        self.mode = None                    # close the wait card (no callback)
+        if st == "badpw":
+            self.beep("error", bell=False)
+            self._open_first_signin("Wrong password for that name.", name)
+            return
+        if st != "ok":
+            self.beep("error", bell=False)
+            self._open_first_signin("Can't reach the cloud. Try again, or ESC for a new pet.", name)
+            return
+        if save is not None:
+            probe, _ = persistence.pet_from_save(save, strict=True)
+            if probe is None:
+                self.beep("error", bell=False)
+                self._open_first_signin("That cloud save is unreadable. ESC for a new pet.", name)
+                return
+            ok, csave = await _to_thread(cloudsync.take, uri, name, pw)
+            if not ok:
+                self.beep("error", bell=False)
+                self._open_first_signin("Couldn't bring your pet over. Try again.", name)
+                return
+            # sync audit 2026-10-14: the pet may change between gate and take.
+            if persistence.pet_from_save(csave or save, strict=True)[0] is None:
+                self._open_first_signin("That cloud save is unreadable. ESC for a new pet.", name)
+                return
+            persistence.set_account(name, pw)
+            persistence.set_holder_cache(True)
+            persistence.write_save_dict(csave or save)
+            loaded, msg = persistence.load()
+            if loaded is None:
+                self._open_first_signin("That cloud save is unreadable. ESC for a new pet.", name)
+                return
+            self.pet = loaded
+            self._new_game = False
+            self._start_sync()
+            self._verdict(f"Signed in as {_hud_esc(name)} — {msg or 'welcome back!'}")
+            self.repaint()
+            return
+        # sync audit 2026-10-14: pruning can leave an empty but held cartridge.
+        if _holder and _holder.get("device") != persistence.device_id():
+            ok, csave = await _to_thread(cloudsync.take, uri, name, pw)
+            if not ok or csave is not None:
+                self._open_first_signin("Cloud changed — sign in again to bring your pet over.", name)
+                return
+        persistence.set_account(name, pw)
+        persistence.set_holder_cache(True)
+        self._start_sync()
+        self._verdict(f"Signed in as {_hud_esc(name)} — pick your first egg.")
+        self._open_mode(eggselectscreen.EggSelectPanel(self.pet), self._after_egg_pick)
 
     def _death_ceremony(self, hold=0):
         """The ONE banking ceremony for a death, wherever it's noticed --
@@ -490,10 +571,24 @@ class TuiPetApp(ActionsMixin, App):
         persistence.save(self.pet)
         self._start_sync()              # idempotent: picks up a re-enabled cloud toggle
         self._warn_if_unsaveable()
+        self._warn_if_erased()          # the most precise cause of all
         self._warn_if_not_holder()      # BEFORE the drop warn: a more precise cause
         self._warn_if_cloud_dropped()
         self._note_progress()
         self._push_cloud()              # mirror the autosave up to the cloud
+
+    def _warn_if_erased(self):
+        """The server refused this pet as the one the account ERASED on
+        another device (saves call #27 = A).  Say so once, and stop pushing
+        it -- it plays on here, saved locally only."""
+        sync = getattr(self, "_sync", None)
+        if not getattr(sync, "pet_erased", False) or getattr(self, "_erased_warned", False):
+            return
+        self._erased_warned = True
+        persistence.set_holder_cache(False)      # pushes stop being attempted
+        self.beep("alarm")
+        self.flash(f"[{theme.NEG}]⚠ This pet was erased from your account on "
+                   f"another device — it saves on this device only now.[/]")
 
     def _warn_if_not_holder(self):
         """THE CARTRIDGE, told at last (2026-07-30).  The server answers a
@@ -616,7 +711,10 @@ class TuiPetApp(ActionsMixin, App):
             # dying-fx revive mash is handled above this gate.
             # the swallowed key is ACKNOWLEDGED (QOL 2026-07-23): a silent
             # eat read as a frozen app and invited a mash -- same soft
-            # click the dying-fx taps get
+            # click the dying-fx taps get.  And since the animation audit
+            # (2026-10-14) a fresh key SKIPS the show to its end -- it never
+            # also runs the key's own action.
+            self.screen_w.skip_fx()
             self.beep("click", bell=False)
             event.stop()
             event.prevent_default()
@@ -928,14 +1026,17 @@ class TuiPetApp(ActionsMixin, App):
             # validate BEFORE committing to the switch: an unreadable cloud
             # blob must not cost the player their current login (the same
             # strict probe sync_down_at_startup runs)
-            pet_probe, _ = persistence.pet_from_save(dict(save),
-                                                     strict=True)
+            pet_probe, _ = persistence.pet_from_save(save, strict=True)
             if pet_probe is None:
                 self._verdict("That cloud save is unreadable — kept your account.")
                 self.beep("error", bell=False)
                 return
         persistence.save(self.pet)                   # park the pet with the OLD account
-        if old_name == name:
+        # sync audit 2026-10-14: server account identity is case-insensitive.
+        if old_name and old_name.lower() == name.lower():
+            persistence.set_account(name, pw)
+            self._stop_sync()
+            self._start_sync()
             # re-login to the SAME account: never park, never delete -- only
             # refresh from a STRICTLY newer cloud copy.  This path used to
             # skip the sync_down_at_startup timestamp guard, so a day-old
@@ -972,10 +1073,28 @@ class TuiPetApp(ActionsMixin, App):
                               " — kept your account.")
                 self.beep("error", bell=False)
                 return
+        if save is not None:
+            # the account's pet comes onto THIS device: take the cartridge,
+            # or every save made here is dropped as a non-holder's
+            # (2026-10-14).  A failed take keeps the old account.
+            took, csave = await _to_thread(cloudsync.take, _lobby_uri(), name, pw)
+            if not took:
+                self._verdict("Couldn't bring that pet here — kept your account.")
+                self.beep("error", bell=False)
+                return
+            save = csave or save
+            # sync audit 2026-10-14: validate the take reply before changing accounts.
+            if persistence.pet_from_save(save, strict=True)[0] is None:
+                self._verdict("That cloud save is unreadable — kept your account.")
+                self.beep("error", bell=False)
+                return
         self._stop_sync()                            # the old pusher must stop first
         #                                              (cancelled, not just flagged)
         persistence.set_account(name, pw)
+        # sync audit 2026-10-14: the previous account's spectator cache cannot follow.
+        persistence.set_holder_cache(True)
         if save is not None:
+            persistence.set_holder_cache(True)
             persistence.write_save_dict(save)
             loaded, msg = persistence.load()
             self.pet = loaded or Pet.new_egg()
@@ -1107,8 +1226,13 @@ class TuiPetApp(ActionsMixin, App):
             if sc.fx:
                 # beat-scripted fx sounds: eat's per-bite map + the generic snds map
                 # (refuse head-shakes, the evolve burst, the dnaWash entry, ...)
-                snd = (sc.fx.get("bite_snds", {}).get(sc.fx["step"])
-                       or sc.fx.get("snds", {}).get(sc.fx["step"]))
+                # a fast show (rate > 1) passes several beats a frame: walk
+                # every beat crossed so no cue is skipped (animation audit)
+                snd = None
+                for b in range(sc.fx.get("prev", sc.fx["step"] - 1) + 1, sc.fx["step"] + 1):
+                    snd = sc.fx.get("bite_snds", {}).get(b) or sc.fx.get("snds", {}).get(b)
+                    if snd:
+                        break
                 if snd:
                     self.beep(snd, bell=False)
                 if sc.fx["kind"] == "eat":     # live DVPet feeding readout (calorie + P/M/V)
@@ -1123,6 +1247,11 @@ class TuiPetApp(ActionsMixin, App):
                 # the present is opened: the surprise reveal lands now (2026-07-24)
                 reveal, self._pending_gift_reveal = self._pending_gift_reveal, None
                 self._do(reveal)
+                # the cheer comes AFTER the reveal and holds what was inside
+                icon = shop.ICON_KEYS.get(getattr(self, "_pending_gift_key", None) or "")
+                self._pending_gift_key = None
+                if self.screen_w.fx is None and not self.pet.dead:
+                    self.screen_w.start_fx("cheer", icon=icon)
             elif self._dying_fx:               # dying beat finished: saved, or the memorial
                 self._dying_fx = False
                 hits = getattr(self, "_revive_hits", 0)
@@ -1482,22 +1611,41 @@ class TuiPetApp(ActionsMixin, App):
 
     def _armed_field(self, p):
         """The strict-max Field whose charge has ARMED a divergence, or None
-        -- the HUD's wrapper over evolution.divergence_target (cheap: the
-        corpus tables behind it are all lru_cached loads)."""
+        -- availability only; evolution owns the random destination."""
         from . import evolution
-        return p.highest_dna() if evolution.divergence_target(p) is not None else None
+        # DNA audit 2026-10-14: an idle HUD must not reroll the pet's future.
+        return p.highest_dna() if evolution.divergence_options(p) else None
 
     def _need_message(self, p):
         """HUD announcement for the pet's most urgent unmet care need (or '')."""
         name = p.name or "Your pet"
         if p.asleep and p.lights:               # lightsCall: the one asleep call
-            msg = f"{name} is trying to sleep — lights off! ([b]O[/])"
+            msg = f"{name} is sleeping — lights off! ([b]O[/])"
         # every call names its key (gameplay polish #19, 2026-07-22): lights
         # always said (S) while hungry/sick/cleaning -- the three commonest
         # calls -- left a new player hunting the 19-key bar mid-alarm
         # the pill is the FEED menu's second row -- free and infinite (the
         # canon meat/pill picker), NOT a bag item; the v0.5.169 hint sent a
         # panicked player to the bag (Joel caught it 2026-07-22)
+        # care audit 2026-10-14: name a usable remedy, including its
+        # prerequisites; a dark sleeper only needs the frailty warning.
+        elif p.asleep and p.sick and p.poop:
+            # (care call #16 = A) the pill refuses beside filth and a sleeper
+            # can't be cleaned until it's up: C wakes it, C again cleans
+            msg = f"{name} is sick — wake it to clean! ([b]C[/])"
+        elif p.asleep and p.sick:
+            msg = f"{name} is sick in its sleep! ([b]F[/] — the pill)"
+        elif p.asleep and p.is_injured():
+            msg = f"{name} is hurt in its sleep! ([b]H[/] — patch it up)"
+        elif p.asleep:
+            if not p.is_frail():
+                return ""
+            left = max(0, 5 - p.care_mistakes)
+            msg = (f"{name} frail — "
+                   + (f"{left} more slip{'s' if left != 1 else ''} could be fatal!"
+                      if left else "handle with perfect care!"))
+        elif p.poop and (p.sick or p.hunger == 0 or p.strength == 0):
+            msg = f"{name} needs cleaning! ([b]C[/])"
         elif p.sick:          msg = f"{name} is sick! ([b]F[/] — feed it the pill)"
         # ...and the injury cure is the H KEY (2026-07-26 final ruling:
         # "remove bandage as an item alltogether and just add an h heal
@@ -1505,7 +1653,9 @@ class TuiPetApp(ActionsMixin, App):
         # lesson these lines keep re-learning.
         elif p.is_injured():  msg = f"{name} is hurt! ([b]H[/] — patch it up)"
         elif p.hunger == 0:   msg = f"{name} is hungry! ([b]F[/])"
-        elif p.strength == 0: msg = f"{name}'s effort gauge is empty — train it! ([b]T[/])"
+        elif p.strength == 0 and p.energy < TRAIN_ENERGY_COST:
+            msg = f"{name}'s effort is empty! ([b]F[/] — pill)"
+        elif p.strength == 0: msg = f"{name}'s effort is empty — train it! ([b]T[/])"
         elif p.poop >= 3:     msg = f"{name} needs cleaning! ([b]C[/])"
         # ...and never nag a SLEEPER to rest (bug report 2026-07-26,
         # v0.5.280: "still getting exhausted! (S — rest) even when mon is
@@ -1517,11 +1667,16 @@ class TuiPetApp(ActionsMixin, App):
             msg = f"{name} is acting up! ([b]P[/] — scold it)"
         elif p.is_frail():
             left = max(0, 5 - p.care_mistakes)
-            msg = (f"{name} is getting frail — "
+            msg = (f"{name} frail — "
                    + (f"{left} more slip{'s' if left != 1 else ''} could be fatal!"
                       if left else "handle with perfect care!"))
         else:                 return ""
-        return f"[{theme.NEG}]\u26a0 {msg}[/]"
+        # menus audit 2026-10-14: only the name yields cells, never the remedy.
+        from rich.cells import cell_len
+        tail = msg[len(name):]
+        budget = HUD_W - cell_len("⚠ " + _hud_plain(tail))
+        name = _hud_esc(statusbox._fit_cells(name, budget))
+        return f"[{theme.NEG}]\u26a0 {name}{tail}[/]"
 
 
     # (the home battle + jogress actions were retired 2026-07-07 -- lobby-only
@@ -1570,6 +1725,12 @@ class TuiPetApp(ActionsMixin, App):
             # offers the etch -- the FULL adjusted bonus carries to the heir
             # (digimemory audit 2026-07-06; this seed used to be lost)
             persistence.bank_bonus_seed(self.pet.final_care_grade())
+            # egg audit 2026-10-14: unused data survives a live retirement too.
+            if self.pet.digimemory:
+                persistence.bank_digimemory(dict(self.pet.digimemory))
+        # egg audit 2026-10-14: a re-pick must not spend an unhatched fragment.
+        if repick and self.pet.gcell_fragment:
+            persistence._note_put("gcell_frag", 1)
         persistence.snapshot_prev_gen(self.pet)   # previous-generation egg gates
         old = self.pet
         self.pet = Pet.new_egg(generation=gen, egg_type=egg_type)
@@ -1611,6 +1772,7 @@ class TuiPetApp(ActionsMixin, App):
 
 def main():
     _preflight()
+    warm_data()                     # pin THIS build's data before the updater runs
     other = persistence.acquire_instance_lock()
     if other and not _os.environ.get("TUIPET_FORCE"):
         print(f"tuipet is already running (pid {other}) — two copies would fight "
@@ -1643,6 +1805,8 @@ def main():
                         _lobby_uri(), name, pw, timeout=cloudsync.BOOT_TIMEOUT)
                 mine = persistence.device_id()
                 if st == "ok" and holder and holder.get("device") != mine:
+                    # sync audit 2026-10-14: retain this verdict even if take fails.
+                    persistence.set_holder_cache(False)
                     label = holder.get("label") or "another device"
                     print(f"Your pet is on {label}.")
                     try:
@@ -1652,13 +1816,15 @@ def main():
                     if ans in ("y", "yes"):
                         ok, csave = cloudsync.take(_lobby_uri(), name, pw)
                         if ok:
-                            persistence.set_holder_cache(True)
                             if csave:
                                 probe_pet, _ = persistence.pet_from_save(
-                                    dict(csave), strict=True)
+                                    csave, strict=True)
                                 if probe_pet is not None:
+                                    persistence.set_holder_cache(True)
                                     persistence.rescue_copy()   # this device's old
                                     persistence.write_save_dict(csave)  # copy stays
+                            else:
+                                persistence.set_holder_cache(True)
                         else:
                             print("Couldn't take the pet just now — playing "
                                   "this device's local copy, saves stay here.")

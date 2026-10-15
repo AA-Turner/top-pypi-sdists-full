@@ -1006,3 +1006,30 @@ def test_track_work_linking_names_only_relations_the_server_takes():
             is None, (st, relation, tt)
     ends = re.search(r"end takes only(.*?)\n\s*- ", section, re.S)
     assert ends and set(re.findall(r"`(\w+)`", ends.group(1))) == fp.FakeProbe.PROJECT_END_RELATIONS
+
+
+def test_the_model_proxy_forwards_the_servers_pushed_settings(monkeypatch):
+    """A bench worker hears the server's pushed daemon settings (`x-probe-*`:
+    context sizes, reader gate, writer gap and layout) as a live one does --
+    before 10-14 only the retry hints were forwarded -- and nothing else."""
+    import httpx
+    from starlette.testclient import TestClient
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        assert request.headers["authorization"] == "Bearer the-real-key", "the real key goes upstream only"
+        return httpx.Response(200, json={"id": "c", "object": "chat.completion", "created": 0, "model": "m",
+                                         "choices": []},
+                              headers={"x-probe-writer-history": "lean", "x-probe-reader-gate": "shadow",
+                                       "x-should-retry": "false", "set-cookie": "s=1"})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient",
+                        lambda **kw: real(**{**kw, "transport": httpx.MockTransport(upstream)}))
+    fake = _fake(T0 + 3600)
+    app = fp.build_app(fake, upstream=fp.Upstream("https://upstream.test", "the-real-key"), mcp=False)
+    with TestClient(app) as client:
+        answer = client.post("/v1/companion/chat/completions", json={"model": "m", "messages": []},
+                             headers={"Authorization": f"Bearer {fake.token}"})
+    assert answer.headers["x-probe-writer-history"] == "lean" and answer.headers["x-probe-reader-gate"] == "shadow"
+    assert answer.headers["x-should-retry"] == "false"
+    assert "set-cookie" not in answer.headers

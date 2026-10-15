@@ -27,6 +27,7 @@ Revision History:
 #include <string>
 #include <functional>
 #include <algorithm>
+#include <bit>
 #include <iterator>
 #include <span>
 
@@ -86,7 +87,8 @@ static_assert(sizeof(int64_t) == 8, "64 bits");
 // any fall-through warnings.
 #define Z3_unreachable_case() UNREACHABLE(); Z3_fallthrough
 
-static inline bool is_power_of_two(unsigned v) { return !(v & (v - 1)) && v; }
+static inline bool is_power_of_two(unsigned v) { return std::has_single_bit(v); }
+static inline bool is_power_of_two(uint64_t v) { return std::has_single_bit(v); }
 
 /**
    \brief Return the next power of two that is greater than or equal to v.
@@ -107,8 +109,9 @@ static inline unsigned next_power_of_two(unsigned v) {
 /**
    \brief Return the position of the most significant bit.
 */
-unsigned log2(unsigned v);
-unsigned uint64_log2(uint64_t v);
+static inline unsigned log2(int v) { return v > 0 ? (std::bit_width(static_cast<unsigned>(v)) - 1) : 0; }
+static inline unsigned log2(unsigned v) { return v ? (std::bit_width(v) - 1) : 0; }
+static inline unsigned log2(uint64_t v) { return v ? (std::bit_width(v) - 1) : 0; }
 unsigned mul_truncate(unsigned a, unsigned b);
 unsigned add_truncate(unsigned a, unsigned b);
 
@@ -359,6 +362,19 @@ public:
 
     int operator()() {
         return ((m_data = m_data * 214013L + 2531011L) >> 16) & 0x7fff; 
+    }
+
+    // Assemble 32 bits from three 15-bit draws, most significant bits first.
+    uint32_t next_uint32() {
+        uint32_t r = (*this)();
+        r = (r << 15) | (*this)();
+        return (r << 2) | ((*this)() & 3);
+    }
+
+    // Draw the high half before the low half.
+    uint64_t next_uint64() {
+        uint64_t r = next_uint32();
+        return (r << 32) | next_uint32();
     }
 
     unsigned operator()(unsigned u) {

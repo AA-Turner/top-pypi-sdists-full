@@ -1432,11 +1432,19 @@ def _extract_response_metrics(
 
 def _extract_response_metadata(response: Any) -> dict[str, Any] | None:
     usage = getattr(response, "usage", None)
-    audio_seconds = getattr(usage, "audio_seconds", None)
-    if audio_seconds is None:
-        return None
+    metadata: dict[str, Any] = {}
 
-    return {"pydantic_ai_usage": {"audio_seconds": float(audio_seconds)}}
+    audio_seconds = getattr(usage, "audio_seconds", None)
+    if audio_seconds is not None:
+        metadata["audio_seconds"] = float(audio_seconds)
+
+    details = getattr(usage, "details", None)
+    if isinstance(details, Mapping):
+        web_search_requests = details.get("web_search_requests")
+        if web_search_requests is not None:
+            metadata["web_search_requests"] = web_search_requests
+
+    return {"pydantic_ai_usage": metadata} if metadata else None
 
 
 class _ContextPropagatingAsyncContextManager(AbstractAsyncContextManager):
@@ -1561,6 +1569,24 @@ def _build_agent_input_and_metadata(args: Any, kwargs: Any, instance: Any) -> tu
             input_data[key] = _shape_type(value)
         else:
             input_data[key] = value
+
+    conversation = kwargs.get("conversation")
+    if conversation is not None:
+        try:
+            from pydantic_ai.messages import ModelMessagesTypeAdapter
+
+            # Nested message parts otherwise serialize as repr strings.
+            messages = ModelMessagesTypeAdapter.dump_python(_field_value(conversation, "messages"))
+            # Use the existing normalizer fields after delegated kwargs have logged their None defaults.
+            input_data.update(
+                _shape_object(
+                    conversation,
+                    fields=("conversation_id",),
+                    overrides={"message_history": _shape_messages(messages)},
+                )
+            )
+        except Exception as e:
+            logger.debug(f"Failed to extract conversation for tracing: {e}")
 
     if "model" in kwargs:
         model_name, provider = _parse_model_string(kwargs["model"])

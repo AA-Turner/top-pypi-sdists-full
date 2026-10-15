@@ -163,6 +163,8 @@ class SandboxBinding:
     access_token: str
     root_path: str = "/home/agent"
     target_kind: Literal["sandbox", "local_machine"] = "sandbox"
+    #: local_machine: the computer's app_instances id, carried on the binding (never parsed from base_url).
+    device_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -218,6 +220,7 @@ def get_active_sandbox() -> SandboxBinding | None:
         if isinstance(root_path, str) and root_path.strip()
         else "/home/agent",
         target_kind=target_kind,
+        device_id=str(raw.get("device_id") or "") or None,
     )
 
 

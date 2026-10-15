@@ -459,6 +459,36 @@ class DesktopMailArgs(ToolArgs):
     )
 
 
+class DesktopOutlookArgs(ToolArgs):
+    action: Literal["status", "draft", "list", "read"] = Field(
+        description="status: which Outlook is on the computer, its accounts, and whether it can be driven; draft: save a new email in Outlook's Drafts (never sends; the user sends it); list: recent messages in a folder, newest first; read: one message in full."
+    )
+    to: list[str] | None = Field(default=None, description="draft: recipient addresses.")
+    cc: list[str] | None = Field(default=None, description="draft: copied addresses.")
+    bcc: list[str] | None = Field(default=None, description="draft: blind-copied addresses.")
+    subject: str | None = Field(default=None, description="draft: the subject.")
+    body: str | None = Field(default=None, description="draft: the body.")
+    body_format: Literal["text", "html"] | None = Field(
+        default=None, description="draft: text (default) or html."
+    )
+    attachments: list[str] | None = Field(
+        default=None, description="draft: absolute paths of files on the user's computer to attach."
+    )
+    account: str | None = Field(
+        default=None,
+        description="draft, list: the account's email address (from status); omit for Outlook's default.",
+    )
+    display: bool | None = Field(
+        default=None, description="draft: also open the draft in a window for the user."
+    )
+    folder: Literal["inbox", "sent", "drafts"] | None = Field(
+        default=None, description="list: the folder, inbox by default."
+    )
+    unread_only: bool | None = Field(default=None, description="list: only unread messages.")
+    limit: int | None = Field(default=None, ge=1, le=200, description="list: at most this many.")
+    id: str | None = Field(default=None, description="read: the message's id (from list or draft).")
+
+
 class DesktopMessagesArgs(ToolArgs):
     action: Literal["chats", "list", "send"] = Field(
         description="chats: recent Messages chats; list: messages, newest first (one chat or all); send: send an iMessage or SMS."
@@ -583,18 +613,31 @@ class DesktopWindowsAdminArgs(ToolArgs):
 
 class DesktopScheduleArgs(ToolArgs):
     action: Literal["create", "list", "cancel"] = Field(
-        description="create: run a desktop tool action on the user's computer on an interval; list: the scheduled tasks with their latest runs; cancel: stop one."
+        description="create: run a desktop tool action on one of the user's computers on a schedule (every N seconds, a cron, or once at a time); it is saved in AI Matrx and runs on that computer whenever Matrx 2 is open there. list: the scheduled tasks with their latest runs; cancel: stop one."
     )
     name: str | None = Field(default=None, description="create: a name for the task.")
     tool: str | None = Field(
         default=None,
-        description="create: the desktop tool to run, such as desktop_net or desktop_notes (not desktop_schedule).",
+        description="create: the desktop tool to run, such as desktop_net or desktop_notes (not desktop_schedule); or coding_sessions_drive to start a Claude Code or Codex session on that computer each run (tool_args: folder, prompt, provider claude|codex, optional account_profile_id).",
     )
     tool_args: dict[str, Any] | None = Field(
         default=None, description="create: that tool's arguments, exactly as you would call it."
     )
+    device_id: str | None = Field(
+        default=None,
+        description="create/list: the computer (its device id) that runs the task. Default: the computer connected to this conversation.",
+    )
     interval_s: int | None = Field(
-        default=None, ge=10, le=2_592_000, description="create: seconds between runs."
+        default=None, ge=10, le=2_592_000, description="create: seconds between runs (one of interval_s, cron, at)."
+    )
+    cron: str | None = Field(
+        default=None, description="create: a cron expression such as '0 9 * * 1-5' (one of interval_s, cron, at)."
+    )
+    timezone: str | None = Field(
+        default=None, description="create with cron: the IANA timezone the cron reads in, such as America/Los_Angeles (UTC by default)."
+    )
+    at: str | None = Field(
+        default=None, description="create: run once at this ISO-8601 time (one of interval_s, cron, at)."
     )
     max_runs: int | None = Field(
         default=None, ge=1, le=100_000, description="create: stop after this many runs."

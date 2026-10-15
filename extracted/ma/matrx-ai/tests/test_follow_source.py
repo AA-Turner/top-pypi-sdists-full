@@ -136,3 +136,25 @@ def test_a_source_variable_the_copy_lacks_arrives_and_its_own_bindings_win() -> 
         {"name": "primary_table", "defaultValue": "tbl-1", "label": "Table", "binding": {"kind": "merge_field"}},
         {"name": "tone", "defaultValue": "plain"},
     ]
+
+
+def test_every_column_the_follow_trigger_watches_is_followed_at_run_time() -> None:
+    from matrx_ai.agents.follow_source import FOLLOWED_FIELDS, TRIGGER_WATCHED_FIELDS
+
+    assert set(TRIGGER_WATCHED_FIELDS) <= set(FOLLOWED_FIELDS)
+
+
+@pytest.mark.asyncio
+async def test_a_following_copy_runs_the_sources_prompt_blocks_and_output_schema(manager) -> None:
+    mgr, rows = manager
+    schema = {"name": "brand_basics", "strict": True, "schema": {"type": "object", "properties": {}}}
+    rows[SOURCE_ID] = _row(output_schema=schema, prompt_blocks=["source_block"])
+    copy = _copy(follows=True)
+    copy.output_schema = None
+    copy.prompt_blocks = ["stale_block"]
+    rows[COPY_ID] = copy
+
+    config = await mgr.to_config(COPY_ID)
+
+    assert config.config.prompt_blocks == ["source_block"]
+    assert config.config.response_format == {"type": "json_schema", "json_schema": schema}

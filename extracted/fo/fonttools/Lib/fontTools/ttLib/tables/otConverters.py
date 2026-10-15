@@ -10,7 +10,7 @@ from fontTools.ttLib.tables.TupleVariation import TupleVariation
 from fontTools.misc.roundTools import nearestMultipleShortestRepr, otRound
 from fontTools.misc.textTools import bytesjoin, tobytes, tostr, pad, safeEval
 from fontTools.misc.lazyTools import LazyList
-from fontTools.ttLib import OPTIMIZE_FONT_SPEED, getSearchRange
+from fontTools.ttLib import OPTIMIZE_FONT_SPEED, TTLibError, getSearchRange
 from .otBase import (
     CountReference,
     FormatSwitchingBaseTable,
@@ -73,6 +73,10 @@ def buildConverters(tableSpec: list[FieldSpec], tableNamespace):
             converterClass = SubStruct
         elif spec.name == "FeatureParams":
             converterClass = FeatureParams
+        elif spec.name == "FeatureVariations":
+            converterClass = FeatureVariations
+        elif spec.name == "Feature" and spec.type == "LOffset":
+            converterClass = AlternateFeature
         elif spec.name in ("CIDGlyphMapping", "GlyphCIDMapping"):
             converterClass = StructWithLength
         else:
@@ -761,6 +765,52 @@ class Table24(Table):
 
     def writeNullOffset(self, writer):
         writer.writeUInt24(0)
+
+
+class FeatureVariations(LTable):
+    def read(self, reader, font, tableDict):
+        if self.readOffset(reader.copy()) != 0:
+            # Keep the original tags: subsetting can change FeatureList before
+            # FeatureVariations is decompiled from its lazy reader. A null
+            # FeatureVariations offset must leave FeatureList lazy.
+            featureList = tableDict.get("FeatureList")
+            reader["FeatureTags"] = tuple(
+                record.FeatureTag
+                for record in getattr(featureList, "FeatureRecord", ())
+            )
+        return super().read(reader, font, tableDict)
+
+    def write(self, writer, font, tableDict, value, repeatIndex=None):
+        if value is not None:
+            featureList = tableDict.get("FeatureList")
+            writer["FeatureTags"] = tuple(
+                record.FeatureTag
+                for record in getattr(featureList, "FeatureRecord", ())
+            )
+        super().write(writer, font, tableDict, value, repeatIndex)
+
+
+class AlternateFeature(LTable):
+    """Resolve a FeatureTableSubstitutionRecord's tag through its FeatureIndex."""
+
+    def read(self, reader, font, tableDict):
+        if "FeatureTags" in reader and self.readOffset(reader.copy()) != 0:
+            featureTags = reader["FeatureTags"]
+            featureIndex = tableDict["FeatureIndex"]
+            # An invalid index must not prevent reading an alternate without params.
+            reader["FeatureTag"] = (
+                featureTags[featureIndex] if featureIndex < len(featureTags) else None
+            )
+        return super().read(reader, font, tableDict)
+
+    def write(self, writer, font, tableDict, value, repeatIndex=None):
+        if (
+            value is not None
+            and getattr(value, "FeatureParams", None) is not None
+            and "FeatureTags" in (writer.localState or {})
+        ):
+            writer["FeatureTag"] = writer["FeatureTags"][tableDict["FeatureIndex"]]
+        super().write(writer, font, tableDict, value, repeatIndex)
 
 
 # TODO Clean / merge the SubTable and SubStruct
@@ -2515,6 +2565,10 @@ class CFF2Index(BaseConverter):
         if count == 0:
             return []
         offSize = reader.readUInt8()
+        if offSize not in (1, 2, 3, 4):
+            raise TTLibError(f"invalid CFF2 INDEX offSize: {offSize}")
+        if reader.pos + (count + 1) * offSize > len(reader.data):
+            raise TTLibError(f"CFF2 INDEX count {count} exceeds available data")
 
         def getReadArray(reader, offSize):
             return {
@@ -2636,6 +2690,19 @@ class CFF2Index(BaseConverter):
                 )
         else:
             raise NotImplementedError()
+
+
+class TupleListOffset(CFF2Index):
+    def read(self, reader, font, tableDict):
+        offset = reader.readULong()
+        assert offset != 0
+        return super().read(reader.getSubReader(offset), font, tableDict)
+
+    def write(self, writer, font, tableDict, values, repeatIndex=None):
+        subWriter = writer.getSubWriter()
+        subWriter.name = self.name
+        writer.writeSubTable(subWriter, offsetSize=4)
+        super().write(subWriter, font, tableDict, values, repeatIndex)
 
 
 class LookupFlag(UShort):
@@ -2969,6 +3036,7 @@ converterMapping = {
     "CompositeMode": CompositeMode,
     "STATFlags": STATFlags,
     "TupleList": partial(CFF2Index, itemConverterClass=TupleValues),
+    "TupleListOffset": partial(TupleListOffset, itemConverterClass=TupleValues),
     "VarCompositeGlyphList": partial(CFF2Index, itemClass=VarCompositeGlyph),
     # AAT
     "CIDGlyphMap": CIDGlyphMap,

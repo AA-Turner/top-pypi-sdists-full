@@ -9,6 +9,22 @@ from types import TracebackType
 
 
 def _user_stack(tb: TracebackType | None) -> traceback.StackSummary:
+    # Start at the outermost bridge's callee, so Python callers above the
+    # dispatch boundary cannot leak into user diagnostics or make async runner
+    # frames look like user code. Stop at the first bridge to preserve user
+    # frames if a handler itself invokes another bridge.
+    dispatch_tb = tb
+    while dispatch_tb is not None:
+        frame = dispatch_tb.tb_frame
+        if frame.f_globals.get("__name__") == "chalk_remote_call.servicer" and frame.f_code.co_name in {
+            "process_batches",
+            "process_batches_coalesced",
+            "process_batches_coalesced_combined",
+        }:
+            tb = dispatch_tb.tb_next
+            break
+        dispatch_tb = dispatch_tb.tb_next
+
     frames = []
     entered_user_code = False
     while tb is not None:

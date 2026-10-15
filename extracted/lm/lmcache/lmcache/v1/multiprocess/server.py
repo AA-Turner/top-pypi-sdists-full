@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """MPCacheServer compositor and unified cache server entry point."""
 
+# Future
+from __future__ import annotations
+
 # Standard
+from dataclasses import dataclass
+from typing import TypeGuard
 import argparse
 import shutil
 import signal
@@ -26,6 +31,7 @@ from lmcache.v1.mp_observability.config import (
     add_observability_args,
     init_observability,
     parse_args_to_observability_config,
+    resolve_grpc_metrics_enabled,
 )
 from lmcache.v1.mp_observability.gc_monitor import (
     init_gc_monitor,
@@ -41,25 +47,55 @@ from lmcache.v1.multiprocess.config import (
     parse_args_to_coordinator_config,
     parse_args_to_mp_server_config,
 )
+from lmcache.v1.multiprocess.custom_types import KV_EVENT_CAPABILITY
 from lmcache.v1.multiprocess.engine_context import MPCacheServerContext
 from lmcache.v1.multiprocess.engine_module import EngineModule, InstanceLivenessTarget
+from lmcache.v1.multiprocess.ext_server_module import (
+    TransportServiceRegistrar,
+    build_server_module_router,
+    load_server_module_components,
+)
 from lmcache.v1.multiprocess.modules.engine_driven_transfer import (
     EngineDrivenTransferModule,
 )
 from lmcache.v1.multiprocess.modules.experimental import EXPERIMENTAL_TRANSFER
 from lmcache.v1.multiprocess.modules.experimental.qstore import QStoreModule
+from lmcache.v1.multiprocess.modules.kv_events import KVEventModule
 from lmcache.v1.multiprocess.modules.lmcache_driven_transfer import (
     LMCacheDrivenTransferModule,
 )
 from lmcache.v1.multiprocess.modules.lookup import LookupModule
 from lmcache.v1.multiprocess.modules.management import ManagementModule
 from lmcache.v1.multiprocess.modules.p2p_controller import P2PController
-from lmcache.v1.multiprocess.mq import MessageQueueServer
+from lmcache.v1.multiprocess.transport.base import RequestServer
 from lmcache.v1.multiprocess.transport.server_factory import create_request_server
 from lmcache.v1.platform.base.cache_context import BaseCacheContext
-from lmcache.v1.platform.isolated_ipc import set_isolated_ipc
+from lmcache.v1.platform.ipc_policy import set_isolated_ipc
 
 logger = init_logger(__name__)
+
+_LIVENESS_TARGET_METHODS = (
+    "touch_instance",
+    "reap_stale_instances",
+    "tracked_instance_count",
+    "drop_instance_state",
+)
+
+
+def _is_liveness_target(module: EngineModule) -> TypeGuard[InstanceLivenessTarget]:
+    """Return whether a module exposes the instance-liveness target contract."""
+    return all(
+        callable(getattr(module, name, None)) for name in _LIVENESS_TARGET_METHODS
+    )
+
+
+@dataclass(frozen=True)
+class ServerBuildComponents:
+    """Modules and transport services composed for one MP server instance."""
+
+    modules: list[EngineModule]
+    grpc_service_registrars: tuple[TransportServiceRegistrar, ...] = ()
+    zmq_service_registrars: tuple[TransportServiceRegistrar, ...] = ()
 
 
 class MPCacheServer:
@@ -132,11 +168,11 @@ class MPCacheServer:
                 }
         return None
 
-    def clear(self) -> None:
+    def clear(self, force: bool = False) -> None:
         """Used by ``/cache/clear``; delegates to :class:`ManagementModule`."""
         for module in self._modules:
             if isinstance(module, ManagementModule):
-                module.clear()
+                module.clear(force=force)
                 return
         raise RuntimeError("MPCacheServer.clear: no ManagementModule registered")
 
@@ -146,7 +182,7 @@ def _build_modules(
     mp_config: MPServerConfig,
     coordinator_config: CoordinatorConfig,
 ) -> list[EngineModule]:
-    """Assemble the list of engine modules based on configuration.
+    """Assemble only engine modules based on configuration.
 
     Args:
         ctx: The shared engine context.
@@ -156,6 +192,25 @@ def _build_modules(
 
     Returns:
         List of initialized engine modules.
+    """
+    return _build_server_components(ctx, mp_config, coordinator_config).modules
+
+
+def _build_server_components(
+    ctx: MPCacheServerContext,
+    mp_config: MPServerConfig,
+    coordinator_config: CoordinatorConfig,
+) -> ServerBuildComponents:
+    """Assemble the list of engine modules based on configuration.
+
+    Args:
+        ctx: The shared engine context.
+        mp_config: Server configuration determining which modules to load.
+        coordinator_config: Coordinator connection used by the P2P controller
+            for peer discovery.
+
+    Returns:
+        Initialized modules and transport-specific service registrars.
 
     Raises:
         ValueError: If blend engine is requested with
@@ -167,6 +222,7 @@ def _build_modules(
         mp_config.p2p_config,
         coordinator_config,
         mp_config.instance_id,
+        mp_config.transport,
     )
 
     # Build the transfer and blend modules first so the ManagementModule can
@@ -237,6 +293,7 @@ def _build_modules(
             coordinator=coordinator,
             enable_segmented_prefix=mp_config.enable_segmented_prefix,
             enable_dedup_content=mp_config.enable_dedup_content,
+            enable_reorder=mp_config.enable_blend_reorder,
         )
         blend_module = blend
         # The blend module mirrors per-instance CB rope state, so the reaper
@@ -261,10 +318,39 @@ def _build_modules(
                 f"Experimental module '{enabled_module}' requires "
                 "supported_transfer_mode='lmcache_driven' or 'auto'."
             )
-        module = QStoreModule(ctx)
-        experimental_modules.append(module)
-        liveness_targets.append(module)
+        experimental_module = QStoreModule(ctx)
+        experimental_modules.append(experimental_module)
+        liveness_targets.append(experimental_module)
         experimental_transfer.append(enabled_module)
+
+    kv_events = KVEventModule(ctx, kv_event_log_size=mp_config.kv_event_log_size)
+    liveness_targets.append(kv_events)
+    if kv_events.enabled:
+        experimental_transfer.append(KV_EVENT_CAPABILITY)
+
+    blend_modules: list[EngineModule] = []
+    if blend_module is not None:
+        blend_modules.append(blend_module)
+    built_modules: list[EngineModule] = [
+        lookup_module,
+        p2p_controller,
+        kv_events,
+        *transfer_modules,
+        *experimental_modules,
+        *blend_modules,
+    ]
+    plugin_components = load_server_module_components(
+        mp_config.server_modules,
+        server_context=ctx,
+        mp_config=mp_config,
+        coordinator_config=coordinator_config,
+        built_modules=built_modules,
+    )
+    plugin_modules = list(plugin_components.modules)
+    for module in plugin_modules:
+        if _is_liveness_target(module):
+            liveness_targets.append(module)
+    plugin_router = build_server_module_router(ctx, plugin_modules)
 
     management = ManagementModule(
         ctx,
@@ -274,18 +360,23 @@ def _build_modules(
         experimental_transfer=experimental_transfer,
     )
 
-    # ManagementModule precedes the transfer/blend modules so close() stops
-    # and joins the reaper before those modules clear their state and before
-    # storage_manager.close() runs.
-    blend_modules = [blend_module] if blend_module is not None else []
-    return [
+    # Stop the reaper, then event subscriptions, before releasing transfer state.
+    modules: list[EngineModule] = [
         lookup_module,
         p2p_controller,
         management,
+        kv_events,
         *transfer_modules,
         *experimental_modules,
         *blend_modules,
+        *plugin_modules,
+        *([plugin_router] if plugin_router is not None else []),
     ]
+    return ServerBuildComponents(
+        modules=modules,
+        grpc_service_registrars=tuple(plugin_components.grpc_service_registrars),
+        zmq_service_registrars=tuple(plugin_components.zmq_service_registrars),
+    )
 
 
 def run_cache_server(
@@ -295,11 +386,11 @@ def run_cache_server(
     return_engine: bool = False,
     start_prometheus_http_server: bool = True,
     coordinator_config: CoordinatorConfig = DEFAULT_COORDINATOR_CONFIG,
-) -> tuple[MessageQueueServer, MPCacheServer] | None:
-    """Run the LMCache cache server with ZMQ message queue.
+) -> tuple[RequestServer, MPCacheServer] | None:
+    """Run the LMCache cache server with the selected request transport.
 
     Args:
-        mp_config: Configuration for the ZMQ multiprocess server.
+        mp_config: Configuration for the multiprocess server.
         storage_manager_config: Configuration for the storage manager.
         obs_config: Configuration for the observability stack.
         coordinator_config: Coordinator connection used by the P2P controller
@@ -312,7 +403,7 @@ def run_cache_server(
             ``/metrics`` to avoid port conflicts or redundant servers.
 
     Returns:
-        If return_engine is True: tuple of (MessageQueueServer, MPCacheServer).
+        If return_engine is True: tuple of (request server, MPCacheServer).
         If return_engine is False: None (blocks until interrupted).
     """
     # Before any event IPC backend is resolved (KV-cache registration), so
@@ -325,6 +416,11 @@ def run_cache_server(
     # metrics/traces and coordinator membership all key on the same id.
     if obs_config.service_instance_id is None:
         obs_config.service_instance_id = mp_config.instance_id
+    if obs_config.grpc_metrics_enabled is None:
+        obs_config.grpc_metrics_enabled = resolve_grpc_metrics_enabled(
+            obs_config.grpc_metrics_enabled,
+            mp_config.transport,
+        )
 
     event_bus = init_observability(
         obs_config, start_prometheus_http_server=start_prometheus_http_server
@@ -332,11 +428,16 @@ def run_cache_server(
 
     init_gc_monitor(obs_config.gc_monitor)
 
-    maybe_initialize_trace_recorder(event_bus, obs_config, storage_manager_config)
+    maybe_initialize_trace_recorder(
+        event_bus, obs_config, storage_manager_config, instance_id=mp_config.instance_id
+    )
 
     # When the engine-driven path is loaded (auto or engine_driven):
     # apply shm_name from mp_config and verify capacity.
-    if mp_config.supported_transfer_mode != "lmcache_driven":
+    if (
+        mp_config.supported_transfer_mode != "lmcache_driven"
+        and len(storage_manager_config.l1_manager_configs) == 1
+    ):
         mem_cfg = storage_manager_config.l1_manager_config.memory_config
         if mp_config.shm_name is not None:
             mem_cfg.shm_name = mp_config.shm_name
@@ -369,22 +470,31 @@ def run_cache_server(
         storage_manager_config=storage_manager_config,
         chunk_size=mp_config.chunk_size,
         hash_algorithm=mp_config.hash_algorithm,
+        null_block_id=mp_config.null_block_id,
         separate_object_groups=mp_config.separate_object_groups,
         full_sw_kv=is_blend,
+        session_ttl_seconds=mp_config.session_ttl_seconds,
     )
 
-    modules = _build_modules(ctx, mp_config, coordinator_config)
-    engine = MPCacheServer(ctx, modules)
+    components = _build_server_components(ctx, mp_config, coordinator_config)
+    engine = MPCacheServer(ctx, components.modules)
 
     InitializeMPUsageContext(mp_config, storage_manager_config)
     InitializeMPContinuousUsage(event_bus, mp_config.chunk_size)
     InitializeL2ConnectorUsage(event_bus, ctx.storage_manager)
     InitializeL1Usage(event_bus, ctx.storage_manager)
 
-    server = create_request_server(modules, mp_config)
+    transport = mp_config.transport
+    server: RequestServer = create_request_server(
+        components.modules,
+        mp_config,
+        grpc_service_registrars=components.grpc_service_registrars,
+        zmq_service_registrars=components.zmq_service_registrars,
+    )
 
     logger.info(
-        "LMCache ZMQ cache server is running on tcp://%s:%d",
+        "LMCache %s cache server is running on %s:%d",
+        transport,
         mp_config.host,
         mp_config.port,
     )
@@ -422,9 +532,7 @@ def parse_args():
     Returns:
         Parsed arguments namespace.
     """
-    parser = argparse.ArgumentParser(
-        description="LMCache ZMQ Cache Server (without HTTP)"
-    )
+    parser = argparse.ArgumentParser(description="LMCache Cache Server (without HTTP)")
     add_mp_server_args(parser)
     add_storage_manager_args(parser)
     add_observability_args(parser)

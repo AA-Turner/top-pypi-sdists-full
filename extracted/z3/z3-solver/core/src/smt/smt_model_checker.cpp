@@ -139,6 +139,27 @@ namespace smt {
         return result;
     }
 
+    expr_ref model_checker::replace_model_values(expr * e) {
+        struct mv_cfg : default_rewriter_cfg {
+            model_checker& mc;
+            mv_cfg(model_checker& mc):mc(mc) {}
+            bool get_subst(expr * e, expr* & t, proof *& pr) {
+                t = nullptr; pr = nullptr;
+                if (mc.m.is_model_value(e))
+                    t = mc.get_type_compatible_term(e);
+                return t != nullptr;
+            }
+        };
+        struct mv_rw : public rewriter_tpl<mv_cfg> {
+            mv_cfg m_mv_cfg;
+            mv_rw(model_checker& m): rewriter_tpl<mv_cfg>(m.m, false, m_mv_cfg), m_mv_cfg(m) {}
+        };
+        mv_rw r(*this);
+        expr_ref result(m);
+        r(e, result);
+        return result;
+    }
+
     /**
        \brief Assert in m_aux_context, the constraint
 
@@ -248,13 +269,32 @@ namespace smt {
             expr_ref sk_term(sk_value, m);
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_interp()) {
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
-                if (contains_model_value(body))
-                    return false;                    
+                unsigned arity = f->get_arity();
+                if (arity > 1) {
+                    // func_interp::get_interp() refers to argument i as (:var i), whereas the lambda
+                    // (lambda ((x_0 S_0) .. (x_{n-1} S_{n-1})) body) built below refers to x_i as
+                    // (:var n-1-i): reverse the variable indices (the two coincide for arity 1).
+                    expr_ref_vector rev(m);
+                    for (unsigned j = 0; j < arity; ++j)
+                        rev.push_back(m.mk_var(arity - 1 - j, f->get_domain(j)));
+                    var_subst vs(m, false);
+                    body = vs(body, rev.size(), rev.data());
+                }
+                body = replace_value_from_ctx(body);
+                if (contains_model_value(body)) {
+                    // The array interpretation refers to model values that have no
+                    // representative in the main context (e.g. elements of an
+                    // uninterpreted sort). Instantiating with any term of the right
+                    // sort is sound, so map each such value to a type compatible term
+                    // (an existing term when available, a fresh constant otherwise)
+                    // instead of giving up on the instance.
+                    body = replace_model_values(body);
+                    IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :array-interp-model-values-replaced " << q->get_qid() << " " << mk_pp(body, m) << ")\n");
+                }
                 ptr_vector<sort> sorts(f->get_arity(), f->get_domain());
                 svector<symbol> names;
                 for (unsigned i = 0; i < f->get_arity(); ++i) 
                     names.push_back(symbol(i));
-                body = replace_value_from_ctx(body);
                 body = m.mk_lambda(sorts.size(), sorts.data(), names.data(), body);
                 sk_term = body;
             }
@@ -269,6 +309,7 @@ namespace smt {
 
     void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
         SASSERT(q->get_num_decls() == bindings.size());
+        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance " << q->get_qid(); for (expr* b : bindings) verbose_stream() << " [" << mk_pp(b, m) << "]"; verbose_stream() << ")\n");
         unsigned offset = m_pinned_exprs.size();
         m_pinned_exprs.append(bindings);
         m_pinned_exprs.push_back(q);
@@ -579,7 +620,7 @@ namespace smt {
                       tout << "inconsistent: " << m_context->inconsistent() << "\n";
                       tout << "bindings:\n" << expr_ref_vector(m, num_decls, m_pinned_exprs.data() + offset) << "\n";
                           );
-                m_context->add_instance(q, nullptr, num_decls, bindings.data(), gen, gen, gen, dummy);
+                m_context->add_instance(q, nullptr, num_decls, bindings.data(), gen, gen, gen, dummy, true /* model-based */);
                 TRACE(model_checker_bug_detail, tout << "after instantiating, inconsistent: " << m_context->inconsistent() << "\n";);
             }
         }

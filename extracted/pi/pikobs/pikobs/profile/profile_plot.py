@@ -451,6 +451,7 @@ def plan_figures(
             "radar": radar,
             "stn_sql": sel.sql(),
             "stn_label": sel.display,
+            "selector": sel,
             # the error model depends on the radar network (the first
             # letter, C or U) and the elevation, not on the radar: it
             # is drawn for a station or a group of one network, never
@@ -739,6 +740,9 @@ def _members(spec) -> List[str]:
 def _members_line(spec) -> str:
     """'stations: a, b, c' up to 20; beyond, the first 10 and the total."""
     member = str(spec.get("stn_label", ""))
+    # a prefix, a pattern or a list names its stations under the figure
+    if getattr(spec.get("selector"), "kind", "") in ("prefix", "like", "list"):
+        return ""
     # every figure that holds several stations: join, a group (c%),
     # an instrument type; one station alone says its name already
     single = spec.get("member_word") == "station" and member != "join" and "%" not in member
@@ -1107,6 +1111,8 @@ def _save_profile(spec, fig):
     out = _out(spec)
     _big_ticks(fig)
     fit_texts(fig, getattr(fig, "_pikobs_badge", None))
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, spec.get('selector'))
     save_figure(fig, out, svg=spec.get("svg", False), dpi=DPI)
     _hover_channels(fig, out, spec)
     plt.close(fig)
@@ -1327,6 +1333,8 @@ def _diff_figure(spec) -> Optional[str]:
             fig, on, top_in=0.12 * FS,
             method=(None if spec.get("_boot") else "t-test and F-test, 95 %") if on else None)
     fit_texts(fig, getattr(fig, "_pikobs_badge", None))
+    from pikobs.figures.figures import members_footer
+    members_footer(fig, spec.get('selector'))
     save_figure(fig, out, svg=spec.get("svg", False), dpi=DPI)
     _hover_channels(fig, out, spec)
     plt.close(fig)

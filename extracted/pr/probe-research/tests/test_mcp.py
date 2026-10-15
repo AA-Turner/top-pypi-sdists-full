@@ -1746,7 +1746,7 @@ def test_an_unknown_argument_is_refused_with_the_declared_parameters(client) -> 
     # dropped -- and pointed at the two places a search actually happens.
     message = _asyncio.run(call({"query": "anything"}))
     assert "mode=tree does not read query" in message
-    assert "mode=notes" in message and "use search." in message
+    assert "mode=datasets or notes or sources" in message and "use search." in message
 
 
 def _semantic_rows(n: int, *, content: str = "x" * 400, why: str | None = None) -> list[dict]:

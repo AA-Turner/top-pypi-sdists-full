@@ -2,6 +2,17 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "asyncio",
+    "concurrent",
+    "contextlib",
+    "filelock._async",
+    "filelock._error",
+    "functools",
+    "inspect",
+    "threading",
+]
+
 import asyncio
 import contextlib
 import functools
@@ -15,7 +26,7 @@ from inspect import iscoroutinefunction
 from threading import RLock
 from typing import TYPE_CHECKING, Final, NoReturn, TypeVar, cast
 
-from ._api import (
+from filelock._api import (
     _UNSET_FILE_MODE,
     BaseFileLock,
     CloseErrorPolicy,
@@ -37,7 +48,7 @@ from ._api import (
     _resolve_poll_interval,
     _resolve_timeout,
 )
-from ._async import (
+from filelock._async import (
     _AsyncTransitionGate,
     _AsyncTransitionUnavailableError,
     _BackendOutcome,
@@ -48,12 +59,12 @@ from ._async import (
     _run_in_executor,
     _wait_until_done,
 )
-from ._error import Timeout
-from ._lease import SoftFileLease
-from ._soft import SoftFileLock
-from ._strict import StrictSoftFileLock
-from ._unix import UnixFileLock
-from ._windows import WindowsFileLock
+from filelock._error import Timeout
+from filelock._lease import SoftFileLease
+from filelock._soft import SoftFileLock
+from filelock._strict import StrictSoftFileLock
+from filelock._unix import UnixFileLock
+from filelock._windows import WindowsFileLock
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine, Hashable, Mapping
@@ -222,7 +233,9 @@ class BaseAsyncFileLock(BaseFileLock, metaclass=AsyncFileLockMeta):
         self._thread_holds = {}
         self._thread_pending = {}
 
-        self._context: AsyncFileLockContext = (AsyncThreadLocalFileContext if thread_local else AsyncFileLockContext)(
+        self._async_context: Final[AsyncFileLockContext] = (
+            AsyncThreadLocalFileContext if thread_local else AsyncFileLockContext
+        )(
             lock_file=os.fspath(lock_file),
             timeout=timeout,
             mode=mode,
@@ -233,6 +246,8 @@ class BaseAsyncFileLock(BaseFileLock, metaclass=AsyncFileLockMeta):
             run_in_executor=run_in_executor,
             executor=executor,
         )
+        # BaseFileLock declares _context as FileLockContext; narrowing that writable attribute here is unsound.
+        self._context = self._async_context
         _register_fork_object(self)
 
     def _singleton_extra_mismatches(self, kwargs: Mapping[str, _ExtraValue], /) -> dict[str, tuple[str, str]]:
@@ -250,12 +265,12 @@ class BaseAsyncFileLock(BaseFileLock, metaclass=AsyncFileLockMeta):
     @property
     def run_in_executor(self) -> bool:
         """Whether run in executor."""
-        return self._context.run_in_executor
+        return self._async_context.run_in_executor
 
     @property
     def executor(self) -> futures.Executor | None:
         """The executor."""
-        return self._context.executor
+        return self._async_context.executor
 
     @executor.setter
     def executor(self, value: futures.Executor | None) -> None:  # pragma: no cover
@@ -265,12 +280,12 @@ class BaseAsyncFileLock(BaseFileLock, metaclass=AsyncFileLockMeta):
         :param futures.Executor | None value: the new executor or ``None``
 
         """
-        self._context.executor = value
+        self._async_context.executor = value
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop | None:
         """The event loop."""
-        return self._context.loop
+        return self._async_context.loop
 
     async def acquire(  # ty: ignore[invalid-method-override]
         self,
@@ -733,7 +748,7 @@ class BaseAsyncFileLock(BaseFileLock, metaclass=AsyncFileLockMeta):
                 loop = asyncio.get_running_loop()
             except RuntimeError:
                 # At interpreter exit daemon threads no longer run, so a loop running in one never runs the release.
-                if (loop := self._context.loop) is None or loop.is_closed() or sys.is_finalizing():
+                if (loop := self._async_context.loop) is None or loop.is_closed() or sys.is_finalizing():
                     self._release_without_loop()
                     return
                 if not loop.is_running():  # pragma: no cover

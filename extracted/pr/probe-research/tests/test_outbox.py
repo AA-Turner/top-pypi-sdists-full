@@ -2365,7 +2365,9 @@ def test_what_the_live_worker_delivers(tmp_path):
     # sync` drains: no worker, old or new, ever meets it there.
     # `multipart_upload` (plan (g)) is the first kind an older worker can
     # meet: its producer asks `ready_for` and parks it until one can deliver it.
-    assert OP_KINDS == outbox_worker._LEGACY_KINDS | {"create_run", "multipart_upload"}, (
+    # `catalog_manifest` (data catalog Q9) asks `ready_for` the same way; an
+    # older 1.11+ worker holds it in its lane until a current one takes over.
+    assert OP_KINDS == outbox_worker._LEGACY_KINDS | {"create_run", "multipart_upload", "catalog_manifest"}, (
         "a new kind must be added to OP_KINDS only"
     )
 

@@ -1,0 +1,356 @@
+- name: 19-year-old non-student with low income is a qualifying relative.
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 45
+        is_tax_unit_head: true
+        employment_income: 50_000
+      adult_child:
+        age: 19
+        is_full_time_student: false
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        employment_income: 3_000
+    tax_units:
+      tax_unit:
+        members: [parent, adult_child]
+    households:
+      household:
+        members: [parent, adult_child]
+  output:
+    is_qualifying_relative_dependent: [false, true]
+
+- name: 19-year-old non-student with high income is not a qualifying relative.
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 45
+        is_tax_unit_head: true
+        employment_income: 50_000
+      adult_child:
+        age: 19
+        is_full_time_student: false
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        # Income over $5,050 threshold for 2024
+        employment_income: 10_000
+    tax_units:
+      tax_unit:
+        members: [parent, adult_child]
+    households:
+      household:
+        members: [parent, adult_child]
+  output:
+    # Fails income test
+    is_qualifying_relative_dependent: [false, false]
+
+- name: Child under 19 is a qualifying child, not qualifying relative.
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 40
+        is_tax_unit_head: true
+      child:
+        age: 10
+        employment_income: 0
+    tax_units:
+      tax_unit:
+        members: [parent, child]
+    households:
+      household:
+        members: [parent, child]
+  output:
+    # Under 19, so qualifies as a child dependent, not as qualifying relative
+    is_qualifying_relative_dependent: [false, false]
+
+- name: Full-time student under 24 is a qualifying child, not qualifying relative.
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 50
+        is_tax_unit_head: true
+      student:
+        age: 21
+        is_full_time_student: true
+        employment_income: 2_000
+    tax_units:
+      tax_unit:
+        members: [parent, student]
+    households:
+      household:
+        members: [parent, student]
+  output:
+    # Full-time student under 24 qualifies as child dependent
+    is_qualifying_relative_dependent: [false, false]
+
+- name: 24-year-old student with low income is a qualifying relative.
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 55
+        is_tax_unit_head: true
+      adult_student:
+        age: 24
+        is_full_time_student: true
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        employment_income: 4_000
+    tax_units:
+      tax_unit:
+        members: [parent, adult_student]
+    households:
+      household:
+        members: [parent, adult_student]
+  output:
+    # 24-year-old student is too old for qualifying child, but qualifies as
+    # qualifying relative since income is below threshold
+    is_qualifying_relative_dependent: [false, true]
+
+- name: Unrelated person living in household is a qualifying relative under IRC 152(d).
+  period: 2024
+  input:
+    people:
+      head:
+        age: 40
+        is_tax_unit_head: true
+      unrelated_person:
+        age: 25
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        is_related_to_head_or_spouse: false
+        employment_income: 1_000
+    tax_units:
+      tax_unit:
+        members: [head, unrelated_person]
+    households:
+      household:
+        members: [head, unrelated_person]
+  output:
+    # IRC 152(d)(2) allows household members who are not related.
+    # The HOH-specific relationship restriction is in head_of_household_eligible.
+    is_qualifying_relative_dependent: [false, true]
+
+- name: Disabled adult is not a qualifying relative.
+  period: 2024
+  input:
+    people:
+      parent:
+        age: 60
+        is_tax_unit_head: true
+        employment_income: 50_000
+      disabled_child:
+        age: 30
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        is_permanently_and_totally_disabled: true
+        employment_income: 2_000
+    tax_units:
+      tax_unit:
+        members: [parent, disabled_child]
+    households:
+      household:
+        members: [parent, disabled_child]
+  output:
+    # Permanently disabled individuals are exempt from the age test per
+    # IRC 152(c)(3)(B), so they qualify as child dependents, not qualifying
+    # relatives. Per IRC 152(d)(1)(D), qualifying children cannot be
+    # qualifying relatives.
+    is_qualifying_relative_dependent: [false, false]
+
+- name: Parent with nontaxable Social Security is a qualifying relative.
+  period: 2022
+  input:
+    people:
+      head:
+        age: 45
+        is_tax_unit_head: true
+        employment_income: 50_000
+      parent:
+        age: 70
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        social_security_retirement: 12_000
+    tax_units:
+      tax_unit:
+        members: [head, parent]
+    households:
+      household:
+        members: [head, parent]
+  output:
+    # Provisional income = 0.5 * 12,000 = 6,000 < 25,000, so gross income is 0.
+    # 0 < 4,400 exemption amount for 2022.
+    dependent_gross_income: [0, 0]
+    is_qualifying_relative_dependent: [false, true]
+
+- name: Capital gains net of losses below the limit but gross gains above it fail the income test.
+  period: 2022
+  input:
+    people:
+      head:
+        age: 45
+        is_tax_unit_head: true
+        employment_income: 50_000
+      dependent:
+        age: 30
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        long_term_capital_gains: 5_000
+        short_term_capital_gains: -2_000
+    tax_units:
+      tax_unit:
+        members: [head, dependent]
+    households:
+      household:
+        members: [head, dependent]
+  output:
+    # Gross income = 5,000 (the 2,000 loss is not netted), not below 4,400.
+    dependent_gross_income: [0, 5_000]
+    is_qualifying_relative_dependent: [false, false]
+
+- name: Taxable Social Security pushes gross income above the limit.
+  period: 2022
+  input:
+    people:
+      head:
+        age: 45
+        is_tax_unit_head: true
+        employment_income: 50_000
+      parent:
+        age: 70
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        social_security_retirement: 44_000
+        taxable_interest_income: 4_000
+    tax_units:
+      tax_unit:
+        members: [head, parent]
+    households:
+      household:
+        members: [head, parent]
+  output:
+    # Provisional income = 4,000 + 0.5 * 44,000 = 26,000.
+    # Taxable benefits = min(22,000, 0.5 * (26,000 - 25,000)) = 500.
+    # Gross income = 4,000 + 500 = 4,500, not below 4,400.
+    dependent_gross_income: [0, 4_500]
+    is_qualifying_relative_dependent: [false, false]
+
+- name: Gross income one dollar below the exemption amount passes the income test.
+  period: 2024
+  input:
+    people:
+      head:
+        age: 45
+        is_tax_unit_head: true
+        employment_income: 50_000
+      parent:
+        age: 70
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        employment_income: 5_049
+        social_security_retirement: 10_000
+    tax_units:
+      tax_unit:
+        members: [head, parent]
+    households:
+      household:
+        members: [head, parent]
+  output:
+    # Provisional income = 5,049 + 0.5 * 10,000 = 10,049 < 25,000,
+    # so no benefits are taxable. Gross income = 5,049 < 5,050 for 2024.
+    dependent_gross_income: [0, 5_049]
+    is_qualifying_relative_dependent: [false, true]
+
+- name: Gross income equal to the exemption amount fails the income test.
+  period: 2024
+  input:
+    people:
+      head:
+        age: 45
+        is_tax_unit_head: true
+        employment_income: 50_000
+      parent:
+        age: 70
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        employment_income: 5_050
+        social_security_retirement: 10_000
+    tax_units:
+      tax_unit:
+        members: [head, parent]
+    households:
+      household:
+        members: [head, parent]
+  output:
+    # Provisional income = 5,050 + 0.5 * 10,000 = 10,050 < 25,000,
+    # so no benefits are taxable. Gross income = 5,050, which is not less
+    # than the 5,050 exemption amount for 2024 (IRC 152(d)(1)(B)).
+    dependent_gross_income: [0, 5_050]
+    is_qualifying_relative_dependent: [false, false]
+
+- name: Capital losses keep a dependent's Social Security nontaxable, so they pass the income test.
+  period: 2022
+  input:
+    people:
+      head:
+        age: 45
+        is_tax_unit_head: true
+        employment_income: 50_000
+      parent:
+        age: 70
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        social_security_retirement: 44_000
+        long_term_capital_gains: 4_000
+        short_term_capital_gains: -2_000
+    tax_units:
+      tax_unit:
+        members: [head, parent]
+    households:
+      household:
+        members: [head, parent]
+  output:
+    # Modified AGI = 4,000 - 2,000 = 2,000; provisional income
+    # = 2,000 + 0.5 * 44,000 = 24,000 < 25,000, so no benefits are taxable.
+    # Gross income = 4,000 gross gains < 4,400 for 2022.
+    dependent_gross_income: [0, 4_000]
+    is_qualifying_relative_dependent: [false, true]
+
+- name: Married parents who live together fail the income test on taxable Social Security.
+  period: 2022
+  input:
+    people:
+      head:
+        age: 45
+        is_tax_unit_head: true
+        employment_income: 50_000
+      mother:
+        age: 70
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        social_security_retirement: 12_000
+      father:
+        age: 72
+        is_tax_unit_dependent: true
+        is_tax_unit_spouse: false
+        social_security_retirement: 12_000
+    marital_units:
+      head_marital_unit:
+        members: [head]
+      parents_marital_unit:
+        members: [mother, father]
+    tax_units:
+      tax_unit:
+        members: [head, mother, father]
+    households:
+      household:
+        members: [head, mother, father]
+  output:
+    # Zero base amounts: taxable = min(0.85 * 6,000, 0.85 * 12,000) = 5,100
+    # for each parent, not below 4,400 for 2022.
+    dependent_gross_income: [0, 5_100, 5_100]
+    is_qualifying_relative_dependent: [false, false, false]

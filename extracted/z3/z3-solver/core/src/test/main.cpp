@@ -68,8 +68,10 @@
     X(list) \
     X(len_abs) \
     X(small_object_allocator) \
+    X(context_params) \
     X(timeout) \
     X(proof_checker) \
+    X(proof_replay) \
     X(simplifier) \
     X(bit_blaster) \
     X(var_subst) \
@@ -90,12 +92,14 @@
     X(cube_clause) \
     X(old_interval) \
     X(get_implied_equalities) \
+    X(grobner) \
     X(arith_simplifier_plugin) \
     X(matcher) \
     X(object_allocator) \
     X(mpz) \
     X(mpq) \
     X(mpf) \
+    X(fpa) \
     X(total_order) \
     X(dl_table) \
     X(dl_context) \
@@ -118,16 +122,25 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_parikh) \
+    X(seq_power) \
+    X(seq_eq_approx) \
+    X(seq_regex_witness) \
     X(seq_monadic) \
     X(seq_monadic_bench) \
+    X(seq_profile_abs) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \
+    X(mbp_qel) \
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
+    X(ff_domain) \
+    X(ff_solver) \
+    X(finite_field) \
     X(polynomial) \
     X(polynomial_factorization) \
     X(upolynomial) \
@@ -135,16 +148,28 @@
     X(algebraic_numbers) \
     X(ackermannize) \
     X(monomial_bounds) \
+    X(nla_transcendentals) \
     X(nla_intervals) \
+    X(lp_bound_propagation) \
     X(horner) \
     X(prime_generator) \
     X(permutation) \
     X(nlsat) \
+    X(opt_bounds) \
+    X(opt_nlsat) \
+    X(opt_pareto) \
+    X(opt_value) \
     X(13) \
     X(zstring)
 
 #define FOR_EACH_EXTRA_TEST(X, X_ARGV) \
+    X(seq_parikh_long) \
+    X(seq_eq_approx_long) \
+    X(opt_pareto_long) \
+    X(total_order_long) \
+    X(rational_perf) \
     X(tptp) \
+    X(tptp_crashes) \
     X(ext_numeral) \
     X(interval) \
     X(value_generator) \
@@ -171,7 +196,7 @@
     X(rcf) \
     X(polynorm) \
     X(qe_arith) \
-    X(mbp_qel) \
+    X(qe_lite) \
     X(expr_substitution) \
     X(sorting_network) \
     X(theory_pb) \
@@ -194,11 +219,14 @@
     X(totalizer) \
     X(distribution) \
     X(euf_bv_plugin) \
+    X(euf_assoc_plugin) \
     X(euf_arith_plugin) \
+    X(euf_seq_plugin) \
     X(sls_test) \
     X(scoped_vector) \
     X(sls_seq_plugin) \
     X(ho_matcher) \
+    X(ho_qsolver) \
     X(finite_set) \
     X(finite_set_rewriter) \
     X(seq_regex_bisim) \

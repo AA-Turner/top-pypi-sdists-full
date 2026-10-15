@@ -19,7 +19,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: '3.13'
           enable-cache: true # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
@@ -43,7 +43,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
 
     env:
       PYTHON: ${{ matrix.python }}
@@ -57,7 +57,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
@@ -106,7 +106,7 @@ jobs:
           merge-multiple: true
           path: coverage
 
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
 
@@ -133,7 +133,17 @@ jobs:
           name: diff-coverage-html
           path: index.html
 
+      # Overall gate, including the test suite itself. Test files legitimately carry
+      # uncovered lines (platform/version skip guards, optional-dependency import
+      # fallbacks), so this stays below 100.
       - run: uv run coverage report --fail-under 98
+
+      # Library code is fully covered once results are combined across the matrix, and
+      # must stay that way. Some lines only run on one leg (`toml.py` and `types.py`
+      # split on py3.11, `yaml.py`'s ImportError needs the "test without deps" run), so
+      # this is only meaningful on the combined report.
+      - name: check library coverage is complete
+        run: uv run coverage report --include='pydantic_settings/*' --fail-under 100
 
   check: # This job does nothing and is only used for the branch protection
     if: always()
@@ -145,7 +155,7 @@ jobs:
 
     steps:
       - name: Decide whether the needed jobs succeeded or failed
-        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         id: all-green
         with:
           jobs: ${{ toJSON(needs) }}
@@ -173,7 +183,7 @@ jobs:
 
       - name: Check version
         id: check-tag
-        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00 # v5
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a # v5.1
         with:
           version_file_path: pydantic_settings/version.py
 
@@ -181,4 +191,4 @@ jobs:
         run: python -m build
 
       - name: Upload package to PyPI
-        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

@@ -160,6 +160,19 @@ TBLPROPERTIES (
         self.validate_identity(
             "ALTER TABLE t ADD COLUMNS (a.b INT COMMENT 'x' AFTER c, d.e.f STRING)"
         )
+        for sql, expected in (
+            ("ALTER TABLE t DROP COLUMN a", None),
+            ("ALTER TABLE t DROP COLUMN IF EXISTS a.b", None),
+            ("ALTER TABLE t DROP COLUMNS (a, b.c)", None),
+            ("ALTER TABLE t DROP COLUMNS (from)", None),
+            ("ALTER TABLE t DROP COLUMNS IF EXISTS (a, b.c)", None),
+            ("ALTER TABLE t DROP COLUMNS a, b", "ALTER TABLE t DROP COLUMNS (a, b)"),
+        ):
+            with self.subTest(sql):
+                # A Command would round-trip too, so check that a real AST is built
+                ast = self.validate_identity(sql, expected)
+                self.assertIsInstance(ast, exp.Alter)
+                self.assertIsInstance(ast.args["actions"][0], exp.Drop)
         self.validate_all(
             "ALTER TABLE db.example ALTER COLUMN col_a TYPE BIGINT",
             write={
@@ -356,6 +369,7 @@ TBLPROPERTIES (
         self.validate_identity("SELECT TRANSFORM(ARRAY(1, 2, 3), x -> x + 1)")
         self.validate_identity("SELECT TRANSFORM(ARRAY(1, 2, 3), (x, i) -> x + i)")
         self.validate_identity("REFRESH TABLE a.b.c")
+        self.validate_identity("REFRESH FUNCTION db.func1", check_command_warning=True)
         self.validate_identity("INTERVAL '-86' DAYS")
         self.validate_identity("TRIM('    SparkSQL   ')")
         self.validate_identity("TRIM(BOTH 'SL' FROM 'SSparkSQLS')")
@@ -1582,6 +1596,16 @@ TBLPROPERTIES (
             "SELECT ARRAY_INSERT(ARRAY('a', 'b', 'c'), 3, 'z')",
             read={
                 "snowflake": "SELECT ARRAY_INSERT(['a', 'b', 'c'], 2, 'z')",
+            },
+        )
+
+    def test_array_slice(self):
+        self.validate_all(
+            "SLICE(x, 2, 3)",
+            read={
+                "clickhouse": "arraySlice(x, 2, 3)",
+                "presto": "SLICE(x, 2, 3)",
+                "spark": "SLICE(x, 2, 3)",
             },
         )
 

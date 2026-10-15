@@ -18,10 +18,7 @@ use crate::sha256::{self, Sha256};
 use crate::store::{Fault, Store};
 
 fn io(what: impl AsRef<str>, e: std::io::Error) -> Refusal {
-    Refusal {
-        code: Code::IO_FAILED,
-        detail: format!("{}: {e}", what.as_ref()),
-    }
+    crate::store::classify_io(what, e)
 }
 
 /// A reader that hashes what passes through it — the whole-part digest costs no second pass.
@@ -408,8 +405,9 @@ impl Walk {
         Ok(())
     }
 
-    /// Every reached object present, or held by a live source operation's publication
-    /// custodian. A complete checkpoint for publication, never a readable one.
+    /// Every reached object present, or held by its origin or a live source operation's
+    /// publication custodian (`custody::live`). Complete for publication; what is absent a
+    /// reader fetches first.
     pub fn require_held(
         &self,
         store: &Store,
@@ -421,7 +419,7 @@ impl Walk {
                     Code::OBJECT_ABSENT,
                     format!(
                         "{} is committed by this manifest but neither resident nor held by \
-                         a live publication custodian",
+                         its origin or a live publication custodian",
                         r.id()
                     ),
                 );

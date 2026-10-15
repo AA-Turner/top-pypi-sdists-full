@@ -1,40 +1,19 @@
-# ===================================================================
-#
-# Copyright (c) 2021, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2021 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
-from Crypto.Util.py3compat import is_bytes
+from __future__ import annotations
 
-from .KMAC128 import KMAC_Hash
+from typing import Optional, Union
+
+from Crypto.Util._raw_api import is_buffer
+
 from . import cSHAKE256
+from .KMAC128 import KMAC_Hash
+
+Buffer = Union[bytes, bytearray, memoryview]
 
 
-def new(**kwargs):
+def new(*, key: Buffer, data: Optional[Buffer] = None, mac_len: int = 64, custom: Buffer = b"") -> KMAC_Hash:
     """Create a new KMAC256 object.
 
     Args:
@@ -54,21 +33,12 @@ def new(**kwargs):
         A :class:`KMAC_Hash` hash object
     """
 
-    key = kwargs.pop("key", None)
-    if not is_bytes(key):
+    if not is_buffer(key):
         raise TypeError("You must pass a key to KMAC256")
     if len(key) < 32:
         raise ValueError("The key must be at least 256 bits long (32 bytes)")
 
-    data = kwargs.pop("data", None)
-
-    mac_len = kwargs.pop("mac_len", 64)
     if mac_len < 8:
         raise ValueError("'mac_len' must be 8 bytes or more")
-
-    custom = kwargs.pop("custom", b"")
-
-    if kwargs:
-        raise TypeError("Unknown parameters: " + str(kwargs))
 
     return KMAC_Hash(data, key, mac_len, custom, "20", cSHAKE256, 136)

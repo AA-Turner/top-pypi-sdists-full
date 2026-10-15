@@ -15,6 +15,14 @@ from skylos.rules.danger.untrusted_sources import UntrustedSourceIndex
 _CONSTANT_HOST_PREFIX_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^/?#{}%\s]+[/?#]")
 _CONSTANT_URL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^/?#{}%\s]+$")
 
+# Host allowlist guards: ``if urlparse(url).hostname not in ALLOWED: raise``.
+_URL_PARSERS = frozenset({"urllib.parse.urlparse", "urllib.parse.urlsplit"})
+_URL_HOST_ATTRS = frozenset({"hostname", "netloc"})
+_GUARD_EXIT_CALLS = frozenset(
+    {"flask.abort", "werkzeug.exceptions.abort", "sys.exit", "os._exit"}
+)
+_MAX_GUARD_DERIVATION_DEPTH = 2
+
 
 HTTP_MODULES = frozenset(
     {
@@ -44,6 +52,36 @@ HTTP_RECEIVER_NAMES = frozenset(
         "response",
     }
 )
+
+# ORM sessions share method names with HTTP sessions (``get``, ``delete``...),
+# so ``session.delete(item)`` in a FastAPI/SQLModel route is a database call,
+# not an outbound request. A receiver counts as an ORM session only on proof:
+# an ORM session type annotation or constructor, or a unit-of-work method that
+# HTTP clients (requests, httpx, aiohttp, urllib3) do not have.
+_ORM_MODULE_ROOTS = frozenset({"sqlalchemy", "sqlmodel", "flask_sqlalchemy"})
+_ORM_SESSION_CLASSES = frozenset(
+    {"Session", "AsyncSession", "scoped_session", "async_scoped_session"}
+)
+_ORM_SESSION_FACTORIES = frozenset(
+    {"sessionmaker", "async_sessionmaker", "scoped_session", "async_scoped_session"}
+)
+_ORM_ONLY_SESSION_METHODS = frozenset(
+    {
+        "add",
+        "add_all",
+        "commit",
+        "rollback",
+        "flush",
+        "refresh",
+        "expunge",
+        "expunge_all",
+        "exec",
+        "execute",
+        "scalars",
+        "query",
+    }
+)
+_MAX_ORM_ALIAS_DEPTH = 3
 
 NON_HTTP_RECEIVER_NAMES = frozenset(
     {
@@ -481,6 +519,92 @@ def _walk_function_body(func):
         stack.extend(ast.iter_child_nodes(node))
 
 
+def _is_orm_session_class(dotted: str) -> bool:
+    parts = dotted.split(".")
+    return parts[0] in _ORM_MODULE_ROOTS and parts[-1] in _ORM_SESSION_CLASSES
+
+
+def _is_orm_session_factory(dotted: str) -> bool:
+    parts = dotted.split(".")
+    return parts[0] in _ORM_MODULE_ROOTS and parts[-1] in _ORM_SESSION_FACTORIES
+
+
+def _is_none_annotation(node: ast.AST) -> bool:
+    return (isinstance(node, ast.Constant) and node.value is None) or (
+        isinstance(node, ast.Name) and node.id == "None"
+    )
+
+
+def _is_generic_annotation(node: ast.AST) -> bool:
+    """``Any``/``object``/a bare string: says nothing about the parameter's
+    type, so one function's ORM use of it proves nothing about another's."""
+    if isinstance(node, ast.Constant):
+        return True
+    dotted = _qualified_name_from_expr(node)
+    if dotted is None:
+        return False
+    return dotted.rsplit(".", 1)[-1] in {"Any", "object"}
+
+
+def _calls_orm_unit_of_work(scope: ast.AST, receiver: str) -> bool:
+    """``scope`` calls an ORM-only session method (``commit``, ``add``...) on
+    ``receiver``. A class is searched whole, for ``self.session`` receivers."""
+    nodes = (
+        ast.walk(scope)
+        if isinstance(scope, ast.ClassDef)
+        else _walk_function_body(scope)
+    )
+    for node in nodes:
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in _ORM_ONLY_SESSION_METHODS
+            and _qualified_name_from_expr(node.func.value) == receiver
+        ):
+            return True
+    return False
+
+
+def _parameter(func: ast.AST, name: str) -> ast.arg | None:
+    if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return None
+    args = func.args
+    for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs):
+        if arg.arg == name:
+            return arg
+    return None
+
+
+def _simple_bindings(node: ast.AST):
+    """``(target, value)`` pairs a statement binds directly: assignments,
+    walrus and ``with ... as name``."""
+    if isinstance(node, ast.Assign):
+        return [(target, node.value) for target in node.targets]
+    if isinstance(node, (ast.AnnAssign, ast.NamedExpr)):
+        return [(node.target, node.value)]
+    if isinstance(node, ast.withitem):
+        return [(node.optional_vars, node.context_expr)]
+    return []
+
+
+def _local_binding_values(scope: ast.AST, name: str) -> list[ast.AST | None]:
+    """What each binding of ``name`` in ``scope``'s own body is bound to: the
+    assigned value or ``with`` context expression, ``None`` for any other
+    binding (``for``/``except``/import/tuple target/pattern...)."""
+    values: list[ast.AST | None] = []
+    simple: set[int] = set()
+    nodes = list(_walk_function_body(scope))
+    for node in nodes:
+        for target, value in _simple_bindings(node):
+            if isinstance(target, ast.Name) and target.id == name:
+                values.append(value)
+                simple.add(id(target))
+    for node in nodes:
+        if id(node) not in simple and name in _bound_names(node, scope):
+            values.append(None)
+    return values
+
+
 _FUNCTION_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 
 
@@ -747,6 +871,7 @@ class _SSRFFlowChecker(TaintVisitor):
         self._test_client_attributes: dict[tuple[int, str], bool] = {}
         self._fixed_host_helpers: dict[int, bool] = {}
         self._fixed_host_locals: dict[tuple[int, str], bool] = {}
+        self._orm_unit_of_work_memo: dict[tuple[int, str], bool] = {}
 
     def _push(self):
         super()._push()
@@ -1371,6 +1496,9 @@ class _SSRFFlowChecker(TaintVisitor):
         if self._is_known_http_receiver_name(name):
             return True
 
+        if self._receiver_is_orm_session(node):
+            return False
+
         if name.lower() in NON_HTTP_RECEIVER_NAMES:
             return False
 
@@ -1382,6 +1510,204 @@ class _SSRFFlowChecker(TaintVisitor):
             return True
 
         return False
+
+    def _receiver_is_orm_session(self, node: ast.Call) -> bool:
+        """The call's receiver is proven to be an ORM (SQLAlchemy/SQLModel)
+        session, so ``get``/``delete``/... on it never leaves the process."""
+        if not isinstance(node.func, ast.Attribute):
+            return False
+        receiver = _qualified_name_from_expr(node.func.value)
+        if receiver is None:
+            return False
+        func = self._enclosing_function(node)
+        if receiver.startswith(("self.", "cls.")):
+            klass = self._enclosing_class(node)
+            return klass is not None and self._calls_orm_unit_of_work(klass, receiver)
+        scope = func if func is not None else self.tree
+        if scope is not None and self._calls_orm_unit_of_work(scope, receiver):
+            return True
+        head, _, rest = receiver.partition(".")
+        if rest:
+            # Flask-SQLAlchemy: ``db = SQLAlchemy(app)`` ... ``db.session``.
+            return (
+                rest == "session"
+                and self._module_global_is_stable(head)
+                and self._names_orm_object(
+                    self._module_scope.values.get(head), "SQLAlchemy", 0
+                )
+            )
+        if func is not None:
+            param = _parameter(func, receiver)
+            values = _local_binding_values(func, receiver)
+            if param is not None or values:
+                proofs = [self._is_orm_session_value(value, 0) for value in values]
+                if param is not None:
+                    proofs.append(self._parameter_is_orm_session(param))
+                return all(proofs)
+            if receiver in self._names_bound_under(func):
+                return False  # bound by a nested scope or a pattern: unknown
+        if not self._module_global_is_stable(receiver):
+            return False
+        return self._is_orm_session_value(
+            self._module_scope.values.get(receiver), 0
+        )
+
+    def _calls_orm_unit_of_work(self, scope: ast.AST, receiver: str) -> bool:
+        key = (id(scope), receiver)
+        known = self._orm_unit_of_work_memo.get(key)
+        if known is None:
+            known = self._orm_unit_of_work_memo[key] = _calls_orm_unit_of_work(
+                scope, receiver
+            )
+        return known
+
+    def _parameter_is_orm_session(self, param: ast.arg) -> bool:
+        annotation = param.annotation
+        if annotation is None:
+            return False
+        return self._names_orm_session_type(
+            annotation, 0
+        ) or self._annotation_used_as_orm_session(ast.dump(annotation))
+
+    @cached_property
+    def _orm_session_annotations(self) -> frozenset[str]:
+        """Parameter annotations that some function in this module uses as an
+        ORM session (calls ``commit``, ``exec``... on the parameter). Covers a
+        ``SessionDep`` alias imported from another module."""
+        found: set[str] = set()
+        if self.tree is None:
+            return frozenset()
+        for func in ast.walk(self.tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            args = func.args
+            for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs):
+                if arg.annotation is None or _is_generic_annotation(arg.annotation):
+                    continue
+                key = ast.dump(arg.annotation)
+                if key in found or _local_binding_values(func, arg.arg):
+                    continue
+                if _calls_orm_unit_of_work(func, arg.arg):
+                    found.add(key)
+        return frozenset(found)
+
+    def _annotation_used_as_orm_session(self, annotation_key: str) -> bool:
+        return annotation_key in self._orm_session_annotations
+
+    def _resolved_dotted(self, node: ast.AST) -> str | None:
+        """``node``'s dotted name with its imported head replaced by the
+        module it comes from (``Session`` -> ``sqlmodel.Session``)."""
+        dotted = _qualified_name_from_expr(node)
+        if dotted is None:
+            return None
+        head, _, rest = dotted.partition(".")
+        sources = self._module_scope.imported.get(head)
+        if not sources or not self._module_global_is_stable(head):
+            return None
+        return sources[-1] + (f".{rest}" if rest else "")
+
+    def _module_value(self, node: ast.AST) -> ast.AST | None:
+        if not isinstance(node, ast.Name) or not self._module_global_is_stable(
+            node.id
+        ):
+            return None
+        return self._module_scope.values.get(node.id)
+
+    def _names_orm_session_type(self, node: ast.AST | None, depth: int) -> bool:
+        """``node`` (an annotation) names an ORM session class, through
+        ``Annotated[...]``, ``Optional[...]``, ``X | None``, string
+        annotations and module-level aliases."""
+        if node is None or depth > _MAX_ORM_ALIAS_DEPTH:
+            return False
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            try:
+                parsed = ast.parse(node.value.strip(), mode="eval").body
+            except SyntaxError:
+                return False
+            return self._names_orm_session_type(parsed, depth + 1)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+            members = [
+                member
+                for member in (node.left, node.right)
+                if not _is_none_annotation(member)
+            ]
+            return bool(members) and all(
+                self._names_orm_session_type(member, depth + 1) for member in members
+            )
+        if isinstance(node, ast.Subscript):
+            base = _qualified_name_from_expr(node.value) or ""
+            base = base.rsplit(".", 1)[-1]
+            inner = node.slice
+            if base == "Annotated" and isinstance(inner, ast.Tuple) and inner.elts:
+                return self._names_orm_session_type(inner.elts[0], depth + 1)
+            if base == "Optional":
+                return self._names_orm_session_type(inner, depth + 1)
+            if base == "Union" and isinstance(inner, ast.Tuple):
+                members = [m for m in inner.elts if not _is_none_annotation(m)]
+                return bool(members) and all(
+                    self._names_orm_session_type(m, depth + 1) for m in members
+                )
+            return False
+        resolved = self._resolved_dotted(node)
+        if resolved is not None:
+            return _is_orm_session_class(resolved)
+        alias = self._module_value(node)
+        return alias is not None and self._names_orm_session_type(alias, depth + 1)
+
+    def _names_orm_object(self, node: ast.AST | None, cls: str, depth: int) -> bool:
+        """``node`` is a call constructing ``<orm module>.<cls>``."""
+        if not isinstance(node, ast.Call) or depth > _MAX_ORM_ALIAS_DEPTH:
+            return False
+        resolved = self._resolved_dotted(node.func)
+        if resolved is None:
+            return False
+        parts = resolved.split(".")
+        return parts[0] in _ORM_MODULE_ROOTS and parts[-1] == cls
+
+    def _is_orm_session_factory_value(self, node: ast.AST | None, depth: int) -> bool:
+        """``node`` is (a module alias of) ``sessionmaker(...)`` and friends."""
+        if node is None or depth > _MAX_ORM_ALIAS_DEPTH:
+            return False
+        if isinstance(node, ast.Call):
+            resolved = self._resolved_dotted(node.func)
+            return resolved is not None and _is_orm_session_factory(resolved)
+        alias = self._module_value(node)
+        return alias is not None and self._is_orm_session_factory_value(
+            alias, depth + 1
+        )
+
+    def _is_orm_session_value(self, node: ast.AST | None, depth: int) -> bool:
+        """``node`` evaluates to an ORM session: ``Session(engine)``,
+        ``SessionLocal()`` for a ``sessionmaker``, ``factory.begin()``, or a
+        ``scoped_session`` registry used directly."""
+        if node is None or depth > _MAX_ORM_ALIAS_DEPTH:
+            return False
+        if isinstance(node, ast.Await):
+            return self._is_orm_session_value(node.value, depth + 1)
+        if isinstance(node, ast.Call):
+            func = node.func
+            resolved = self._resolved_dotted(func)
+            if resolved is not None and _is_orm_session_class(resolved):
+                return True
+            if self._is_orm_session_factory_value(func, depth + 1):
+                return True
+            if isinstance(func, ast.Attribute) and func.attr == "begin":
+                return self._is_orm_session_factory_value(func.value, depth + 1)
+            return False
+        if self._is_orm_session_factory_value(node, depth + 1):
+            # ``Session = scoped_session(...)`` proxies a session directly.
+            value = self._module_value(node)
+            resolved = (
+                self._resolved_dotted(value.func)
+                if isinstance(value, ast.Call)
+                else None
+            )
+            return resolved is not None and resolved.rsplit(".", 1)[-1] in {
+                "scoped_session",
+                "async_scoped_session",
+            }
+        alias = self._module_value(node)
+        return alias is not None and self._is_orm_session_value(alias, depth + 1)
 
     @cached_property
     def _module_scope(self) -> _ModuleScope:
@@ -1649,6 +1975,248 @@ class _SSRFFlowChecker(TaintVisitor):
             self._url_value_has_fixed_host(value) for value in values
         )
 
+    def _dominating_statements(self, node: ast.AST, func: ast.AST):
+        """Statements that run before ``node`` on every path through ``func``:
+        the earlier siblings of each statement block on the way up to ``func``
+        (nearest first). A ``try`` or ``with`` that holds a statement is not
+        looked into, so an exit swallowed by a handler never counts."""
+        current = node
+        while current is not None and current is not func:
+            parent = self.parents.get(id(current))
+            if parent is None:
+                return
+            if isinstance(current, ast.stmt):
+                for field in ("body", "orelse", "finalbody"):
+                    block = getattr(parent, field, None)
+                    if not isinstance(block, list):
+                        continue
+                    index = next(
+                        (i for i, stmt in enumerate(block) if stmt is current), None
+                    )
+                    if index is not None:
+                        yield from reversed(block[:index])
+                        break
+            current = parent
+
+    def _statement_dominates(self, statement: ast.AST, node: ast.AST, func) -> bool:
+        return any(
+            earlier is statement for earlier in self._dominating_statements(node, func)
+        )
+
+    def _block_always_exits(self, body: list[ast.stmt], func: ast.AST) -> bool:
+        """The block ends in ``raise``/``return`` or ``abort()``/``sys.exit()``,
+        so the code after its ``if`` only runs when the test was false."""
+        if not body:
+            return False
+        last = body[-1]
+        if isinstance(last, (ast.Raise, ast.Return)):
+            return True
+        if not (isinstance(last, ast.Expr) and isinstance(last.value, ast.Call)):
+            return False
+        qn = _qualified_name_from_call(last.value)
+        if not qn:
+            return False
+        return self.untrusted_sources.resolved_import(func, qn) in _GUARD_EXIT_CALLS
+
+    def _reads_local(self, ref: ast.AST, name: str, func: ast.AST) -> bool:
+        return (
+            isinstance(ref, ast.Name)
+            and ref.id == name
+            and self._binding_scope(name, ref) is func
+        )
+
+    def _single_local_value(self, ref: ast.Name, func: ast.AST, at: ast.AST):
+        """``(value, statement)`` of the only binding of ``ref`` in ``func``: a
+        plain assignment that runs before ``at`` on every path."""
+        if self._binding_scope(ref.id, ref) is not func:
+            return None, None
+        bindings = self._binding_nodes(func, ref.id)
+        if len(bindings) != 1:
+            return None, None
+        target = bindings[0]
+        statement = self.parents.get(id(target))
+        if isinstance(statement, ast.Assign):
+            if len(statement.targets) != 1 or statement.targets[0] is not target:
+                return None, None
+        elif not (
+            isinstance(statement, ast.AnnAssign)
+            and statement.target is target
+            and statement.value is not None
+        ):
+            return None, None
+        if not self._statement_dominates(statement, at, func):
+            return None, None
+        return statement.value, statement
+
+    def _parsed_url_read_line(self, expr, name, func, at, depth=0) -> int | None:
+        """Line where ``expr`` (``urlparse(name)`` or a local holding it) read
+        the URL, or None."""
+        if isinstance(expr, ast.Call):
+            qn = _qualified_name_from_call(expr)
+            if (
+                qn
+                and self.untrusted_sources.resolved_import(func, qn) in _URL_PARSERS
+                and len(expr.args) == 1
+                and not expr.keywords
+                and self._reads_local(expr.args[0], name, func)
+            ):
+                return expr.lineno
+            return None
+        if isinstance(expr, ast.Name) and depth < _MAX_GUARD_DERIVATION_DEPTH:
+            value, statement = self._single_local_value(expr, func, at)
+            if value is not None:
+                return self._parsed_url_read_line(
+                    value, name, func, statement, depth + 1
+                )
+        return None
+
+    def _url_host_read_line(self, expr, name, func, at, depth=0) -> int | None:
+        """Line where ``expr`` (the ``hostname``/``netloc`` of the URL held in
+        ``name``, possibly through one local) read the URL, or None."""
+        if (
+            isinstance(expr, ast.Call)
+            and isinstance(expr.func, ast.Attribute)
+            and expr.func.attr == "lower"
+            and not expr.args
+            and not expr.keywords
+        ):
+            expr = expr.func.value
+        if isinstance(expr, ast.Attribute) and expr.attr in _URL_HOST_ATTRS:
+            return self._parsed_url_read_line(expr.value, name, func, at, depth)
+        if isinstance(expr, ast.Name) and depth < _MAX_GUARD_DERIVATION_DEPTH:
+            value, statement = self._single_local_value(expr, func, at)
+            if value is not None:
+                return self._url_host_read_line(value, name, func, statement, depth + 1)
+        return None
+
+    def _is_host_allowlist(self, node: ast.AST, func: ast.AST) -> bool:
+        """A literal collection of strings, or a name/attribute that the
+        request cannot choose: a module constant (not a string, whose ``in``
+        is a substring test), an import, or an attribute of ``self``/``cls``."""
+        if isinstance(node, (ast.Set, ast.List, ast.Tuple)):
+            return bool(node.elts) and all(
+                _constant_string(element) is not None for element in node.elts
+            )
+        root = node
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if not isinstance(root, ast.Name):
+            return False
+        if root is not node and root.id in {"self", "cls"}:
+            return True
+        if self._binding_scope(root.id, root) is not None:
+            return False
+        scope = self._module_scope
+        if not scope.bindings[root.id]:
+            return False
+        if root is node:
+            value = scope.values.get(root.id)
+            if isinstance(value, (ast.Constant, ast.JoinedStr)):
+                return False
+        return True
+
+    def _host_prefix_check_line(self, test, name, func) -> int | None:
+        """``name.startswith("https://fixed.host/")``: the literal pins the
+        host, so a scheme-only prefix such as ``"https://"`` does not count."""
+        if not (
+            isinstance(test, ast.Call)
+            and isinstance(test.func, ast.Attribute)
+            and test.func.attr == "startswith"
+            and len(test.args) == 1
+            and not test.keywords
+            and self._reads_local(test.func.value, name, func)
+        ):
+            return None
+        prefixes = test.args[0]
+        values = prefixes.elts if isinstance(prefixes, ast.Tuple) else [prefixes]
+        if values and all(
+            _CONSTANT_HOST_PREFIX_RE.match(_constant_string(value) or "")
+            for value in values
+        ):
+            return test.lineno
+        return None
+
+    def _allowlist_holds_when_true(self, test, name, func, guard) -> int | None:
+        """``test`` being true proves the URL's host is allowlisted; returns
+        the line where the URL was last read for the check."""
+        if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And):
+            lines = [
+                self._allowlist_holds_when_true(value, name, func, guard)
+                for value in test.values
+            ]
+            lines = [line for line in lines if line is not None]
+            return max(lines) if lines else None
+        if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+            return self._allowlist_holds_when_false(test.operand, name, func, guard)
+        if (
+            isinstance(test, ast.Compare)
+            and len(test.ops) == 1
+            and isinstance(test.ops[0], ast.In)
+            and self._is_host_allowlist(test.comparators[0], func)
+        ):
+            return self._url_host_read_line(test.left, name, func, guard)
+        if (
+            isinstance(test, ast.Call)
+            and isinstance(test.func, ast.Attribute)
+            and test.func.attr == "__contains__"
+            and len(test.args) == 1
+            and not test.keywords
+            and self._is_host_allowlist(test.func.value, func)
+        ):
+            return self._url_host_read_line(test.args[0], name, func, guard)
+        return self._host_prefix_check_line(test, name, func)
+
+    def _allowlist_holds_when_false(self, test, name, func, guard) -> int | None:
+        """``test`` being false proves the URL's host is allowlisted."""
+        if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.Or):
+            lines = [
+                self._allowlist_holds_when_false(value, name, func, guard)
+                for value in test.values
+            ]
+            lines = [line for line in lines if line is not None]
+            return max(lines) if lines else None
+        if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+            return self._allowlist_holds_when_true(test.operand, name, func, guard)
+        if (
+            isinstance(test, ast.Compare)
+            and len(test.ops) == 1
+            and isinstance(test.ops[0], ast.NotIn)
+            and self._is_host_allowlist(test.comparators[0], func)
+        ):
+            return self._url_host_read_line(test.left, name, func, guard)
+        return None
+
+    def _host_allowlist_guard_dominates(self, sink: ast.Call, url_arg: ast.AST) -> bool:
+        """An earlier ``if <host of url> not in ALLOWED: raise`` (or a
+        ``not url.startswith("https://fixed.host/")`` check) in the sink's own
+        function rejects every other host before the request is sent.
+
+        Only a guard that always exits, sits before the sink on every path and
+        checks the same local URL counts, and only when that URL is not
+        rebound at or after the point the guard read it."""
+        func = self._current_function()
+        if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return False
+        if self.untrusted_sources is None or not isinstance(url_arg, ast.Name):
+            return False
+        name = url_arg.id
+        if not self._reads_local(url_arg, name, func):
+            return False
+        if self._nested_declared_writes(func).get(name):
+            return False
+        bindings = self._binding_nodes(func, name)
+        for guard in self._dominating_statements(sink, func):
+            if not isinstance(guard, ast.If) or not self._block_always_exits(
+                guard.body, func
+            ):
+                continue
+            read_line = self._allowlist_holds_when_false(guard.test, name, func, guard)
+            if read_line is None:
+                continue
+            if all(getattr(binding, "lineno", 0) < read_line for binding in bindings):
+                return True
+        return False
+
     def _untrusted_evidence(self, url_arg: ast.AST, sink: str):
         """Evidence that attacker-reachable input can pick the request host.
 
@@ -1678,6 +2246,8 @@ class _SSRFFlowChecker(TaintVisitor):
         return None
 
     def _append_finding(self, node: ast.Call, url_arg: ast.AST, sink: str) -> None:
+        if self._host_allowlist_guard_dominates(node, url_arg):
+            return
         source_evidence = self._untrusted_evidence(url_arg, sink)
         if source_evidence is None:
             return

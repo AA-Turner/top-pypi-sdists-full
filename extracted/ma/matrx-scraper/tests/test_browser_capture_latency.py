@@ -19,8 +19,9 @@ async def test_pool_disables_playwrights_unbounded_font_gate_before_driver_start
             return None
 
     class FakeChromium:
-        async def launch(self, *, headless: bool) -> FakeBrowser:
+        async def launch(self, *, headless: bool, args: list[str] | None = None) -> FakeBrowser:
             assert headless is True
+            assert args == ["--disable-dev-shm-usage"]
             return FakeBrowser()
 
     class FakePlaywright:
@@ -346,6 +347,8 @@ async def test_font_readiness_timeout_stops_pending_loads_and_retries_once(
     assert len(shots) == 1
     assert screenshot_calls == 2
     evaluations = [e for e in evaluations if e != PAINT_PROBE_JS]  # the readiness probe is not under test here
+    # (the consent-overlay sweep is its own evaluation; it is not part of the stop/retry sequencing under test)
+    evaluations = [e for e in evaluations if "onetrust" not in e]
     assert evaluations[:2] == ["window.scrollTo(0,0)", "window.stop()"]
     assert "window.stop()" in evaluations[2]
     assert "document.fonts.clear()" in evaluations[2]
@@ -379,4 +382,5 @@ async def test_focused_screenshot_can_preserve_recipe_scroll(
 
     assert len(shots) == 1
     evaluations = [e for e in evaluations if e != PAINT_PROBE_JS]
+    evaluations = [e for e in evaluations if "onetrust" not in e]
     assert evaluations == ["window.stop()"]

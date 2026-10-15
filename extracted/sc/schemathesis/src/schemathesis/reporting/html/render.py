@@ -10,6 +10,7 @@ from schemathesis.core.failures import reason_phrase
 from schemathesis.core.output import TRUNCATED, escape_surrogates
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 from schemathesis.engine import StopReason
+from schemathesis.reporting._command import UNKNOWN_ENTRYPOINT
 from schemathesis.reporting.html.model import Command, OperationStatus, Verdict, plural, split_label
 from schemathesis.reporting.html.timeline import (
     Lane,
@@ -415,12 +416,18 @@ _TOP_FAILURES_SHOWN = 3
 
 def _second_cell(data: ReportData) -> str:
     if data.top_failures:
+        # A "+1 more" line takes the space the hidden item would, so show that item instead.
+        shown = (
+            data.top_failures
+            if len(data.top_failures) <= _TOP_FAILURES_SHOWN + 1
+            else data.top_failures[:_TOP_FAILURES_SHOWN]
+        )
         rows = "".join(
             f'<li><span class="tf-n">{group.count}</span>'
             f'<span class="tf-name" title="{esc(group.title)}">{esc(group.title)}</span></li>'
-            for group in data.top_failures[:_TOP_FAILURES_SHOWN]
+            for group in shown
         )
-        hidden = len(data.top_failures) - _TOP_FAILURES_SHOWN
+        hidden = len(data.top_failures) - len(shown)
         if hidden > 0:
             rows += f'<li><a class="tf-more" href="#operations">+{hidden} more</a></li>'
         return (
@@ -446,7 +453,8 @@ def _verdict_line(data: ReportData) -> tuple[str, str]:
     if data.summary.failures:
         return "", "Failures not tied to an operation"
     if data.verdict is Verdict.ERRORED:
-        errored = sum(row.status is OperationStatus.ERRORED for row in data.operations)
+        # Tested operations keep their errors in their rows.
+        errored = sum(bool(row.errors) or row.status is OperationStatus.ERRORED for row in data.operations)
         return "", f"{plural(errored, 'operation')} errored" if errored else "Errors not tied to an operation"
     text = "1 tested operation passed" if tested == 1 else f"All {tested} tested operations passed"
     bar = (
@@ -520,7 +528,8 @@ def _target_block(data: ReportData) -> str:
         # A local spec cannot be opened from a copied-around report, so it is plain text.
         value = _link(meta.location) if _is_url(meta.location) else esc(meta.location)
         rows.append(_row("Spec", value, _copy_button(meta.location, "spec")))
-    rows.append(_row("Command", _command(meta.command), _copy_button(meta.command, "command")))
+    if meta.command != UNKNOWN_ENTRYPOINT:
+        rows.append(_row("Command", _command(meta.command), _copy_button(meta.command, "command")))
     if meta.seed is not None:
         rows.append(_row("Seed", f"<code>{meta.seed}</code>", _copy_button(str(meta.seed), "seed")))
     if data.phases:
@@ -808,15 +817,13 @@ _FRAMEWORK_FRAME = re.compile(r"[/\\](?:src|site-packages)[/\\]schemathesis[/\\]
 
 def _traceback(lines: list[str]) -> str:
     frames = [match for match in map(_FRAME.match, lines) if match is not None]
-    summary = "Traceback"
-    if frames:
-        # The last frame outside Schemathesis, or the last frame when every one is inside it.
-        where = ([frame for frame in frames if not _FRAMEWORK_FRAME.search(frame["path"])] or frames)[-1]
-        name = re.split(r"[/\\]", where["path"])[-1]
-        summary = (
-            f"Traceback ({plural(len(frames), 'frame')}), raised in "
-            f'<span class="trace-where"><code>{esc(name)}:{where["line"]}</code></span>'
-        )
+    # The last frame outside Schemathesis, or the last frame when every one is inside it.
+    where = ([frame for frame in frames if not _FRAMEWORK_FRAME.search(frame["path"])] or frames)[-1]
+    name = re.split(r"[/\\]", where["path"])[-1]
+    summary = (
+        f"Traceback ({plural(len(frames), 'frame')}), raised in "
+        f'<span class="trace-where"><code>{esc(name)}:{where["line"]}</code></span>'
+    )
     text = "\n".join(lines)
     return (
         f'<details class="trace"><summary><span class="dchev" aria-hidden="true"></span>{summary}</summary>'
@@ -866,8 +873,16 @@ def _row_items(row: OperationRow) -> list[str]:
     return items
 
 
-def _operation_order(row: OperationRow) -> tuple[int, str, str]:
-    return (-len(row.failures), row.path, row.method)
+_DIGITS = re.compile(r"(\d+)")
+
+
+def _natural_key(text: str) -> tuple[str | int, ...]:
+    # Splitting on a capture group puts digit runs at odd positions, so `/4` sorts before `/12`.
+    return tuple(int(part) if index % 2 else part for index, part in enumerate(_DIGITS.split(text)))
+
+
+def _operation_order(row: OperationRow) -> tuple[int, tuple[str | int, ...], str]:
+    return (-len(row.failures), _natural_key(row.path), row.method)
 
 
 def _group_header(status: OperationStatus, rows: list[OperationRow], *, collapsible: bool) -> str:

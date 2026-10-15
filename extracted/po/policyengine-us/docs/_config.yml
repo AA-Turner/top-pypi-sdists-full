@@ -1,0 +1,23 @@
+title: PolicyEngine US documentation
+author: PolicyEngine
+copyright: "2023"
+
+execute:
+  execute_notebooks: off
+
+repository:
+  url: https://github.com/policyengine/policyengine-us
+  branch: master
+  path_to_book: docs
+
+sphinx:
+  config:
+    html_theme: furo
+    pygments_style: default
+  extra_extensions:
+    - "sphinx.ext.autodoc"
+    - "sphinxarg.ext"
+    - "sphinx.ext.viewcode"
+    - "sphinx.ext.napoleon"
+    - "sphinx.ext.mathjax"
+

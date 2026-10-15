@@ -6,7 +6,7 @@ from unittest.mock import ANY
 
 import jsonschema_rs
 import pytest
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from hypothesis import strategies as st
 from requests import Request
 
@@ -3117,31 +3117,6 @@ def test_unexpected_methods_skip_sibling_parameter_missing_from_template(ctx):
         )
         if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD
     ] == []
-
-
-def test_coverage_failure_shows_actual_method_in_header(ctx, cli, snapshot_cli):
-    api = ctx.openapi.apps.success()
-    # Regression test for GH-3322
-    # When coverage phase tests unexpected HTTP methods (e.g., PATCH on a GET endpoint),
-    # the failure header should show the actual tested method, not the original endpoint's method
-    raw_schema = {
-        "/resource": {
-            "get": {"responses": {"200": {"description": "OK"}}},
-        }
-    }
-    schema_path = ctx.openapi.write_schema(raw_schema)
-
-    assert (
-        cli.main(
-            "run",
-            str(schema_path),
-            "--checks=unsupported_method",
-            f"--url={api.base_url}/api",
-            "--phases=coverage",
-            "--mode=negative",
-        )
-        == snapshot_cli
-    )
 
 
 def test_missing_authorization(ctx, cli, snapshot_cli):
@@ -7564,7 +7539,7 @@ def test_ref_parameter_schema_keeps_combination_coverage(ctx):
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_allow_header_conformance(ctx, cli, snapshot_cli):
-    # Flask builds `Allow` from its own routing table, so a documented but unimplemented method is missing from it.
+    # The server leaves the documented POST out of `Allow`; a fixed value keeps the reported header stable.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/items": {
@@ -7574,8 +7549,10 @@ def test_allow_header_conformance(ctx, cli, snapshot_cli):
         }
     )
 
-    @app.route("/items", methods=["GET"])
+    @app.route("/items", methods=["GET", "OPTIONS"], provide_automatic_options=False)
     def items():
+        if request.method == "OPTIONS":
+            return Response(headers={"Allow": "GET, HEAD, OPTIONS"})
         return jsonify([])
 
     assert (

@@ -46,6 +46,19 @@ _REQUIRED_MEMBERS = (
     "spec_kitty_events/zeitgeist_attrs.py",
     "spec_kitty_events/conformance/fixtures/zeitgeist_attrs/valid/wp_status_changed_planned_doing.json",
     "spec_kitty_events/conformance/fixtures/zeitgeist_attrs/invalid/wp_status_changed_unknown_attr.json",
+    # spec-kitty-events#92: the producer contract (registry, data schemas, envelope,
+    # fixtures) and the total-order comparator ship in the wheel.
+    "spec_kitty_events/producer_contract/registry.json",
+    "spec_kitty_events/producer_contract/envelope.schema.json",
+    "spec_kitty_events/producer_contract/data/lane.transitioned.v1.schema.json",
+    "spec_kitty_events/producer_contract/data/retrospective.skipped.v1.schema.json",
+    "spec_kitty_events/producer_contract/fixtures/rows/valid/lane.transitioned.v1.json",
+    "spec_kitty_events/producer_contract/fixtures/rows/invalid/lamportclock_overflow.json",
+    "spec_kitty_events/producer_contract/fixtures/rows/legacy_invalid/lane_unknown_member.json",
+    "spec_kitty_events/producer_contract/fixtures/total_order/04_naive_counter_example.json",
+    "spec_kitty_events/total_order.py",
+    "spec_kitty_events/conformance/test_total_order.py",
+    "spec_kitty_events/conformance/test_producer_contract.py",
 )
 
 
@@ -84,6 +97,18 @@ def test_built_wheel_contains_f1_t1_package_data(tmp_path: Path) -> None:
 
     with zipfile.ZipFile(wheel_path) as zf:
         names = set(zf.namelist())
+
+    # Every producer-contract data file on disk must be in the wheel, not only the sample
+    # members named above: a glob that stops one directory short would drop fixtures.
+    contract_root = _REPO_ROOT / "src" / "spec_kitty_events" / "producer_contract"
+    on_disk = {
+        "spec_kitty_events/producer_contract/" + path.relative_to(contract_root).as_posix()
+        for pattern in ("*.json", "*.md")
+        for path in contract_root.rglob(pattern)
+    }
+    assert on_disk, "no producer_contract data files found on disk"
+    absent = sorted(on_disk - names)
+    assert not absent, f"producer_contract files missing from the wheel: {absent}"
 
     missing = [member for member in _REQUIRED_MEMBERS if member not in names]
     assert not missing, (

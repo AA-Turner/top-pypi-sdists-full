@@ -103,7 +103,7 @@ from angr.sim_variable import (
     SimVariable,
 )
 from angr.utils import timethis
-from angr.utils.ail import is_head_controlled_loop_jump
+from angr.utils.ail import BlockDefs, GraphVVarDefs, is_head_controlled_loop_jump
 from angr.utils.ail_serialization import (
     BlockPool,
     pack_arg_vvars,
@@ -752,10 +752,10 @@ class Clinic(Analysis, Serializable):
 
         # We should be able to resolve all indirect register loads by this point
 
-        self._remove_redundant_jump_blocks(ail_graph)
+        self._remove_redundant_jump_blocks(ail_graph, self.entry_node_addr)
         # _fix_abnormal_switch_case_heads may re-lift from VEX blocks, so it should be placed as high up as possible
         self._fix_abnormal_switch_case_heads(ail_graph)
-        self._remove_redundant_jump_blocks(ail_graph)
+        self._remove_redundant_jump_blocks(ail_graph, self.entry_node_addr)
         if self._insert_labels:
             self._insert_block_labels(ail_graph)
 
@@ -1456,7 +1456,7 @@ class Clinic(Analysis, Serializable):
 
         ail_graph = self._make_ailgraph()
         self._blocks_by_addr_and_size = None
-        self._remove_redundant_jump_blocks(ail_graph)
+        self._remove_redundant_jump_blocks(ail_graph, self.entry_node_addr)
 
         # full-function constant-only propagation
         self._update_progress(33.0, text="Constant propagation")
@@ -2052,7 +2052,12 @@ class Clinic(Analysis, Serializable):
 
     def _convert_vex(self, block):
         fast = self._convert_vex_fast(block)
-        if fast is not None:
+        # A raw libVEX lift skips postprocessing lifters (gymrat lifters) in PyVEX. We detect these cases by checking
+        # if the lifted block is the same size as the original block (which handles the cases where gymrat lifters lift
+        # more instructions than the VEX lifter does). If the lifted block is shorter, fall back to the normal & slower
+        # conversion path. Note that this is a heuristic; gymrat lifters may produce a block of the same size as the
+        # original block.
+        if fast is not None and fast.original_size == block.size:
             return fast
         # Fallback: convert the cached pyvex Python IRSB.
         return ailment.IRSBConverter.convert(block.vex, self._ail_manager)
@@ -2443,6 +2448,8 @@ class Clinic(Analysis, Serializable):
         if cache is None:
             cache = {}
 
+        # definitions are read from the pre-simplification graph; simplification keeps their semantics
+        graph_defs = GraphVVarDefs(ail_graph)
         for ail_block in ail_graph.nodes():
             if only_blocks is not None and (ail_block.addr, ail_block.idx) not in only_blocks:
                 continue
@@ -2452,6 +2459,7 @@ class Clinic(Analysis, Serializable):
                 cache=cache,
                 preserve_vvar_ids=preserve_vvar_ids,
                 type_hints=type_hints,
+                graph_defs=graph_defs,
             )
             if simplified_block is not None:
                 key = ail_block.addr, ail_block.idx
@@ -2504,12 +2512,14 @@ class Clinic(Analysis, Serializable):
         cache=None,
         preserve_vvar_ids: set[int] | None = None,
         type_hints: list[tuple[atoms.VirtualVariable | atoms.MemoryLocation, str]] | None = None,
+        graph_defs: GraphVVarDefs | None = None,
     ) -> ailment.Block | None:
         """
         Simplify a single AIL block.
 
         :param ailment.Block ail_block: The AIL block to simplify.
         :param stack_pointer_tracker:   The RegisterDeltaTracker analysis instance.
+        :param graph_defs:              Unique vvar definitions of the whole function graph.
         :return:                        A simplified AIL block.
         """
 
@@ -2532,6 +2542,7 @@ class Clinic(Analysis, Serializable):
             preserve_vvar_ids=preserve_vvar_ids,
             type_hints=type_hints,
             peephole_bundle=self._get_peephole_bundle(preserve_vvar_ids, type_hints),
+            graph_defs=graph_defs,
         )
         # update the cache
         if cache is not None:
@@ -2930,7 +2941,7 @@ class Clinic(Analysis, Serializable):
                             name=arg_names[idx] if idx < len(arg_names) and arg_names[idx] else f"a{idx}",
                             region=self.function.addr,
                         )
-                    elif isinstance(arg, SimStructArg):
+                    elif isinstance(arg, (SimStructArg, SimComboArg)):
                         locs = self._expand_argloc(arg)
                         if locs and all(isinstance(loc, SimRegArg) for loc in locs):
                             reg_offsets = []
@@ -2975,17 +2986,6 @@ class Clinic(Analysis, Serializable):
                                 region=self.function.addr,
                                 size=arg.size or self.project.arch.bytes,
                             )
-                    elif isinstance(arg, SimComboArg):
-                        # Why does CC break Doubles on the stack into SimComboArg?
-                        assert all(isinstance(arg, SimStackArg) for arg in arg.locations)
-                        argvar = SimStackVariable(
-                            arg.locations[0].stack_offset,
-                            arg.size,
-                            base="bp",
-                            ident=f"arg_{idx}",
-                            name=arg_names[idx],
-                            region=self.function.addr,
-                        )
                     else:
                         argvar = SimVariable(
                             ident=f"arg_{idx}",
@@ -4051,9 +4051,14 @@ class Clinic(Analysis, Serializable):
                 )
                 self._set_reference_values(expr, {ty: s})
             else:
+                variables = variable_manager.find_variables_by_atom(block.addr, stmt_idx, expr, block_idx=block.idx)
+                # variable recovery records a constant inside a mapped segment as a constant variable only when it is
+                # an operand of a non-pointer operator (a mask, a shift amount, a multiplier): never link it to the
+                # global or symbol at that address
+                is_number = bool(variables) and self.project.loader.find_segment_containing(expr.value_int) is not None
                 # global variable?
-                global_vars = global_variables.get_global_variables(expr.value_int)
-                if not global_vars and self.project.loader.find_object_containing(expr.value_int):
+                global_vars = set() if is_number else global_variables.get_global_variables(expr.value_int)
+                if not global_vars and not is_number and self.project.loader.find_object_containing(expr.value_int):
                     # detect if there is a related symbol
                     symbol = self.project.loader.find_symbol(expr.value)
                     if symbol is not None:
@@ -4069,12 +4074,9 @@ class Clinic(Analysis, Serializable):
                     # the constant may point inside a multi-word global
                     delta = expr.value_int - global_var.addr if isinstance(global_var.addr, int) else 0
                     self._set_reference_variable(expr, global_var, delta if 0 <= delta < (global_var.size or 1) else 0)
-                else:
-                    # is there a related constant variable?
-                    variables = variable_manager.find_variables_by_atom(block.addr, stmt_idx, expr, block_idx=block.idx)
-                    if len(variables) >= 1:
-                        var, offset = _pick_var_and_offset(variables)
-                        self._set_expr_variable(expr, var, offset)
+                elif variables:
+                    var, offset = _pick_var_and_offset(variables)
+                    self._set_expr_variable(expr, var, offset)
 
         elif isinstance(expr, ailment.Expr.Call):
             self._link_variables_on_call(variable_manager, global_variables, block, stmt_idx, stmt, expr)
@@ -4486,12 +4488,8 @@ class Clinic(Analysis, Serializable):
             # the first ITE of an instruction is the one _create_triangle_for_ite_expression rewrites, so it alone
             # decides (x87 fistp: the fptag check precedes the saturation ITE)
             seen_ite_ins_addrs = set()
-            # Build a mapping from Tmp index to its defining expression so we can
-            # resolve temporaries when checking for fptag NaN ITE patterns.
-            tmp_defs: dict[int, ailment.Expr.Expression] = {}
+            tmp_defs = BlockDefs(block.statements).tmps
             for stmt in block.statements:
-                if isinstance(stmt, ailment.Stmt.Assignment) and isinstance(stmt.dst, ailment.Expr.Tmp):
-                    tmp_defs[stmt.dst.tmp_idx] = stmt.src
                 if isinstance(stmt, ailment.Stmt.CAS):
                     # we do not rewrite ITE statements that are caused by CAS statements
                     cas_ins_addrs.add(stmt.tags["ins_addr"])
@@ -5034,22 +5032,42 @@ class Clinic(Analysis, Serializable):
                 ((other_head.addr, other_head.idx), (indirect_jump_node.addr, indirect_jump_node.idx))
             )
 
-    @staticmethod
-    def _remove_redundant_jump_blocks(ail_graph):
+    def _remove_redundant_jump_blocks(self, ail_graph, entry_node_addr: ailment.Address):
         def first_conditional_jump(block: ailment.Block) -> ailment.Stmt.ConditionalJump | None:
             for stmt in block.statements:
                 if isinstance(stmt, ailment.Stmt.ConditionalJump):
                     return stmt
             return None
 
+        # LibVEX clears ITSTATE before every Thumb branch. These writes are dead and must not hide a jump-only block.
+        itstate_offset = self.project.arch.registers["itstate"][0] if "itstate" in self.project.arch.registers else None
+
+        def is_itstate_clear(stmt: ailment.Stmt.Statement) -> bool:
+            return (
+                itstate_offset is not None
+                and isinstance(stmt, ailment.Stmt.Assignment)
+                and isinstance(stmt.dst, ailment.Expr.Register)
+                and stmt.dst.reg_offset == itstate_offset
+                and isinstance(stmt.src, ailment.Expr.Const)
+            )
+
+        def jump_only_target(block: ailment.Block) -> int | None:
+            if not block.statements:
+                return None
+            last_stmt = block.statements[-1]
+            if not (isinstance(last_stmt, ailment.Stmt.Jump) and isinstance(last_stmt.target, ailment.Expr.Const)):
+                return None
+            if not all(is_itstate_clear(stmt) for stmt in block.statements[:-1]):
+                return None
+            return last_stmt.target.value
+
         # note that blocks don't have labels inserted at this point
         for node in list(ail_graph.nodes):
-            if (
-                len(node.statements) == 1
-                and isinstance(node.statements[0], ailment.Stmt.Jump)
-                and isinstance(node.statements[0].target, ailment.Expr.Const)
-            ):
-                jump_target = node.statements[0].target.value
+            # the entry block stays even when it only jumps: later stages look it up by entry_node_addr
+            if (node.addr, node.idx) == entry_node_addr:
+                continue
+            jump_target = jump_only_target(node)
+            if jump_target is not None:
                 succs = list(ail_graph.successors(node))
                 if len(succs) == 1 and succs[0].addr == jump_target:
                     preds = list(ail_graph.predecessors(node))

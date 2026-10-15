@@ -1,47 +1,40 @@
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 __all__ = ["Integer"]
 
 import os
 
-try:
-    if os.getenv("PYCRYPTODOME_DISABLE_GMP"):
-        raise ImportError()
+_implementation: dict[str, Any]
 
-    from Crypto.Math._IntegerGMP import IntegerGMP as Integer
-    from Crypto.Math._IntegerGMP import implementation as _implementation
-except (ImportError, OSError, AttributeError):
-    try:
-        from Crypto.Math._IntegerCustom import IntegerCustom as Integer
-        from Crypto.Math._IntegerCustom import implementation as _implementation
-    except (ImportError, OSError):
+if TYPE_CHECKING:
+    # The actual class is only known at runtime
+    from Crypto.Math._IntegerBase import IntegerBase as Integer
+else:
+    # The environment variable PYCRYPTODOME_INTEGER forces one implementation
+    # (for testing): "nat" or "native".
+    _forced = os.getenv("PYCRYPTODOME_INTEGER")
+    if _forced not in (None, "nat", "native"):
+        raise ValueError("Unknown value for PYCRYPTODOME_INTEGER: %s" % _forced)
+
+    if _forced == "nat":
+        from Crypto.Math._IntegerNat import IntegerNat as Integer
+        from Crypto.Math._IntegerNat import implementation as _implementation
+    elif _forced == "native":
         from Crypto.Math._IntegerNative import IntegerNative as Integer
+
         _implementation = {}
+    else:
+        try:
+            # Constant-time arithmetic, in C
+            from Crypto.Math._IntegerNat import IntegerNat as Integer
+            from Crypto.Math._IntegerNat import implementation as _implementation
+        except (ImportError, OSError):
+            # Pure Python (not constant time)
+            from Crypto.Math._IntegerNative import IntegerNative as Integer
+
+            _implementation = {}

@@ -116,6 +116,9 @@ Only the ``USER SETTINGS`` block of the wrapper is meant to be edited.
 3. Choosing the stations and levels
 ===================================
 
+Every token, with examples for each family (radiances, aircraft,
+radiosondes, surface), is on :doc:`stations`. In short:
+
 ``ID_STN`` takes the tokens of the rest of Pikobs, and each one is its own
 series of dashboards:
 

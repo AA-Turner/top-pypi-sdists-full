@@ -79,8 +79,7 @@
 pub mod script_io;
 
 use std::collections::HashSet;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
@@ -90,7 +89,7 @@ use crate::checksum::{validate_checksum_report, ChecksumMode, ChecksumValidation
 use crate::dependency_view::{self, Origin};
 use crate::error::*;
 use crate::generated::types::CodeUnit;
-use crate::registry::paths::{filename_of, filename_stem};
+use crate::registry::storage::Storage;
 
 const SCHEMA_JSON: &str = include_str!("../../schemas/code-unit.schema.json");
 
@@ -216,33 +215,30 @@ fn try_or_issue_with_code<T>(
     }
 }
 
-/// Collect all `.json` file paths and their filenames from a directory.
-fn list_json_files(dir: &Path) -> Result<Vec<(PathBuf, String)>> {
-    Ok(crate::registry::paths::json_file_paths(dir)?
-        .into_iter()
-        .map(|p| {
-            let name = filename_of(&p);
-            (p, name)
-        })
-        .collect())
+/// Issue label for a stored document: its registry file name, identical
+/// for every storage backend so reports don't depend on the backend.
+fn document_label(id: &str) -> String {
+    format!("{id}.json")
 }
 
 // ── Per-file validation ──────────────────────────────────────────────────
 
-/// Validate a single JSON file against the schema and structural rules.
+/// Validate a single stored document against the schema and structural rules.
 ///
+/// `key` is the document's storage key and `contents` its raw read outcome.
 /// Issues are accumulated into `issues` as they are found. Returns
 /// `Some(CodeUnit)` when parsing succeeds (even if issues were recorded),
-/// or `None` when the file is too broken to parse.
-fn validate_file(
-    path: &Path,
+/// or `None` when the document is too broken to parse.
+fn validate_document(
+    key: &str,
+    contents: Result<String>,
     filename: &str,
     checksum_mode: &ChecksumMode,
     root: &Path,
     issues: &mut Vec<ValidationIssue>,
 ) -> Option<CodeUnit> {
     let contents = try_or_issue(
-        fs::read_to_string(path),
+        contents,
         issues,
         filename,
         ValidationIssueKind::IoError,
@@ -290,12 +286,12 @@ fn validate_file(
     )?;
 
     // ID / filename consistency
-    if let (Ok(stem), Some(ref id)) = (filename_stem(path), &code_unit.id) {
-        if id != stem {
+    if let Some(ref id) = code_unit.id {
+        if id != key {
             issues.push(ValidationIssue::new(
                 filename,
                 ValidationIssueKind::IdFilenameMismatch,
-                format!("ID '{id}' does not match filename stem '{stem}'"),
+                format!("ID '{id}' does not match filename stem '{key}'"),
             ));
         }
     }
@@ -922,63 +918,71 @@ fn custom_side_complete(side: Option<&Value>, file_entry: Option<&Value>) -> boo
 
 /// Validate all code units in the registry.
 pub(crate) fn validate_registry(
-    registry_dir: &Path,
+    storage: &Storage,
     checksum_mode: &ChecksumMode,
     root: &Path,
 ) -> Result<ValidationReport> {
-    if !registry_dir.exists() {
-        return Ok(ValidationReport::from_issues(0, vec![]));
-    }
+    // Per-document checks are independent, so run them in parallel; the
+    // cross-document checks below then walk results in storage order.
+    let checked = storage.load_all_files(|key, contents| {
+        let filename = document_label(key);
+        let mut issues = Vec::new();
+        let unit = validate_document(key, contents, &filename, checksum_mode, root, &mut issues);
+        (key.to_string(), filename, unit, issues)
+    })?;
 
-    let json_files = list_json_files(registry_dir)?;
+    let files_checked = checked.len();
     let mut issues = Vec::new();
     let mut seen_ids: HashSet<String> = HashSet::new();
     let mut parsed_units: Vec<(String, String, CodeUnit)> = Vec::new();
 
-    for (path, filename) in &json_files {
-        if let Some(unit) = validate_file(path, filename, checksum_mode, root, &mut issues) {
+    for (key, filename, unit, doc_issues) in checked {
+        issues.extend(doc_issues);
+        if let Some(unit) = unit {
             let id = match &unit.id {
                 Some(id) => id.clone(),
                 None => {
                     issues.push(ValidationIssue::new(
-                        filename,
+                        &filename,
                         ValidationIssueKind::MissingId,
                         "Code unit has no 'id' field",
                     ));
-                    filename_stem(path).unwrap_or_default().to_string()
+                    key
                 }
             };
             if !seen_ids.insert(id.clone()) {
                 issues.push(ValidationIssue::new(
-                    filename,
+                    &filename,
                     ValidationIssueKind::DuplicateId,
                     format!("Duplicate ID '{id}'"),
                 ));
             }
-            parsed_units.push((id, filename.clone(), unit));
+            parsed_units.push((id, filename, unit));
         }
     }
 
     check_referential_integrity(&parsed_units, &seen_ids, &mut issues);
 
-    Ok(ValidationReport::from_issues(json_files.len(), issues))
+    Ok(ValidationReport::from_issues(files_checked, issues))
 }
 
-/// Validate a single code unit file.
+/// Validate a single stored code unit.
 pub(crate) fn validate_single(
-    path: &Path,
+    storage: &Storage,
+    id: &str,
     checksum_mode: &ChecksumMode,
     root: &Path,
 ) -> Result<ValidationReport> {
-    if !path.exists() {
-        let id = filename_stem(path).unwrap_or_default();
-        return CodeUnitNotFoundSnafu { id }.fail();
-    }
+    let contents = match storage.read_raw(id) {
+        Ok(Some(contents)) => Ok(contents),
+        Ok(None) => return CodeUnitNotFoundSnafu { id }.fail(),
+        Err(e) => Err(e),
+    };
 
-    let filename = filename_of(path);
+    let filename = document_label(id);
     let mut issues = Vec::new();
 
-    validate_file(path, &filename, checksum_mode, root, &mut issues);
+    validate_document(id, contents, &filename, checksum_mode, root, &mut issues);
 
     Ok(ValidationReport::from_issues(1, issues))
 }

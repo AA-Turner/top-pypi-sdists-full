@@ -305,3 +305,118 @@ def test_other_items_page_findings_are_untouched(monkeypatch):
     findings = [_page_finding(i, item="item-title") for i in range(3)]
     _summary, updates = _run_reconcile(monkeypatch, findings, [_site_row("warn")], {"item-lbm"})
     assert updates == []
+
+
+# ------------------------------------------- an unverifiable finding closes, with its reason
+
+
+def _page_row(status, subject="p1", item="item-title", reasoning="Blocked — could not assess"):
+    row = {"subject_type": "page", "subject_id": subject, "page_id": subject, "item_id": item, "item_key": "k",
+           "category": "c", "subcategory": None, "severity": "info", "status": status,
+           "metadata": {"reasoning": reasoning}}
+    return row, SimpleNamespace(id="r-new")
+
+
+def test_n_a_closes_an_open_finding_as_unverified(monkeypatch):
+    # 2026-10-14: 113 "no title" findings stood open on pages whose titles were fine.
+    f = _FakeFinding(id="f1", subject_id="p1", item_id="item-title", subject_type="page",
+                     status="open", resolved_at=None, metadata={"keep": 1})
+    summary, updates = _run_reconcile(monkeypatch, [f], [_page_row("n_a")], set())
+    rows = [u for batch in updates for u in batch]
+    assert len(rows) == 1 and rows[0]["status"] == "resolved"
+    assert rows[0]["metadata"]["unverified"]["reason"] == "Blocked — could not assess"
+    assert rows[0]["metadata"]["keep"] == 1
+    assert summary.findings_resolved == 1
+
+
+def test_an_error_still_leaves_the_finding_alone(monkeypatch):
+    f = _FakeFinding(id="f1", subject_id="p1", item_id="item-title", subject_type="page",
+                     status="open", resolved_at=None, metadata={})
+    _summary, updates = _run_reconcile(monkeypatch, [f], [_page_row("error")], set())
+    assert updates == []
+
+
+def test_a_reopen_clears_the_unverified_mark(monkeypatch):
+    f = _FakeFinding(id="f1", subject_id="p1", item_id="item-title", subject_type="page",
+                     status="resolved", resolved_at=datetime.now(UTC),
+                     metadata={"unverified": {"reason": "x"}, "keep": 1})
+    summary, updates = _run_reconcile(monkeypatch, [f], [_page_row("fail")], set())
+    rows = [u for batch in updates for u in batch]
+    assert rows[0]["status"] == "reopened"
+    assert "unverified" not in rows[0]["metadata"] and rows[0]["metadata"]["keep"] == 1
+
+
+# --------------------------------------------------- rolled-up page findings close
+
+
+def _run_reconcile_rollup(monkeypatch, findings, results, rolled_up, rollup_items):
+    updates = []
+
+    @asynccontextmanager
+    async def fake_tx(_name):
+        yield
+
+    async def fake_bulk_update(_model, rows, casts=None):
+        updates.append(rows)
+
+    async def fake_bulk_create(rows):
+        updates.append([{"created": r} for r in rows])
+        return rows
+
+    monkeypatch.setattr(analysis_write, "WebFinding", SimpleNamespace(filter=lambda **kw: _Q(findings), bulk_create=fake_bulk_create))
+    monkeypatch.setattr(analysis_write, "transaction", fake_tx)
+    monkeypatch.setattr(analysis_write, "bulk_update_by_pk", fake_bulk_update)
+    summary = SimpleNamespace(findings_opened=0, findings_refreshed=0, findings_reopened=0, findings_resolved=0)
+    asyncio.run(analysis_write.reconcile_findings(
+        site_id="s", organization_id="o", computed_at=datetime.now(UTC), results=results,
+        summary=summary, rolled_up=rolled_up, rollup_item_ids=rollup_items))
+    return summary, [u for batch in updates for u in batch]
+
+
+def test_a_rolled_up_page_finding_closes_and_points_at_the_site_result(monkeypatch):
+    f = _FakeFinding(id="f1", subject_id="p1", item_id="item-img", subject_type="page", status="open", resolved_at=None, metadata={})
+    row, created = _page_row("warn", item="item-img")
+    summary, ups = _run_reconcile_rollup(monkeypatch, [f], [(row, created)], {("p1", "item-img"): "site-r"}, {"item-img"})
+    assert ups[0]["status"] == "resolved" and ups[0]["metadata"]["rolled_up"]["site_result_id"] == "site-r"
+    assert summary.findings_opened == 0
+
+
+def test_a_rollup_site_finding_closes_when_the_shared_cause_is_gone(monkeypatch):
+    site_f = _FakeFinding(id="fs", subject_id="s", item_id="item-img", subject_type="site", status="open", resolved_at=None, metadata={})
+    row, created = _page_row("pass", item="item-img")
+    _summary, ups = _run_reconcile_rollup(monkeypatch, [site_f], [(row, created)], {}, {"item-img"})
+    assert any(u.get("id") == "fs" and u.get("status") == "resolved" for u in ups)
+
+
+def test_a_rollup_site_finding_survives_a_run_that_judged_nothing(monkeypatch):
+    site_f = _FakeFinding(id="fs", subject_id="s", item_id="item-img", subject_type="site", status="open", resolved_at=None, metadata={})
+    row, created = _page_row("error", item="item-img")
+    _summary, ups = _run_reconcile_rollup(monkeypatch, [site_f], [(row, created)], {}, {"item-img"})
+    assert not any(u.get("id") == "fs" for u in ups)
+
+
+def test_a_reopen_also_clears_the_rolled_up_mark(monkeypatch):
+    f = _FakeFinding(id="f1", subject_id="p1", item_id="item-title", subject_type="page",
+                     status="resolved", resolved_at=datetime.now(UTC),
+                     metadata={"rolled_up": {"site_result_id": "x"}})
+    _summary, updates = _run_reconcile(monkeypatch, [f], [_page_row("fail")], set())
+    rows = [u for batch in updates for u in batch]
+    assert "rolled_up" not in rows[0]["metadata"]
+
+
+def test_a_rollup_closes_unverified_when_most_pages_were_not_rejudged(monkeypatch):
+    site_f = _FakeFinding(id="fs", subject_id="s", item_id="item-img", subject_type="site", status="open", resolved_at=None, metadata={})
+    results = [_page_row("pass", subject="p0", item="item-img")]
+    results += [_page_row("n_a", subject=f"p{i}", item="item-img") for i in range(1, 10)]
+    _summary, ups = _run_reconcile_rollup(monkeypatch, [site_f], results, {}, {"item-img"})
+    row = next(u for u in ups if u.get("id") == "fs")
+    assert row["status"] == "resolved" and "unverified" in row["metadata"]
+    assert "Only 1 of 10 pages" in row["metadata"]["unverified"]["reason"]
+
+
+def test_a_rollup_closes_as_cause_gone_when_pages_were_rejudged(monkeypatch):
+    site_f = _FakeFinding(id="fs", subject_id="s", item_id="item-img", subject_type="site", status="open", resolved_at=None, metadata={})
+    results = [_page_row("pass", subject=f"p{i}", item="item-img") for i in range(10)]
+    _summary, ups = _run_reconcile_rollup(monkeypatch, [site_f], results, {}, {"item-img"})
+    row = next(u for u in ups if u.get("id") == "fs")
+    assert "cause_gone" in row["metadata"]

@@ -1198,3 +1198,64 @@ fn test_rotate_amount_reduced_unsigned_modulo_width() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_union_intersection_flatten_and_dedup() -> Result<()> {
+    let ctx = Context::new();
+    let x = ctx.bvs("x", 32)?;
+    let y = ctx.bvs("y", 32)?;
+    let z = ctx.bvs("z", 32)?;
+
+    // Nested operations of the same kind flatten into one n-ary node
+    let nested = ctx.union2(&ctx.union2(&x, &y)?, &z)?;
+    assert_eq!(
+        nested.simplify()?,
+        ctx.union([x.clone(), y.clone(), z.clone()])?
+    );
+    let nested = ctx.intersection2(&x, &ctx.intersection2(&y, &z)?)?;
+    assert_eq!(
+        nested.simplify()?,
+        ctx.intersection([x.clone(), y.clone(), z.clone()])?
+    );
+
+    // Duplicates are removed, and a single remaining operand is returned as is
+    let dup = ctx.union([x.clone(), y.clone(), x.clone()])?;
+    assert_eq!(dup.simplify()?, ctx.union2(&x, &y)?);
+    assert_eq!(ctx.intersection2(&x, &x)?.simplify()?, x);
+
+    // Different operations are not merged into each other
+    let mixed = ctx.union2(&ctx.intersection2(&x, &y)?, &z)?;
+    assert_eq!(mixed.simplify()?, mixed);
+
+    Ok(())
+}
+
+#[test]
+fn test_extract_distributes_over_union() -> Result<()> {
+    let ctx = Context::new();
+    let x = ctx.bvs("x", 32)?;
+    let union = ctx.union([ctx.bvv(BitVec::from((0x11223344u64, 32)))?, x.clone()])?;
+
+    let extracted = ctx.extract(&union, 15, 8)?.simplify()?;
+    let AstOp::Union(members) = extracted.op() else {
+        panic!("expected a Union, got {:?}", extracted.op());
+    };
+    let members: std::collections::HashSet<u64> = members.iter().map(|m| m.hash()).collect();
+    let expected: std::collections::HashSet<u64> = [
+        ctx.bvv(BitVec::from((0x33u64, 8)))?.hash(),
+        ctx.extract(&x, 15, 8)?.simplify()?.hash(),
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(members, expected);
+
+    // through a Concat, only the covered part of the union is kept
+    let concat = ctx.concat([union, ctx.bvv(BitVec::from((0x55667788u64, 32)))?])?;
+    let extracted = ctx.extract(&concat, 39, 24)?.simplify()?;
+    let AstOp::Concat(pieces) = extracted.op() else {
+        panic!("expected a Concat, got {:?}", extracted.op());
+    };
+    assert!(matches!(pieces[0].op(), AstOp::Union(..)));
+
+    Ok(())
+}

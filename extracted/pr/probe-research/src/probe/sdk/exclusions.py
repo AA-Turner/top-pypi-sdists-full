@@ -81,19 +81,53 @@ def cwd_excluded(folder: str | os.PathLike | None = None) -> pc.Verdict:
 
 def run_excluded() -> tuple[str, pc.Verdict] | None:
     """For `probe.init()`: (the path, its verdict) when the working directory or
-    the running script is excluded, else None."""
+    the running script is excluded, else None. Both are judged and the stricter
+    answer wins, so a `hash` folder running an `off` script is `off`: a verdict
+    with `identity_only` means the run is opened and records identities only."""
+    found: tuple[str, pc.Verdict] | None = None
     verdict = cwd_excluded()
     if verdict.excluded:
         try:
-            return os.getcwd(), verdict
+            found = (os.getcwd(), verdict)
         except OSError:
-            return ".", verdict
+            found = (".", verdict)
+        if verdict.hidden:
+            return found
     script = sys.argv[0] if sys.argv else ""
     if script and script not in ("-c", "-m", "-") and os.path.isfile(script):
         verdict = excluded(script, is_dir=False)
         if verdict.excluded:
-            return os.path.abspath(script), verdict
-    return None
+            mine = (os.path.abspath(script), verdict)
+            if found is None:
+                return mine
+            worse = pc.stricter(found[1], verdict)
+            if worse is found[1]:
+                return found
+            if worse is verdict:
+                return mine
+            return found[0], worse  # `read` and `hash` met: `off`
+    return found
+
+
+def identity_only(path: str | os.PathLike, *, is_dir: bool | None = None, hot: bool = False) -> bool:
+    """Is `path` at `hash`: the SDK records its identity (path, sha256 or
+    fingerprint, size, rows) and nothing else? Never raises."""
+    try:
+        return excluded(path, is_dir=is_dir, hot=hot).identity_only
+    except Exception:  # noqa: BLE001 - a check never breaks the caller
+        return False
+
+
+def run_identity_only() -> bool:
+    """Is this process's run location (working directory or script) at `hash`?
+    Such a run is opened and records metrics, config and file identities, but
+    its console log is not captured: a script over excluded data commonly
+    prints its records. Never raises."""
+    try:
+        hit = run_excluded()
+    except Exception:  # noqa: BLE001
+        return False
+    return hit is not None and hit[1].identity_only
 
 
 def say(template: str, path: str | os.PathLike, verdict: pc.Verdict) -> str:

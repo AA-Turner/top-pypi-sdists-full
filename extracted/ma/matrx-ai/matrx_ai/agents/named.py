@@ -170,6 +170,19 @@ class OfferedValueMapping(BaseModel):
     deliver: Literal["variable", "context"] = "variable"
     when_absent: Literal["skip", "use_default", "fail"] | None = None
     default: JsonValue | None = None
+    #: THE BINDING NARROWS, NEVER THE PROVISION (Arman, 2026-10-14). Use this
+    #: source only when its text form is at most this many characters; a longer
+    #: value is treated as ABSENT, so ``when_absent`` decides what happens.
+    max_chars: int | None = Field(default=None, ge=1)
+    #: Deliver a structured value as compact JSON (no indentation) instead of
+    #: the default indented document — the same content in fewer tokens.
+    compact: bool = False
+    #: A list value (or a kind's ``items`` envelope) delivers only its first
+    #: this-many entries, in the order the provision offers them.
+    max_items: int | None = Field(default=None, ge=1)
+    #: A line printed above this source's text (only when the source is
+    #: present), so a joined input says what each part is.
+    heading: str | None = None
 
 
 class DirectValueMapping(BaseModel):

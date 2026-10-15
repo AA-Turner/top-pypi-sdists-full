@@ -898,6 +898,8 @@ class Version:
 
         This uses inexact heuristics, so its output may vary slightly between
         releases. Consider this a "best effort" conversion.
+        It makes some assumptions about how the version and metadata may be ordered,
+        and is geared toward parsing Dunamai's default output format.
 
         :param version: Full version, such as 0.3.0a3+d7.gb6a9020.dirty.
         :param pattern: Regular expression matched against the version.
@@ -1013,7 +1015,10 @@ class Version:
             bumped.base = bump_version(bumped.base, index, increment)
         else:
             if bumped.revision is None:
-                bumped.revision = 2
+                # A stage without an explicit revision is implicitly revision 1
+                # (e.g. "rc" means "rc1"), so bump from there instead of
+                # ignoring `increment` and always landing on 2.
+                bumped.revision = 1 + increment
             else:
                 bumped.revision += increment
         return bumped

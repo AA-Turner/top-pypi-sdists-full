@@ -48,7 +48,7 @@ class AuthorizedUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[AuthorizedUserListItem, ListAuthorizedUsersResponse]:
         """
-        Returns a paginated list of authorized team members for a company, with optional filtering by user, role, and creation date.
+        Lists the authorized users on an account's team.
 
         Required permissions:
          - `company:authorized_user:read`
@@ -97,7 +97,7 @@ class AuthorizedUsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -143,7 +143,7 @@ class AuthorizedUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AuthorizedUser:
         """
-        Add a new authorized user to a company.
+        Adds a user to an account's team as an authorized user with the given role.
 
         Required permissions:
          - `authorized_user:create`
@@ -179,7 +179,7 @@ class AuthorizedUsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -225,7 +225,7 @@ class AuthorizedUsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -244,7 +244,7 @@ class AuthorizedUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> bool:
         """
-        Remove an authorized user from a company.
+        Removes an authorized user from an account's team.
 
         Required permissions:
          - `authorized_user:delete`
@@ -270,7 +270,7 @@ class AuthorizedUsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -313,7 +313,7 @@ class AsyncAuthorizedUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[AuthorizedUserListItem, ListAuthorizedUsersResponse]:
         """
-        Returns a paginated list of authorized team members for a company, with optional filtering by user, role, and creation date.
+        Lists the authorized users on an account's team.
 
         Required permissions:
          - `company:authorized_user:read`
@@ -363,7 +363,7 @@ class AsyncAuthorizedUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -416,7 +416,7 @@ class AsyncAuthorizedUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AuthorizedUser:
         """
-        Add a new authorized user to a company.
+        Adds a user to an account's team as an authorized user with the given role.
 
         Required permissions:
          - `authorized_user:create`
@@ -454,7 +454,7 @@ class AsyncAuthorizedUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -508,7 +508,7 @@ class AsyncAuthorizedUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -533,7 +533,7 @@ class AsyncAuthorizedUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> bool:
         """
-        Remove an authorized user from a company.
+        Removes an authorized user from an account's team.
 
         Required permissions:
          - `authorized_user:delete`
@@ -561,7 +561,7 @@ class AsyncAuthorizedUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

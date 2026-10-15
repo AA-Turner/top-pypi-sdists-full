@@ -1084,6 +1084,7 @@ namespace smt {
         unsigned           m_luby_idx;
         double             m_agility;
         unsigned           m_lemma_gc_threshold;
+        bool               m_has_research_theories = false;
 
         void assign_core(literal l, b_justification j, bool decision = false);
         void trace_assign(literal l, b_justification j, bool decision) const;
@@ -1139,8 +1140,12 @@ namespace smt {
 
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);
 
+        // true if a theory that can request a re-search (should_research) is registered:
+        // currently the recursive-function and sequence theories.
+        bool has_research_theories() const { return m_has_research_theories; }
+
         bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, 
-            unsigned max_generation, unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode*>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/);
+            unsigned max_generation, unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode*>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/, bool mbqi_instance = false);
 
         void set_global_generation(unsigned generation) { m_generation = generation; }
 
@@ -1236,11 +1241,14 @@ namespace smt {
             if (n->is_cgr())
                 return n;
             auto r = m_cg_table.find(n);
-            SASSERT(r != nullptr);
-            return r;
+            return r ? r : n;
         }
 
         bool is_diseq(enode * n1, enode * n2) const;
+
+        // Check disequality using congruence and equality atoms, ignoring distinct root values.
+        // Array extensionality uses this to avoid suppressing its witness.
+        bool is_diseq_no_value_check(enode * n1, enode * n2) const;
 
         bool is_diseq_slow(enode * n1, enode * n2) const;
 
@@ -1251,6 +1259,8 @@ namespace smt {
         bool guess(bool_var var, lbool phase);
 
     protected:
+        bool is_diseq_core(enode * n1, enode * n2, bool check_distinct_root_values) const;
+
         bool m_has_case_split = true;
         bool decide();
 

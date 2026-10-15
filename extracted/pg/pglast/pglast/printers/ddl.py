@@ -111,7 +111,10 @@ def alter_database_set_stmt(node, output):
 def alter_extension_stmt(node, output):
     output.write('ALTER EXTENSION ')
     output.print_name(node.extname)
-    output.print_list(node.options, '')
+    if node.options:
+        output.print_list(node.options, '')
+    else:
+        output.write(' UPDATE')
 
 
 @node_printer(ast.AlterExtensionStmt, ast.DefElem)
@@ -126,6 +129,7 @@ def alter_extension_stmt_def_elem(node, output):
 
 @node_printer(ast.AlterExtensionContentsStmt)
 def alter_extension_contents_stmt(node, output):
+    OT = enums.ObjectType
     output.write('ALTER EXTENSION ')
     output.print_name(node.extname)
     if node.action == -1:
@@ -134,7 +138,27 @@ def alter_extension_contents_stmt(node, output):
         output.write(' ADD ')
     output.write(OBJECT_NAMES[node.objtype])
     output.write(' ')
-    output.print_node(node.object)
+    if node.objtype == OT.OBJECT_CAST:
+        names = node.object
+        with output.expression(True):
+            output.print_name(names[0])
+            output.write(' AS ')
+            output.print_name(names[1])
+    elif node.objtype == OT.OBJECT_OPERATOR:
+        _object_with_args(node.object, output, symbol=True)
+    elif node.objtype in (OT.OBJECT_OPCLASS, OT.OBJECT_OPFAMILY):
+        method, *name = node.object
+        output.print_name(name)
+        output.write(' USING ')
+        output.print_symbol(method)
+    elif node.objtype == OT.OBJECT_TRANSFORM:
+        nodes = list(node.object)
+        output.write('FOR ')
+        output.print_name(nodes.pop(0))
+        output.write(' LANGUAGE ')
+        output.print_name(nodes)
+    else:
+        output.print_name(node.object)
 
 
 @node_printer(ast.AlterEnumStmt)
@@ -217,6 +241,28 @@ def alter_function_stmt(node, output):
         output.write('FUNCTION ')
     output.print_node(node.func)
     output.print_list(node.actions, ' ')
+
+
+@node_printer(ast.AlterObjectDependsStmt)
+def alter_object_depends_stmt(node, output):
+    OT = enums.ObjectType
+    objtype = node.objectType
+    output.write('ALTER ')
+    output.writes(OBJECT_NAMES[objtype])
+    if objtype in {OT.OBJECT_FUNCTION,
+                   OT.OBJECT_PROCEDURE,
+                   OT.OBJECT_ROUTINE}:
+        output.print_name(node.object)
+    elif objtype == OT.OBJECT_TRIGGER:
+        output.print_name(node.object)
+        output.write(' ON ')
+        output.print_name(node.relation)
+    else:
+        output.print_name(node.relation)
+    if node.remove:
+        output.write(' NO')
+    output.write(' DEPENDS ON EXTENSION ')
+    output.print_symbol(node.extname)
 
 
 @node_printer(ast.AlterObjectSchemaStmt)
@@ -340,6 +386,12 @@ def alter_seq_stmt(node, output):
     output.print_node(node.sequence)
     if node.options:
         output.print_list(node.options, '')
+
+
+@node_printer(ast.AlterSystemStmt)
+def alter_system_stmt(node, output):
+    output.write('ALTER SYSTEM ')
+    output.print_node(node.setstmt)
 
 
 @node_printer(ast.AlterTableSpaceOptionsStmt)
@@ -537,6 +589,9 @@ class AlterTableTypePrinter(IntEnumPrinter):
 
     def AT_EnableTrigAll(self, node, output):
         output.write('ENABLE TRIGGER ALL')
+
+    def AT_EnableTrigUser(self, node, output):
+        output.write('ENABLE TRIGGER USER')
 
     def AT_ForceRowSecurity(self, node, output):
         output.write('FORCE ROW LEVEL SECURITY ')
@@ -1282,11 +1337,12 @@ class ConstrTypePrinter(IntEnumPrinter):
     def CONSTR_DEFAULT(self, node, output):
         output.swrite('DEFAULT ')
         assert not (node.raw_expr is not None and node.cooked_expr is not None)
-        # Handle DEFAULT (1 IN (1,2))
-        expr = node.cooked_expr if node.raw_expr is None else node.raw_expr
-        need_parens = isinstance(expr, ast.A_Expr) and expr.kind == enums.A_Expr_Kind.AEXPR_IN
-        with output.expression(need_parens):
-            output.print_node(expr)
+        if node.raw_expr is None:
+            # The parser gave only the cooked SQL text of the default expression
+            output.print_node(node.cooked_expr)
+        else:
+            # A DEFAULT value is a b_expr in gram.y, e.g. DEFAULT (1 IN (1,2))
+            output.print_b_expr(node.raw_expr)
 
     def CONSTR_IDENTITY(self, node, output):
         output.swrite('GENERATED ')
@@ -1535,6 +1591,8 @@ def create_db_stmt_def_elem(node, output):
             output.write(node.arg.sval)
         else:
             output.print_node(node.arg)
+    else:
+        output.write('DEFAULT')
 
 
 @node_printer(ast.CreateCastStmt)

@@ -18,11 +18,16 @@ z3_add_component(simplifiers
     euf_completion.cpp
     extract_eqs.cpp
     factor_simplifier.cpp
+    ff_simplify.cpp
     fold_unfold.cpp
+    lambda_simplifier.cpp
+    leibniz_simplifier.cpp
     linear_equation.cpp
     max_bv_sharing.cpp
     model_reconstruction_trail.cpp
     propagate_values.cpp
+    randomizer.cpp
+    recfun_finder.cpp
     reduce_args_simplifier.cpp
     solve_context_eqs.cpp
     solve_eqs.cpp
@@ -33,16 +38,4 @@ z3_add_component(simplifiers
     normal_forms
     rewriter
     substitution
-  TACTIC_HEADERS
-    bit_blaster.h
-    bv1_blaster.h
-    bit2int.h
-    blast_term_ite_simplifier.h
-    elim_bounds.h
-    elim_term_ite.h
-    pull_nested_quantifiers.h
-    push_ite.h
-    randomizer.h
-    refine_inj_axiom.h
-    rewriter_simplifier.h
 )

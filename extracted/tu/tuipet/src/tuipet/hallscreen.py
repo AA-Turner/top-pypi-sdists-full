@@ -14,7 +14,7 @@ Headstones banked before 2026-07-26 predate the portrait fields (num/cause/
 wins) — those elders stand behind the GRAVE glyph and the epitaph says only
 what the record knows; nothing here is guessed (the never-fake law).
 
-↑↓ browse, PgUp/PgDn leap, ENTER view, ←→ page inside the book, ESC out.
+↑↓ pick, PgUp/PgDn leap, ENTER open, ←→ page inside the book, ESC back.
 Opened from the digicore LEGACY page (where the headstones already lived),
 the TROPHIES→ALBUM door's exact grammar."""
 from __future__ import annotations
@@ -55,9 +55,9 @@ class HallPanel:
 
     def strip(self):
         if self.detail:
-            return menu.hints(("←→", "browse"), ("ESC", "back"))
-        return menu.hints(("↑↓", "browse"), ("ENTER", "view"),
-                          ("ESC", "out"))
+            return menu.hints(("←→", "page"), ("ESC", "back"))
+        return menu.hints(("↑↓", "pick"), ("ENTER", "open"),
+                          ("ESC", "back"))
 
     def key(self, k):
         if not self.n:
@@ -94,16 +94,21 @@ class HallPanel:
     def _epitaph(self, r):
         """One elder's line: lifespan, then its fate — a fallen elder names
         what took it (when the record knows), a retired one walked on."""
-        age = _mins(float(r.get("age", 0.0)))
+        age = _mins(float(r.get("age", 0.0)))   # real seconds, like STATUS Age
         if r.get("dead"):
             cause = str(r.get("cause", "") or "")
             fate = f"fell of {cause}" if cause else "fell"
         else:
             fate = "walked to the next egg"
         extra = ""
-        cups, wins = int(r.get("cups", 0)), int(r.get("wins", -1))
-        if cups:
-            extra += f" · {cups} cup{'s' if cups != 1 else ''}"
+        wins = int(r.get("wins", -1))
+        if "cups_life" in r:                  # its OWN cups (eggs call #31 = A)
+            cups = int(r.get("cups_life", 0))
+            if cups:
+                extra += f" · {cups} cup{'s' if cups != 1 else ''}"
+        elif int(r.get("cups", 0)):           # an older headstone: the lineage total
+            cups = int(r.get("cups", 0))
+            extra += f" · {cups} cup{'s' if cups != 1 else ''} total"
         if wins > 0:
             extra += f" · {wins} wins"
         return f"lived {age} · {fate}{extra}"

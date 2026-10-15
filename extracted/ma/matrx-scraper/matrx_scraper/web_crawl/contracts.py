@@ -318,6 +318,14 @@ class CrawlStartRequest(BaseModel):
     render_mode: str = RENDER_HTTP_FIRST
     capture_screenshots: bool = True
     screenshot_kinds: list[ScreenshotKind] = Field(default_factory=list, max_length=8)
+    # WHICH pages get screenshots when `capture_screenshots` is on. "all" (the
+    # crawler's historical behaviour) renders every page in a browser twice
+    # over; "homepage" captures only the site root plus `screenshot_urls`, and
+    # every other page gets the fast HTTP-first scrape (the browser only when a
+    # page needs JS or a WAF demands it). A brand crawl runs "homepage": a
+    # browser render per page held Ritual Coffee at ~2 pages/min (2026-10-14).
+    screenshot_scope: Literal["all", "homepage"] = "all"
+    screenshot_urls: list[str] = Field(default_factory=list, max_length=50)
     seed_urls: list[str] = Field(default_factory=list, max_length=50_000)
     list_mode: bool = False
     # THE MAXIMUM this crawl may ever reach against the host — NOT the rate it

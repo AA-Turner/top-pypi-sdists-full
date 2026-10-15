@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import contextlib
 import gc
+import json
 import os
 import subprocess
 import sys
@@ -42,35 +43,42 @@ def driverless(torch: Any, devices: int) -> Iterator[None]:
         torch.cuda.is_available, torch.cuda.device_count = saved
 
 
-#: Fused-glue compiles this process started in a child, reaped when they end.
+#: Kernel compiles this process started in a child, reaped when they end.
 _COMPILERS: list[subprocess.Popen[bytes]] = []
 
 
-def expect_fusion(entries: Sequence[str]) -> str:
-    """Start the fused glue's compile for the sealed cards in a child that lives until the
-    compile ends: NVML (which leaves a driver thread on current drivers) and the compile's
-    watcher thread live there, so this process stays forkable. The compile and its key are
-    the ones `fusion.expect` starts in-process; construction takes the build once ready."""
+def expect_kernels(entries: Sequence[str], modules: Sequence[str]) -> str:
+    """Start the package's kernels' compiles for the sealed cards in a child that lives until
+    they end: NVML (which leaves a driver thread on current drivers) and the compiles' watcher
+    threads live there, so this process stays forkable. It imports the package's kernel
+    `modules`; the compiles and keys are the ones `triton_kernels.expect` starts in-process;
+    construction takes each build once ready."""
     reap()
-    child = subprocess.Popen(
-        [sys.executable, "-I", "-c", _EXPECT, *entries], stdin=subprocess.DEVNULL
-    )
+    plan = json.dumps({"entries": list(entries), "modules": list(modules)})
+    child = subprocess.Popen([sys.executable, "-I", "-c", _EXPECT, plan], stdin=subprocess.DEVNULL)
     _COMPILERS.append(child)
-    return f"fusion compile started by child {child.pid}"
+    return f"kernel compiles started by child {child.pid}"
 
 
 def reap() -> None:
-    """Reap fused-glue compile children that have ended."""
+    """Reap kernel compile children that have ended."""
     _COMPILERS[:] = [child for child in _COMPILERS if child.poll() is None]
 
 
 _EXPECT = """
-import sys, threading
-from cozy_runtime.internal import accel, config, fusion, kernel_cache
+import json, sys, threading
+from importlib import import_module
+from cozy_runtime.author.kernels import _SETS
+from cozy_runtime.internal import accel, config, kernel_cache, triton_kernels
 kernel_cache.configure(kernel_cache.from_sealed(config.inherited_environment()))
-archs = sorted({accel.device_capability(entry) for entry in sys.argv[1:]} - {0})
+plan = json.loads(sys.argv[1])
+for module in plan["modules"]:
+    import_module(module)
+archs = sorted({accel.device_capability(entry) for entry in plan["entries"]} - {0})
 for arch in archs:
-    print(f"[fusion] sm{arch} {fusion.expect(arch)}", file=sys.stderr, flush=True)
+    for name, kernels in sorted(_SETS.items()):
+        line = triton_kernels.expect(kernels, arch)
+        print(f"[kernels] {name} sm{arch} {line}", file=sys.stderr, flush=True)
 for thread in threading.enumerate():
     if thread is not threading.main_thread():
         thread.join()

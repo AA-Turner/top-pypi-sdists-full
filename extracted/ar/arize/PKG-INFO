@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize
-Version: 8.59.0
+Version: 8.59.1
 Summary: A helper library to interact with Arize AI APIs
 Project-URL: Homepage, https://arize.com
 Project-URL: Documentation, https://docs.arize.com/arize
@@ -48,6 +48,7 @@ Requires-Dist: mypy==1.19.1; extra == 'dev'
 Requires-Dist: pandas-stubs>=2.2.0; extra == 'dev'
 Requires-Dist: pytest-cov==6.0.0; extra == 'dev'
 Requires-Dist: pytest==9.0.3; extra == 'dev'
+Requires-Dist: pyyaml<7,>=6; extra == 'dev'
 Requires-Dist: ruff==0.14.9; extra == 'dev'
 Requires-Dist: taskipy<2,>=1.14.1; extra == 'dev'
 Requires-Dist: types-python-dateutil>=2.9.0; extra == 'dev'
@@ -1577,6 +1578,10 @@ client.organizations.remove_user(
 Use `client.spaces` to create, retrieve, update, delete, and manage memberships
 for Arize spaces.
 
+Space responses from list, get, create, and update include `organization_id`,
+the ID of the parent organization, when the server supports this field.
+Older server versions may omit it.
+
 ### List Spaces
 
 ```python
@@ -1588,6 +1593,9 @@ resp = client.spaces.list(
 )
 space_list = resp.spaces
 ```
+
+Omit `organization_id` to list accessible spaces from all organizations. The SDK
+sends this value as the REST query parameter `org_id`.
 
 ### Get a Space
 

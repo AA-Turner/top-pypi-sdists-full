@@ -5,7 +5,7 @@ import uuid
 
 
 def generate_job_id(spider_name):
-    """Return a unique id like ``Rs_Spider-178826754-a1b2``."""
+    """Return a unique id like ``my_spider-1735123456-a1b2``."""
     return f"{spider_name}-{int(time.time())}-{uuid.uuid4().hex[:4]}"
 
 

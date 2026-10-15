@@ -27,18 +27,10 @@ fn smallint_to_bigint(smallint_type: &str) -> &'static str {
 }
 
 fn create_bigint_fix(ty: &ast::Type) -> Option<Fix> {
-    let name = match ty {
-        ast::Type::ArrayType(array_type) => return create_bigint_fix(&array_type.ty()?),
-        ast::Type::PathType(path_type) => path_type.path_ref()?.segment()?,
-        ast::Type::BitType(_)
-        | ast::Type::BitVaryingType(_)
-        | ast::Type::VarcharType(_)
-        | ast::Type::CharacterType(_)
-        | ast::Type::DoubleType(_)
-        | ast::Type::TimeType(_)
-        | ast::Type::TimestampType(_)
-        | ast::Type::IntervalType(_) => return None,
-    };
+    if let ast::Type::ArrayType(array_type) = ty {
+        return create_bigint_fix(&array_type.ty()?);
+    }
+    let name = ty.path_ref()?.segment()?;
     let i64 = smallint_to_bigint(&name.text());
     let edit = Edit::replace(name.syntax().text_range(), i64);
     Some(Fix::new(
@@ -48,20 +40,20 @@ fn create_bigint_fix(ty: &ast::Type) -> Option<Fix> {
 }
 
 fn check_ty_for_small_int(ctx: &mut Linter, ty: Option<ast::Type>) {
-    if let Some(ty) = ty {
-        if is_not_valid_int_type(&ty, small_int_types()) {
-            let fix = create_bigint_fix(&ty);
+    if let Some(ty) = ty
+        && is_not_valid_int_type(&ty, small_int_types())
+    {
+        let fix = create_bigint_fix(&ty);
 
-            ctx.report(
-                Violation::for_node(
-                    Rule::PreferBigintOverSmallint,
-                    "Using 16-bit integer fields can result in hitting the max `int` limit.".into(),
-                    ty.syntax(),
-                )
-                .help("Use 64-bit integer values instead to prevent hitting this limit.")
-                .fix(fix),
-            );
-        };
+        ctx.report(
+            Violation::for_node(
+                Rule::PreferBigintOverSmallint,
+                "Using 16-bit integer fields can result in hitting the max `int` limit.".into(),
+                ty.syntax(),
+            )
+            .help("Use 64-bit integer values instead to prevent hitting this limit.")
+            .fix(fix),
+        );
     }
 }
 

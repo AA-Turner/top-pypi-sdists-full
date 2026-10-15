@@ -39,7 +39,9 @@ everything there when uploads are not queued at all, so a set needing more than
 with a warning naming ``PROBE_OUTBOX_DIR``; work that still takes
 :data:`SLOW_SAVE_SECONDS` warns once too. Files a ``.probe.config`` excludes
 are neither uploaded nor named; the index counts them (``members_excluded``)
-so a restore says it is not the whole checkpoint. A file the server would
+so a restore says it is not the whole checkpoint. A checkpoint saved under a
+``hash`` rule is, in either mode, a reference recorded by its identity (sha256
+or fingerprint, in ``meta``), never uploaded. A file the server would
 refuse to name (``_server_takes``) makes the set a location only.
 
 A file the trainer rewrites IN PLACE (Lightning's ``last.ckpt``, a sharded
@@ -267,7 +269,8 @@ def _foreground_bytes(run: Any, files: list[tuple[str, str]]) -> int:
 
 def warn_if_throwaway(local: str, warn: Warn) -> None:
     """A location-only checkpoint on storage that is gone with the job: say so
-    once, naming the mode that keeps it."""
+    once, naming the mode that keeps it -- none at `hash`, where it is recorded
+    by reference only."""
     try:
         where = ephemeral.describe(local)
     except Exception:  # noqa: BLE001 -- a mount table we cannot read is no reason to warn
@@ -275,10 +278,22 @@ def warn_if_throwaway(local: str, warn: Warn) -> None:
     if where.get("durable", True):
         return
     fstype = where.get("fstype")
+    disk = (
+        f"probe: checkpoint {local} is on this job's own disk ({fstype or where.get('reason')}), "
+        "which is gone when the job ends; "
+    )
+    verdict = exclusions.excluded(local)
+    if verdict.identity_only:
+        # `hash`: no mode uploads it, so naming one would be a dead end.
+        warn(
+            "checkpoint_throwaway",
+            disk + f"it is `hash` in {exclusions.source(verdict)}, so Probe records it by reference "
+            "only (its identity and where it is). Save checkpoints to a bucket or a mounted volume.",
+        )
+        return
     warn(
         "checkpoint_throwaway",
-        f"probe: checkpoint {local} is on this job's own disk ({fstype or where.get('reason')}), "
-        "which is gone when the job ends; Probe records only where it is. Pass "
+        disk + "Probe records only where it is. Pass "
         f'checkpoints="{UPLOAD}" (or set {ENV}={UPLOAD}) to store its files, or save '
         "checkpoints to a bucket or a mounted volume.",
     )
@@ -304,13 +319,27 @@ def upload_set(
     files, holding a file Probe would leave out, needing a cross-disk copy
     over :data:`CROSS_DEVICE_STAGE_MAX_BYTES`, or with no files -- is written
     as a location only, with a warning, and carries no ``members``: an index
-    lists every file of the checkpoint or none."""
+    lists every file of the checkpoint or none.
+
+    A checkpoint a ``.probe.config`` excludes is not walked: at ``hash`` its
+    index is the reference ``log_artifact`` records by identity (no member is
+    uploaded, said once), at ``off``/``read`` nothing is recorded at all."""
     index = _unique_set_name(name, step, local, {} if taken is None else taken)
-    found = inventory(local)
+    verdict = exclusions.excluded(local)
+    if verdict.identity_only:
+        warn(
+            "checkpoint_hash",
+            f"probe: checkpoint {local} is `hash` in {exclusions.source(verdict)}: Probe records "
+            f'its identity and where it is, never its bytes, so checkpoints="{UPLOAD}" uploads '
+            "nothing there.",
+        )
+    found = Inventory() if verdict.excluded else inventory(local)
     files = found.files
     index_meta = dict(meta)
     copied = _foreground_bytes(run, files) if files and not (found.too_many or found.skipped) else 0
-    if found.too_many:
+    if verdict.excluded:
+        pass  # the index below: `hash` its identity, `off`/`read` nothing (log_artifact says so)
+    elif found.too_many:
         warn(
             "checkpoint_members",
             f"probe: checkpoint {local} has more than {MAX_MEMBERS} files; Probe records only where it is.",

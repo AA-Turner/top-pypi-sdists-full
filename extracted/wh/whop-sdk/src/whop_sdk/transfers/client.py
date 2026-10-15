@@ -51,7 +51,7 @@ class TransfersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ListTransfersResponseDataItem, ListTransfersResponse]:
         """
-        Lists transfers visible to the caller. Optional account filters narrow the results.
+        Lists the transfers you can see, sent or received, newest first by default. Optional account filters narrow the results.
 
         Parameters
         ----------
@@ -98,7 +98,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -127,7 +127,7 @@ class TransfersClient:
         self, *, request: CreateTransfersRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> CreateTransfersResponse:
         """
-        Moves money between accounts, or into a claim link anyone with the URL can redeem.
+        Moves money between Whop balances, sends USDT from an account's wallet, or funds a claim link anyone with the URL can redeem. The `type` you send decides which object comes back.
 
         Parameters
         ----------
@@ -147,7 +147,7 @@ class TransfersClient:
         from whop_sdk.transfers import CreateTransfersRequestBody_Balance
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -173,7 +173,7 @@ class TransfersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ListRecipientsTransfersResponseDataItem, ListRecipientsTransfersResponse]:
         """
-        Lists the people and accounts you can send money to.
+        Lists the people and accounts you can send money to from a balance. Pass a result's ID as `destination_id` when creating a transfer.
 
         Parameters
         ----------
@@ -202,7 +202,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -243,7 +243,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -286,7 +286,7 @@ class AsyncTransfersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ListTransfersResponseDataItem, ListTransfersResponse]:
         """
-        Lists transfers visible to the caller. Optional account filters narrow the results.
+        Lists the transfers you can see, sent or received, newest first by default. Optional account filters narrow the results.
 
         Parameters
         ----------
@@ -335,7 +335,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -371,7 +371,7 @@ class AsyncTransfersClient:
         self, *, request: CreateTransfersRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> CreateTransfersResponse:
         """
-        Moves money between accounts, or into a claim link anyone with the URL can redeem.
+        Moves money between Whop balances, sends USDT from an account's wallet, or funds a claim link anyone with the URL can redeem. The `type` you send decides which object comes back.
 
         Parameters
         ----------
@@ -393,7 +393,7 @@ class AsyncTransfersClient:
         from whop_sdk.transfers import CreateTransfersRequestBody_Balance
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -425,7 +425,7 @@ class AsyncTransfersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ListRecipientsTransfersResponseDataItem, ListRecipientsTransfersResponse]:
         """
-        Lists the people and accounts you can send money to.
+        Lists the people and accounts you can send money to from a balance. Pass a result's ID as `destination_id` when creating a transfer.
 
         Parameters
         ----------
@@ -456,7 +456,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -506,7 +506,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

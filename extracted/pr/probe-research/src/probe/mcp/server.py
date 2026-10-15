@@ -57,11 +57,15 @@ from ._generated.sql import QUERY_SQL_DESCRIPTION, SQL_ARG_DOC, TABLES_ARG_DOC
 from .budget import Budget, InvalidBudget, TokenizerUnavailable, count_tokens, serialize
 from .contract import (
     BrowseMode,
+    CheckpointStored,
     CollapseMode,
+    DatasetRegistered,
     MetricMode,
     PaperExpansion,
     PaperMode,
     SeriesSmoothing,
+    SourceKind,
+    SourceProvider,
     ToolCorpus,
     View,
 )
@@ -359,11 +363,28 @@ _BR_DEPTH_DOC = """1 lists one level; 2 also expands children; higher is rejecte
 
 _BR_LIMIT_DOC = """tree: per level, not per response. Other modes: rows per page (max 50); `next_cursor` continues."""
 
-_BR_MODE_DOC = """What to list. `tree` (default): projects -> experiments -> runs. `runs`: every run filed under a project, flat and newest first. `workspaces`: the team's filing locations, by name. `notes`: the notes catalog. `files`: the Shared folder, or one workspace's."""
+_BR_MODE_DOC = """What to list. `tree` (default): projects -> experiments -> runs. `runs`: every run filed under a project, flat and newest first. `workspaces`: the team's filing locations, by name. `notes`: the notes catalog. `files`: the Shared folder, or one workspace's. `datasets`: team datasets, plus run-logged dataset files not registered. `checkpoints`: every checkpoint team-wide. `sources`: external sources (Hub ids, buckets, URLs)."""
 
 _BR_ACTIVE_DOC = """mode=runs only: just the runs live right now (status running AND a fresh heartbeat)."""
 
-_BR_QUERY_DOC = """mode=notes only: literal text to find in note bodies, titles and project/experiment/run titles -- not a wildcard, not ranked. Omit (or "") to list every note."""
+_BR_QUERY_DOC = """mode=notes: literal text to find in note bodies, titles and project/experiment/run titles -- not a wildcard, not ranked. Omit (or "") to list every note. mode=datasets / sources: matches a name, key, uri or title."""
+
+# -- the data catalog modes' filters (the routes' own query parameters) --------
+_BR_PROJECT_DOC = """mode=datasets / checkpoints: one project's (`project:<uuid>` or slug)."""
+
+_BR_EXPERIMENT_DOC = """mode=checkpoints: one experiment's."""
+
+_BR_RUN_DOC = """mode=checkpoints: one run's saves."""
+
+_BR_REGISTERED_DOC = """mode=datasets: which rows (default `all`)."""
+
+_BR_BEST_DOC = """mode=checkpoints: true lists only best saves."""
+
+_BR_STORED_DOC = """mode=checkpoints: only saves in this storage state."""
+
+_BR_PROVIDER_DOC = """mode=sources: where the source lives."""
+
+_BR_KIND_DOC = """mode=sources: what the source is."""
 
 def _none_as_empty(value: Any) -> Any:
     """An explicit `null` for a string filter whose absent value is ""."""
@@ -394,7 +415,7 @@ _BR_SIDE_CURSOR_DOC = """Page one side list: `cursors.runs` / `cursors.subprojec
 # They are not free: unlike a truncated tail, every byte here IS delivered, to
 # every session, including ones that never call Probe. Write them like schema,
 # not like prose.
-_REF_DOC = """One or more addresses, each `kind:slug` or `kind:uuid`, exactly as browse or search handed it back (`run:prophetic-manatee-987`). Keep the `kind:` prefix - it routes the lookup."""
+_REF_DOC = """One or more addresses, each `kind:slug` or `kind:uuid`, exactly as browse or search handed it back (`run:prophetic-manatee-987`). Keep the `kind:` prefix - it routes the lookup. Data catalog: `dataset:<name>[@<N>|@v<N>|@latest]` or `dataset:<uuid>` (a name is lower-case letters, digits, `.`, `_`, `-`); `source:<uuid>` or `source:<canonical_key>[@<revision>]`; `checkpoint:<uuid>` or `checkpoint:<run ref>@best[:<callback>]|latest|step<N>`. Views: card, versions (a dataset's versions, a checkpoint's run's saves; not a source), lineage (`view_options`: `direction`, `depth` 1-8, `steps`). `artifact:<name>` stays the Shared reuse check."""
 
 #: Built from `_VIEWS` at import, never hand-written: a matrix typed out beside
 #: the one that runs is a matrix that drifts, and this one is read by agents who
@@ -412,9 +433,11 @@ _VIEW_OPTIONS_DOC = """View-specific keys.
   grep           transcript: literal, case-insensitive; not with start_line.
   context_lines  transcript: lines around each grep hit (max 20).
   start_line     transcript: read plainly from line N; continue with `cursor`.
-  requirement    versions: ">=2"-style; versions are ints, not semver.
+  requirement    versions on an artifact: ">=2"-style; versions are ints, not semver.
   compare_to     code on a run: `run:<ref>` to diff against.
-  depth          lineage on a run: walk upstream N hops (1-5).
+  depth          lineage on a run: walk upstream N hops (1-5); on a dataset, source or checkpoint: 1-8 (default 4).
+  direction      lineage on a dataset, source or checkpoint: upstream (default, to its sources) or downstream (what used it).
+  steps          same: true = the methods view, the upstream chain as ordered steps, source first; no direction/depth.
   trial          diff on a run: which trial's filesystem changes (required).
   path_prefix    diff on a run: narrow to one subtree.
   runs           inherited on an experiment: true lists the source runs, not their files.
@@ -799,9 +822,10 @@ def _tool(fn: Callable[..., Any]) -> Callable[..., Any]:
 # fragments until 2026-09-06 and rendered to 10,272 characters, so 80% of it
 # never reached a model. `tests/test_mcp_description_budget.py` is what catches
 # a regression now; write to the cap, and cut something to add something.
-MCP_INSTRUCTIONS = """Probe Research is this team's store of all ML research (incl. training, evals,
-etc). This MCP is for reading and retrieving that data: writes go through the
-`probe` CLI or the Python SDK (PyPI `probe-research`), if installed.
+MCP_INSTRUCTIONS = """Probe Research holds only what this team recorded of its ML research (training,
+evals, etc) - no outside facts (cloud quotas, GPU pricing, vendor docs). This
+MCP reads it: writes go through the `probe` CLI or the Python SDK (PyPI
+`probe-research`), if installed.
 
 ### HOW TO READ (in order):
 1. Try to answer from local context first (repo, files, conversation, etc)
@@ -867,6 +891,13 @@ _BROWSE_MODE_ARGS: dict[BrowseMode, frozenset[str]] = {
     # `workspace_id` names whose files; absent is the Shared folder. A run's,
     # experiment's or project's files are `entity(view="artifacts")`.
     BrowseMode.FILES: frozenset({"workspace_id", "prefix", "limit"}),
+    # The data catalog (C4): each the query parameters of its own route
+    # (`service._CATALOG_FILTERS` maps them), and nothing else.
+    BrowseMode.DATASETS: frozenset({"query", "project", "registered", "limit"}),
+    BrowseMode.CHECKPOINTS: frozenset(
+        {"project", "experiment", "run", "best", "stored", "limit"}
+    ),
+    BrowseMode.SOURCES: frozenset({"query", "provider", "kind", "limit"}),
 }
 
 #: Browse arguments whose DEFAULT is not None. Supplied means "differs from the
@@ -912,6 +943,8 @@ def _browse_args_for_mode(mode: BrowseMode, args: dict[str, Any]) -> None:
         hints.append(
             'A run\'s, experiment\'s or project\'s own files are entity(view="artifacts").'
         )
+    if mode in (BrowseMode.DATASETS, BrowseMode.CHECKPOINTS) and "ref" in unsupported:
+        hints.append(f"mode={mode.value} narrows by `project` (checkpoints: `experiment`, `run`).")
     raise ToolError(
         f"browse: mode={mode.value} does not read {', '.join(unsupported)} -- {detail}. "
         + " ".join(hints)
@@ -1395,6 +1428,18 @@ def create_server(
         tags: Annotated[list[str] | None, Field(description=_BR_TAGS_DOC)] = None,
         active: Annotated[bool | None, Field(description=_BR_ACTIVE_DOC)] = None,
         workspace_id: Annotated[str | None, Field(description=_BR_WORKSPACE_DOC)] = None,
+        project: Annotated[str | None, Field(description=_BR_PROJECT_DOC)] = None,
+        experiment: Annotated[str | None, Field(description=_BR_EXPERIMENT_DOC)] = None,
+        run: Annotated[str | None, Field(description=_BR_RUN_DOC)] = None,
+        registered: Annotated[
+            DatasetRegistered | None, Field(description=_BR_REGISTERED_DOC)
+        ] = None,
+        best: Annotated[bool | None, Field(description=_BR_BEST_DOC)] = None,
+        stored: Annotated[
+            CheckpointStored | None, Field(description=_BR_STORED_DOC)
+        ] = None,
+        provider: Annotated[SourceProvider | None, Field(description=_BR_PROVIDER_DOC)] = None,
+        kind: Annotated[SourceKind | None, Field(description=_BR_KIND_DOC)] = None,
         # PLAIN `str`, with "" meaning absent -- never `str | None`. FastMCP
         # JSON-parses a string argument whose annotation is anything but `str`:
         # `query="null"` arrived as None and slipped past the tree's refusal, and
@@ -1428,6 +1473,9 @@ def create_server(
         3. `workspaces` - the team's filing locations with their NAMES (how a `workspace_id` becomes something a person can read)
         4. `notes` - the notes catalog: what the team wrote down across every project, run and file; `query` matches note text literally (search ranks by meaning instead)
         5. `files` - the team's Shared folder, or one workspace's files with `workspace_id`; `prefix` narrows to a folder. A run's or project's own files are `entity(view="artifacts")`
+        6. `datasets` - team datasets (`dataset:<name>`) and unregistered run-logged dataset files; `registered`, `project`, `query` narrow
+        7. `checkpoints` - every checkpoint team-wide (step, best, stored state, run); `project`/`experiment`/`run`, `best`, `stored` narrow
+        8. `sources` - external sources (Hub ids, buckets, URLs) with how many runs use each; `provider`, `kind`, `query` narrow
 
         Each mode REFUSES arguments it does not read.
 
@@ -1449,6 +1497,14 @@ def create_server(
                 "limit": limit,
                 "runs_cursor": runs_cursor,
                 "subprojects_cursor": subprojects_cursor,
+                "project": project,
+                "experiment": experiment,
+                "run": run,
+                "registered": registered,
+                "best": best,
+                "stored": stored,
+                "provider": provider,
+                "kind": kind,
             },
         )
         with svc() as s:
@@ -1475,6 +1531,14 @@ def create_server(
                 workspace_id=workspace_id,
                 limit=limit,
                 cursor=cursor,
+                project=project,
+                experiment=experiment,
+                run=run,
+                registered=registered,
+                best=best,
+                stored=stored,
+                provider=provider,
+                kind=kind,
             )
 
     @mcp.tool()
@@ -1586,27 +1650,25 @@ def create_server(
         ] = None,
     ) -> dict:
         """Read the full details of an entity you have an address (slug or uuid) for - a
-        run, experiment, project, artifact, trial, group, captured agent session, etc
+        run, experiment, project, artifact, trial, group, agent session, dataset, checkpoint, source
 
-        ### TOOL SPECIFIC PARAMETERS:
+        ### PARAMETERS:
 
-        1. `refs` - the entity's address (slug or uuid)
-        2. `view` - `card` (default) lists available views; choose by the question.
-        3. `view_options` - (optional) per-view options, listed below
-        4. `verbose` - (default off) response bookkeeping, for debugging
+        1. `view` - `card` (default) lists available views; choose by the question.
+        2. `view_options` - (optional) per-view options, listed below
 
         ### VIEW DESCRIPTIONS:
-        1. `trajectory` = the spans themselves (ask a TRIAL for one trial/rollout's whole subtree)
-        2. `lineage` = `origin` + links in and out; runs add ancestry, projects/experiments children
-        3. `code` = the GitHub resolution at that grain, diffable between runs with `view_options.compare_to`
+        1. `trajectory` = the spans themselves (ask a TRIAL for one rollout's whole subtree)
+        2. `lineage` = `origin` + links in and out; runs add ancestry, projects/experiments children; catalog refs, the walk to sources
+        3. `code` = the GitHub resolution at that grain
         4. `record` = the raw source record, any kind, pageable
 
         ### VIEW OPTION DESCRIPTIONS:
         1. `grep` = transcript only: literal, case-insensitive; not with `start_line`
         2. `context_lines` = transcript only: lines around each grep hit (max 20)
-        3. `start_line` = transcript only: begin a plain read at line N, continue with `cursor`
-        4. `field` = record only: one dotted field ("metadata.summary"), or a path list for dotted keys
-        5. `requirement` = versions only: ">=2"-style; versions are monotonic ints, not semver
+        3. `start_line` = transcript only: read from line N; continue with `cursor`
+        4. `field` = record only: a dotted field ("metadata.summary") or a path list
+        5. `requirement` = artifact versions only: ">=2"-style; versions are monotonic ints, not semver
         6. `compare_to` = code on a run only: `run:<ref>` to diff against
         7. `trial` = diff on a run only (required): which trial; `path_prefix` narrows
 
@@ -1614,6 +1676,7 @@ def create_server(
         - `artifact:<name>` for the shared-registry reuse check
         - `session:<agent>/<session_id>` `agent` = claude_code|codex|pi|kimi_code|capy
         - `trial:<rollout span id>` from a run's trials view
+        - `dataset:`, `source:`, `checkpoint:` - forms in `refs`
 
         ### FYI:
         `overview` = full saved project/experiment page: generated content, authored edits and chart data. Null HTML means unavailable. Follow `next_cursor`; content changes require restarting.

@@ -1,0 +1,89 @@
+# Tests Florida TCA net income test (payment standard test)
+# Net countable income must not exceed the payment standard (<=).
+# Per DCF 2620.0107 net income "cannot exceed" the income limit and 2620.0111.01
+# Step 5 makes the AG ineligible only "if a surplus results"; an exact equal
+# produces no surplus (2620.0109.02 Step 2), so the boundary is <=.
+# Source: DCF Policy Manual 2620.0107 / 2620.0109.02 / 2620.0111.01
+
+# Payment standard for size 2, >$50 shelter: $241
+
+- name: Case 1, zero income eligible.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    fl_tca_net_income_eligible: true
+
+- name: Case 2, one dollar below threshold eligible.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        social_security: 2_880  # $240/month
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    fl_tca_net_income_eligible: true
+
+- name: Case 3, at threshold eligible (exact equal produces no surplus).
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        social_security: 2_892  # $241/month
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    # Countable income exactly at the payment standard passes: no surplus
+    # results (2620.0111.01 Step 5; 2620.0109.02 Step 2 "Exact Equal").
+    fl_tca_net_income_eligible: true
+
+- name: Case 4, one dollar above threshold ineligible.
+  period: 2024-01
+  input:
+    people:
+      person1:
+        age: 30
+        social_security: 2_904  # $242/month
+        pre_subsidy_rent: 12_000
+      person2:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_code: FL
+  output:
+    fl_tca_net_income_eligible: false

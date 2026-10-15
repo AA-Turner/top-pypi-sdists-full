@@ -5,8 +5,12 @@ import pyarrow.ipc as ipc
 
 
 def decode_ipc_stream(data: bytes) -> list[pa.RecordBatch]:
-    """Decode Arrow IPC stream bytes into a list of RecordBatches."""
-    return list(ipc.open_stream(data))
+    """Eagerly decode all batches, for callers that need the complete stream.
+
+    For incremental processing, iterate over ``ipc.open_stream(data)`` instead.
+    """
+    with ipc.open_stream(data) as reader:
+        return list(reader)
 
 
 def encode_record_batch(batch: pa.RecordBatch) -> bytes:

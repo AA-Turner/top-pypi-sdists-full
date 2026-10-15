@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.9.3"
+version = "0.9.5"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -15,6 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -25,13 +26,13 @@ dependencies = [
     "typer >=0.12.0, <1.0.0",
     "rich >=13.9.4",
     "questionary >=2.0.1",
-    "tomli >=2.0.1, <3.0.0; python_version < '3.11'",
     "packaging >=25",
     "typing-extensions >=4.13.0",
     "toml >=0.10.2",
     "sentry-sdk >=2.1.0",
     "mixpanel >=4.10.1",
     "pydantic >=2.12.0",
+    "pydantic_core >=2.41.0",
     "python-dateutil>= 2.9.0",
     "pip>=25.0.1",
     "filelock>=3.18.0",
@@ -50,7 +51,7 @@ GitHub = "https://github.com/cognitedata/toolkit"
 Documentation = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
 
 [project.optional-dependencies]
-table = ["pyarrow>=20.0.0"]
+table = ["pyarrow>=26.0.0"]
 sql = ["sqlparse >=0.5.3"]
 run-function-app = ["cognite-function-apps[cli]>=0.15.0"]
 
@@ -127,17 +128,12 @@ include = [
 exclude = [
     "tests/data/",
     "tests/test_unit/test_cdf_tk/approval_client",
-    "tests/test_unit/test_cdf_tk/test_apps",
-    "tests/test_unit/test_cdf_tk/test_auth",
     "tests/test_unit/test_cdf_tk/test_client",
     "tests/test_unit/test_cdf_tk/test_commands",
     "tests/test_unit/test_cdf_tk/test_cruds",
-    "tests/test_unit/test_cdf_tk/test_data_classes",
     "tests/test_unit/test_cdf_tk/test_rules",
     "tests/test_unit/test_cdf_tk/test_storageio",
-    "tests/test_unit/test_cdf_tk/test_tk_warnings",
     "tests/test_unit/test_cdf_tk/test_utils",
-    "tests/test_unit/test_cdf_tk/test_validation",
     "tests/test_unit/test_cdf_tk/test_yaml_classes",
 ]
 
@@ -153,6 +149,22 @@ exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py"]
 
 [tool.ruff.lint]
 exclude = []
+
+[tool.deptry]
+known_first_party = ["cognite_toolkit"]
+
+[tool.deptry.package_module_name_map]
+cognite-sdk = "cognite"
+pyyaml = "yaml"
+python-dotenv = "dotenv"
+python-dateutil = "dateutil"
+
+[tool.deptry.per_rule_ignores]
+DEP001 = [
+    "pyodide",
+    "uvicorn",
+]
+DEP002 = ["pip"]
 
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]

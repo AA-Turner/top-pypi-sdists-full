@@ -94,7 +94,7 @@ class CheckoutConfigurationsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -137,7 +137,7 @@ class CheckoutConfigurationsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateCheckoutConfigurationsResponse:
         """
-        Creates a reusable checkout configuration for an existing or inline variant.
+        Creates a reusable checkout configuration for an existing or inline variant. Send customers to its `purchase_url` to check out.
 
         Parameters
         ----------
@@ -184,7 +184,7 @@ class CheckoutConfigurationsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -232,7 +232,7 @@ class CheckoutConfigurationsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -267,7 +267,7 @@ class CheckoutConfigurationsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -351,7 +351,7 @@ class AsyncCheckoutConfigurationsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -401,7 +401,7 @@ class AsyncCheckoutConfigurationsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateCheckoutConfigurationsResponse:
         """
-        Creates a reusable checkout configuration for an existing or inline variant.
+        Creates a reusable checkout configuration for an existing or inline variant. Send customers to its `purchase_url` to check out.
 
         Parameters
         ----------
@@ -450,7 +450,7 @@ class AsyncCheckoutConfigurationsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -506,7 +506,7 @@ class AsyncCheckoutConfigurationsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -549,7 +549,7 @@ class AsyncCheckoutConfigurationsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

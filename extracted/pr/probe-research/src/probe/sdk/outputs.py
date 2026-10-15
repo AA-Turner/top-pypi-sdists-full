@@ -247,7 +247,14 @@ def enabled(capture_outputs: bool | None) -> bool:
 
 
 def log_enabled() -> bool:
-    return (os.environ.get(LOG_ENV) or "").strip().lower() not in _OFF
+    """``PROBE_CAPTURE_LOG`` (on), and never for a run whose working directory
+    or script is at `.probe.config` `hash`: such a run records identities only,
+    and a script over excluded data commonly prints its records."""
+    if (os.environ.get(LOG_ENV) or "").strip().lower() in _OFF:
+        return False
+    from . import exclusions as _exclusions
+
+    return not _exclusions.run_identity_only()
 
 
 def _env_seconds(name: str) -> float | None:

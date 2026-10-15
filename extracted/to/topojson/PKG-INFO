@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: topojson
-Version: 2.1
+Version: 2.2
 Summary: topojson - a powerful library to encode geographic data as topology in Python!🌍
 Keywords: topojson,python,github,topology,geojson
 Author-email: Mattijn van Hoek <mattijn@gmail.com>
@@ -17,10 +17,17 @@ Requires-Dist: simplification ; extra == "dev"
 Requires-Dist: pyshp ; extra == "dev"
 Requires-Dist: altair ; extra == "dev"
 Requires-Dist: ipywidgets ; extra == "dev"
+Requires-Dist: polars ; extra == "dev"
+Requires-Dist: zensical ; extra == "docs"
+Requires-Dist: mkdocstrings-python ; extra == "docs"
+Requires-Dist: markdown-exec ; extra == "docs"
+Requires-Dist: polars<2 ; extra == "docs"
+Requires-Dist: polars-st ; extra == "docs"
 Project-URL: Documentation, https://mattijn.github.io/topojson
 Project-URL: Releases, https://github.com/mattijn/topojson/releases
 Project-URL: Source, https://github.com/mattijn/topojson
 Provides-Extra: dev
+Provides-Extra: docs
 Import-Name: topojson
 
 # topojson

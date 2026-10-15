@@ -35,6 +35,28 @@ except ImportError:
     AZURE_BLOB_AVAILABLE = False
 
 
+def _build_default_azure_credential() -> Any:
+    """資格情報なし経路の ``DefaultAzureCredential`` を作る。
+
+    azure-identity は ``storage-azure`` extra に入っているが、接続文字列で使う
+    既存の利用者にまで import を要求しないよう、この経路に入ったときだけ読む。
+    ``DefaultAzureCredential`` はここでは token を取りに行かない (最初の Blob 操作で
+    取る) ので、生成自体は Azure に届かない環境でも失敗しない。
+
+    Raises:
+        StorageConfigError: azure-identity が無い
+    """
+    try:
+        from azure.identity import DefaultAzureCredential
+    except ImportError as e:
+        raise StorageConfigError(
+            "azure-identity package is required to use Azure Blob Storage without a "
+            "connection_string (DefaultAzureCredential). "
+            "Install with: pip install 'agenticstar-platform[storage-azure]'"
+        ) from e
+    return DefaultAzureCredential()
+
+
 class AzureBlobStorageClient(StorageClientBase):
     """
     Azure Blob Storageクライアント
@@ -46,6 +68,13 @@ class AzureBlobStorageClient(StorageClientBase):
     - 日本語ファイル名対応（URLエンコード）
     - メタデータサニタイズ（Base64エンコード）
 
+    認証 (3.1.0。3.0.16 は未公開):
+    - ``connection_string`` があれば ``BlobServiceClient.from_connection_string`` (従来)
+    - 無ければ ``storage_account_name`` の account URL と ``DefaultAzureCredential``
+      (AKS の Workload Identity / Managed Identity / ローカルの Azure CLI など)。
+      Storage Account の Shared Key 認証を無効にした環境ではこちらになる。
+      UAMI には対象 Storage Account の Storage Blob Data Contributor が要る
+
     Example:
         config = AzureBlobConfig(
             bucket_name="my-container",
@@ -53,6 +82,13 @@ class AzureBlobStorageClient(StorageClientBase):
         )
         client = AzureBlobStorageClient(config)
         result = await client.upload_file("/path/to/file.txt")
+
+        # 資格情報なし (DefaultAzureCredential)
+        config = AzureBlobConfig(
+            bucket_name="my-container",
+            storage_account_name="mystorageaccount",
+        )
+        client = AzureBlobStorageClient(config)
     """
 
     def __init__(self, config: AzureBlobConfig):
@@ -63,7 +99,8 @@ class AzureBlobStorageClient(StorageClientBase):
             config: AzureBlobConfig instance
 
         Raises:
-            StorageConfigError: 設定が不正な場合
+            StorageConfigError: 設定が不正な場合 (接続文字列も storage_account_name も無い、
+                資格情報なし経路に必要な azure-identity が無い、など)
             StorageConnectionError: 接続に失敗した場合
         """
         super().__init__(config)
@@ -74,9 +111,10 @@ class AzureBlobStorageClient(StorageClientBase):
                 "Install with: pip install 'agenticstar-platform[storage-azure]'"
             )
 
-        if not config.connection_string:
+        if not config.connection_string and not config.storage_account_name:
             raise StorageConfigError(
-                "Azure Blob connection_string is required"
+                "Azure Blob requires either connection_string or storage_account_name "
+                "(storage_account_name authenticates with DefaultAzureCredential)"
             )
 
         if not config.bucket_name:
@@ -86,19 +124,38 @@ class AzureBlobStorageClient(StorageClientBase):
 
         self._azure_config: AzureBlobConfig = config
         self._blob_service_client: Optional[BlobServiceClient] = None
+        self._credential: Any = None  # DefaultAzureCredential (接続文字列のときは None)
+
+        client_options = {
+            "max_block_size": config.max_block_size,
+            "max_single_put_size": config.max_single_put_size,
+            "connection_timeout": config.connection_timeout,
+            "read_timeout": config.read_timeout,
+        }
+
+        if config.connection_string:
+            auth_mode = "connection_string"
+        else:
+            auth_mode = "default_azure_credential"
+            # 資格情報なし経路だけが azure-identity を要る (接続文字列の利用者には要求しない)
+            self._credential = _build_default_azure_credential()
 
         try:
-            self._blob_service_client = BlobServiceClient.from_connection_string(
-                conn_str=self._get_api_key(config.connection_string),
-                max_block_size=config.max_block_size,
-                max_single_put_size=config.max_single_put_size,
-                connection_timeout=config.connection_timeout,
-                read_timeout=config.read_timeout,
-            )
+            if config.connection_string:
+                self._blob_service_client = BlobServiceClient.from_connection_string(
+                    conn_str=self._get_api_key(config.connection_string),
+                    **client_options,
+                )
+            else:
+                self._blob_service_client = BlobServiceClient(
+                    account_url=config.account_url,
+                    credential=self._credential,
+                    **client_options,
+                )
             self._enabled = config.enabled
             logger.info(
                 f"AzureBlobStorageClient initialized - "
-                f"container={config.bucket_name}"
+                f"container={config.bucket_name} auth={auth_mode}"
             )
         except Exception as e:
             logger.error(f"Failed to initialize Azure Blob client: {e}")
@@ -697,9 +754,13 @@ class AzureBlobStorageClient(StorageClientBase):
                 # 将来のバージョンで追加される可能性があるため確認
                 if hasattr(self._blob_service_client, 'close'):
                     self._blob_service_client.close()
+            # DefaultAzureCredential は内部に HTTP セッションを持つ (close() あり)
+            if self._credential is not None and hasattr(self._credential, 'close'):
+                self._credential.close()
         except Exception as e:
             logger.warning(f"Error closing Azure Blob client: {e}")
         finally:
             self._blob_service_client = None
+            self._credential = None
             self._enabled = False
             logger.debug("AzureBlobStorageClient closed")

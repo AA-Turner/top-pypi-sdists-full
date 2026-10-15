@@ -3,8 +3,8 @@
 //! no hub. The ledger tests run at millisecond resolution: the cadence is configuration,
 //! the RULE under test is production's.
 
+use super::credential::{credential_from_spec, Anonymous, ScopedHeaders};
 use super::download::{fetch_ranged, Ranged};
-use super::hub::{credential_from_spec, Anonymous, HostToken};
 use super::ledger::{Deadline, Ledger};
 use super::policy::{self, blocked, CheckedUrl, SourcePolicy};
 use super::pull::{absolute_location, pull, Fetched, ObjectSource, PullRequest};
@@ -298,7 +298,11 @@ struct Checkpoint {
 }
 
 fn checkpoint(blobs: usize, size: usize) -> Checkpoint {
-    assert!(size.is_multiple_of(4) && size > 0);
+    checkpoint_sizes(&vec![size; blobs])
+}
+
+fn checkpoint_sizes(sizes: &[usize]) -> Checkpoint {
+    assert!(sizes.iter().all(|size| size.is_multiple_of(4) && *size > 0));
     let spec = registry::seeds()
         .into_iter()
         .find(|seed| seed.alias == "plain/1")
@@ -306,7 +310,7 @@ fn checkpoint(blobs: usize, size: usize) -> Checkpoint {
         .spec;
     let mut bodies = HashMap::new();
     let mut tensors = Vec::new();
-    for index in 0..blobs {
+    for (index, &size) in sizes.iter().enumerate() {
         let mut body = vec![0u8; size];
         for (at, byte) in body.iter_mut().enumerate() {
             *byte = ((at * 31 + index * 7 + 3) % 251) as u8;
@@ -1608,10 +1612,9 @@ fn a_slow_origin_is_given_longer_each_ask_and_then_left_alone() {
     request.sample_seconds = 0.1;
     let report = pull(&request).unwrap();
     assert_eq!(report.fetched, 3);
-    // Its first byte takes 400 ms where its peers' took none. It is asked again with twice
-    // the wait each time until one ask is given long enough; its body, with no peer to be
-    // slower than, is then left to finish at the origin's pace.
-    assert!(origin.hits(&format!("/obj/{slow}")) <= 6);
+    // Its first byte takes 400 ms where its peers' took none, so it may be dropped once. Its
+    // next ask has no peer still running to be slower than, and is left to the origin's pace.
+    assert!(origin.hits(&format!("/obj/{slow}")) <= 2);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -2282,9 +2285,9 @@ fn credential_headers_reach_the_hub_and_not_the_object_host() {
     });
     let origin = origin(dispatch);
     *base_slot.lock().unwrap() = origin.base.clone();
-    let token = HostToken {
+    let token = ScopedHeaders {
         hosts: vec!["127.0.0.1".into()],
-        token: "worker-token".into(),
+        headers: vec![("authorization".into(), "Bearer worker-token".into())],
     };
     let policy = SourcePolicy::default();
     let mut request = PullRequest::new(&store, &origin.base, "acme/model", &token, &policy);
@@ -2445,6 +2448,41 @@ fn the_policy_fails_closed() {
             .code,
         Code::SOURCE_NOT_ALLOWED
     );
+}
+
+#[test]
+fn a_fake_ip_answer_is_admitted_only_for_a_named_https_origin() {
+    let policy = SourcePolicy {
+        allowed_hosts: vec![".ngrok.app".into(), "198.18.0.5".into()],
+        allow_local: false,
+        max_redirects: 0,
+        ..Default::default()
+    };
+    let answer = |ips: &[&str], port: u16| -> Vec<std::net::SocketAddr> {
+        ips.iter().map(|ip| std::net::SocketAddr::new(ip.parse().unwrap(), port)).collect()
+    };
+    // Fake-IP DNS answers every name in 198.18/15; TLS then verifies the certificate for the name.
+    policy.resolved.seed("hub.ngrok.app", 443, answer(&["198.18.0.148"], 443));
+    let checked = policy.check("https://hub.ngrok.app/healthz").unwrap();
+    assert_eq!(checked.addrs, answer(&["198.18.0.148"], 443));
+    policy.resolved.seed("top.ngrok.app", 443, answer(&["198.19.255.254"], 443));
+    assert!(policy.check("https://top.ngrok.app/x").is_ok());
+    // Every other blocked answer still refuses, whatever rides beside the fake one.
+    for (name, ips, why) in [
+        ("meta.ngrok.app", ["198.18.0.9", "169.254.169.254"], "link-local"),
+        ("lan.ngrok.app", ["198.18.0.9", "10.0.0.7"], "private"),
+        ("loop.ngrok.app", ["198.18.0.9", "127.0.0.1"], "loopback"),
+    ] {
+        policy.resolved.seed(name, 443, answer(&ips, 443));
+        let refused = policy.check(&format!("https://{name}/x")).unwrap_err();
+        assert_eq!(refused.code, Code::SOURCE_NOT_ALLOWED, "{name}");
+        assert!(refused.detail.contains(why), "{name}: {}", refused.detail);
+    }
+    // Plaintext stays strict, and so does a literal 198.18 address (no name to verify).
+    policy.resolved.seed("hub.ngrok.app", 80, answer(&["198.18.0.148"], 80));
+    assert_eq!(policy.check("http://hub.ngrok.app/x").unwrap_err().code, Code::SOURCE_NOT_ALLOWED);
+    let refused = policy.check("https://198.18.0.5/x").unwrap_err();
+    assert!(refused.detail.contains("private"), "{}", refused.detail);
 }
 
 #[test]
@@ -2938,6 +2976,99 @@ fn the_tls_pump_carries_a_real_exchange() {
     .unwrap();
     assert_eq!(response.status, 200);
     assert_eq!(response.read_capped(1 << 20).unwrap(), payload);
+}
+
+/// Run 5438: one handshake of a long upload failed certificate verification from a host that
+/// had verified many times in the same process. A certificate verdict from an origin this
+/// process verified is weather, asked again after the transfer's measured patience; once the
+/// transfer moves nothing for longer than its measured stillness, the verdict stands.
+#[test]
+fn a_certificate_refused_by_an_origin_verified_before_is_asked_again() {
+    let identity = || {
+        let key = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+        let cert = rustls::pki_types::CertificateDer::from(key.cert.der().to_vec());
+        let private = rustls::pki_types::PrivateKeyDer::try_from(key.key_pair.serialize_der())
+            .unwrap()
+            .clone_key();
+        let config = rustls::ServerConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert.clone()], private)
+        .unwrap();
+        (cert, Arc::new(config))
+    };
+    let (trusted, good) = identity();
+    let (_, stranger) = identity();
+    // Connection 1 presents a certificate nobody trusts, between two trusted ones; every one
+    // from connection 3 on presents it again.
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let accepted = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&accepted);
+    std::thread::spawn(move || {
+        for (index, socket) in listener.incoming().enumerate() {
+            let Ok(socket) = socket else { return };
+            counted.fetch_add(1, Ordering::SeqCst);
+            let config = if index == 0 || index == 2 {
+                &good
+            } else {
+                &stranger
+            };
+            let conn = rustls::ServerConnection::new(Arc::clone(config)).unwrap();
+            let mut stream = rustls::StreamOwned::new(conn, socket);
+            let mut head = Vec::new();
+            let mut chunk = [0u8; 4096];
+            while !head.windows(4).any(|w| w == b"\r\n\r\n") {
+                match stream.read(&mut chunk) {
+                    Ok(n) if n > 0 => head.extend_from_slice(&chunk[..n]),
+                    _ => break,
+                }
+            }
+            let _ = stream
+                .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{}");
+            stream.conn.send_close_notify();
+            let _ = stream.flush();
+        }
+    });
+    let client = super::http::Client::with_extra_roots(&[trusted]);
+    let policy = SourcePolicy {
+        allowed_hosts: vec!["localhost".into()],
+        allow_local: true,
+        max_redirects: 0,
+        ..Default::default()
+    };
+    let base = format!("https://localhost:{port}");
+    let ask = |ledger: &Ledger| {
+        super::hub::call_method(
+            &client,
+            "GET",
+            &base,
+            "/v1/ping",
+            b"",
+            &Anonymous,
+            &policy,
+            Deadline::none(),
+            ledger,
+        )
+    };
+    let ledger = Ledger::with_resolution(Duration::from_millis(10));
+    ask(&ledger).unwrap();
+    ask(&ledger).expect("a verified origin's certificate verdict is asked again");
+    assert_eq!(accepted.load(Ordering::SeqCst), 3);
+
+    // A transfer that moves nothing while it re-asks keeps the verdict.
+    let still = Ledger::with_resolution(Duration::from_millis(10));
+    let refused = ask(&still).unwrap_err();
+    assert_eq!(refused.code, Code::TLS_UNTRUSTED, "{}", refused.detail);
+    assert!(
+        refused.detail.contains("verified localhost before"),
+        "{}",
+        refused.detail
+    );
+    assert_eq!(accepted.load(Ordering::SeqCst), 5);
 }
 
 // ---------------------------------------------------------------- the parity benchmark
@@ -3913,6 +4044,116 @@ fn a_source_request_far_slower_than_its_peers_is_restarted() {
     assert!(log.contains(" restart "), "{log}");
 }
 
+/// An origin behind one link that every answer shares: its first `burst` bytes unpaced, then
+/// `rate` B/s, answering at most `answering` requests at once while the rest wait their turn
+/// before any header, as on a pod whose link or origin turned slow for every request alike.
+/// The range at `crawl` is sent at 16 KiB/s on its first ask, beside the link.
+fn shared_link(
+    name: &str,
+    body: &[u8],
+    (rate, burst): (f64, usize),
+    answering: usize,
+    crawl: Option<usize>,
+) -> Source {
+    let link = Arc::new(Mutex::new((std::time::Instant::now(), 0)));
+    let turns = Arc::new((Mutex::new(answering), std::sync::Condvar::new()));
+    let (served, crawled) = (body.to_vec(), Arc::new(AtomicUsize::new(0)));
+    Source::new(name, body, move |request| {
+        let Some((first, last)) = range_of(request) else {
+            return partial(&served, request);
+        };
+        let crawling = crawl == Some(first) && crawled.fetch_add(1, Ordering::Relaxed) == 0;
+        let head = format!(
+            "HTTP/1.1 206 X\r\ncontent-length: {}\r\ncontent-range: bytes {first}-{last}/{}\r\n\
+             connection: close\r\n\r\n",
+            last + 1 - first,
+            served.len()
+        );
+        let range = served[first..=last].to_vec();
+        let (link, turns) = (Arc::clone(&link), Arc::clone(&turns));
+        Serve::Script(Box::new(move |socket| {
+            let (free, freed) = &*turns;
+            let mut left = freed
+                .wait_while(free.lock().unwrap(), |left| *left == 0)
+                .unwrap();
+            *left -= 1;
+            drop(left);
+            let mut sent = socket.write_all(head.as_bytes());
+            for block in range.chunks(16 << 10) {
+                let time = |rate: f64| Duration::from_secs_f64(block.len() as f64 / rate);
+                if crawling {
+                    sent = sent.and_then(|()| socket.write_all(block));
+                    std::thread::sleep(time((16 << 10) as f64));
+                } else {
+                    let due = {
+                        let (next, carried) = &mut *link.lock().unwrap();
+                        *carried += block.len();
+                        if *carried > burst {
+                            *next = (*next).max(std::time::Instant::now()) + time(rate);
+                        }
+                        *next
+                    };
+                    std::thread::sleep(due.saturating_duration_since(std::time::Instant::now()));
+                    sent = sent.and_then(|()| socket.write_all(block));
+                }
+                if sent.is_err() {
+                    break;
+                }
+            }
+            *free.lock().unwrap() += 1;
+            freed.notify_one();
+        }))
+    })
+}
+
+fn transport_log(source: &Source) -> String {
+    std::fs::read_to_string(source.root.join("logs/transport.log")).unwrap_or_default()
+}
+
+/// The first range comes home at once, then the link turns slow for every range alike:
+/// twelve share it and nineteen wait for a turn. None is slower than the requests beside
+/// it, so none is restarted (vast 5090s, 2026-10-10: 885 restarts in 42 s, every range
+/// judged against the few early asks that came home).
+#[test]
+fn a_pod_whose_every_range_is_slow_restarts_none() {
+    let body = ranged_body(32 << 20);
+    let link = ((12 << 20) as f64, 1 << 20);
+    let source = shared_link("uniform-slow", &body, link, 12, None);
+    let fetched = source.fetch(32, &local_policy()).unwrap();
+
+    assert!(source.held());
+    assert_eq!(fetched.transferred, source.object.length);
+    let log = transport_log(&source);
+    assert!(!log.contains(" restart "), "{log}");
+    assert_eq!(source.asked().len(), 32, "{log}");
+}
+
+/// One range crawls while its peers move at the link's shared pace: that range, and only
+/// it, is restarted, and the object lands long before the crawl would have.
+#[test]
+fn the_one_range_far_slower_than_the_ranges_beside_it_is_restarted() {
+    let body = ranged_body(16 << 20);
+    let link = ((8 << 20) as f64, 0);
+    let source = shared_link("one-crawls", &body, link, 16, Some(8 << 20));
+    let started = std::time::Instant::now();
+    source.fetch(16, &local_policy()).unwrap();
+    let took = started.elapsed();
+
+    assert!(source.held());
+    let log = transport_log(&source);
+    let restarts: Vec<&str> = log
+        .lines()
+        .filter(|line| line.contains(" restart "))
+        .collect();
+    assert_eq!(restarts.len(), 1, "{log}");
+    assert!(restarts[0].contains(" bytes=8388608-9437183 "), "{log}");
+    // Alone, the crawling megabyte takes 64 s.
+    assert!(
+        took < Duration::from_secs(16),
+        "the fetch waited out the crawl: {took:?}"
+    );
+}
+
 /// A name the resolver does not answer is weather like any failed request: it is asked
 /// again (a pod's Docker resolver answered some of 512 lookups only after 4-8 s, and the
 /// first 0.3.85 walks ended on it), and the fetch ends on its own patience, quoting it.
@@ -4063,9 +4304,9 @@ fn every_request_re_asks_the_credential_for_the_host_it_reaches() {
                 .push(request.header("authorization").map(str::to_string));
             partial(&served, request)
         });
-        let credential = HostToken {
+        let credential = ScopedHeaders {
             hosts: vec![scoped_to.into()],
-            token: "hf_secret".into(),
+            headers: vec![("authorization".into(), "Bearer hf_secret".into())],
         };
         fetch_ranged(
             &source.store,
@@ -4265,6 +4506,22 @@ fn a_real_enospc_from_the_kernel_is_a_capacity_verdict_not_an_io_failure() {
         crate::store::classify_io("open blob", ordinary).code,
         Code::IO_FAILED
     );
+}
+
+/// The same kernel ENOSPC met by a module that wraps its own I/O errors (here, writing a
+/// checkpoint part out) is the same verdict: every I/O error goes through one classifier.
+#[test]
+fn a_full_disk_met_outside_the_store_is_still_a_capacity_verdict() {
+    let root = temporary("full-outside-store");
+    let store = Store::init(&root).unwrap();
+    let part = crate::header::Part::plan(crate::dtype::Dtype::U8, vec![16], &[7u8; 16]);
+    let mut full = std::fs::OpenOptions::new()
+        .write(true)
+        .open("/dev/full")
+        .expect("/dev/full is required for this arm");
+    let refusal = crate::checkpoint::materialize(&store, "w", &part, &mut full).unwrap_err();
+    assert_eq!(refusal.code, Code::CAPACITY_EXHAUSTED, "{refusal}");
+    let _ = std::fs::remove_dir_all(root);
 }
 
 // These proofs deliberately occupy the process-scoped optional write pool.
@@ -4533,6 +4790,8 @@ fn complete_content_length_body_does_not_wait_for_connection_close() {
         // time is unrelated to HTTP framing and may exceed a test socket timer.
         let _ = hold_open.recv();
     });
+    // No wall deadline: admission's fsync takes what a loaded disk takes. A fetch that waited
+    // for the close would get no byte, and the ledger's own stall rule would refuse it.
     let ledger = Ledger::with_resolution(Duration::from_millis(20));
     let result = fetch_ranged(
         &store,
@@ -4540,7 +4799,7 @@ fn complete_content_length_body_does_not_wait_for_connection_close() {
         &format!("http://{address}/body"),
         &local_policy(),
         &Anonymous,
-        Deadline::after_seconds(Some(1.0)),
+        Deadline::none(),
         &ledger,
         Ranged::default(),
         None,
@@ -5108,7 +5367,7 @@ mod tail;
 // ---------------------------------------------------------------- publication
 
 /// The most objects this stand-in Hub takes in one grant or verify request.
-const SELECTION: usize = 50;
+const SELECTION: usize = 3;
 
 #[derive(Default)]
 struct PublicationHub {
@@ -5119,6 +5378,15 @@ struct PublicationHub {
     holds: bool,
     /// Grant or verify requests refused for their selection's size.
     refused: usize,
+    mode: &'static str,
+    grants: HashMap<String, usize>,
+    puts: HashMap<String, usize>,
+    max_selection: usize,
+    blocked: String,
+    released_after_refill: bool,
+    max_unverified_grants: usize,
+    /// Ends a `held` PUT of the blocked object, unanswered.
+    release: bool,
 }
 
 fn publication_hub(manifest: Vec<u8>) -> (Origin, Arc<Mutex<PublicationHub>>) {
@@ -5156,8 +5424,56 @@ fn publication_hub(manifest: Vec<u8>) -> (Origin, Arc<Mutex<PublicationHub>>) {
         ])
     };
     let dispatch: Dispatch = Arc::new(move |request: &Request| {
-        let mut hub = hub.lock().unwrap();
         let path = request.path.as_str();
+        if let Some(digest) = path.strip_prefix("/upload/") {
+            let id = format!("sha256:{digest}");
+            let mode = {
+                let mut hub = hub.lock().unwrap();
+                *hub.puts.entry(id.clone()).or_default() += 1;
+                hub.mode
+            };
+            if mode == "held" && id == hub.lock().unwrap().blocked && !hub.lock().unwrap().release {
+                // Its body arrived; its answer waits until the test lets it go, unrecorded.
+                while !hub.lock().unwrap().release {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                return status(500, b"never answered");
+            }
+            if mode == "rolling" && id == hub.lock().unwrap().blocked {
+                let start = std::time::Instant::now();
+                loop {
+                    let mut state = hub.lock().unwrap();
+                    if state.uploaded.len() == state.declared.len() - 2
+                        && state.grants.get(&id).copied().unwrap_or(0) >= 2 {
+                        // All later small objects landed AND the long PUT's hold renewed,
+                        // before this response releases its upload slot.
+                        state.released_after_refill = true;
+                        break;
+                    }
+                    if start.elapsed() > Duration::from_secs(5) { break; }
+                    drop(state);
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }
+            if request.header("x-grant-generation") == Some("1")
+                && matches!(mode, "expired403" | "landed" | "heartbeat")
+            {
+                std::thread::sleep(Duration::from_millis(1200));
+                if mode == "landed" {
+                    hub.lock()
+                        .unwrap()
+                        .uploaded
+                        .insert(id, request.body.clone());
+                }
+                if mode != "heartbeat" {
+                    return status(403, b"expired grant");
+                }
+            }
+            if mode == "denied" {
+                return status(403, b"permission denied");
+            }
+        }
+        let mut hub = hub.lock().unwrap();
         let op = path
             .strip_prefix(&format!("{REPO}/publications/"))
             .map(|rest| rest.split('/').next().unwrap().to_string())
@@ -5179,6 +5495,10 @@ fn publication_hub(manifest: Vec<u8>) -> (Origin, Arc<Mutex<PublicationHub>>) {
             }
             "PUT" => {
                 hub.declared = objects(&request.body, "objects");
+                if matches!(hub.mode, "rolling" | "held") {
+                    let blocked = hub.declared.iter().position(|id| *id == hub.blocked).unwrap();
+                    hub.declared.swap(1, blocked);
+                }
                 // The Hub already holds the first object: it is never pushed.
                 let rows = hub
                     .declared
@@ -5216,20 +5536,57 @@ fn publication_hub(manifest: Vec<u8>) -> (Origin, Arc<Mutex<PublicationHub>>) {
             }
             "POST" if path.ends_with("/grants") => {
                 let url = base.lock().unwrap().clone();
-                let grants = objects(&request.body, "object_ids")
-                    .into_iter()
-                    .map(|id| {
-                        Value::obj(vec![
-                            ("object_id", Value::str(id.clone())),
-                            ("url", Value::str(format!("{url}/upload/{}", &id[7..]))),
-                            (
-                                "required_headers",
-                                Value::obj(vec![("if-none-match", Value::str("*"))]),
-                            ),
-                        ])
-                    })
-                    .collect();
-                ok_json(&Value::obj(vec![("grants", Value::arr(grants))]))
+                let selected = objects(&request.body, "object_ids");
+                hub.max_selection = hub.max_selection.max(selected.len());
+                let mut grants = vec![];
+                let mut held = vec![];
+                for id in selected {
+                    let mode = hub.mode;
+                    let blocked = id == hub.blocked;
+                    let generation = hub.grants.entry(id.clone()).or_default();
+                    *generation += 1;
+                    let generation = *generation;
+                    if hub.uploaded.contains_key(&id) {
+                        held.push(Value::obj(vec![
+                            ("object_id", Value::str(id)),
+                            ("state", Value::str("accepted")),
+                        ]));
+                        continue;
+                    }
+                    let lifetime = match mode {
+                        "always-stale" => 0,
+                        "stale" if generation == 1 => 0,
+                        "rolling" if blocked => 1,
+                        "expired403" | "landed" | "heartbeat" if generation == 1 => 1,
+                        _ => 600,
+                    };
+                    grants.push(Value::obj(vec![
+                        ("object_id", Value::str(id.clone())),
+                        ("url", Value::str(format!("{url}/upload/{}", &id[7..]))),
+                        ("expires_at_unix", Value::uint(1_000_000_000 + lifetime)),
+                        (
+                            "required_headers",
+                            Value::obj(vec![
+                                ("if-none-match", Value::str("*")),
+                                ("x-grant-generation", Value::str(generation.to_string())),
+                            ]),
+                        ),
+                    ]));
+                }
+                let unverified = hub.grants.keys().filter(|id| !hub.verified.contains(id)).count();
+                hub.max_unverified_grants = hub.max_unverified_grants.max(unverified);
+                ok_json(&Value::obj(vec![
+                    ("grants", Value::arr(grants)),
+                    ("held", Value::arr(held)),
+                    (
+                        "server_time_unix",
+                        Value::uint(if hub.mode == "legacy" {
+                            0
+                        } else {
+                            1_000_000_000
+                        }),
+                    ),
+                ]))
             }
             "POST" if path.ends_with("/verify") => {
                 let ids = objects(&request.body, "object_ids");
@@ -5281,6 +5638,8 @@ fn publish_pushes_what_the_hub_lacks_and_follows_its_finalization() {
         policy: &policy,
         progress: &progress,
         streams: 4,
+        stop: None,
+        commit: &|| true,
     };
     let published = super::publish(&publication).unwrap();
     assert_eq!(published.checkpoint, checkpoint.manifest.id());
@@ -5315,8 +5674,8 @@ fn publish_pushes_what_the_hub_lacks_and_follows_its_finalization() {
 }
 
 /// A closure larger than one request's selection (an SDXL LoRA's) is asked for and verified in
-/// requests the Hub accepts: this Hub takes fewer than the first request asks for, so the
-/// selection is halved until it fits, and stays there.
+/// requests the Hub accepts. Just-in-time singleton grants fit even a Hub whose selection
+/// limit is below the configured worker count.
 #[test]
 fn publish_asks_for_a_large_closure_in_requests_the_hub_accepts() {
     let root = temporary("publish-large");
@@ -5337,6 +5696,8 @@ fn publish_asks_for_a_large_closure_in_requests_the_hub_accepts() {
         policy: &policy,
         progress: &|_, _| {},
         streams: 4,
+        stop: None,
+        commit: &|| true,
     })
     .unwrap();
     assert_eq!(published.checkpoint, checkpoint.manifest.id());
@@ -5344,7 +5705,214 @@ fn publish_asks_for_a_large_closure_in_requests_the_hub_accepts() {
     assert_eq!(held.uploaded.len(), held.declared.len() - 1);
     assert_eq!(held.verified.len(), held.declared.len() - 1);
     assert_eq!(held.finalized, 1);
-    // 128, then 64, were refused once each; every later request fit.
-    assert_eq!(held.refused, 2);
+    assert_eq!(held.refused, 0);
+    assert!(held.max_selection <= SELECTION);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn publish_renews_only_expired_authority_and_keeps_long_puts_live() {
+    for mode in [
+        "stale",
+        "expired403",
+        "landed",
+        "heartbeat",
+        "denied",
+        "always-stale",
+        "legacy",
+    ] {
+        let root = temporary(&format!("publish-renew-{mode}"));
+        let store = Store::init(&root).unwrap();
+        let checkpoint = Arc::new(checkpoint(1, 512));
+        let source = hub_origin(Arc::clone(&checkpoint), |_, _| None);
+        let policy = local_policy();
+        pull(&request_for(&store, &source.base, &policy)).unwrap();
+        let (hub, state) = publication_hub(checkpoint.bodies[&checkpoint.manifest.sha256].clone());
+        state.lock().unwrap().mode = mode;
+        let progress = Mutex::new((0, 0));
+        let published = super::publish(&super::Publication {
+            store: &store,
+            hub: &hub.base,
+            destination: "acme/model",
+            manifest: &checkpoint.manifest,
+            operation: mode,
+            credential: &Anonymous,
+            policy: &policy,
+            progress: &|done, total| *progress.lock().unwrap() = (done, total),
+            streams: 2,
+            stop: None,
+            commit: &|| true,
+        });
+        let state = state.lock().unwrap();
+        assert!(state.max_selection <= 2);
+        if mode == "denied" {
+            assert_eq!(published.unwrap_err().code, Code::TRANSFER_FAILED);
+            assert!(state.grants.values().all(|n| *n == 1));
+            assert!(state.puts.values().all(|n| *n == 1));
+            assert_eq!(state.finalized, 0);
+        } else if mode == "always-stale" {
+            assert_eq!(published.unwrap_err().code, Code::HUB_REFUSED);
+            assert!(state.grants.values().all(|n| *n <= 3));
+            assert!(state.puts.is_empty());
+        } else {
+            assert_eq!(published.unwrap().checkpoint, checkpoint.manifest.id());
+            if mode == "legacy" {
+                assert!(state.grants.values().all(|n| *n == 1));
+            } else {
+                assert!(state.grants.values().all(|n| *n >= 2), "{mode}");
+            }
+            assert_eq!(state.uploaded.len(), state.declared.len() - 1);
+            if mode != "expired403" {
+                assert!(state.puts.values().all(|n| *n == 1), "{mode}");
+            }
+            let (done, total) = *progress.lock().unwrap();
+            assert_eq!(done, total, "held-on-renewal bytes count exactly once");
+        }
+        drop(state);
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+#[test]
+fn publish_refills_slots_while_a_large_put_waits_and_renews() {
+    let root = temporary("publish-rolling");
+    let store = Store::init(&root).unwrap();
+    let mut sizes = vec![512; 24];
+    sizes[0] = 1 << 20;
+    let checkpoint = Arc::new(checkpoint_sizes(&sizes));
+    let source = hub_origin(Arc::clone(&checkpoint), |_, _| None);
+    let policy = local_policy();
+    pull(&request_for(&store, &source.base, &policy)).unwrap();
+    let blocked = checkpoint.objects.iter().find(|object| object.length == 1 << 20).unwrap().id();
+    let (hub, state) = publication_hub(checkpoint.bodies[&checkpoint.manifest.sha256].clone());
+    {
+        let mut state = state.lock().unwrap();
+        state.mode = "rolling";
+        state.blocked = blocked.clone();
+    }
+    let published = super::publish(&super::Publication {
+        store: &store,
+        hub: &hub.base,
+        destination: "acme/model",
+        manifest: &checkpoint.manifest,
+        operation: "rolling",
+        credential: &Anonymous,
+        policy: &policy,
+        progress: &|_, _| {},
+        streams: 8,
+        stop: None,
+        commit: &|| true,
+    }).unwrap();
+    let state = state.lock().unwrap();
+    assert!(state.released_after_refill, "later objects must finish before the slow PUT is released");
+    assert!(state.max_unverified_grants <= 8, "only dispatchable objects obtain grants");
+    assert!(state.grants[&blocked] >= 2, "a waiting PUT retains its publication hold");
+    assert_eq!(state.puts[&blocked], 1, "heartbeat does not restart a moving PUT");
+    assert_eq!(state.verified.len(), state.declared.len() - 1);
+    assert_eq!(published.checkpoint, checkpoint.manifest.id());
+    drop(state);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// A publication its caller stops mid-push ends within a sampling tick of the stop, finalizes
+/// nothing (no checkpoint appears), and the same operation resumes it: only the object whose
+/// PUT was cut short is pushed again.
+#[test]
+fn a_stopped_publication_finalizes_nothing_and_resumes() {
+    let root = temporary("publish-stopped");
+    let store = Store::init(&root).unwrap();
+    let mut sizes = vec![512; 8];
+    sizes[0] = 1 << 20;
+    let checkpoint = Arc::new(checkpoint_sizes(&sizes));
+    let source = hub_origin(Arc::clone(&checkpoint), |_, _| None);
+    let policy = local_policy();
+    pull(&request_for(&store, &source.base, &policy)).unwrap();
+    let blocked = checkpoint.objects.iter().find(|o| o.length == 1 << 20).unwrap().id();
+    let (hub, state) = publication_hub(checkpoint.bodies[&checkpoint.manifest.sha256].clone());
+    {
+        let mut state = state.lock().unwrap();
+        state.mode = "held";
+        state.blocked = blocked.clone();
+    }
+    let stop = super::PullCancellation::default();
+    let publication = |stop| super::Publication {
+        store: &store,
+        hub: &hub.base,
+        destination: "acme/model",
+        manifest: &checkpoint.manifest,
+        operation: "stopped",
+        credential: &Anonymous,
+        policy: &policy,
+        progress: &|_, _| {},
+        streams: 4,
+        stop,
+        commit: &|| true,
+    };
+    let stopped = std::thread::scope(|scope| {
+        let running = scope.spawn(|| super::publish(&publication(Some(&stop))));
+        let started = std::time::Instant::now();
+        while !{
+            let state = state.lock().unwrap();
+            state.puts.contains_key(&blocked) && state.uploaded.len() + 2 == state.declared.len()
+        } {
+            assert!(started.elapsed() < Duration::from_secs(30), "the push never reached the held PUT");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let asked = std::time::Instant::now();
+        stop.cancel();
+        let stopped = running.join().unwrap();
+        (stopped, asked.elapsed())
+    });
+    let (stopped, took) = stopped;
+    assert_eq!(stopped.unwrap_err().code, Code::TRANSFER_FAILED);
+    assert!(took < Duration::from_secs_f64(2.0 * super::SAMPLE_SECONDS), "stopped after {took:?}");
+    {
+        let mut state = state.lock().unwrap();
+        assert_eq!(state.finalized, 0, "a stopped publication finalized");
+        assert!(!state.uploaded.contains_key(&blocked));
+        state.release = true;
+    }
+    let resumed = super::publish(&publication(None)).unwrap();
+    assert_eq!(resumed.checkpoint, checkpoint.manifest.id());
+    let state = state.lock().unwrap();
+    assert_eq!(state.finalized, 1);
+    assert_eq!(state.puts[&blocked], 2);
+    assert!(state.puts.iter().all(|(id, n)| *id == blocked || *n == 1), "resumed pushes repeat landed objects: {:?}", state.puts);
+    assert_eq!(state.uploaded.len() + 1, state.declared.len());
+    drop(state);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// Declined at its commit point, a publication with every object held finalizes nothing; asked
+/// again it pushes nothing and finalizes once.
+#[test]
+fn a_publication_declined_at_its_commit_point_finalizes_nothing() {
+    let root = temporary("publish-declined");
+    let store = Store::init(&root).unwrap();
+    let checkpoint = Arc::new(checkpoint(4, 512));
+    let source = hub_origin(Arc::clone(&checkpoint), |_, _| None);
+    let policy = local_policy();
+    pull(&request_for(&store, &source.base, &policy)).unwrap();
+    let (hub, state) = publication_hub(checkpoint.bodies[&checkpoint.manifest.sha256].clone());
+    let publication = |commit: &'static (dyn Fn() -> bool + Sync)| super::Publication {
+        store: &store,
+        hub: &hub.base,
+        destination: "acme/model",
+        manifest: &checkpoint.manifest,
+        operation: "declined",
+        credential: &Anonymous,
+        policy: &policy,
+        progress: &|_, _| {},
+        streams: 2,
+        stop: None,
+        commit,
+    };
+    assert_eq!(super::publish(&publication(&|| false)).unwrap_err().code, Code::TRANSFER_FAILED);
+    assert_eq!(state.lock().unwrap().finalized, 0);
+    super::publish(&publication(&|| true)).unwrap();
+    let state = state.lock().unwrap();
+    assert_eq!(state.finalized, 1);
+    assert!(state.puts.values().all(|n| *n == 1));
+    drop(state);
     let _ = std::fs::remove_dir_all(root);
 }

@@ -25,7 +25,7 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from ._optional_imports import raise_optional_dependency_error
 
@@ -33,6 +33,7 @@ try:
     import redis.asyncio as redis
     import redis.asyncio.connection as redis_connection
     from redis.asyncio import BlockingConnectionPool, Redis
+    from redis.asyncio.cluster import RedisCluster
     from redis.event import AsyncAfterConnectionReleasedEvent
     from redis.exceptions import ConnectionError as RedisConnectionError, ResponseError, WatchError
 except ImportError as e:
@@ -363,7 +364,7 @@ class RedisSession(SessionABC):
         self,
         session_id: str,
         *,
-        redis_client: Redis,
+        redis_client: Redis | RedisCluster,
         key_prefix: str = "agents:session",
         ttl: int | None = None,
         session_settings: SessionSettings | dict[str, Any] | None = None,
@@ -372,7 +373,10 @@ class RedisSession(SessionABC):
 
         Args:
             session_id (str): Unique identifier for the conversation.
-            redis_client (Redis[bytes]): A pre-configured Redis async client.
+            redis_client (Redis | RedisCluster): A pre-configured Redis async client.
+                RedisCluster clients support reading and popping history, but built-in
+                append, clear, and compaction replacement require standalone Redis.
+                Subclasses may provide their own cluster-compatible write methods.
             key_prefix (str, optional): Prefix for Redis keys to avoid collisions.
                 Defaults to "agents:session".
             ttl (int | None, optional): Time-to-live in seconds for session data.
@@ -473,8 +477,9 @@ class RedisSession(SessionABC):
         keys: tuple[str, str, str],
         serialized_items: list[str] | None,
         completion_owned: asyncio.Event,
+        replace: bool = False,
     ) -> _PipelineAttemptOutcome:
-        """Run one watched append or clear attempt and finish its pipeline."""
+        """Run one watched append, replacement, or clear and finish its pipeline."""
         committed = False
         retryable_watch_conflict = False
         operation_error: BaseException | None = None
@@ -523,7 +528,7 @@ class RedisSession(SessionABC):
                     raise ResponseError("WRONGTYPE session messages key must contain a list")
                 # Legacy key names can overlap across session IDs. Check every
                 # key we will delete or expire under WATCH, before side effects.
-                if serialized_items is None or self._ttl is not None:
+                if serialized_items is None or replace or self._ttl is not None:
                     counter_key_type = self._key_type_name(await pipe.type(self._counter_key))
                     if counter_key_type not in ("none", "string"):
                         raise ResponseError("WRONGTYPE session counter key must contain a string")
@@ -545,10 +550,12 @@ class RedisSession(SessionABC):
                         raise ValueError("ttl is outside Redis's supported expiration range")
 
                 pipe.multi()
-                if serialized_items is None:
+                if serialized_items is None or (replace and not serialized_items):
                     batch_response_index = len(pipe.command_stack)
                     pipe.delete(*keys)
                 else:
+                    if replace:
+                        pipe.delete(*keys)
                     pipe.hset(self._session_key, "session_id", self.session_id)
                     pipe.hsetnx(self._session_key, "created_at", now)
                     batch_response_index = len(pipe.command_stack)
@@ -597,14 +604,24 @@ class RedisSession(SessionABC):
     async def _mutate_items(
         self,
         serialized_items: list[str] | None,
+        *,
+        replace: bool = False,
     ) -> None:
-        """Atomically append a batch, or clear for None, after validating key types."""
+        """Atomically append, replace, or clear after validating key types."""
+        if isinstance(self._redis, RedisCluster):
+            raise TypeError(
+                "RedisSession does not support transactions with RedisCluster clients. "
+                "Use redis.asyncio.Redis connected to a standalone Redis server, "
+                "or implement a custom Session backend for Redis Cluster."
+            )
         keys = (self._session_key, self._messages_key, self._counter_key)
         while True:
             pipe = self._redis.pipeline()
             completion_owned = asyncio.Event()
             attempt = asyncio.create_task(
-                self._mutate_items_attempt(pipe, keys, serialized_items, completion_owned)
+                self._mutate_items_attempt(
+                    pipe, keys, serialized_items, completion_owned, replace=replace
+                )
             )
             outcome, cancellation = await _await_pipeline_attempt(attempt, completion_owned)
 
@@ -658,7 +675,7 @@ class RedisSession(SessionABC):
             self._check_not_closed()
             if session_limit is None:
                 # Get all messages in chronological order
-                raw_messages = await self._redis.lrange(self._messages_key, 0, -1)  # type: ignore[misc]  # Redis library returns Union[Awaitable[T], T] in async context
+                raw_messages = await self._redis.lrange(self._messages_key, 0, -1)
                 return await _decode_messages(raw_messages)
 
             if session_limit <= 0:
@@ -670,7 +687,7 @@ class RedisSession(SessionABC):
             # limit counts valid conversation items, matching pop_item and the other backends.
             window = session_limit
             while True:
-                raw_messages = await self._redis.lrange(self._messages_key, -window, -1)  # type: ignore[misc]  # Redis library returns Union[Awaitable[T], T] in async context
+                raw_messages = await self._redis.lrange(self._messages_key, -window, -1)
                 items = await _decode_messages(raw_messages)
                 if len(items) >= session_limit:
                     return items[-session_limit:]
@@ -697,6 +714,22 @@ class RedisSession(SessionABC):
 
             await self._mutate_items(serialized_items)
 
+    async def _atomic_replace_items(self, items: list[TResponseInputItem]) -> bool:
+        """Replace history in one transaction; return False for subclass-owned storage.
+
+        An application-process exit leaves the old or new history, rather than a
+        clear/add gap. This does not check whether the compaction input is stale.
+        """
+        # Subclasses may transform get/add items or maintain additional indexes.
+        # Like SQLite's snapshot hook, inherited replacement must not bypass them.
+        if type(self) is not RedisSession:
+            return False
+        async with self._lock:
+            self._check_not_closed()
+            serialized_items = [await self._serialize_item(item) for item in items]
+            await self._mutate_items(serialized_items, replace=True)
+        return True
+
     async def pop_item(self) -> TResponseInputItem | None:
         """Remove and return the most recent item from the session.
 
@@ -710,8 +743,8 @@ class RedisSession(SessionABC):
     async def _pop_item_locked(self) -> TResponseInputItem | None:
         """Claim one item while the caller retains the session lock."""
         while True:
-            # Use RPOP to atomically remove and return the rightmost (most recent) item
-            raw_msg = await self._redis.rpop(self._messages_key)  # type: ignore[misc]  # Redis library returns Union[Awaitable[T], T] in async context
+            # Without a count, RPOP returns one item rather than a list of items.
+            raw_msg = cast("bytes | str | None", await self._redis.rpop(self._messages_key))
 
             if raw_msg is None:
                 return None
@@ -790,7 +823,7 @@ class RedisSession(SessionABC):
             # Checked outside the try block; the except clause below would swallow it.
             self._check_not_closed()
             try:
-                await self._redis.ping()  # type: ignore[misc]  # Redis library returns Union[Awaitable[T], T] in async context
+                await self._redis.ping()
                 return True
             except Exception:
                 return False

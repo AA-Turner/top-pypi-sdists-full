@@ -133,6 +133,12 @@ class CerebrasTranslator(BaseTranslator):
                 if message_dict["content"] or tool_calls:
                     messages.append(message_dict)
 
+        # TAIL CHANNEL (config/live_plan.py): one message after the newest tool
+        # results, the same follow-up shape image-bearing results use above.
+        tail_text = self.get_tail_context_text(config)
+        if tail_text:
+            messages.append({"role": "user", "content": tail_text})
+
         # Build request
         cerebras_request = {
             "model": config.model,

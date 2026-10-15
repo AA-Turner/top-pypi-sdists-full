@@ -32,6 +32,7 @@ from typing import (
 from bson import DEFAULT_CODEC_OPTIONS
 from pymongo import _csot, helpers_shared
 from pymongo._telemetry import _CmapTelemetry
+from pymongo.auth_shared import _AuthContext
 from pymongo.client_session_shared import _validate_session_write_concern
 from pymongo.common import (
     MAX_BSON_SIZE,
@@ -97,7 +98,6 @@ if TYPE_CHECKING:
     from pymongo.message import _OpMsg
     from pymongo.read_concern import ReadConcern
     from pymongo.read_preferences import _ServerMode
-    from pymongo.synchronous.auth import _AuthContext
     from pymongo.synchronous.client_session import ClientSession
     from pymongo.synchronous.mongo_client import MongoClient, _ClientCheckout
     from pymongo.typings import _Address, _CollationIn
@@ -105,6 +105,13 @@ if TYPE_CHECKING:
 
 
 _IS_SYNC = True
+
+# Flags recording the counters a checkout has incremented, so a failed
+# checkout can restore them exactly once (PYTHON-6136).
+_UNDO_OPERATION_COUNT = 1
+_UNDO_REQUESTS = 2
+_UNDO_SOCKETS = 4
+_UNDO_PENDING = 8
 
 
 class Connection(_ConnectionTelemetryInfo):
@@ -267,7 +274,9 @@ class Connection(_ConnectionTelemetryInfo):
                 cmd["saslSupportedMechs"] = creds.source + "." + creds.username
             from pymongo.synchronous import auth
 
-            auth_ctx = auth._AuthContext.from_credentials(creds, self.address)
+            auth_ctx = _AuthContext.from_credentials(
+                creds, self.address, auth._SPECULATIVE_AUTH_MAP
+            )
             if auth_ctx:
                 speculative_authenticate = auth_ctx.speculate_command()
                 if speculative_authenticate is not None:
@@ -704,8 +713,8 @@ class Pool:
             # Publish PoolClearedEvent while holding the lock and before
             # notify_all(). This guarantees it is recorded before any waiting
             # thread wakes up and emits ConnectionCheckOutFailedEvent, which
-            # also requires size_cond. Without this ordering, a race on PyPy
-            # and free-threaded Python causes ConnectionCheckOutFailedEvent to
+            # also requires size_cond. Without this ordering, a race on
+            # free-threaded Python causes ConnectionCheckOutFailedEvent to
             # arrive before PoolClearedEvent (PYTHON-3519).
             if not close and old_state != PoolState.PAUSED:
                 self._telemetry.pool_cleared(service_id, interrupt_connections)
@@ -963,8 +972,12 @@ class Pool:
                 "Attempted to check out a connection from closed connection pool"
             )
 
+        # Every counter increment sets a flag in ``applied`` so a failed
+        # checkout can restore them exactly once (PYTHON-6136).
+        applied = 0
         with self.lock:
             self.operation_count += 1
+            applied |= _UNDO_OPERATION_COUNT
 
         # Get a free socket or create one.
         if _csot.get_timeout():
@@ -974,28 +987,32 @@ class Pool:
         else:
             deadline = None
 
-        with self.size_cond:
-            self._raise_if_not_ready(checkout_started_time, emit_event=True)
-            while not (self.requests < self.max_pool_size):
-                timeout = deadline - time.monotonic() if deadline else None
-                if not _cond_wait(self.size_cond, timeout):
-                    # Timed out, notify the next thread to ensure a
-                    # timeout doesn't consume the condition.
-                    if self.requests < self.max_pool_size:
-                        self.size_cond.notify()
-                    self._raise_wait_queue_timeout(checkout_started_time)
+        try:
+            with self.size_cond:
                 self._raise_if_not_ready(checkout_started_time, emit_event=True)
-            self.requests += 1
+                while not (self.requests < self.max_pool_size):
+                    timeout = deadline - time.monotonic() if deadline else None
+                    if not _cond_wait(self.size_cond, timeout):
+                        # Timed out, notify the next thread to ensure a
+                        # timeout doesn't consume the condition.
+                        if self.requests < self.max_pool_size:
+                            self.size_cond.notify()
+                        self._raise_wait_queue_timeout(checkout_started_time)
+                    self._raise_if_not_ready(checkout_started_time, emit_event=True)
+                self.requests += 1
+                applied |= _UNDO_REQUESTS
+        except BaseException:
+            self._restore_counters(applied)
+            raise
 
         # We've now acquired the semaphore and must release it on error.
         conn = None
-        incremented = False
         emitted_event = False
         is_new_conn = False
         try:
             with self.lock:
                 self.active_sockets += 1
-                incremented = True
+                applied |= _UNDO_SOCKETS
             while conn is None:
                 # CMAP: we MUST wait for either maxConnecting OR for a socket
                 # to be checked back into the pool.
@@ -1016,6 +1033,7 @@ class Pool:
                         conn = self.conns.popleft()
                     except IndexError:
                         self._pending += 1
+                        applied |= _UNDO_PENDING
                 if conn:  # We got a socket from the pool
                     if self._perished(conn):
                         conn = None
@@ -1027,7 +1045,17 @@ class Pool:
                     finally:
                         with self._max_connecting_cond:
                             self._pending -= 1
-                            self._max_connecting_cond.notify()
+                            applied &= ~_UNDO_PENDING
+                            notified = False
+                            try:
+                                self._max_connecting_cond.notify()
+                                notified = True
+                            finally:
+                                if not notified:
+                                    # A kill landed inside notify() (a gevent
+                                    # yield point); retry so a waiting
+                                    # checkout is not stranded (PYTHON-6136).
+                                    self._max_connecting_cond.notify()
 
             conn.active = True
             # connect() already adds cancel_context for new connections; only add
@@ -1037,14 +1065,14 @@ class Pool:
                     self.active_contexts.add(conn.cancel_context)
         # Catch KeyboardInterrupt, CancelledError, etc. and cleanup.
         except BaseException:
-            if conn:
-                # We checked out a socket but authentication failed.
-                conn.close_conn(ConnectionClosedReason.ERROR)
-            with self.size_cond:
-                self.requests -= 1
-                if incremented:
-                    self.active_sockets -= 1
-                self.size_cond.notify()
+            try:
+                if conn is not None:
+                    # We checked out a socket but authentication failed.
+                    conn.close_conn(ConnectionClosedReason.ERROR)
+            finally:
+                # Restore the counters even if the cleanup above was
+                # interrupted (PYTHON-6136).
+                self._restore_counters(applied)
 
             if not emitted_event:
                 self._telemetry.checkout_failed(
@@ -1055,6 +1083,85 @@ class Pool:
             raise
 
         return conn
+
+    def _restore_applied(self, applied: int) -> None:
+        """Restore the counters flagged in ``applied``. Caller holds ``size_cond``."""
+        if applied & _UNDO_OPERATION_COUNT:
+            self.operation_count -= 1
+        if applied & _UNDO_REQUESTS:
+            self.requests -= 1
+        if applied & _UNDO_SOCKETS:
+            self.active_sockets -= 1
+        if applied & _UNDO_PENDING:
+            self._pending -= 1
+
+    def _restore_counters(self, applied: int) -> None:
+        """Restore the counters a failed checkout incremented (PYTHON-6136).
+
+        Gevent grants the re-acquire during unwind (PYTHON-6074). A kill can
+        also land inside notify() (a yield point), so notifications are
+        tracked and retried separately from the counter restore.
+        """
+        accounted = False
+        notified = 0
+        try:
+            with self.size_cond:
+                self._restore_applied(applied)
+                accounted = True
+                if applied & _UNDO_REQUESTS:
+                    # A pool slot was freed; wake the next waiting thread.
+                    self.size_cond.notify()
+                    notified |= _UNDO_REQUESTS
+                if applied & _UNDO_PENDING:
+                    # A maxConnecting slot was freed; wake the next waiting thread.
+                    self._max_connecting_cond.notify()
+                    notified |= _UNDO_PENDING
+        finally:
+            # Always reacquired: `applied` keeps restore-only flags
+            # `notified` never tracks, so skipping needs a mask synced
+            # to the notify sites; uncontended acquires don't yield (PYTHON-6136).
+            with self.size_cond:
+                if not accounted:
+                    self._restore_applied(applied)
+                missing = applied & ~notified
+                if missing & _UNDO_REQUESTS:
+                    self.size_cond.notify()
+                if missing & _UNDO_PENDING:
+                    self._max_connecting_cond.notify()
+
+    def _checkin_apply(
+        self, conn: Connection, txn: bool, cursor: bool, forked: bool
+    ) -> tuple[Optional[str], bool, bool]:
+        """Apply checkin accounting; caller holds ``size_cond``.
+
+        No cooperative I/O, so safe while a gevent greenlet unwinds. Returns
+        ``(close_conn_reason, emit_closed, appended)`` for outside the lock.
+        """
+        self.active_contexts.discard(conn.cancel_context)
+        if txn:
+            self.ntxns -= 1
+        elif cursor:
+            self.ncursors -= 1
+        self.requests -= 1
+        self.active_sockets -= 1
+        self.operation_count -= 1
+        close_conn_reason: Optional[str] = None
+        emit_closed = False
+        appended = False
+        if not forked:
+            if self.closed:
+                close_conn_reason = ConnectionClosedReason.POOL_CLOSED
+            elif conn.closed:
+                # CMAP requires the closed event be emitted after the check in.
+                emit_closed = True
+            elif self.stale_generation(conn.generation, conn.service_id):
+                close_conn_reason = ConnectionClosedReason.STALE
+            else:
+                conn.update_last_checkin_time()
+                conn.update_is_writable(bool(self.is_writable))
+                self.conns.appendleft(conn)
+                appended = True
+        return close_conn_reason, emit_closed, appended
 
     def checkin(self, conn: Connection) -> None:
         """Return the connection to the pool, or if it's closed discard it.
@@ -1067,44 +1174,39 @@ class Pool:
         conn.pinned_txn = False
         conn.pinned_cursor = False
         self._pinned_sockets.discard(conn)
-        with self.lock:
-            self.active_contexts.discard(conn.cancel_context)
+        forked = self.pid != os.getpid()
+        # Re-apply the accounting if a BaseException interrupts here (PYTHON-6074).
+        close_conn_reason: Optional[str] = None
+        emit_closed = False
+        accounted = False
+        try:
+            with self.size_cond:
+                close_conn_reason, emit_closed, appended = self._checkin_apply(
+                    conn, txn, cursor, forked
+                )
+                accounted = True
+                if appended:
+                    # Notify any threads waiting to create a connection.
+                    self._max_connecting_cond.notify()
+                self.size_cond.notify()
+        finally:
+            if not accounted:
+                with self.size_cond:
+                    close_conn_reason, emit_closed, appended = self._checkin_apply(
+                        conn, txn, cursor, forked
+                    )
+                    if appended:
+                        self._max_connecting_cond.notify()
+                    self.size_cond.notify()
         telemetry = self._telemetry
         if telemetry._should_publish or (telemetry._log and _is_debug_enabled(_CONNECTION_LOGGER)):
             telemetry.checked_in(conn.id)
-        if self.pid != os.getpid():
+        if emit_closed:
+            telemetry.connection_closed(conn.id, ConnectionClosedReason.ERROR)
+        if forked:
             self.reset_without_pause()
-        else:
-            if self.closed:
-                conn.close_conn(ConnectionClosedReason.POOL_CLOSED)
-            elif conn.closed:
-                # CMAP requires the closed event be emitted after the check in.
-                self._telemetry.connection_closed(conn.id, ConnectionClosedReason.ERROR)
-            else:
-                close_conn = False
-                with self.lock:
-                    # Hold the lock to ensure this section does not race with
-                    # Pool.reset().
-                    if self.stale_generation(conn.generation, conn.service_id):
-                        close_conn = True
-                    else:
-                        conn.update_last_checkin_time()
-                        conn.update_is_writable(bool(self.is_writable))
-                        self.conns.appendleft(conn)
-                        # Notify any threads waiting to create a connection.
-                        self._max_connecting_cond.notify()
-                if close_conn:
-                    conn.close_conn(ConnectionClosedReason.STALE)
-
-        with self.size_cond:
-            if txn:
-                self.ntxns -= 1
-            elif cursor:
-                self.ncursors -= 1
-            self.requests -= 1
-            self.active_sockets -= 1
-            self.operation_count -= 1
-            self.size_cond.notify()
+        elif close_conn_reason is not None:
+            conn.close_conn(close_conn_reason)
 
     def _perished(self, conn: Connection) -> bool:
         """Return True and close the connection if it is "perished".

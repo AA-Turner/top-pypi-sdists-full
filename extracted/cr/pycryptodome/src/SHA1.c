@@ -1,32 +1,6 @@
-/* ===================================================================
- *
- * Copyright (c) 2018, Helder Eijs <helderijs@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- * ===================================================================
+/*
+ * SPDX-FileCopyrightText: 2018 Helder Eijs <helderijs@gmail.com>
+ * SPDX-License-Identifier: BSD-2-Clause
  */
 
 #include <stdio.h>
@@ -118,22 +92,22 @@ static int add_bits(hash_state *hs, unsigned bits)
     return (hs->totbits < bits) ? ERR_MAX_DATA : 0;
 }
 
-static void sha_compress(hash_state * hs)
+/**
+ * Compress one block, already decoded into sixteen 32-bit words.
+ * h_out[] may be the same array as h_in[] or M[].
+ */
+static void sha_compress_words(const uint32_t h_in[5], uint32_t h_out[5], const uint32_t M[16])
 {
     uint32_t a, b, c, d, e;
     uint32_t W[16];
-    int i;
 
-    /** Words flow in in big-endian mode **/
-    for (i=0; i<16; i++) {
-        W[i] = LOAD_U32_BIG(&hs->buf[i*4]);
-    }
+    memcpy(W, M, sizeof W);
 
-    a = hs->h[0];
-    b = hs->h[1];
-    c = hs->h[2];
-    d = hs->h[3];
-    e = hs->h[4];
+    a = h_in[0];
+    b = h_in[1];
+    c = h_in[2];
+    d = h_in[3];
+    e = h_in[4];
 
     /** 0 <= t <= 15 **/
     ROUND_0_15(0);
@@ -222,11 +196,24 @@ static void sha_compress(hash_state * hs)
     ROUND_60_79(79);
 
     /** compute new intermediate hash **/
-    hs->h[0] += a;
-    hs->h[1] += b;
-    hs->h[2] += c;
-    hs->h[3] += d;
-    hs->h[4] += e;
+    h_out[0] = h_in[0] + a;
+    h_out[1] = h_in[1] + b;
+    h_out[2] = h_in[2] + c;
+    h_out[3] = h_in[3] + d;
+    h_out[4] = h_in[4] + e;
+}
+
+static void sha_compress(hash_state * hs)
+{
+    uint32_t M[16];
+    int i;
+
+    /** Words flow in in big-endian mode **/
+    for (i=0; i<16; i++) {
+        M[i] = LOAD_U32_BIG(&hs->buf[i*4]);
+    }
+
+    sha_compress_words(hs->h, hs->h, M);
 }
 
 EXPORT_SYM int SHA1_init(hash_state **shaState)
@@ -262,31 +249,43 @@ EXPORT_SYM int SHA1_destroy (hash_state *shaState)
 
 EXPORT_SYM int SHA1_update(hash_state *hs, const uint8_t *buf, size_t len)
 {
+    unsigned curlen;
+
     if (NULL == hs || NULL == buf) {
         return ERR_NULL;
     }
 
-    assert(hs->curlen < BLOCK_SIZE);
+    /*
+     * Read the position in buf[] only once, and check it: if several
+     * threads used the object at once (not supported), the state could
+     * be inconsistent, but buf[] must never overflow.
+     */
+    curlen = hs->curlen;
+    if (curlen >= BLOCK_SIZE) {
+        return ERR_STATE;
+    }
 
     while (len>0) {
         unsigned btc, left;
 
-        left = BLOCK_SIZE - hs->curlen;
+        left = BLOCK_SIZE - curlen;
         btc = (unsigned)MIN(left, len);
-        memcpy(&hs->buf[hs->curlen], buf, btc);
+        memcpy(&hs->buf[curlen], buf, btc);
         buf += btc;
-        hs->curlen += btc;
+        curlen += btc;
         len -= btc;
 
-        if (hs->curlen == BLOCK_SIZE) {
+        if (curlen == BLOCK_SIZE) {
             sha_compress(hs);
-            hs->curlen = 0;
+            curlen = 0;
             if (add_bits(hs, BLOCK_SIZE*8)) {
+                hs->curlen = 0;
                 return ERR_MAX_DATA;
             }
         }
     }
 
+    hs->curlen = curlen;
     return 0;
 }
 
@@ -295,7 +294,10 @@ static int sha_finalize(hash_state *hs, uint8_t *hash /** [DIGEST_SIZE] **/)
     unsigned left, i;
     uint32_t lo, high;
 
-    assert(hs->curlen < BLOCK_SIZE);
+    /* hs is a private copy, but it may come from an inconsistent state */
+    if (hs->curlen >= BLOCK_SIZE) {
+        return ERR_STATE;
+    }
 
     /* remaining length of the message */
     if (add_bits(hs, hs->curlen*8)) {
@@ -346,8 +348,7 @@ EXPORT_SYM int SHA1_digest(const hash_state *shaState, uint8_t digest[DIGEST_SIZ
     }
 
     temp = *shaState;
-    sha_finalize(&temp, digest);
-    return 0;
+    return sha_finalize(&temp, digest);
 }
 
 EXPORT_SYM int SHA1_copy(const hash_state *src, hash_state *dst)
@@ -376,9 +377,9 @@ EXPORT_SYM int SHA1_pbkdf2_hmac_assist(const hash_state *inner, const hash_state
                                              uint8_t result[DIGEST_SIZE],
                                              size_t iterations)
 {
-    hash_state inner_temp, outer_temp;
+    uint32_t M[16], result_words[5];
     size_t i;
-    uint8_t last_hmac[DIGEST_SIZE];
+    unsigned j;
 
     if (NULL == inner || NULL == outer || NULL == first_hmac || NULL == result) {
         return ERR_NULL;
@@ -388,26 +389,87 @@ EXPORT_SYM int SHA1_pbkdf2_hmac_assist(const hash_state *inner, const hash_state
         return ERR_NR_ROUNDS;
     }
 
-    memcpy(result, first_hmac, DIGEST_SIZE);
-    memcpy(last_hmac, first_hmac, DIGEST_SIZE);
+    /** Both hashes must have absorbed exactly one block (the padded HMAC key) **/
+    if (inner->curlen != 0 || outer->curlen != 0 ||
+        inner->totbits != BLOCK_SIZE*8 || outer->totbits != BLOCK_SIZE*8) {
+        return ERR_STATE;
+    }
+
+    for (j=0; j<5; j++) {
+        result_words[j] = LOAD_U32_BIG(&first_hmac[j*4]);
+    }
+
+    /**
+     * Each hash in the loop processes a single, already padded block,
+     * so we skip the buffering logic and call the compression function directly.
+     **/
+    memset(M, 0, sizeof M);
+    memcpy(M, result_words, sizeof result_words);
+    M[5] = 0x80000000U;
+    M[15] = (BLOCK_SIZE + DIGEST_SIZE)*8;
 
     for (i=1; i<iterations; i++) {
-        int j;
 
-        inner_temp = *inner;
-        outer_temp = *outer;
+        /** Inner hash **/
+        sha_compress_words(inner->h, M, M);
 
-        SHA1_update(&inner_temp, last_hmac, DIGEST_SIZE);
-        sha_finalize(&inner_temp, last_hmac);
+        /** Outer hash **/
+        sha_compress_words(outer->h, M, M);
 
-        /** last_hmac is now the intermediate digest **/
-
-        SHA1_update(&outer_temp, last_hmac, DIGEST_SIZE);
-        sha_finalize(&outer_temp, last_hmac);
-
-        for (j=0; j<DIGEST_SIZE; j++) {
-            result[j] ^= last_hmac[j];
+        for (j=0; j<5; j++) {
+            result_words[j] ^= M[j];
         }
+    }
+
+    for (j=0; j<5; j++) {
+        STORE_U32_BIG(&result[j*4], result_words[j]);
+    }
+
+    return 0;
+}
+
+/**
+ * Compute the expensive inner loop of PBKDF1 (PKCS#5 v1.5),
+ * where T_1 = SHA1(password || salt) and T_i = SHA1(T_{i-1}).
+ *
+ * - first_digest, T_1
+ * - result, T_iterations
+ * - iterations, the total number of PBKDF1 iterations (>0)
+ */
+EXPORT_SYM int SHA1_pbkdf1_assist(const uint8_t first_digest[DIGEST_SIZE],
+                                  uint8_t result[DIGEST_SIZE],
+                                  size_t iterations)
+{
+    static const uint32_t iv[5] = { 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0 };
+    uint32_t M[16];
+    size_t i;
+    unsigned j;
+
+    if (NULL == first_digest || NULL == result) {
+        return ERR_NULL;
+    }
+
+    if (iterations == 0) {
+        return ERR_NR_ROUNDS;
+    }
+
+    /**
+     * Each hash in the loop processes a single, already padded block
+     * (the previous digest): the new digest replaces it in M.
+     **/
+    memset(M, 0, sizeof M);
+    for (j=0; j<5; j++) {
+        M[j] = LOAD_U32_BIG(&first_digest[j*4]);
+    }
+    M[5] = 0x80000000U;
+    M[15] = DIGEST_SIZE*8;
+
+    for (i=1; i<iterations; i++) {
+        sha_compress_words(iv, M, M);
+    }
+
+    for (j=0; j<5; j++) {
+        STORE_U32_BIG(&result[j*4], M[j]);
     }
 
     return 0;

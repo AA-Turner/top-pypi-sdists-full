@@ -1,0 +1,7 @@
+- name: Capped at potential
+  period: 2020
+  input:
+    lifetime_learning_credit_credit_limit: 1_000
+    lifetime_learning_credit_potential: 200
+  output:
+    lifetime_learning_credit: 200

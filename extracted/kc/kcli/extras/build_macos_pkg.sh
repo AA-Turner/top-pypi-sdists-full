@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -11,8 +11,12 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 MACOS_DIR="$SCRIPT_DIR/macos"
 VERSION="${GIT_CUSTOM_VERSION:-99.0.$(date +%Y%m%d%H%M).$(git -C "$REPO_DIR" rev-parse --short HEAD | python3 -c "import sys; print(int(sys.stdin.read().strip(), 16))")}"
 STAGING=$(mktemp -d)
-INSTALL_DIR="$STAGING/usr/local/kcli"
-BIN_DIR="$STAGING/usr/local/bin"
+# Python resolves macOS aliases such as /var to /private/var in shebangs.
+# Use the same physical path when creating and relocating the virtualenv.
+STAGING=$(cd "$STAGING" && pwd -P)
+PKG_ROOT="$STAGING/payload"
+INSTALL_DIR="$PKG_ROOT/kcli"
+BIN_DIR="$PKG_ROOT/bin"
 
 trap "rm -rf $STAGING" EXIT
 
@@ -33,10 +37,17 @@ python3 -m venv "$INSTALL_DIR"
 
 echo -e "${BLUE}Installing kcli...${NC}"
 SRC_DIR="$STAGING/src"
+mkdir -p "$PKG_ROOT"
 cp -a "$REPO_DIR" "$SRC_DIR"
 /usr/bin/sed -i "" "s/, 'libvirt-python>=2.0.0'//" "${SRC_DIR}/setup.py"
 "$INSTALL_DIR/bin/pip" install --no-cache-dir "$SRC_DIR" 2>&1 | tail -1
 rm -rf "$SRC_DIR"
+
+# Fix shebangs to point to the installed path instead of the temp build dir
+find "$INSTALL_DIR/bin" -type f -exec grep -Il "$INSTALL_DIR" {} \; | while read f; do
+    sed -i "" "s|$INSTALL_DIR|/usr/local/kcli|g" "$f"
+done
+sed -i "" "s|$INSTALL_DIR|/usr/local/kcli|" "$INSTALL_DIR/pyvenv.cfg" 2>/dev/null || true
 
 mkdir -p "$BIN_DIR"
 cat > "$BIN_DIR/kcli" << 'WRAPPER'
@@ -47,10 +58,10 @@ chmod +x "$BIN_DIR/kcli"
 
 echo -e "${BLUE}Building .pkg...${NC}"
 CORE_PKG="$STAGING/kcli-core.pkg"
-pkgbuild --root "$STAGING" \
+pkgbuild --root "$PKG_ROOT" \
          --identifier com.karmab.kcli \
          --version "$VERSION" \
-         --install-location / \
+         --install-location /usr/local \
          "$CORE_PKG"
 
 RESOURCES="$STAGING/resources"

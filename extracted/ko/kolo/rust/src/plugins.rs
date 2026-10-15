@@ -800,8 +800,6 @@ def process(frame, event, arg, context):
                         .process(py, frame, event, &py.None(), vec![], lightweight_repr)
                         .unwrap()
                         .unwrap();
-                    // Swap the original process() values back in so Python
-                    // serializes the same objects the native encoder saw.
                     let data = load_msgpack(py, serialized.clone())
                         .cast_into::<PyDict>()
                         .unwrap();

@@ -862,26 +862,36 @@ namespace lp {
     }
 
     lp_status lar_solver::maximize_term(unsigned j,
-        impq& term_max, bool fix_int_cols) {
+        impq& term_max, bool fix_int_cols, u_dependency** upper_bound_dependencies) {
+        if (upper_bound_dependencies)
+            *upper_bound_dependencies = nullptr;
         TRACE(lar_solver, print_values(tout););
         SASSERT(get_core_solver().m_r_solver.calc_current_x_is_feasible_include_non_basis());
         lar_term term = get_term_to_maximize(j);
         if (term.is_empty()) return lp_status::UNBOUNDED;
         get_core_solver().backup_x();
         impq prev_value = term.apply(get_core_solver().r_x());
-        auto restore = [&]() {
+        vector<std::pair<mpq, lpvar>> max_coeffs;
+        if (!maximize_term_on_feasible_r_solver(term, term_max, upper_bound_dependencies ? &max_coeffs : nullptr)) {
             get_core_solver().restore_x();
-        };
-        if (!maximize_term_on_feasible_r_solver(term, term_max, nullptr)) {
-            restore();
             return lp_status::UNBOUNDED;
         }
+        if (upper_bound_dependencies)
+            *upper_bound_dependencies = get_dependencies_of_maximum(max_coeffs);
 
         if (!fix_int_cols) {
             set_status(lp_status::OPTIMAL);
             return lp_status::OPTIMAL;
         }
 
+        return adjust_integer_columns(term, prev_value, term_max);
+    }
+
+    lp_status lar_solver::adjust_integer_columns(lar_term const& term, impq const& prev_value, impq& term_max) {
+        // Integer-column handling may require restoring the pre-maximization assignment.
+        auto restore = [&]() {
+            get_core_solver().restore_x();
+        };
         impq opt_val = term_max;
 
         bool change = false;
@@ -890,13 +900,12 @@ namespace lp {
                 continue;
             if (column_value_is_integer(j))
                 continue;
-            if (m_imp->m_int_solver->is_base(j)) {
+            if (m_imp->m_int_solver->is_base(j))
                 if (!remove_from_basis(j)) { // consider a special version of remove_from_basis that would not remove inf_int columns
                     restore();
                     term_max = prev_value;
                     return lp_status::FEASIBLE; // it should not happen
                 }
-            }
             if (!column_value_is_integer(j)) {
                 term_max = prev_value;
                 restore();
@@ -904,9 +913,8 @@ namespace lp {
             }
             change = true;
         }
-        if (change) {
+        if (change)
             term_max = term.apply(get_core_solver().r_x());
-        }
         if (term_max < prev_value) {
             term_max = prev_value;
             restore();
@@ -1146,38 +1154,6 @@ namespace lp {
         m_imp->m_dependencies.linearize(witnesses, m_imp->m_tmp_dependencies);
         for (auto ci : m_imp->m_tmp_dependencies)
             ex.push_back(ci);
-    }
-
-    u_dependency* lar_solver::get_bound_constraint_witnesses_for_fixed_in_row(unsigned row_index) {
-        u_dependency* dep = nullptr;
-        for (auto const& e : get_row(row_index))
-            if (column_is_fixed(e.var()))
-                dep = join_deps(dep, get_bound_constraint_witnesses_for_column(e.var()));
-        return dep;
-    }
-
-    /**
-       \brief A row is an equality sum_j a_j x_j = 0. If every column in it is fixed
-       except one, that row determines the remaining column: a_k x_k = - sum_{j != k} a_j v_j.
-       Set j to that column and value to -(sum a_j v_j) / a_k, and return true.
-    */
-    bool lar_solver::row_determines_column(unsigned row_index, lpvar& j, mpq& value) const {
-        j = null_lpvar;
-        mpq coeff, sum(0);
-        for (auto const& e : get_row(row_index)) {
-            if (column_is_fixed(e.var())) {
-                sum += e.coeff() * get_lower_bound(e.var()).x;
-                continue;
-            }
-            if (j != null_lpvar)
-                return false;
-            j = e.var();
-            coeff = e.coeff();
-        }
-        if (j == null_lpvar || coeff.is_zero())
-            return false;
-        value = -sum / coeff;
-        return true;
     }
 
     void lar_solver::remove_fixed_vars_from_base() {

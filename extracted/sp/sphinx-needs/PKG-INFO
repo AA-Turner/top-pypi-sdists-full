@@ -1,9 +1,9 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: sphinx-needs
-Version: 8.5.0
+Version: 9.0.0
 Summary: Sphinx needs extension for managing needs/requirements and specifications
 Author-email: team useblocks <info@useblocks.com>
-Requires-Python: >=3.10,<4
+Requires-Python: >=3.11,<4
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -11,7 +11,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -19,23 +18,25 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Utilities
 Classifier: Framework :: Sphinx :: Extension
+License-File: AUTHORS
 License-File: LICENSE
 Requires-Dist: sphinx>=7.4,<10
+Requires-Dist: docutils>=0.21
 Requires-Dist: requests-file>=2.1,<4.0
 Requires-Dist: requests~=2.32
-Requires-Dist: jsonschema-rs>=0.37.1,<0.53.0
+Requires-Dist: jsonschema-rs>=0.37.1,<0.59
 Requires-Dist: sphinx-data-viewer~=0.1.5
 Requires-Dist: sphinxcontrib-jquery~=4.0
-Requires-Dist: tomli; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.14.0
 Requires-Dist: minijinja~=2.15
+Requires-Dist: ub-project>=1.1.0,<2
 Requires-Dist: matplotlib>=3.3.0 ; extra == "docs"
 Requires-Dist: sphinxcontrib-plantuml~=0.0 ; extra == "docs"
 Requires-Dist: sphinx-copybutton~=0.5 ; extra == "docs"
 Requires-Dist: sphinxcontrib-programoutput~=0.17 ; extra == "docs"
 Requires-Dist: sphinx-design~=0.6 ; extra == "docs"
-Requires-Dist: sphinx-ai-index~=0.1.0 ; extra == "docs"
-Requires-Dist: sphinx-syntax-example~=0.2.0 ; extra == "docs" and ( python_version >= '3.11')
+Requires-Dist: sphinx-ai-index>=1.0.0,<2 ; extra == "docs"
+Requires-Dist: sphinx-syntax-example~=0.2.0 ; extra == "docs"
 Requires-Dist: matplotlib>=3.3.0 ; extra == "plotting"
 Requires-Dist: furo>=2025.12.19 ; extra == "theme-furo"
 Requires-Dist: sphinx-immaterial>=0.11.11,<0.14.0 ; extra == "theme-im"
@@ -49,6 +50,7 @@ Provides-Extra: theme-furo
 Provides-Extra: theme-im
 Provides-Extra: theme-pds
 Provides-Extra: theme-rtd
+Import-Name: sphinx_needs
 
 **Complete documentation**: http://sphinx-needs.readthedocs.io/en/latest/
 
@@ -72,12 +74,12 @@ This list can be easily customized via configuration (for instance to support bu
 
 A default requirement need looks like:
 
-.. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/need_1.png
+.. image:: https://raw.githubusercontent.com/useblocks/sphinx-needs/master/packages/sphinx-needs/docs/_images/need_1.png
    :align: center
 
 Layout and style of needs can be highly customized, so that a need can also look like:
 
-.. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/need_2.png
+.. image:: https://raw.githubusercontent.com/useblocks/sphinx-needs/master/packages/sphinx-needs/docs/_images/need_2.png
    :align: center
 
 Take a look into our tutorial for more
@@ -92,9 +94,9 @@ For filtering and analyzing needs, ``Sphinx-Needs`` provides different, powerful
    - * `needtable <https://sphinxcontrib-needs.readthedocs.io/en/latest/directives/needtable.html>`_
      * `needflow <https://sphinxcontrib-needs.readthedocs.io/en/latest/directives/needflow.html>`_
      * `needpie <https://sphinxcontrib-needs.readthedocs.io/en/latest/directives/needpie.html>`_
-   - * .. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/needtable_1.png
-     * .. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/needflow_1.png
-     * .. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/needpie_1.png
+   - * .. image:: https://raw.githubusercontent.com/useblocks/sphinx-needs/master/packages/sphinx-needs/docs/_images/needtable_1.png
+     * .. image:: https://raw.githubusercontent.com/useblocks/sphinx-needs/master/packages/sphinx-needs/docs/_images/needflow_1.png
+     * .. image:: https://raw.githubusercontent.com/useblocks/sphinx-needs/master/packages/sphinx-needs/docs/_images/needpie_1.png
 
 Installation
 ============

@@ -3,7 +3,6 @@ import dis
 import functools
 import logging
 import os
-import platform
 import queue as _queue
 import sys
 import threading
@@ -13,6 +12,7 @@ from typing import Callable, List, Optional, Tuple
 
 import ulid
 
+from . import _platform_info
 from .config import (
     CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE,
     resolve_flush_subtree_bytes as _resolve_flush_subtree_bytes,
@@ -41,10 +41,7 @@ from .version import __version__
 
 logger = logging.getLogger("kolo")
 
-# Kolo uses tool ID 3 for sys.monitoring (Python 3.12+).
-# IDs 0-2 and 5 are reserved for debuggers, coverage, profilers, and optimizers.
-# Kolo is a tracing/observability tool, so we use an unassigned ID to avoid
-# conflicts with traditional profilers (cProfile, django-debug-toolbar, etc).
+# IDs 0-2 and 5 are reserved for debuggers, coverage, profilers and optimizers.
 KOLO_TOOL_ID = 3
 SUBTREE_STACK_EVENTS = frozenset(
     {"call", "return", "resume", "yield", "unwind", "throw"}
@@ -121,35 +118,7 @@ def get_qualname(frame):
     return f"{module}.{qualname}"
 
 
-# --- async trace-point save worker --------------------------------------
-#
-# Trace points (functions configured in ``trace_points.on_return``) are
-# saved off the calling thread on a single long-lived worker. The steady
-# state is still async and cheap: the calling thread snapshots the frame
-# slice and enqueues a job; the worker unpacks frames, builds the trace,
-# writes sqlite + emits, and signals completion via
-# ``_trace_point_save_pending``.
-#
-# Reliability matters more than preserving async-only behavior when the
-# worker is unhealthy. If the worker is unavailable, saturated, or dies,
-# the trace-point callback falls back to inline save/replay on the
-# calling thread instead of silently dropping the trace or wedging the
-# pending counter. The async path is therefore the fast path, not the
-# only path.
-#
-# Process crash can still lose not-yet-finished work. The worker thread
-# is daemonized so a truly wedged save path doesn't pin interpreter
-# shutdown forever.
-#
-# **In-flight pending counter.** ``_trace_point_save_pending`` is bumped
-# at the *very first line* of the trace-point entry points
-# (``KoloMonitor._save_trace_point`` and ``_save_trace_point_from_rust``).
-# That closes a race
-# where a return callback already in flight when ``disable_monitoring``
-# runs would miss the drain (which only saw queued jobs) and then escape
-# teardown. With the early bump, the drain blocks until every callback
-# has either successfully enqueued or synchronously finished/released its
-# slot.
+# Fall back to inline trace-point save if the worker is unavailable, saturated or dead; unfinished work may still die on crash.
 
 _TRACE_POINT_SAVE_LOCK = threading.RLock()
 _TRACE_POINT_SAVE_COND = threading.Condition(_TRACE_POINT_SAVE_LOCK)
@@ -254,9 +223,8 @@ def _configure_trace_point_save_worker(pinned_monitor) -> None:
     if pinned_monitor is None:
         return
 
-    # The worker is a Kolo worker thread, whose native mark already keeps the
-    # Rust monitor off it for its whole life; an unscoped Rust suspension on
-    # top would only be one more per-thread write nothing ever undoes.
+    # The worker's native Kolo-worker mark already keeps the Rust monitor off it; an unscoped
+    # Rust suspension here would be a per-thread write nothing ever undoes.
     thread_locals = getattr(pinned_monitor, "thread_locals", None)
     if thread_locals is not None:
         thread_locals.is_saving = True
@@ -579,7 +547,6 @@ def _ensure_trace_point_atexit() -> None:
     atexit.register(_atexit_drain)
 
 
-# --- end async trace-point save worker ----------------------------------
 def _registered_current_thread():
     """Return the current Thread without creating a ``_DummyThread``.
 
@@ -610,9 +577,7 @@ class KoloLocals(threading.local):
         self.variables = None
         self.opname = None
         self.offset = None
-        # Second targets of STORE_FAST_STORE_FAST instructions interrupted by a
-        # nested event before they stored it, as (frame, offset, variables,
-        # frame_data). Innermost last.
+        # Track second STORE_FAST_STORE_FAST targets interrupted before their store; process them in innermost-first order.
         self.deferred_stores = []
         current_thread = _registered_current_thread()
         self._save_thread_marker_checked = current_thread is not None
@@ -793,16 +758,10 @@ if sys.version_info >= (3, 12):
             else:
                 self.dump_msgpack = dump_msgpack
 
-            # Trace points: save a standalone trace when one of the configured
-            # functions returns. Each invocation of a listed function produces
-            # its own top-level trace — Kolo's way of extracting discrete units
-            # of work (HTTP requests, tests, library calls, etc.) out of a
-            # broader run.
             trace_point_config = self.config.get("trace_points", {})
             self._trace_point_return_targets = set(
                 trace_point_config.get("on_return", [])
             )
-            # thread_id -> stack of frame-list start indices
             self._trace_point_markers: dict[str, list[int]] = {}
 
         def _build_trace_meta(self):
@@ -817,14 +776,7 @@ if sys.version_info >= (3, 12):
             return {
                 "version": __version__,
                 "source": self.source,
-                "environment": {
-                    "py_version": platform.python_version(),
-                    "py_version_full": sys.version,
-                    "platform": platform.platform(),
-                    "system": platform.system(),
-                    "machine": platform.machine(),
-                    "processor": platform.processor(),
-                },
+                "environment": _platform_info.environment(),
                 "config": config,
             }
 
@@ -1004,13 +956,7 @@ if sys.version_info >= (3, 12):
                     frame_types.append("frame")
                     appended_target_frame = True
             finally:
-                # A subtree flush can replace the tracked frame range with a
-                # placeholder and invalidate its trace-point marker. Close the
-                # subtree now, but defer the actual flush until the independent
-                # trace-point snapshot has copied the complete range.
-                # A pytest end_test processor owns its save/reset boundary and
-                # must keep the existing inline-flush order instead of carrying
-                # a candidate across that reset.
+                # Read all targets before repr; a serialization failure must neither drop other targets nor escape into traced code.
                 defer_subtree_flush = (
                     defer_subtree_flush and "end_test" not in frame_types
                 )
@@ -1517,19 +1463,10 @@ if sys.version_info >= (3, 12):
                 # the same way: a dict subclass's __getitem__/__missing__ must
                 # not run (or raise) here.
                 get = functools.partial(dict.get, frame.f_globals)
-            else:  # STORE_FAST, or STORE_DEREF for nonlocals
+            else:
                 get = frame.f_locals.get
-            # The value is read at the next monitoring event, after the store
-            # ran. By then the variable can be unbound again: an inlined
-            # (PEP 709) comprehension restores its iteration variable's
-            # previous, often unbound, value, and `except ... as name` ends
-            # with `name = None; del name`. Those assignments are unobservable.
-            # A double store binds both variables before the next event, so
-            # each one gets its own line frame, in store order. Every target is
-            # read before any is serialized (a __repr__ could rebind a later
-            # one through f_locals), and one failing to serialize must not drop
-            # the others or raise into the traced program.
-            # A fresh sentinel, so no traced value can be mistaken for it.
+            # Values are read at the next event, when the variable may be unbound again (PEP 709
+            # comprehensions, `except ... as name`). Read every target before serializing any.
             unbound = object()
             values = []
             for variable in variables:
@@ -1694,7 +1631,7 @@ if sys.version_info >= (3, 12):
 
             push_result = self._append_frame_data(data)
 
-            if not push_result[5]:  # not flush_tracking_armed
+            if not push_result[5]:
                 return push_result
 
             if frame_data.get("event") in SUBTREE_STACK_EVENTS:
@@ -1776,7 +1713,7 @@ if sys.version_info >= (3, 12):
             timeout = self.config.get("sqlite_busy_timeout", 60)
             db_path = self.db_path
 
-            if platform.machine() == "wasm32":  # pragma: no cover
+            if _platform_info.machine() == "wasm32":  # pragma: no cover
                 suspended_events = None
                 if self.active:
                     suspended_events = (
@@ -1992,7 +1929,6 @@ if sys.version_info >= (3, 12):
                     new_markers.append(marker)
                 elif marker >= end_index:
                     new_markers.append(marker - shift)
-                # markers within the drained range are dropped
             if new_markers:
                 self._trace_point_markers[thread_id] = new_markers
             else:
@@ -2017,9 +1953,7 @@ if sys.version_info >= (3, 12):
             _begin_pending_trace_point_save()
 
             def build_args():
-                # Snapshot inputs on the calling thread — once we hand off
-                # to the worker, ``threading.current_thread()`` would
-                # return the worker, not the request handler.
+                # Snapshot thread metadata on the calling thread before handing trace-point save to the worker.
                 current_thread = threading.current_thread()
                 save_timestamp = time.time()
                 frames_snapshot = list(frames_slice)
@@ -2068,11 +2002,8 @@ if sys.version_info >= (3, 12):
                 }
             }
 
-            # root_trace_id is set to the trace_point's own id because
-            # kolo.trace.Trace treats any non-self root_trace_id as
-            # "flushed segment of root trace" — which is not what a
-            # first-class trace point is. Lineage lives in
-            # meta.trace_point.parent_trace_id instead.
+            # root_trace_id is the trace point's own id: Trace treats any other root_trace_id as a
+            # flushed segment of the root trace. Lineage is in meta.trace_point.parent_trace_id.
             self.save(
                 frames_by_thread={thread_id: frames_snapshot},
                 trace_id=trace_point_id,
@@ -2124,10 +2055,6 @@ if sys.version_info >= (3, 12):
             timestamp=None,
             meta_overrides=None,
         ):
-            # frames_by_thread is passed by end_test (cut frames) and by
-            # _save_trace_point (single-thread slice). Every keyword override
-            # lets _save_trace_point route through this one builder so trace
-            # points get the same full meta/thread payload as regular saves.
             if frames_by_thread is None or threads is None or trace_name is None:
                 snap_frames, snap_threads, snap_trace_name = (
                     self._snapshot_trace_inputs(frames_by_thread)
@@ -2231,12 +2158,8 @@ if sys.version_info >= (3, 12):
     logger = logging.getLogger("kolo")
 
     def _set_monitor_active(monitor, value):
-        # The Rust KoloMonitor exposes `set_active` (see rust/src/monitoring.rs)
-        # because PyO3-generated attribute setters would require an exclusive
-        # borrow on the pyclass's PyCell, which conflicts with shared borrows
-        # held by other threads still running Python-level monitoring callbacks
-        # (e.g. a background save thread). The pure-Python KoloMonitor in this
-        # file uses a plain attribute.
+        # PyO3 attribute setters need an exclusive PyCell borrow, which conflicts with other
+        # threads' shared borrows in monitoring callbacks; the Rust monitor exposes set_active.
         set_active = getattr(monitor, "set_active", None)
         if set_active is not None:
             set_active(value)
@@ -2244,7 +2167,6 @@ if sys.version_info >= (3, 12):
             monitor.active = value
 
     def _set_monitor_timestamp(monitor, value):
-        # See `_set_monitor_active` for rationale.
         set_timestamp = getattr(monitor, "set_timestamp", None)
         if set_timestamp is not None:
             set_timestamp(value)
@@ -2264,11 +2186,8 @@ if sys.version_info >= (3, 12):
         targets = trace_points.get("on_return", []) or []
         return bool(targets)
 
-    # Between sessions the Rust monitor keeps Kolo's tool armed with idle
-    # callbacks instead of releasing it (see `kolo._kolo.IdleMonitor`), so the
-    # next session neither re-instruments every code object nor refires once
-    # at every location it excludes. These are C functions, so calling them
-    # adds no frame to a trace.
+    # Between sessions the Rust monitor keeps Kolo's tool armed with idle callbacks
+    # (see kolo._kolo.IdleMonitor), so the next session doesn't re-instrument every code object.
     try:
         from ._kolo import KoloMonitor as _RustKoloMonitor
         from ._kolo import kolo_tool_is_idle, take_idle_monitor
@@ -2333,7 +2252,6 @@ if sys.version_info >= (3, 12):
             return False
         tool_id = monitor.tool_id
         if kolo_tool_is_idle():
-            # Other code may have changed the armed tool's events in between.
             if (
                 type(monitor) is _RustKoloMonitor
                 and not monitor.line_events
@@ -2343,7 +2261,6 @@ if sys.version_info >= (3, 12):
             ):
                 _set_monitor_active(monitor, True)
                 _set_monitor_timestamp(monitor, time.time())
-                # Like set_events below, this starts the session in one step.
                 monitor.begin_session(tool_id)
                 return True
             release_kolo_tool()
@@ -2360,7 +2277,6 @@ if sys.version_info >= (3, 12):
         try:
             sys.monitoring.use_tool_id(tool_id, "kolo")
         except ValueError as e:
-            # Race condition: tool ID was claimed between our check and claim
             logger.warning(
                 "Cannot activate Kolo monitoring: %s. "
                 "This may happen due to concurrent activation.",
@@ -2368,14 +2284,8 @@ if sys.version_info >= (3, 12):
             )
             return False
 
-        # Spawn the trace-point save worker BEFORE arming sys.monitoring
-        # callbacks. The worker bootstrap (Thread.start /
-        # threading._bootstrap / Event.wait) pumps bytecodes that would
-        # fire monitor callbacks on the new thread before the worker has
-        # marked itself as a Kolo worker, and under rapid
-        # trace-point load that has been observed to deadlock
-        # Thread.start().wait() against the main thread. Spawning here
-        # means the worker's bootstrap runs under zero monitor events.
+        # Spawn the save worker before arming sys.monitoring: callbacks firing in its bootstrap,
+        # before it marks itself a Kolo worker, have deadlocked Thread.start().
         if _monitor_has_trace_points(monitor):
             _ensure_trace_point_save_worker(monitor)
             _ensure_trace_point_atexit()
@@ -2419,15 +2329,7 @@ if sys.version_info >= (3, 12):
                 sys.monitoring.register_callback(monitor.tool_id, INSTRUCTION, None)
             sys.monitoring.free_tool_id(monitor.tool_id)
             sys.monitoring.restart_events()
-        # Drain any in-flight trace-point saves before tearing down the
-        # worker. The drain waits for both queued jobs AND in-flight
-        # callbacks (the pending counter is bumped at the entry-point of
-        # _save_trace_point / _save_trace_point_from_rust, not at submit
-        # time) so a callback racing with disable can't escape teardown.
-        # If the worker died, wait_for_trace_point_saves() replays its
-        # queued jobs inline before we continue. Skipped silently on
-        # timeout so tests don't hang on a wedged sqlite/emit path — the
-        # warning below surfaces the wedge.
+        # Drain queued and in-flight trace-point saves before teardown; replay queued jobs inline if the worker died.
         if not wait_for_trace_point_saves(timeout=5.0):
             logger.warning(
                 "kolo trace-point save drain timed out at disable_monitoring;"
@@ -2544,14 +2446,7 @@ def _do_rust_trace_point_save(
         meta={
             "version": __version__,
             "source": source,
-            "environment": {
-                "py_version": platform.python_version(),
-                "py_version_full": sys.version,
-                "platform": platform.platform(),
-                "system": platform.system(),
-                "machine": platform.machine(),
-                "processor": platform.processor(),
-            },
+            "environment": _platform_info.environment(),
             "config": dict(config_snapshot),
             "trace_point": {
                 "auto_generated": True,

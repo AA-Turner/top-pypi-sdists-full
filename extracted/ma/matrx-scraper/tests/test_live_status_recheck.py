@@ -19,8 +19,10 @@ class FakeVerifier:
 
     async def verify(self, url: str):
         self.asked.append(url)
-        status, error = self.answers[url]
-        return SimpleNamespace(http_status=status, error=error)
+        # A URL the test did not script (the trailing-slash form the recheck
+        # also asks on a 404) answers 404 like the page itself.
+        status, error = self.answers.get(url, (404, None))
+        return SimpleNamespace(http_status=status, error=error, final_url=url)
 
 
 def page(page_id: str, url: str, status: int | None):

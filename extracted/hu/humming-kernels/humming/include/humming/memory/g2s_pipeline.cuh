@@ -12,7 +12,7 @@
 #include <humming/utils/all.cuh>
 
 
-template <class Ctx>
+template <class Ctx, bool kEnableContinuousRing = false>
 class ProducerPipeline {
 private:
   using SharedStorage = typename Ctx::SharedStorage;
@@ -40,7 +40,7 @@ private:
   static constexpr bool kIsTensorInputScale = Ctx::kIsTensorInputScale;
   static constexpr bool kIsTensorInputScale2 = Ctx::kIsTensorInputScale2;
   static constexpr bool kIsChannelInputScale = kHasInputScale && !Ctx::kIsGroupInputScale && !kIsTensorInputScale;
-  static constexpr bool kIsChannelInputScale2 = kHasInputScale2 && !kIsTensorInputScale2;
+  static constexpr bool kIsChannelInputScale2 = !Ctx::kUseUmma && kHasInputScale2 && !kIsTensorInputScale2;
   static constexpr bool kIsGroupInputScale = kHasInputScale && Ctx::kIsGroupInputScale;
   static constexpr bool kIsChannelWeightScale = Ctx::kIsChannelWeightScale;
   static constexpr bool kIsChannelWeightScale2 = Ctx::kIsChannelWeightScale2;
@@ -53,7 +53,6 @@ private:
       kIsChannelWeightScale2 || kHasBias;
 
   static constexpr uint32_t kNumStages = Ctx::kNumStages;
-  static constexpr bool kUseTwoStageReduceBarrier = SharedStorage::kUseTwoStageReduceBarrier;
 
   template <bool kIsFirst = false>
   static constexpr uint2 get_stage_load_bytes() {
@@ -63,11 +62,11 @@ private:
     if constexpr (kUseTmaA) tma_load_bytes += SharedStorage::kStageBytesA;
     else legacy_load_bytes += SharedStorage::kStageBytesA;
 
-    if constexpr (kUseTmaB) tma_load_bytes += SharedStorage::kStageBytesB;
-    else legacy_load_bytes += SharedStorage::kStageBytesB;
+    if constexpr (kUseTmaB) tma_load_bytes += SharedStorage::kStageLoadBytesB;
+    else legacy_load_bytes += SharedStorage::kStageLoadBytesB;
 
     if constexpr (kIsGroupInputScale) {
-      if constexpr (kUseTmaAS) tma_load_bytes += SharedStorage::kStageBytesAS;
+      if constexpr (kUseTmaAS) tma_load_bytes += SharedStorage::kStageTmaBytesAS;
       else legacy_load_bytes += SharedStorage::kStageBytesAS;
     }
 
@@ -126,6 +125,11 @@ public:
   static constexpr bool kHasStageCpAsyncMBarrier = get_stage_load_bytes().y > 0;
   static constexpr bool kHasChannelTmaMBarrier = get_channel_load_bytes().x > 0;
   static constexpr bool kHasChannelCpAsyncMBarrier = get_channel_load_bytes().y > 0;
+  static constexpr bool kHasUniformStageBarriers = kHasFirstStageTmaMBarrier == kHasStageTmaMBarrier && kHasFirstStageCpAsyncMBarrier == kHasStageCpAsyncMBarrier;
+  static constexpr bool kUseContinuousRing = kEnableContinuousRing && kUseMBarrier && kHasUniformStageBarriers;
+  static constexpr bool kHasTileScopedInputs = kHasChannelData || Ctx::kIsIndexedGemm;
+  static constexpr bool kNeedsTileHandshake = !kUseContinuousRing || kHasTileScopedInputs;
+
   static constexpr uint32_t kMultiCastSizeA = Ctx::kMultiCastSizeA;
   static constexpr uint32_t kMultiCastSizeB = Ctx::kMultiCastSizeB;
   static constexpr uint32_t kMultiCastSize = kMultiCastSizeA * kMultiCastSizeB;
@@ -148,8 +152,13 @@ public:
   LoaderBS2 loader_bs2;
   LoaderBZP loader_bzp;
   LoaderBias loader_bias;
-  uint32_t phases[SharedStorage::kNumMathMbarriers] = {0};
+  uint32_t phase_bits = 0;
 
+private:
+  uint32_t ring_stage = 0;
+  uint32_t ring_phase = 1;
+
+public:
   CUDA_INLINE
   ProducerPipeline(Ctx &ctx)
       : ctx(ctx),
@@ -176,6 +185,7 @@ public:
     }
   }
 
+  template <uint32_t kStageConsumers = kNumMathThreads, uint32_t kChannelConsumers = kNumMathThreads>
   CUDA_INLINE static void init_mbarrier(Ctx &ctx) {
     if constexpr (kUseMBarrier) {
       uint32_t thread_id = ctx.load_thread_id();
@@ -185,7 +195,9 @@ public:
       if (thread_id < kNumStages) {
         constexpr uint32_t cp_async_thread_count = kHasStageCpAsyncMBarrier ? kNumLoadThreads : 0;
         constexpr uint32_t tma_thread_count = kHasStageTmaMBarrier ? 1 : 0;
-        count = cp_async_thread_count + tma_thread_count;
+        if constexpr (Ctx::kUseUmmaAsyncActivationLoads)
+          count = kNumLoadThreads + (kIsGroupInputScale && kUseTmaAS ? 1 : 0);
+        else count = Ctx::kUseUmmaCooperativeTma ? 2 : cp_async_thread_count + tma_thread_count;
       } else if (thread_id == kNumStages) {
         constexpr uint32_t cp_async_thread_count = kHasFirstStageCpAsyncMBarrier ? kNumLoadThreads : 0;
         constexpr uint32_t tma_thread_count = kHasFirstStageTmaMBarrier ? 1 : 0;
@@ -200,7 +212,8 @@ public:
       uint32_t factor = (kMultiCastSize > 1 && cluster_rank == 0 && thread_id < SharedStorage::kNumMathMbarriers) ? kMultiCastSize : 1;
       if constexpr (Ctx::kUseWarpSpec) {
         if (thread_id < SharedStorage::kNumMathMbarriers) {
-          __mbarrier_init(&smem.math_mbar[thread_id], kNumMathThreads * factor);
+          uint32_t consumers = thread_id < kNumStages ? kStageConsumers : kChannelConsumers;
+          __mbarrier_init(&smem.math_mbar[thread_id], consumers * factor);
         }
       }
     }
@@ -212,10 +225,27 @@ public:
 
   template <bool kShouldAdvance = true, bool kIsFirst = false>
   CUDA_INLINE void load_stage(uint32_t stage_id, bool pred = true) {
-    stage_id = stage_id % kNumStages;
+    if constexpr (kUseContinuousRing) {
+      if (!pred) return;
+      stage_id = ring_stage;
+    } else stage_id = stage_id % kNumStages;
     auto &smem = ctx.smem;
+    if constexpr (Ctx::kUseUmmaAsyncActivationLoads) {
+      // All loading threads gather A/AS; only the elected TMA loading thread
+      // submits B/BS. Keep their completions separate without halving A bandwidth.
+      if (pred) {
+        load_weight_stage<kShouldAdvance>(stage_id);
+        loader_a.template load<kShouldAdvance>(smem.stages[stage_id].a, &smem.load_mbar[stage_id], stage_id);
+        if constexpr (kIsGroupInputScale)
+          loader_as.template load<kShouldAdvance>(smem.stages[stage_id].as, &smem.load_mbar[stage_id]);
+      }
+      commit_cp_async_load<true>(stage_id, pred);
+      if constexpr (kIsGroupInputScale && kUseTmaAS)
+        if (pred) expect_tma_load<true>(&smem.load_mbar[stage_id], SharedStorage::kStageTmaBytesAS);
+      return;
+    }
 
-    uint32_t mbar_index = kIsFirst ? kNumStages : stage_id;
+    uint32_t mbar_index = kIsFirst && !kUseContinuousRing ? kNumStages : stage_id;
     constexpr uint2 load_bytes = get_stage_load_bytes<kIsFirst>();
     constexpr bool kHasTmaMBarrier = kIsFirst ? kHasFirstStageTmaMBarrier : kHasStageTmaMBarrier;
 
@@ -244,6 +274,53 @@ public:
       commit_cp_async_load<kHasStageCpAsyncMBarrier>(mbar_index, pred);
     }
     if (pred) expect_tma_load<kHasTmaMBarrier>(mbar_ptr, load_bytes.x);
+    if constexpr (kUseContinuousRing) {
+      if (++ring_stage == kNumStages) {
+        ring_stage = 0;
+        ring_phase ^= 1;
+      }
+    }
+  }
+
+  template <bool kShouldAdvance = true>
+  CUDA_INLINE void load_weight_stage(uint32_t stage_id) {
+    auto &stage = ctx.smem.stages[stage_id];
+    constexpr bool kJoinActivation = Ctx::kUseUmmaCooperativeTma && !Ctx::kUseUmmaAsyncActivationLoads;
+    auto *weight_mbar = kJoinActivation ? &ctx.smem.load_mbar[stage_id] : &ctx.smem.umma_weight_ready[stage_id];
+    loader_b.template load<kShouldAdvance>(stage.b, weight_mbar);
+    uint32_t bytes = SharedStorage::kStageLoadBytesB;
+    if constexpr (kIsGroupWeightScale || kIsBlockWeightScale) {
+      loader_bs.template load<kShouldAdvance, Ctx::kUseUmmaCooperativeTma ? 2 : 1>(stage.bs, weight_mbar);
+      bytes += SharedStorage::kStageBytesBS;
+    }
+    if constexpr (kHasZeroPoint && !kIsChannelWeightScale) {
+      loader_bzp.template load<kShouldAdvance>(stage.bzp, weight_mbar);
+      bytes += SharedStorage::kStageBytesBZP;
+    }
+    if constexpr (Ctx::kUseUmmaCooperativeTma) {
+      if (ctx.load_thread_id() == 0 && blockIdx.x % Ctx::kUmmaCtaGroupSize == 0) tma_expect_tx(weight_mbar, bytes * 2);
+    } else if (ctx.load_thread_id() == 0) tma_expect_tx(weight_mbar, bytes);
+  }
+
+  template <bool kShouldAdvance = true>
+  CUDA_INLINE void load_activation_stage(uint32_t stage_id) {
+    auto &stage = ctx.smem.stages[stage_id];
+    auto *activation_mbar = &ctx.smem.load_mbar[stage_id];
+    loader_a.template load<kShouldAdvance>(stage.a, activation_mbar, stage_id);
+    uint32_t bytes = SharedStorage::kStageBytesA;
+    if constexpr (kIsGroupInputScale) {
+      if constexpr (Ctx::kUseUmmaSeparateInputScale) {
+        auto *scale_mbar = &ctx.smem.umma_input_scale_ready[stage_id];
+        loader_as.template load<kShouldAdvance>(stage.as, scale_mbar);
+        if (ctx.load_thread_id() == 32) tma_expect_tx(scale_mbar, SharedStorage::kStageTmaBytesAS);
+      } else {
+        loader_as.template load<kShouldAdvance>(stage.as, activation_mbar);
+        bytes += SharedStorage::kStageTmaBytesAS;
+      }
+    }
+    if constexpr (Ctx::kUseUmmaCooperativeTma) {
+      if (ctx.load_thread_id() == 32 && blockIdx.x % Ctx::kUmmaCtaGroupSize == 0) tma_expect_tx(activation_mbar, bytes * 2);
+    } else if (ctx.load_thread_id() == 32) tma_expect_tx(activation_mbar, bytes);
   }
 
   CUDA_INLINE void load_channel() {
@@ -289,41 +366,43 @@ public:
     if constexpr (kUseMBarrier) {
       if (!pred) return;
       if constexpr (kHasCpAsyncMBarrier) {
-        if constexpr (kUseCpAsync) cp_async_commit_mbarrier(&smem.load_mbar[stage_id]);
-        else mbarrier_arrive(&smem.load_mbar[stage_id]);
+        cp_async_commit_mbarrier(&smem.load_mbar[stage_id]);
       }
     } else if constexpr (kUseCpAsync) {
       cp_async_commit_group();
     }
   }
 
-  CUDA_INLINE void wait_stage(uint32_t stage_id) {
-    mbarrier_wait(&ctx.smem.math_mbar[stage_id], phases[stage_id], "Humming producer waiting for math stage");
+  CUDA_INLINE uint32_t get_phase(uint32_t stage_id) {
+    return (phase_bits >> stage_id) & 1u;
+  }
+
+  CUDA_INLINE void advance_phase(uint32_t stage_id) {
+    phase_bits ^= 1u << stage_id;
+  }
+
+  CUDA_INLINE void wait_stage(uint32_t stage_id, bool pred = true) {
+    if (!pred) return;
+    if constexpr (kUseContinuousRing) stage_id = ring_stage;
+    const uint32_t phase = kUseContinuousRing ? ring_phase : get_phase(stage_id);
+    mbarrier_wait(&ctx.smem.math_mbar[stage_id], phase, "Humming producer waiting for math stage");
     if constexpr (Ctx::kUseWarpSpec) ctx.sync_load_threads();
-    phases[stage_id] ^= 1;
+    if constexpr (!kUseContinuousRing) advance_phase(stage_id);
   }
 
   CUDA_INLINE void wait_channel() {
     if constexpr (kHasChannelData && kUseMBarrier) {
-      mbarrier_wait(&ctx.smem.math_mbar[kNumStages], phases[kNumStages], "Humming producer waiting for channel consumer");
+      mbarrier_wait(&ctx.smem.math_mbar[kNumStages], get_phase(kNumStages), "Humming producer waiting for channel consumer");
       if constexpr (Ctx::kUseWarpSpec) ctx.sync_load_threads();
-      phases[kNumStages] ^= 1;
+      advance_phase(kNumStages);
     }
   }
 
   CUDA_INLINE void wait_math_epilogue() {
-    mbarrier_wait(&ctx.smem.math_mbar[kNumStages], phases[kNumStages], "Humming producer waiting for epilogue");
+    if constexpr (!kNeedsTileHandshake) return;
+    mbarrier_wait(&ctx.smem.math_mbar[kNumStages], get_phase(kNumStages), "Humming producer waiting for epilogue");
     if constexpr (Ctx::kUseWarpSpec) ctx.sync_load_threads();
-    phases[kNumStages] ^= 1;
-  }
-
-  CUDA_INLINE void wait_reduce_epilogue() {
-    if constexpr (kUseTwoStageReduceBarrier) {
-      constexpr uint32_t kBarrierId = kNumStages + 1;
-      mbarrier_wait(&ctx.smem.math_mbar[kBarrierId], phases[kBarrierId], "Humming producer waiting to reuse reduce storage");
-      if constexpr (Ctx::kUseWarpSpec) ctx.sync_load_threads();
-      phases[kBarrierId] ^= 1;
-    }
+    advance_phase(kNumStages);
   }
 
   CUDA_INLINE void seek(
@@ -341,7 +420,7 @@ public:
 };
 
 
-template <class Ctx>
+template <class Ctx, bool kUseContinuousRing = false>
 class ConsumerPipeline {
 private:
   using SharedStorage = typename Ctx::SharedStorage;
@@ -356,13 +435,10 @@ private:
   static constexpr bool kHasInputScale = Ctx::kHasInputScale;
   static constexpr bool kHasInputScale2 = Ctx::kHasInputScale2;
   static constexpr bool kIsChannelInputScale = kHasInputScale && !Ctx::kIsGroupInputScale && !Ctx::kIsTensorInputScale;
-  static constexpr bool kIsChannelInputScale2 = kHasInputScale2 && !Ctx::kIsTensorInputScale2;
+  static constexpr bool kIsChannelInputScale2 = !Ctx::kUseUmma && kHasInputScale2 && !Ctx::kIsTensorInputScale2;
   static constexpr bool kIsChannelWeightScale = Ctx::kIsChannelWeightScale;
   static constexpr bool kIsChannelWeightScale2 = Ctx::kIsChannelWeightScale2;
   static constexpr bool kHasBias = Ctx::kHasBias;
-  static constexpr bool kHasChannelData =
-      kIsChannelInputScale || kIsChannelInputScale2 || kIsChannelWeightScale ||
-      kIsChannelWeightScale2 || kHasBias;
 
   static constexpr uint32_t kNumStages = Ctx::kNumStages;
   static constexpr uint32_t kMultiCastSizeA = Ctx::kMultiCastSizeA;
@@ -370,8 +446,22 @@ private:
   static constexpr uint32_t kMultiCastSize = kMultiCastSizeA * kMultiCastSizeB;
 
 public:
+  static constexpr bool kHasChannelData =
+      kIsChannelInputScale || kIsChannelInputScale2 || kIsChannelWeightScale ||
+      kIsChannelWeightScale2 || kHasBias;
+
   Ctx &ctx;
-  uint32_t phases[Ctx::kNumStages + 2] = {0};
+  uint32_t phases[kNumStages + 2] = {0};
+
+private:
+  uint32_t ring_stage = 0;
+  uint32_t ring_phase = 0;
+
+public:
+  CUDA_INLINE uint32_t get_stage_id(uint32_t stage_id) const {
+    if constexpr (kUseContinuousRing) return ring_stage;
+    else return stage_id;
+  }
 
   CUDA_INLINE
   ConsumerPipeline(Ctx &ctx) : ctx(ctx) {
@@ -379,14 +469,19 @@ public:
 
   template <bool kIsFirst = false>
   CUDA_INLINE void wait_stage(uint32_t stage_id) {
+    if constexpr (kUseContinuousRing) {
+      const uint32_t next_stage = ring_stage + 1 == kNumStages ? 0 : ring_stage + 1;
+      const uint32_t wait_stage = kIsFirst ? ring_stage : next_stage;
+      const uint32_t wait_phase = ring_phase ^ (!kIsFirst && wait_stage == 0);
+      mbarrier_wait(&ctx.smem.load_mbar[wait_stage], wait_phase, "Humming consumer waiting for ring stage");
+      return;
+    }
     stage_id = kIsFirst ? kNumStages : (stage_id % kNumStages);
     if constexpr (kUseMBarrier) {
       mbarrier_wait(&ctx.smem.load_mbar[stage_id], phases[stage_id], "Humming consumer waiting for load stage");
       phases[stage_id] ^= 1;
-    } else if constexpr (kUseCpAsync) {
-      cp_async_wait_group<kNumStages - 2>();
-      __syncthreads();
     } else {
+      if constexpr (kUseCpAsync) cp_async_wait_group<kNumStages - 2>();
       __syncthreads();
     }
   }
@@ -396,22 +491,29 @@ public:
       if constexpr (kUseMBarrier) {
         mbarrier_wait(&ctx.smem.load_mbar[kNumStages + 1], phases[kNumStages + 1], "Humming consumer waiting for channel data");
         phases[kNumStages + 1] ^= 1;
-      } else if constexpr (kUseCpAsync) {
-        cp_async_wait_group<0>();
-        __syncthreads();
       } else {
+        if constexpr (kUseCpAsync) cp_async_wait_group<0>();
         __syncthreads();
       }
     }
   }
 
   CUDA_INLINE void arrive(uint32_t stage_id) {
+    if constexpr (!ProducerPipeline<Ctx, kUseContinuousRing>::kNeedsTileHandshake) {
+      if (stage_id == kNumStages) return;
+    }
     auto &smem = ctx.smem;
     mbarrier_arrive(&smem.math_mbar[stage_id]);
     if constexpr (kMultiCastSize > 1) {
       if (ctx.cluster_rank() >= 1 && stage_id < SharedStorage::kNumMathMbarriers) {
         void *aa = __cluster_map_shared_rank(&smem.math_mbar[stage_id], 0);
         mbarrier_arrive<true>(aa);
+      }
+    }
+    if constexpr (kUseContinuousRing) {
+      if (stage_id < kNumStages && ++ring_stage == kNumStages) {
+        ring_stage = 0;
+        ring_phase ^= 1;
       }
     }
   }

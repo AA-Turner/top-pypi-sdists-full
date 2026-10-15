@@ -1196,6 +1196,12 @@ def update_org(
     external_id,
     **kwargs,
 ):
+    if kwargs.get("region_id") and kwargs.get("point_of_presence_id"):
+        raise click.UsageError(
+            "an organisation is assigned to a region or a point of presence, "
+            "not both; a point of presence already implies its cluster, so pass "
+            "--point-of-presence-id alone and leave the region as it is"
+        )
     orgs.update(
         ctx,
         org_id,

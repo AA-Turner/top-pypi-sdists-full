@@ -164,3 +164,28 @@ def test_a_read_field_that_is_not_its_shape_is_scrubbed(field, value):
     rows[1] = {**rows[1], field: value}
     body = {"inputs": rows}
     assert json.dumps(scrub_body(body)) == json.dumps(default_scrub(body))
+
+
+def test_read_and_write_rows_with_row_counts_keep_the_lift(monkeypatch):
+    """Data catalog C9: a row count rides read and write rows; the lift still
+    applies (a count is an int, never text) and the body is byte-identical."""
+    from probe.sdk import inputs
+
+    seen_at = "2026-10-13T00:00:01.000001+00:00"
+    sha = "a" * 64
+    reads = [
+        inputs._typed_row(f"/data/r-{i}.jsonl", sha, None, 9, "h", True, seen_at, "b" * 32 if i % 2 else None,
+                          rows=i)
+        for i in range(4)
+    ]
+    writes = [inputs._typed_output_row("/data/w.jsonl", sha, None, 9, "h", seen_at, seen_at, "c" * 32, rows=3)]
+    for body in ({"inputs": reads}, {"outputs": writes}):
+        assert json.dumps(scrub_body(body)) == json.dumps(default_scrub(body))
+    seen: list[str] = []
+    real = redaction.scrub_string
+    monkeypatch.setattr(redaction, "scrub_string", lambda v, **k: seen.append(v) or real(v, **k))
+    scrub_body({"inputs": reads})
+    scrub_body({"outputs": writes})
+    assert seen_at not in seen and sha not in seen
+    bad = [{**reads[0], "rows": "12"}]
+    assert json.dumps(scrub_body({"inputs": bad})) == json.dumps(default_scrub({"inputs": bad}))

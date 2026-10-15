@@ -31,7 +31,25 @@
 #include "common.h"
 #include "endianess.h"
 
-FAKE_INIT(keccak)
+/*
+ * Another module can reuse this code by including this file:
+ *  - if KECCAK_EMBEDDED is defined, this file does not define the module
+ *    init function nor exports any symbol (see k12.c). The functions
+ *    are inline so that unused ones raise no warnings.
+ *  - if KECCAK_MODULE is defined, the functions are exported from the
+ *    module with that name (see keccak_avx2_bmi2.c).
+ *
+ * See KECCAK_K12.txt for which file includes which, and the resulting modules.
+ */
+#ifdef KECCAK_EMBEDDED
+#define KECCAK_API static inline
+#else
+#ifndef KECCAK_MODULE
+#define KECCAK_MODULE keccak
+#endif
+FAKE_INIT(KECCAK_MODULE)
+#define KECCAK_API EXPORT_SYM
+#endif
 
 #define KECCAK_F1600_STATE 200
 
@@ -64,7 +82,7 @@ typedef struct
 
 static void keccak_function (uint64_t *state, unsigned rounds);
 
-EXPORT_SYM int keccak_reset(keccak_state *state)
+KECCAK_API int keccak_reset(keccak_state *state)
 {
     if (NULL == state)
         return ERR_NULL;
@@ -98,7 +116,7 @@ keccak_squeeze_internal (keccak_state *self)
     }
 }
 
-EXPORT_SYM int keccak_init (keccak_state **state,
+KECCAK_API int keccak_init (keccak_state **state,
                             size_t capacity_bytes,
                             uint8_t rounds)
 {
@@ -132,21 +150,33 @@ EXPORT_SYM int keccak_init (keccak_state **state,
     return 0;
 }
 
-EXPORT_SYM int keccak_destroy(keccak_state *state)
+KECCAK_API int keccak_destroy(keccak_state *state)
 {
     free(state);
     return 0;
 }
 
-EXPORT_SYM int keccak_absorb (keccak_state *self,
+KECCAK_API int keccak_absorb (keccak_state *self,
                               const uint8_t *in,
                               size_t length)
 {
+    unsigned valid_bytes;
+
     if (NULL==self || NULL==in)
         return ERR_NULL;
 
     if (self->squeezing != 0)
         return ERR_UNKNOWN;
+
+    /*
+     * Read the position in buf[] only once, and check it: if several
+     * threads used the object at once (not supported), the state could
+     * be inconsistent, but buf[] must never overflow.
+     * (The rate never changes after keccak_init()).
+     */
+    valid_bytes = self->valid_bytes;
+    if (valid_bytes >= self->rate)
+        return ERR_STATE;
 
     while (length > 0) {
         unsigned tc;
@@ -154,7 +184,7 @@ EXPORT_SYM int keccak_absorb (keccak_state *self,
 
         /* Fast path: XOR whole blocks straight from the input */
         /* No need to copy them into self->buf first */
-        if (self->valid_bytes == 0 && length >= self->rate) {
+        if (valid_bytes == 0 && length >= self->rate) {
             unsigned i, j;
 
             for (i=j=0; j < self->rate; ++i, j += 8) {
@@ -166,32 +196,37 @@ EXPORT_SYM int keccak_absorb (keccak_state *self,
             continue;
         }
 
-        left = self->rate - self->valid_bytes;
+        left = self->rate - valid_bytes;
         tc = (unsigned) MIN(length, left);
-        memcpy(self->buf + self->valid_bytes, in, tc);
+        memcpy(self->buf + valid_bytes, in, tc);
 
-        self->valid_bytes += tc;
+        valid_bytes       += tc;
         in                += tc;
         length            -= tc;
 
-        if (self->valid_bytes == self->rate) {
+        if (valid_bytes == self->rate) {
             keccak_absorb_internal (self);
             keccak_function(self->state, self->rounds);
-            self->valid_bytes = 0;
+            valid_bytes = 0;
         }
     }
 
+    self->valid_bytes = valid_bytes;
     return 0;
 }
 
-static void keccak_finish (keccak_state *self, uint8_t padding)
+static int keccak_finish (keccak_state *self, uint8_t padding)
 {
-    assert(self->squeezing == 0);
-    assert(self->valid_bytes < self->rate);
+    unsigned valid_bytes;
+
+    /* Read once and check (see keccak_absorb) */
+    valid_bytes = self->valid_bytes;
+    if (valid_bytes >= self->rate)
+        return ERR_STATE;
 
     /* Padding */
-    memset(self->buf + self->valid_bytes, 0, self->rate - self->valid_bytes);
-    self->buf[self->valid_bytes] = padding;
+    memset(self->buf + valid_bytes, 0, self->rate - valid_bytes);
+    self->buf[valid_bytes] = padding;
     self->buf[self->rate-1] |= 0x80;
 
     /* Final absorb */
@@ -202,42 +237,51 @@ static void keccak_finish (keccak_state *self, uint8_t padding)
     self->squeezing = 1;
     keccak_squeeze_internal (self);
     self->valid_bytes = self->rate;
+    return 0;
 }
 
-EXPORT_SYM int keccak_squeeze (keccak_state *self, uint8_t *out, size_t length, uint8_t padding)
+KECCAK_API int keccak_squeeze (keccak_state *self, uint8_t *out, size_t length, uint8_t padding)
 {
+    unsigned valid_bytes;
+
     if ((NULL == self) || (NULL == out))
         return ERR_NULL;
 
     if (self->squeezing == 0) {
-        keccak_finish (self, padding);
+        int result;
+
+        result = keccak_finish (self, padding);
+        if (result)
+            return result;
     }
 
-    assert(self->squeezing == 1);
-    assert(self->valid_bytes > 0);
-    assert(self->valid_bytes <= self->rate);
+    /* Read once and check (see keccak_absorb) */
+    valid_bytes = self->valid_bytes;
+    if (valid_bytes == 0 || valid_bytes > self->rate)
+        return ERR_STATE;
 
     while (length > 0) {
         unsigned tc;
 
-        tc = (unsigned)MIN(self->valid_bytes, length);
-        memcpy(out, self->buf + (self->rate - self->valid_bytes), tc);
+        tc = (unsigned)MIN(valid_bytes, length);
+        memcpy(out, self->buf + (self->rate - valid_bytes), tc);
 
-        self->valid_bytes -= tc;
+        valid_bytes       -= tc;
         out               += tc;
         length            -= tc;
 
-        if (self->valid_bytes == 0) {
+        if (valid_bytes == 0) {
             keccak_function (self->state, self->rounds);
             keccak_squeeze_internal (self);
-            self->valid_bytes = self->rate;
+            valid_bytes = self->rate;
         }
     }
 
+    self->valid_bytes = valid_bytes;
     return 0;
 }
 
-EXPORT_SYM int keccak_digest(keccak_state *state, uint8_t *digest, size_t len, uint8_t padding)
+KECCAK_API int keccak_digest(keccak_state *state, uint8_t *digest, size_t len, uint8_t padding)
 {
     keccak_state tmp;
 
@@ -251,7 +295,7 @@ EXPORT_SYM int keccak_digest(keccak_state *state, uint8_t *digest, size_t len, u
     return keccak_squeeze(&tmp, digest, len, padding);
 }
 
-EXPORT_SYM int keccak_copy(const keccak_state *src, keccak_state *dst)
+KECCAK_API int keccak_copy(const keccak_state *src, keccak_state *dst)
 {
     if (NULL == src || NULL == dst) {
         return ERR_NULL;
@@ -261,38 +305,99 @@ EXPORT_SYM int keccak_copy(const keccak_state *src, keccak_state *dst)
     return 0;
 }
 
-#define K12_LEAF_SIZE   8192
-#define K12_CV_SIZE     32
-
-/*
- * Hash n_leaves complete 8192-byte leaves with TurboSHAKE128
- * (domain 0x0B) and write their 32-byte chaining values to cvs
- * (n_leaves * 32 bytes).
+/**
+ * Compute the expensive inner loop of PBKDF2-HMAC, for a hash like SHA-3
+ * (whose digest is half the capacity), for one block of output.
  *
- * It only uses a local state on the stack, so it is reentrant
- * and it can be called from several threads at the same time.
+ * @inner:      the inner hash of HMAC, after the padded key (one full block)
+ * @outer:      the outer hash of HMAC, after the padded key (one full block)
+ * @first_hmac: the HMAC of the salt and of the block index (U_1)
+ * @result:     the output, U_1 xor U_2 xor ... xor U_iterations
+ * @iterations: the iteration count of PBKDF2
+ * @digest_size: the size of the digest and of @first_hmac and @result
+ * @padding:    the padding byte of the hash (0x06 for SHA-3)
+ *
+ * Each HMAC takes two permutations, one for the inner hash and one for the
+ * outer, as the digest fits in a single block with the padding.
  */
-EXPORT_SYM int k12_leaves(const uint8_t *in, size_t n_leaves, uint8_t *cvs)
+KECCAK_API int keccak_pbkdf2_hmac_assist(const keccak_state *inner, const keccak_state *outer,
+                                         const uint8_t *first_hmac,
+                                         uint8_t *result,
+                                         size_t iterations,
+                                         size_t digest_size,
+                                         uint8_t padding)
 {
-    keccak_state ks;
-    size_t i;
+    uint64_t s[25], acc[8];
+    uint8_t block[KECCAK_F1600_STATE];
+    unsigned i, nw, last;
+    size_t it;
 
-    if (NULL == in || NULL == cvs)
+    if (NULL == inner || NULL == outer || NULL == first_hmac || NULL == result) {
         return ERR_NULL;
-
-    memset(&ks, 0, sizeof ks);
-    ks.capacity = 32;
-    ks.rate = KECCAK_F1600_STATE - ks.capacity;
-    ks.rounds = 12;
-
-    for (i=0; i<n_leaves; i++) {
-        keccak_reset(&ks);
-        keccak_absorb(&ks, in, K12_LEAF_SIZE);
-        keccak_squeeze(&ks, cvs, K12_CV_SIZE, 0x0B);
-        in += K12_LEAF_SIZE;
-        cvs += K12_CV_SIZE;
     }
 
+    if (iterations == 0) {
+        return ERR_NR_ROUNDS;
+    }
+
+    if (digest_size == 0 || digest_size > 64 ||
+        2*digest_size != inner->capacity || inner->capacity != outer->capacity ||
+        inner->rounds != outer->rounds) {
+        return ERR_DIGEST_SIZE;
+    }
+
+    /** Both hashes must have absorbed exactly one block (the padded HMAC key) **/
+    if (inner->valid_bytes != 0 || outer->valid_bytes != 0 ||
+        inner->squeezing != 0 || outer->squeezing != 0) {
+        return ERR_STATE;
+    }
+
+    nw = (unsigned)(digest_size + 1 + 7) / 8;  /* Lanes with the digest and the padding byte */
+    last = inner->rate / 8 - 1;                 /* Lane with the final bit of the padding */
+
+    /** block[] holds the last digest, then the padding byte, then zeroes **/
+    memset(block, 0, sizeof block);
+    memcpy(block, first_hmac, digest_size);
+    for (i=0; i<8; i++) {
+        acc[i] = LOAD_U64_LITTLE(block + 8*i);
+    }
+
+    for (it=1; it<iterations; it++) {
+        /* Inner hash */
+        block[digest_size] = padding;
+        memcpy(s, inner->state, sizeof s);
+        for (i=0; i<nw; i++) {
+            s[i] ^= LOAD_U64_LITTLE(block + 8*i);
+        }
+        s[last] ^= 0x8000000000000000ULL;
+        keccak_function(s, inner->rounds);
+        for (i=0; i<nw; i++) {
+            STORE_U64_LITTLE(block + 8*i, s[i]);
+        }
+        memset(block + digest_size, 0, nw*8 - digest_size);
+
+        /* Outer hash */
+        block[digest_size] = padding;
+        memcpy(s, outer->state, sizeof s);
+        for (i=0; i<nw; i++) {
+            s[i] ^= LOAD_U64_LITTLE(block + 8*i);
+        }
+        s[last] ^= 0x8000000000000000ULL;
+        keccak_function(s, outer->rounds);
+        for (i=0; i<nw; i++) {
+            STORE_U64_LITTLE(block + 8*i, s[i]);
+        }
+        memset(block + digest_size, 0, nw*8 - digest_size);
+
+        for (i=0; i<8; i++) {
+            acc[i] ^= LOAD_U64_LITTLE(block + 8*i);
+        }
+    }
+
+    for (i=0; i<8; i++) {
+        STORE_U64_LITTLE(block + 8*i, acc[i]);
+    }
+    memcpy(result, block, digest_size);
     return 0;
 }
 

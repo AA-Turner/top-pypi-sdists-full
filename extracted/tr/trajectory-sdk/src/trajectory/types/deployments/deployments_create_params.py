@@ -28,6 +28,6 @@ class DeploymentsCreateParams(TypedDict, total=False):
   role: Literal["production", "test"]
   model_endpoint_config: ModelEndpointConfigParam | None
   """
-  Model Endpoint configuration for the deployment. Defaults to the exact configuration persisted
+  Generation and tokenizer settings for the deployment. Defaults to the configuration persisted
   for the originating Training Service run.
   """

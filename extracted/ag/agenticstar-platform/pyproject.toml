@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agenticstar-platform"
-version = "3.0.15"
+version = "3.1.0"
 description = "AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure"
 readme = "README.md"
 license = "MIT"
@@ -62,11 +62,17 @@ rag = [
 # ストレージはプロバイダー別にインストール可能
 storage = [
     "azure-storage-blob>=12.19.0",
+    # AzureBlobStorageClient の資格情報なし経路 (DefaultAzureCredential、3.1.0。3.0.16 は未公開)
+    "azure-identity>=1.15.0",
     "boto3>=1.34.0",
     "google-cloud-storage>=2.14.0",
 ]
 storage-azure = [
     "azure-storage-blob>=12.19.0",
+    # 接続文字列が無いときの認証 (Workload Identity / Managed Identity)。
+    # シンボル解決の必要依存は azure-storage-blob だけで、azure-identity は
+    # 資格情報なし経路を使うときに遅延 import する (storage/azure.py)
+    "azure-identity>=1.15.0",
 ]
 storage-aws = [
     "boto3>=1.34.0",

@@ -1,11 +1,20 @@
 import importlib.machinery
 import importlib.util
+import inspect
 import sys
 import types
+from typing import Any
 
 import pytest
 from braintrust.integrations import base
-from braintrust.integrations.base import _import_optional_module, _resolve_attr_path
+from braintrust.integrations.base import (
+    BaseIntegration,
+    CompositeFunctionWrapperPatcher,
+    FunctionWrapperPatcher,
+    _import_optional_module,
+    _resolve_attr_path,
+)
+from wrapt import FunctionWrapper
 
 
 def _make_lazy_module(name, exports):
@@ -51,6 +60,47 @@ def test_resolve_attr_path_does_not_invoke_descriptors_on_classes():
 
     resolved = _resolve_attr_path(WithProperty, "value")
     assert isinstance(resolved, property)
+
+
+@pytest.fixture
+def pep810_lazy_package(tmp_path, monkeypatch):
+    """Import a package whose re-exports are PEP 810 lazy imports (Python 3.15+).
+
+    google-cloud-discoveryengine ships its GAPIC ``__init__`` this way: the
+    module ``__dict__`` holds unreified ``types.LazyImportType`` proxies until
+    the names are first loaded.
+    """
+    package_dir = tmp_path / "bt_pep810_sdk"
+    package_dir.mkdir()
+    (package_dir / "__init__.py").write_text(
+        "__lazy_modules__ = {'bt_pep810_sdk.client', 'bt_pep810_sdk.broken'}\n"
+        "from .client import Client\n"
+        "from .broken import Broken\n"
+    )
+    (package_dir / "client.py").write_text("class Client:\n    def create(self):\n        return 'created'\n")
+    (package_dir / "broken.py").write_text("raise ImportError('broken optional dependency')\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    for name in ("bt_pep810_sdk", "bt_pep810_sdk.client", "bt_pep810_sdk.broken"):
+        monkeypatch.delitem(sys.modules, name, raising=False)
+
+    module = importlib.import_module("bt_pep810_sdk")
+    assert type(module.__dict__["Client"]) is types.LazyImportType  # pylint: disable=no-member
+    return module
+
+
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="PEP 810 lazy imports require Python 3.15+")
+def test_resolve_attr_path_reifies_pep810_lazy_imports(pep810_lazy_package):
+    client_cls = _resolve_attr_path(pep810_lazy_package, "Client")
+
+    assert inspect.isclass(client_cls)
+    assert client_cls.__module__ == "bt_pep810_sdk.client"
+    assert _resolve_attr_path(pep810_lazy_package, "Client.create") is client_cls.__dict__["create"]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="PEP 810 lazy imports require Python 3.15+")
+def test_resolve_attr_path_returns_none_when_pep810_lazy_import_fails(pep810_lazy_package):
+    assert _resolve_attr_path(pep810_lazy_package, "Broken") is None
+    assert _resolve_attr_path(pep810_lazy_package, "Broken.method") is None
 
 
 def test_resolve_attr_path_walks_real_submodules():
@@ -200,3 +250,144 @@ def test_import_optional_module_propagates_keyerror_on_fixed_interpreters(monkey
 
     with pytest.raises(KeyError):
         _import_optional_module("braintrust_locky_sdk")
+
+
+# --- Patching machinery -----------------------------------------------------
+#
+# A fake provider module and integration exercise BaseIntegration.setup() and
+# FunctionWrapperPatcher end to end, without any provider package installed.
+
+_FAKE_SDK = "braintrust_fake_patch_sdk"
+
+
+def _traced(wrapped, _instance, args, kwargs):
+    # Each wrapper layer nests the result once, so a double wrap is visible.
+    return ("traced", wrapped(*args, **kwargs))
+
+
+class _SendPatcher(FunctionWrapperPatcher):
+    name = "fake.client.send"
+    target_path = "Client.send"
+    wrapper = _traced
+
+
+class _LegacySendPatcher(FunctionWrapperPatcher):
+    name = "fake.client.legacy_send"
+    target_path = "Client.legacy_send"
+    wrapper = _traced
+    superseded_by = (_SendPatcher,)
+
+
+class _ClientPatcher(CompositeFunctionWrapperPatcher):
+    name = "fake.client"
+    sub_patchers = (_SendPatcher, _LegacySendPatcher)
+
+
+class _BoundSendPatcher(FunctionWrapperPatcher):
+    name = "fake.bound_send"
+    target_path = "bound_send"
+    wrapper = _traced
+
+
+class _FakeIntegration(BaseIntegration):
+    name = "fake"
+    import_names = (_FAKE_SDK,)
+    patchers = (_ClientPatcher, _BoundSendPatcher)
+
+
+class _FakeSdkModule(types.ModuleType):
+    # Declared so static analysis knows the attributes _install_fake_sdk sets.
+    Client: type
+    bound_send: Any
+
+
+def _install_fake_sdk(monkeypatch, *, with_send=True) -> _FakeSdkModule:
+    class Client:
+        def legacy_send(self, value):
+            return f"legacy {value}"
+
+    if with_send:
+
+        def send(self, value):
+            return f"sent {value}"
+
+        Client.send = send
+
+    module = _FakeSdkModule(_FAKE_SDK)
+    module.Client = Client
+    # A bound method rejects setattr, so its patch marker must live on the root.
+    module.bound_send = Client().legacy_send
+    monkeypatch.setitem(sys.modules, _FAKE_SDK, module)
+    return module
+
+
+def test_setup_twice_wraps_each_target_once(monkeypatch):
+    module = _install_fake_sdk(monkeypatch)
+    assert not _SendPatcher.is_patched(module, None)
+
+    assert _FakeIntegration.setup()
+    wrapped_send = inspect.getattr_static(module.Client, "send")
+    wrapped_bound = module.bound_send
+    assert isinstance(wrapped_send, FunctionWrapper)
+    assert isinstance(wrapped_bound, FunctionWrapper)
+    assert _SendPatcher.is_patched(module, None)
+    assert _BoundSendPatcher.is_patched(module, None)
+
+    assert _FakeIntegration.setup()
+    assert inspect.getattr_static(module.Client, "send") is wrapped_send
+    assert module.bound_send is wrapped_bound
+    assert module.Client().send(1) == ("traced", "sent 1")
+    assert module.bound_send(2) == ("traced", "legacy 2")
+
+
+def test_patch_marker_falls_back_to_root_when_target_rejects_setattr(monkeypatch):
+    module = _install_fake_sdk(monkeypatch)
+
+    assert _BoundSendPatcher.patch(module, None)
+
+    assert not _BoundSendPatcher.has_patch_marker(module.bound_send)
+    assert _BoundSendPatcher.has_patch_marker(module)
+    assert _BoundSendPatcher.is_patched(module, None)
+
+
+def test_superseded_patcher_yields_to_existing_superior_target(monkeypatch):
+    module = _install_fake_sdk(monkeypatch)
+    assert _FakeIntegration.setup()
+    assert module.Client().legacy_send(1) == "legacy 1"
+
+    legacy_module = _install_fake_sdk(monkeypatch, with_send=False)
+    assert _FakeIntegration.setup()
+    assert legacy_module.Client().legacy_send(1) == ("traced", "legacy 1")
+
+
+def test_wrap_target_is_idempotent_and_honors_superseded_by(monkeypatch):
+    client_class = _install_fake_sdk(monkeypatch).Client
+
+    assert _ClientPatcher.wrap_target(client_class) is client_class
+    wrapped_send = client_class.__dict__["send"]
+    assert _ClientPatcher.wrap_target(client_class) is client_class
+
+    assert client_class.__dict__["send"] is wrapped_send
+    assert client_class().send(1) == ("traced", "sent 1")
+    assert client_class().legacy_send(1) == "legacy 1"
+
+
+def test_wrap_target_skips_targets_missing_the_attribute():
+    class Unrelated:
+        pass
+
+    assert _SendPatcher.wrap_target(Unrelated) is Unrelated
+    assert not _SendPatcher.has_patch_marker(Unrelated)
+
+
+def test_has_patch_marker_ignores_markers_inherited_through_mro():
+    class Parent:
+        pass
+
+    class Child(Parent):
+        pass
+
+    _SendPatcher.mark_patched(Parent)
+
+    assert _SendPatcher.has_patch_marker(Parent) is True
+    assert _SendPatcher.has_patch_marker(Child) is False

@@ -1,0 +1,805 @@
+- name: Tax unit files separately
+  period: 2022
+  # High error margin because of rounding in the tax tables
+  absolute_error_margin: 2
+  input:
+    people:
+      person1:
+        adjusted_gross_income_person: 20_000
+        ky_additions: 1_000
+        ky_subtractions: 2_000
+        is_tax_unit_head: true
+      person2:
+        adjusted_gross_income_person: 25_000
+        ky_additions: 2_000
+        ky_subtractions: 1_000
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        filing_status: SEPARATE
+        ky_non_refundable_credits: 100
+    households:
+      household:
+        members: [person1, person2]
+        state_code: KY 
+  output:
+    ky_agi: [19_000, 26_000]
+    ky_standard_deduction_indiv: [2_770, 2_770]
+    ky_itemized_deductions_indiv: [0, 0]
+    ky_taxable_income_indiv: [16_230, 23_230]
+    ky_files_separately: true
+    ky_personal_tax_credits_indiv: [0, 0] 
+    ky_income_tax_before_non_refundable_credits_unit: 1973
+    ky_income_tax_before_refundable_credits: 1873
+
+- name: Tax unit files jointly
+  period: 2022
+  # High error margin because of rounding in the tax tables
+  absolute_error_margin: 2
+  input:
+    people:
+      person1:
+        adjusted_gross_income_person: 20_000
+        ky_additions: 1_000
+        ky_subtractions: 2_000
+        is_tax_unit_head: true
+      person2:
+        adjusted_gross_income_person: 25_000
+        ky_additions: 2_000
+        ky_subtractions: 1_000
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        filing_status: JOINT
+        ky_non_refundable_credits: 100
+    households:
+      household:
+        members: [person1, person2]
+        state_code: KY 
+  output:
+    ky_agi: [19_000, 26_000]
+    #If filing a joint return, only one standard deduction is allowed.
+    ky_standard_deduction_joint: [2770, 0]
+    ky_itemized_deductions_joint: [0, 0] 
+    ky_taxable_income_joint: [42_230, 0]
+    ky_files_separately: true
+    ky_personal_tax_credits_joint: [0, 0] 
+    # take separate result to maximize benefit
+    ky_income_tax_before_non_refundable_credits_unit: 1973 
+    ky_income_tax_before_refundable_credits: 1873
+
+#new baseline integration test
+- name: baseline integration test joint
+  period: 2022
+  # High error margin because of rounding in the tax tables
+  absolute_error_margin: 2
+  input:
+    people:
+      person1:
+        adjusted_gross_income_person: 20_000
+        age: 30
+      person2:
+        adjusted_gross_income_person: 25_000
+        age: 31
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, person2]
+        state_code: KY 
+  output:
+    ky_agi: [20_000, 25_000]
+    # If filing a joint return, only one standard deduction is allowed.
+    # default: older person is head
+    ky_standard_deduction_joint: [0, 2_770]
+    ky_itemized_deductions_joint: [0, 0] 
+    ky_taxable_income_joint: [0, 42_230]
+    ky_personal_tax_credits_joint: [0, 0] 
+    #not 2111.5, becase ky_files_separately return true (we optimize)
+    ky_income_tax_before_non_refundable_credits_unit: 1973 
+    ky_income_tax_before_refundable_credits: 1973
+
+#new baseline integration test
+- name: baseline integration test separate
+  period: 2022
+  # High error margin because of rounding in the tax tables
+  absolute_error_margin: 2
+  input:
+    people:
+      person1:
+        adjusted_gross_income_person: 20_000
+        age: 30
+      person2:
+        adjusted_gross_income_person: 25_000
+        age: 31
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        filing_status: SEPARATE
+    households:
+      household:
+        members: [person1, person2]
+        state_code: KY 
+  output:
+    ky_agi: [20_000, 25_000]
+    ky_standard_deduction_indiv: [2_770, 2_770]
+    ky_itemized_deductions_indiv: [0, 0] 
+    ky_taxable_income_indiv: [17_230, 22_230]
+    ky_personal_tax_credits_indiv: [0, 0] 
+    ky_income_tax_before_non_refundable_credits_unit: 1973 
+    ky_income_tax_before_refundable_credits: 1973
+
+- name: integration test for personal tax credit joint
+  period: 2022
+  # High error margin because of rounding in the tax tables
+  absolute_error_margin: 2
+  input:
+    people:
+      person1:
+        adjusted_gross_income_person: 20_000
+        is_blind: true
+        age: 30
+        is_tax_unit_head_or_spouse: true
+      person2:
+        adjusted_gross_income_person: 25_000
+        is_blind: true
+        age: 31
+        is_tax_unit_head_or_spouse: true
+      child:
+        is_blind: true
+        is_tax_unit_head_or_spouse: false
+        age: 10
+    tax_units:
+      tax_unit:
+        members: [person1, person2, child]
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, person2, child]
+        state_code: KY 
+  output:
+    ky_agi: [20_000, 25_000, 0]
+    # If filing a joint return, only one standard deduction is allowed.
+    # default: older person is head
+    ky_standard_deduction_joint: [0, 2_770, 0]
+    ky_itemized_deductions_joint: [0, 0, 0] 
+    ky_taxable_income_joint: [0, 42_230, 0]
+    ky_personal_tax_credits_joint: [0, 80, 0] 
+    ky_income_tax_before_non_refundable_credits_unit: 1973 
+    ky_income_tax_before_refundable_credits: 1893
+
+- name: Tax unit with taxsimid 95730 in e21.its.csv and e21.ots.csv
+  absolute_error_margin: 0.01
+  period: 2021
+  input:
+    people:
+      person1:
+        age: 66
+        employment_income: 15010
+        taxable_interest_income: 5505.0
+        ssi: 0  # not in TAXSIM35
+        ma_state_supplement: 0  # not in TAXSIM35
+        wic: 0  # not in TAXSIM35
+        ma_covid_19_essential_employee_premium_pay_program: 0  # not in TAXSIM35
+      person2:
+        age: 66
+        employment_income: 1010
+        taxable_interest_income: 5505.0
+        ssi: 0  # not in TAXSIM35
+        ma_state_supplement: 0  # not in TAXSIM35
+        wic: 0  # not in TAXSIM35
+        ma_covid_19_essential_employee_premium_pay_program: 0  # not in TAXSIM35
+      person3:
+        age: 11
+        ssi: 0  # not in TAXSIM35
+        ma_state_supplement: 0  # not in TAXSIM35
+        wic: 0  # not in TAXSIM35
+        ma_covid_19_essential_employee_premium_pay_program: 0  # not in TAXSIM35
+      person4:
+        age: 11
+        ssi: 0  # not in TAXSIM35
+        ma_state_supplement: 0  # not in TAXSIM35
+        wic: 0  # not in TAXSIM35
+        ma_covid_19_essential_employee_premium_pay_program: 0  # not in TAXSIM35
+      person5:
+        age: 11
+        ssi: 0  # not in TAXSIM35
+        ma_state_supplement: 0  # not in TAXSIM35
+        wic: 0  # not in TAXSIM35
+        ma_covid_19_essential_employee_premium_pay_program: 0  # not in TAXSIM35
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3, person4, person5]
+        aca_ptc: 0  # not in TAXSIM35
+        local_income_tax: 0  # not in TAXSIM35
+        state_sales_tax: 0  # not in TAXSIM35
+        ca_use_tax: 0  # not in TAXSIM35
+        il_use_tax: 0  # not in TAXSIM35
+        nm_2021_income_rebate: 0  # not in TAXSIM35
+        nm_additional_2021_income_rebate: 0  # not in TAXSIM35
+        nm_supplemental_2021_income_rebate: 0  # not in TAXSIM35
+        ny_supplemental_eitc: 0  # not in TAXSIM35
+        ok_use_tax: 0  # not in TAXSIM35
+        pa_use_tax: 0  # not in TAXSIM35
+        vt_renter_credit: 0  # not in TAXSIM35
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4, person5]
+        snap: 0  # not in TAXSIM35
+        tanf: 0  # not in TAXSIM35
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5]
+        state_fips: 21  # KY
+  output:  # expected results from patched TAXSIM35 2024-03-04 version
+    ky_income_tax: 100.25
+
+- name: Tax unit with taxsimid 99980 in f21.its.csv and f21.ots.csv
+  absolute_error_margin: 0.01
+  period: 2021
+  input:
+    people:
+      person1:
+        age: 66
+        employment_income: 25010
+        taxable_interest_income: 11010
+        taxable_private_pension_income: 12000
+        social_security_retirement: 7000
+      person2:
+        age: 16
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        aca_ptc: 0  # not in TAXSIM35
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+        snap: 0  # not in TAXSIM35
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 21  # KY
+  output:  # expected results from patched TAXSIM35 2024-03-16 version
+    ky_pension_income_exclusion: [12000, 0]
+    ky_income_tax: 1626.50
+
+- name: KY married couple with mortgage interest on their jointly owned home
+  absolute_error_margin: 0.01
+  period: 2021
+  input:
+    people:
+      person1:
+        age: 50
+        employment_income: 80_000
+        deductible_mortgage_interest:  3_000
+      person2:
+        age: 50
+        employment_income: 20_000
+        deductible_mortgage_interest:  3_000
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 21  # KY
+  output:
+    ky_tax_unit_itemizes: true
+    ky_itemized_deductions_indiv: [4_800 , 1_200]
+    ky_standard_deduction_indiv:  [2_690 , 2_690]
+    ky_deductions_indiv:          [4_800 , 1_200] # this is the correct result
+
+# ==============================================================================
+# 2025 TAX YEAR TESTS
+# Parameters: Tax rate 4%, Standard deduction $3,270
+# ==============================================================================
+
+- name: 2025 KY single filer standard deduction
+  period: 2025
+  absolute_error_margin: 1
+  input:
+    people:
+      person1:
+        age: 35
+        employment_income: 50_000
+    tax_units:
+      tax_unit:
+        members: [person1]
+    households:
+      household:
+        members: [person1]
+        state_code: KY
+  output:
+    ky_standard_deduction_indiv: [3_270]
+    ky_taxable_income_indiv: [46_730]
+    ky_income_tax: 1_869.20
+
+- name: 2025 KY MFJ optimization picks separate filing
+  period: 2025
+  absolute_error_margin: 1
+  input:
+    people:
+      person1:
+        age: 42
+        employment_income: 60_000
+        is_tax_unit_head: true
+      person2:
+        age: 40
+        employment_income: 40_000
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        filing_status: JOINT
+    households:
+      household:
+        members: [person1, person2]
+        state_code: KY
+  output:
+    # KY optimizes: separate ($3,738.40) < joint ($3,869.20)
+    ky_income_tax: 3_738.40
+
+- name: 2025 KY FSTC at 100% of threshold
+  period: 2025
+  absolute_error_margin: 1
+  input:
+    people:
+      person1:
+        age: 30
+        employment_income: 15_650
+    tax_units:
+      tax_unit:
+        members: [person1]
+    households:
+      household:
+        members: [person1]
+        state_code: KY
+  output:
+    ky_family_size_tax_credit_rate: 1.0
+    ky_family_size_tax_credit: 495.20
+    ky_income_tax: 0
+
+- name: 2025 KY aged personal credit
+  period: 2025
+  absolute_error_margin: 1
+  input:
+    people:
+      person1:
+        age: 67
+        employment_income: 40_000
+    tax_units:
+      tax_unit:
+        members: [person1]
+    households:
+      household:
+        members: [person1]
+        state_code: KY
+  output:
+    ky_aged_personal_tax_credits: [40]
+    ky_personal_tax_credits: 40
+    ky_income_tax: 1_429.20
+
+- name: 2025 KY pension exclusion over threshold
+  period: 2025
+  absolute_error_margin: 1
+  input:
+    people:
+      person1:
+        age: 70
+        taxable_private_pension_income: 45_000
+    tax_units:
+      tax_unit:
+        members: [person1]
+    households:
+      household:
+        members: [person1]
+        state_code: KY
+  output:
+    ky_pension_income_exclusion: [31_110]
+
+- name: 2025 KY dependent care credit
+  period: 2025
+  absolute_error_margin: 1
+  input:
+    people:
+      person1:
+        age: 35
+        employment_income: 60_000
+        is_tax_unit_head: true
+      child1:
+        age: 4
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [person1, child1]
+        cdcc: 1_000
+    households:
+      household:
+        members: [person1, child1]
+        state_code: KY
+  output:
+    ky_cdcc: 200
+
+- name: KY combined-separate election floors the elderly spouse personal credit per column (taxsim 1076)
+  period: 2025
+  absolute_error_margin: 1
+  input:
+    people:
+      head:
+        age: 58
+        employment_income: 36_269.69
+        taxable_interest_income: 837.70
+      spouse:
+        age: 66
+        employment_income: 1_651.30
+        taxable_interest_income: 837.70
+    tax_units:
+      tax_unit:
+        members: [head, spouse]
+    households:
+      household:
+        members: [head, spouse]
+        state_code: KY
+  output:
+    ky_files_separately: true
+    # 66-year-old spouse's $40 over-65 credit dies in her near-zero column
+    # rather than pooling into the head's column.
+    ky_income_tax: 1_353.50
+
+- name: Combined-separate election with a low-income age-65 head keeps the joint filing
+  period: 2022
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 65
+        employment_income: 400
+        is_tax_unit_head: true
+      spouse:
+        age: 61
+        employment_income: 31_429
+        is_tax_unit_spouse: true
+      child:
+        age: 10
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child]
+    households:
+      household:
+        members: [head, spouse, child]
+        state_code: KY
+  output:
+    # Head now has $400 of income so the two paths differ, making this case
+    # discriminating (the old $0-income head was a pre-credit tie that passed on
+    # OLD code too). On the combined-separate path the 65-year-old head's $40
+    # personal credit is nearly capped in their tiny column and largely wasted,
+    # so if_separate (1,432.95) exceeds joint. Joint keeps the full credit:
+    # (31,829 - 2,770) x 5% - 40 = 1,412.95. Since if_separate > if_joint, the
+    # couple does NOT file separately, and ky_income_tax equals the joint value.
+    ky_income_tax: 1_412.95
+
+# Boolean election gate for the same one-earner age-65 household, asserted
+# margin-free. Under KRS 141.0205(2), Form 740 applies credits per column on the
+# combined-separate path, so the head's $40 age-65 personal credit is nearly
+# wasted in their tiny column; joint keeps the full credit and wins.
+- name: Combined-separate election preserves the age-65 credit - boolean gate
+  period: 2022
+  input:
+    people:
+      head:
+        age: 65
+        employment_income: 400
+        is_tax_unit_head: true
+      spouse:
+        age: 61
+        employment_income: 31_429
+        is_tax_unit_spouse: true
+      child:
+        age: 10
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child]
+    households:
+      household:
+        members: [head, spouse, child]
+        state_code: KY
+  output:
+    # if_separate (1,432.95) > if_joint (1,412.95), so joint wins: not separate.
+    ky_files_separately: false
+
+# Zero-tax married couple. Both spouses have $0 income, so both columns are $0 on
+# either path; the strict "<" election test (KRS 141.0205(2)) is not met, and
+# total Kentucky income tax is $0.
+- name: Zero-tax married couple does not elect combined-separate
+  period: 2022
+  input:
+    people:
+      head:
+        age: 40
+        is_tax_unit_head: true
+      spouse:
+        age: 40
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse]
+    households:
+      household:
+        members: [head, spouse]
+        state_code: KY
+  output:
+    ky_files_separately: false
+    ky_income_tax: 0
+
+# The same one-earner age-65 household at the 2025 law (rate 4%, standard
+# deduction $3,270). The combined-separate path still wastes the head's age-65
+# personal credit in their tiny column (per-column application under KRS
+# 141.0205(2) / Form 740 Line 19), so joint wins and the couple does not elect.
+- name: Combined-separate election preserves the age-65 credit at 2025
+  period: 2025
+  input:
+    people:
+      head:
+        age: 65
+        employment_income: 400
+        is_tax_unit_head: true
+      spouse:
+        age: 61
+        employment_income: 31_429
+        is_tax_unit_spouse: true
+      child:
+        age: 10
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child]
+    households:
+      household:
+        members: [head, spouse, child]
+        state_code: KY
+  output:
+    ky_files_separately: false
+    # Joint path (2025 rate 4%, standard deduction $3,270): taxable income
+    # (400 + 31,429) - 3,270 = 28,559; tax 28,559 x 4% = 1,142.36; less the head's
+    # $40 age-65 personal credit = 1,102.36; family size tax credit (rate 0.5 at
+    # ~1.17x the 3-person modified poverty line) removes half, leaving 551.18.
+    # CI-RISK: the FSTC rate bracket depends on the exact 2025 modified poverty
+    # line; pin the CI actual if this differs.
+    ky_income_tax: 551.18
+
+# Married couple near the federal poverty line where the family size tax credit
+# (FSTC) rate is nonzero, so the elected path's ky_income_tax reflects FSTC. Both
+# spouses have equal income, so combined-separate offers no advantage and joint is
+# chosen (ky_files_separately: false). With total modified gross income $18,000 for
+# a 2-person family below the FPL, the FSTC rate is 100%, fully offsetting the tax.
+- name: KY married couple near FPL with nonzero FSTC does not elect combined-separate
+  period: 2022
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 40
+        employment_income: 9_000
+        is_tax_unit_head: true
+      spouse:
+        age: 40
+        employment_income: 9_000
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse]
+    households:
+      household:
+        members: [head, spouse]
+        state_code: KY
+  output:
+    ky_files_separately: false
+    # Modified gross income below the 2-person FPL puts the FSTC rate at 100%, so
+    # Kentucky income tax is fully offset.
+    ky_income_tax: 0
+
+# Married couple with a child and a federal CDCC (Kentucky matches 20%),
+# exercising the helper's dependent-care credit step in the election comparison.
+# With two equal $30k earners, the combined-separate path gives each column its
+# own standard deduction (2 x $2,770 vs a single one on the joint return), so it
+# is cheaper pre-credit and the couple elects it under KRS 141.0205(2). Kentucky
+# is a flat 5% tax, so splitting income does not change the bracket.
+- name: KY married couple with child and CDCC elects combined-separate (two standard deductions)
+  period: 2022
+  input:
+    people:
+      head:
+        age: 40
+        employment_income: 30_000
+        is_tax_unit_head: true
+      spouse:
+        age: 40
+        employment_income: 30_000
+        is_tax_unit_spouse: true
+      child:
+        age: 4
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child]
+        cdcc: 1_000
+    households:
+      household:
+        members: [head, spouse, child]
+        state_code: KY
+  output:
+    # Two standard deductions on the separate path make it cheaper, so the couple
+    # elects combined-separate. The CDCC still flows through both path
+    # computations via the helper's dependent-care step.
+    ky_files_separately: true
+    # Separate path (2022 rate 5%, standard deduction $2,770 per column): each
+    # column (30,000 - 2,770) x 5% = 1,361.50, total 2,723.00; no personal credit
+    # (ages 40), family size credit rate 0 at $60,000 modified gross income for a
+    # 3-person family, then the Kentucky CDCC (20% x federal $1,000) = $200,
+    # leaving 2,523.00.
+    # CI-RISK: hand-derived; pin the CI actual if it differs.
+    ky_income_tax: 2_523.00
+
+# Issue 9342 anchor household, end to end: an age-65 head with $0 income, a spouse
+# earning $31,429, and one dependent, filing so the couple can elect
+# combined-separate. On the separate path the head's $40 age-65 personal credit
+# dies in their $0 column (per-column credit application, KRS 141.0205(2) / Form
+# 740 Line 19); on the joint path the credit is preserved. Joint is therefore
+# cheaper and the couple does not elect. The joint liability is
+# (31,429 - 2,770) x 5% - 40 = 1,392.95 (externally cross-checked in TaxAct).
+- name: Issue 9342 anchor household keeps joint filing and preserves the age-65 credit
+  period: 2022
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 65
+        employment_income: 0
+        is_tax_unit_head: true
+      spouse:
+        age: 61
+        employment_income: 31_429
+        is_tax_unit_spouse: true
+      child:
+        age: 10
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child]
+    households:
+      household:
+        members: [head, spouse, child]
+        state_code: KY
+  output:
+    ky_files_separately: false
+    ky_income_tax: 1_392.95
+
+# Married couple with a nonzero Kentucky tuition tax credit (25% of the federal
+# American Opportunity credit), exercising the helper's tuition step 3. Incomes
+# are unequal so the combined-separate path (two standard deductions) is cheaper
+# and the couple elects it (KRS 141.0205(2)).
+- name: KY married couple with tuition credit elects combined-separate
+  period: 2022
+  # Margin 2 for KY tax-table rounding, as the other KY integration cases use.
+  absolute_error_margin: 2
+  input:
+    people:
+      head:
+        age: 40
+        employment_income: 50_000
+        is_tax_unit_head: true
+      spouse:
+        age: 40
+        employment_income: 10_000
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse]
+        # Tuition credit is a TaxUnit-level federal credit (Form 740 Line 23
+        # potential derives from it); set it on the tax unit, not a person.
+        american_opportunity_credit: 2_000
+    households:
+      household:
+        members: [head, spouse]
+        state_code: KY
+  output:
+    ky_files_separately: true
+    # Two earners each get a $2,770 standard deduction on the combined-separate
+    # path, so it is cheaper pre-credit and the tuition credit (Form 740 Line 23,
+    # KRS 141.069) is applied on the elected path. Separate base
+    # (50,000 - 2,770) x 5% + (10,000 - 2,770) x 5% = 2,723.00, less the 25%
+    # tuition credit on $2,000 = 500, leaves 2,223.00. This exercises helper
+    # step 3 (tuition) in the election.
+    ky_income_tax: 2_223.00
+
+# Married couple at a partial family size tax credit bracket (rate 0.5), so the
+# FSTC step 2 (KRS 141.0205(2)(b)) is exercised in the election. A 7-person
+# family of two equal earners at ~119% of the modified poverty line lands in the
+# 0.5 bracket (matching the FSTC-rate unit test). Two earners each take a $2,770
+# standard deduction on the combined-separate path, so it is cheaper pre-credit
+# and the couple elects it; the 0.5 FSTC then applies on the elected path.
+- name: KY married couple at partial FSTC bracket elects combined-separate
+  period: 2022
+  # Margin 2 for KY tax-table rounding, as the other KY integration cases use.
+  absolute_error_margin: 2
+  input:
+    people:
+      head:
+        age: 40
+        employment_income: 16_500
+        is_tax_unit_head: true
+      spouse:
+        age: 40
+        employment_income: 16_500
+        is_tax_unit_spouse: true
+      child1:
+        age: 10
+        is_tax_unit_dependent: true
+      child2:
+        age: 9
+        is_tax_unit_dependent: true
+      child3:
+        age: 8
+        is_tax_unit_dependent: true
+      child4:
+        age: 7
+        is_tax_unit_dependent: true
+      child5:
+        age: 6
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse, child1, child2, child3, child4, child5]
+    households:
+      household:
+        members: [head, spouse, child1, child2, child3, child4, child5]
+        state_code: KY
+  output:
+    ky_files_separately: true
+    # Separate path: two columns each (16,500 - 2,770) x 5% = 686.50, base
+    # 1,373.00; the 0.5 family-size credit (MGI $33,000, family capped at 4 ->
+    # ~119% of the modified poverty line) removes half, leaving 686.50. The joint
+    # path is (33,000 - 2,770) x 5% = 1,511.50, less 0.5 FSTC = 755.75, so
+    # separate (686.50) is cheaper and is elected.
+    ky_income_tax: 686.50
+
+# One combined-separate election case at the 2024 law (KY rate 4%), showing the
+# path variables read period-correct parameters. Unequal incomes make the
+# separate path (two $3,160 standard deductions) cheaper, so the couple elects.
+- name: KY combined-separate election at 2024 rate reads period-correct params
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    people:
+      head:
+        age: 40
+        employment_income: 50_000
+        is_tax_unit_head: true
+      spouse:
+        age: 40
+        employment_income: 10_000
+        is_tax_unit_spouse: true
+    tax_units:
+      tax_unit:
+        members: [head, spouse]
+    households:
+      household:
+        members: [head, spouse]
+        state_code: KY
+  output:
+    ky_files_separately: true
+    # Separate path (2024 rate 4%, SD $3,160 per column): head (50,000 - 3,160) x
+    # 4% = 1,873.60, spouse (10,000 - 3,160) x 4% = 273.60, total 2,147.20; family
+    # size credit rate 0 at $60,000 for a 2-person family; no personal credit.
+    # Joint path (56,840 x 4%) = 2,273.60, so separate is cheaper.
+    # CI-RISK: hand-derived; pin the CI actual if it differs.
+    ky_income_tax: 2_147.20

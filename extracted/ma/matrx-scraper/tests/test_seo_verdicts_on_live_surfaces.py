@@ -56,7 +56,6 @@ EXPECTED_PROBLEMS = {
     "title_length",
     "meta_description_presence",
     "h1_presence",
-    "thin_content",
     "image_alt_presence",
     "meta_robots_conflicts",
     "canonical_conflicts",

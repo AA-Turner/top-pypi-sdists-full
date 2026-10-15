@@ -90,6 +90,49 @@ def apply_patch(patch_path):
                             f"=== stderr ===\n\n{stderr_buffer.getvalue()}")
 
 
+def apply_patches():
+    """Apply all patches needed on the ClickHouse tree. Idempotent."""
+    # Unwind with external code leads to crashes
+    apply_patch("patches/unwind.patch")
+
+    # Sets timezone to UTC manually and avoids reading system files
+    apply_patch("patches/timezone.patch")
+
+    # This patch is used to make it possible to use valgrind with the module
+    # see https://jira.mongodb.org/browse/SERVER-25771
+    apply_patch("patches/boost_flags.patch")
+
+    # Be able to set our flags in the build (PIC)
+    apply_patch("patches/Preload.patch")
+
+    # This is only for performance.
+    # Avoids calling getTreeHash() which is slow
+    # Might change the output of the query since it won't replace same subqueries with the alias
+    # This is ok as long as the subquery isn't super long, but it should be ok since in our case that would
+    # mean the query was already super long
+    apply_patch("patches/ASTWithAlias_perf.patch")
+
+    # Emit standard SQL TRIM(BOTH/LEADING/TRAILING ... FROM ...) syntax for 2-arg
+    # trimBoth/trimLeft/trimRight calls, so the output is compatible with CH < 25.2
+    apply_patch("patches/trim_format.patch")
+
+    # Builds the functions needed by validate_ttl into libclickhouse_ttl_functions.a,
+    # which is linked with --whole-archive/-force_load (see extra_libs).
+    # NOTE: after editing this patch (or any other), the early-return above skips the
+    # ClickHouse build; delete ch_build/src/Functions/libclickhouse_ttl_functions.a
+    # (or the whole ch_build) to force it to run again.
+    apply_patch("patches/dbmsfunctions.patch")
+
+    # Range-check narrow-integer Field inserts so JSON/Dynamic paths widen instead of
+    # silently wrapping (1944 -> -104). Backport of the ColumnVector::tryInsert fix;
+    # remove once the fix lands in the pinned ClickHouse submodule.
+    apply_patch("patches/ColumnVectorTryInsert.patch")
+
+    # Keep TTL result validation compatible with ClickHouse versions before 25.8:
+    # DateTime64 and Date32 results must remain rejected until all servers migrate.
+    apply_patch("patches/ttl_result_type_compat.patch")
+
+
 class ClickHouseBuildExt(build_ext):
     def run(self):
 
@@ -103,69 +146,7 @@ class ClickHouseBuildExt(build_ext):
                                                 'src/Functions/libclickhouse_ttl_functions.a')):
             return
 
-        # Avoid segfault caused by missing global context
-        apply_patch("patches/createJSON.patch")
-
-        # Disable analyzer by default
-        apply_patch("patches/disable_analyzer.patch")
-
-        # Unwind with external code leads to crashes
-        apply_patch("patches/unwind.patch")
-
-        # Sets timezone to UTC manually and avoids reading system files
-        apply_patch("patches/timezone.patch")
-
-        # Easier access to ASTIdentifier private data
-        apply_patch("patches/ASTIdentifier.patch")
-
-        # Easier access to AggregateFunctionFactory private data
-        apply_patch("patches/AggregateFunctionFactory.patch")
-
-        # This patch is used to make it possible to use valgrind with the module
-        # see https://jira.mongodb.org/browse/SERVER-25771
-        apply_patch("patches/boost_flags.patch")
-
-        # Be able to set our flags in the build (PIC)
-        apply_patch("patches/Preload.patch")
-
-        # This is only for performance.
-        # Avoids calling getTreeHash() which is slow
-        # Might change the output of the query since it won't replace same subqueries with the alias
-        # This is ok as long as the subquery isn't super long, but it should be ok since in our case that would
-        # mean the query was already super long
-        apply_patch("patches/ASTWithAlias_perf.patch")
-
-        # Emit standard SQL TRIM(BOTH/LEADING/TRAILING ... FROM ...) syntax for 2-arg
-        # trimBoth/trimLeft/trimRight calls, so the output is compatible with CH < 25.2
-        apply_patch("patches/trim_format.patch")
-
-        # Removes TSA warnings (we don't compile with a libc++ with annotations)
-        apply_patch("patches/tsa.patch")
-
-        # Builds the functions needed by validate_ttl into libclickhouse_ttl_functions.a,
-        # which is linked with --whole-archive/-force_load (see extra_libs).
-        # NOTE: after editing this patch (or any other), the early-return above skips the
-        # ClickHouse build; delete ch_build/src/Functions/libclickhouse_ttl_functions.a
-        # (or the whole ch_build) to force it to run again.
-        apply_patch("patches/dbmsfunctions.patch")
-
-        # Range-check narrow-integer Field inserts so JSON/Dynamic paths widen instead of
-        # silently wrapping (1944 -> -104). Backport of the ColumnVector::tryInsert fix;
-        # remove once the fix lands in the pinned ClickHouse submodule.
-        apply_patch("patches/ColumnVectorTryInsert.patch")
-
-        # Keep TTL result validation compatible with ClickHouse versions before 25.8:
-        # DateTime64 and Date32 results must remain rejected until all servers migrate.
-        apply_patch("patches/ttl_result_type_compat.patch")
-
-        if sys.platform == 'darwin':
-            # We disable whole_archive options destined for AppleClang, which is unsupported but keeps being a PITA
-            apply_patch("patches/darwin.patch")
-
-            # Problem with offsetof macro definition
-            # NOTE: offsetof.patch is no longer needed for ClickHouse 25.3+ as the changes are already upstream
-            # apply_patch("patches/offsetof.patch")
-
+        apply_patches()
 
         cmake_cmd = os.environ.get('CMAKE_BIN', 'cmake')
         try:
@@ -499,3 +480,8 @@ def requirements_from_file(path):
         for line in Path(path).read_text().split("\n")
         if not line.startswith(('"', "#", "-", "git+"))
     ]
+
+
+if __name__ == '__main__':
+    # Used by `make apply-patches` (e.g. clang-tidy needs the patched ClickHouse sources)
+    apply_patches()

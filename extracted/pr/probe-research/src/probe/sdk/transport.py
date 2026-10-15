@@ -858,7 +858,15 @@ class Transport:
         params: dict[str, Any] | None = None,
         idempotent: bool | None = None,
         timeout: float | None = None,
+        content: bytes | None = None,
+        content_headers: Mapping[str, str] | None = None,
     ) -> httpx.Response:
+        """One request to the API. ``content`` sends raw bytes instead of a JSON
+        body (a gzip catalog manifest, `Client.put_manifest`), described by
+        ``content_headers`` (`Content-Type`, `Content-Encoding`); it is signed
+        and sent as given, never scrubbed or re-encoded."""
+        if content is not None and json_body is not None:
+            raise ValueError("pass json_body or content, not both")
         # Validate structure before the recursive scrubber. Scan the normalized
         # body again below: sets/opaque reprs may become new JSON strings.
         if unstorable.has_nul(params) or ("\x00" in path):
@@ -909,7 +917,10 @@ class Transport:
             if escaped:
                 safe_warn.warn(unstorable.describe(escaped), stacklevel=1)
         # Serialize ourselves so the HMAC signs the exact sanitized bytes.
-        raw_body = b"" if json_body is None else json.dumps(json_body).encode()
+        if content is not None:
+            raw_body = bytes(content)
+        else:
+            raw_body = b"" if json_body is None else json.dumps(json_body).encode()
         # Client identity: what this transport was built with, unless the caller
         # bound a per-request override. Read per-request for the same reason
         # `current_tool()` below is: the hosted MCP memoizes one transport per
@@ -932,6 +943,8 @@ class Transport:
         }
         if json_body is not None:
             headers["Content-Type"] = "application/json"
+        if content is not None:
+            headers.update(content_headers or {})
         # Surface attribution: tag every backend request with the originating
         # product surface, and (MCP only) the tool being served. Headers only.
         headers[SURFACE_HEADER] = self.surface
@@ -973,7 +986,7 @@ class Transport:
                 _diagnostics.end_transport()
                 raise
             send = dict(
-                content=raw_body if json_body is not None else None,
+                content=raw_body if json_body is not None or content is not None else None,
                 params=params,
                 headers=headers,
                 **({"timeout": attempt_timeout} if attempt_timeout is not None else {}),

@@ -1,33 +1,94 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import itertools
 import logging
 import types
 import weakref
+from collections.abc import AsyncIterable, Awaitable, Callable, Iterable
+from concurrent.futures import Executor
 from dataclasses import dataclass, field
 from typing import Any as AnyType
 from typing import (
-    AsyncIterable,
-    Awaitable,
-    Callable,
-    Final,
-    Iterable,
-    List,
-    Tuple,
-    Union,
+    ClassVar,
+    TypeVar,
 )
 
-from .util import NO_VALUE, _NoValue, get_event_loop
+from .util import (
+    NO_VALUE,
+    _NoValue,
+    get_event_loop,
+    main_thread_loop,
+    schedule_awaitable,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+_E = TypeVar("_E")
+
+
+# Links from an event to the events feeding it: an operator's source, a
+# higher-order join's parent, and side inputs (``sample``'s timer,
+# ``take_until``'s notifier, ``chunkwith``'s timer, ``emap``'s joiner).
+_UPSTREAM_LINKS = ("_source", "_parent", "_timer", "_notifier", "_joiner")
+
+
+def _pipeline_nodes(roots: Iterable[Event]) -> dict[int, Event]:
+    """The events in ``roots`` and every event upstream of them."""
+    nodes: dict[int, Event] = {}
+    stack = list(roots)
+    while stack:
+        node = stack.pop()
+        if id(node) in nodes:
+            continue
+        nodes[id(node)] = node
+        for attr in _UPSTREAM_LINKS:
+            upstream = getattr(node, attr, None)
+            if isinstance(upstream, Event):
+                stack.append(upstream)
+        stack.extend(getattr(node, "_sources", ()))
+    return nodes
+
+
+def _pipeline_tasks(nodes: dict[int, Event]) -> set[asyncio.Task]:
+    """Unfinished tasks of the pipeline ``nodes`` that only this pipeline
+    uses.
+
+    Tasks are a source's ``_task`` and an async map's ``_tasks``. An
+    event that also has a listener outside the pipeline (another pipeline,
+    a plain callback) is in use elsewhere, so its tasks are not included.
+    """
+    tasks: set[asyncio.Task] = set()
+    for node in nodes.values():
+        if not _listened_to_only_by(node, nodes):
+            continue
+        task = getattr(node, "_task", None)
+        if task is not None and not task.done():
+            tasks.add(task)
+        tasks.update(t for t in getattr(node, "_tasks", ()) if not t.done())
+    return tasks
+
+
+def _listened_to_only_by(event: Event, nodes: dict[int, Event]) -> bool:
+    """Whether every live listener of ``event`` is one of ``nodes``."""
+    for slot in event._slots.slots:
+        if slot.weakref is not None:
+            owner = slot.weakref()
+            if owner is None:
+                continue  # collected
+        else:
+            owner = slot.obj
+        if owner is None or id(owner) not in nodes:
+            return False  # a plain callback, or an event outside
+    return True
 
 
 @dataclass(slots=True)
 class Slot:
     obj: AnyType
-    weakref: Callable[[AnyType], AnyType] | None
-    func: Callable[[AnyType], AnyType]
+    weakref: Callable[[], AnyType] | None
+    func: Callable[..., AnyType] | None
 
 
 @dataclass(slots=True)
@@ -37,15 +98,23 @@ class Slots:
     def add(self, obj, weakref, func) -> None:
         self.slots.append(Slot(obj, weakref, func))
 
-    def remove(self, obj, func):
-        """Remove a specific obj/func combination from the slots collection."""
-        self.slots = list(
-            itertools.filterfalse(
-                lambda x: (x.obj is obj or x.weakref and x.weakref() is obj)
-                and x.func is func,
-                self.slots,
+    def remove(self, obj, func, *, every: bool = False):
+        """Remove the earliest slot of this obj/func combination, or with
+        ``every`` all of them. Removing one that is not there does nothing."""
+
+        def matches(x):
+            return (x.obj is obj or x.weakref and x.weakref() is obj) and (
+                x.func is func
             )
-        )
+
+        if every:
+            self.slots = list(itertools.filterfalse(matches, self.slots))
+            return
+        for i, slot in enumerate(self.slots):
+            if matches(slot):
+                # A new list: an emit in progress iterates over a copy.
+                self.slots = self.slots[:i] + self.slots[i + 1 :]
+                return
 
     def remove_obj(self, obj):
         self.slots = list(
@@ -85,17 +154,21 @@ class Slots:
             func = slot.func
 
             try:
-                if ref:
+                if ref is not None:
                     obj = ref()
+                    if obj is None:
+                        # Collected, its slot not yet removed (during this
+                        # emit, or on PyPy until the weakref callback runs).
+                        continue
                 else:
                     obj = slot.obj
 
                 result = None
                 if obj is None:
-                    if func:
+                    if func is not None:
                         result = func(*args, **kwargs)
                 else:
-                    if func:
+                    if func is not None:
                         result = func(obj, *args, **kwargs)
                     else:
                         result = obj(*args, **kwargs)
@@ -103,12 +176,12 @@ class Slots:
                 # even though asyncio.iscoroutine() would also work here,
                 # this manual hasattr() check performs better.
                 if result and hasattr(result, "__await__"):
-                    asyncio.ensure_future(result, loop=get_event_loop())
+                    schedule_awaitable(result)
             except Exception as error:
                 # It's not really clear in the documentation or usage that exceptions
                 # get returned via an 'error_event' callback. We should make sure
                 # people know this clearly so event handler callback errors are noticed.
-                if caller.error_event:
+                if caller._errors_have_listeners():
                     caller.error_event.emit(caller, error)
                 else:
                     logger.exception(
@@ -116,7 +189,17 @@ class Slots:
                     )
 
 
-@dataclass(slots=False)
+def event_class(cls: type[_E]) -> type[_E]:
+    """Make ``cls`` a slotted dataclass in the :class:`Event` family.
+
+    Events are compared and hashed by identity (an event is a thing, not
+    a value), have no generated ``repr``, and keep their hand-written
+    ``__init__``, so every constructor keeps its public signature.
+    """
+    return dataclass(slots=True, eq=False, repr=False, init=False)(cls)
+
+
+@dataclass(slots=True, eq=False, repr=False, init=False, weakref_slot=True)
 class Event:
     """
     Enable event passing between loosely coupled components.
@@ -127,41 +210,67 @@ class Event:
         name: Name to use for this event.
     """
 
-    _name: str = ""
-    _with_error_done_events: bool = True
+    _name: str
+    # The sub-events, created on first use (see error_event, done_event):
+    # most events never need them.
+    _error_event: Event | None
+    _done_event: Event | None
+    _value: AnyType
+    _slots: Slots
+    _done: bool
+    _source: Event | None
+    _task: AnyType
 
-    # Sub event that emits errors from this event as ``emit(source, exception)``.
-    error_event: Event | None = None
+    NO_VALUE: ClassVar[_NoValue] = NO_VALUE
 
-    # Sub event that emits when this event is done as ``emit(source)``.
-    done_event: Event | None = None
+    def __init__(self, name: str = ""):
+        self._name = name or type(self).__qualname__
+        self._error_event = None
+        self._done_event = None
+        self._value = NO_VALUE
+        self._slots = Slots()
+        self._done = False
+        self._source = None
+        self._task = None
 
-    _value: AnyType = NO_VALUE
-    _slots: Final[Slots] = field(default_factory=Slots)
-    _done: bool = False
-    _source: Event | None = None
-    __weakref__: AnyType = None
-    _task: AnyType = None
+    @property
+    def error_event(self) -> Event:
+        """
+        Sub event that emits the errors of this event as
+        ``emit(source, exception)``. Created when first used.
+        """
+        if self._error_event is None:
+            self._error_event = Event("error")
+        return self._error_event
 
-    NO_VALUE: Final[_NoValue] = NO_VALUE
+    # ``event.error_event += f`` reads, connects, and assigns the same sub
+    # event back; that write is accepted, a different event is not.
+    @error_event.setter
+    def error_event(self, value: Event) -> None:
+        if value is not self.error_event:
+            raise AttributeError("error_event cannot be replaced")
 
-    def __post_init__(self) -> None:
-        if self._with_error_done_events:
-            self.error_event = Event("error", False)
-            self.done_event = Event("done", False)
+    @property
+    def done_event(self) -> Event:
+        """
+        Sub event that emits this event, once, when it ends, and then ends
+        too. Created when first used; for an event that has already ended
+        it is created ended.
+        """
+        if self._done_event is None:
+            self._done_event = Event("done")
+            self._done_event._done = self._done
+        return self._done_event
 
-        if not self._name:
-            self._name = self.__class__.__qualname__
+    @done_event.setter
+    def done_event(self, value: Event) -> None:
+        if value is not self.done_event:
+            raise AttributeError("done_event cannot be replaced")
 
-    def __hash__(self) -> int:
-        return hash(
-            (
-                self.name,
-                self._with_error_done_events,
-                self.error_event,
-                self.done_event,
-            )
-        )
+    def _errors_have_listeners(self) -> bool:
+        """Whether emitting on ``error_event`` would reach anyone (without
+        creating it)."""
+        return self._error_event is not None and len(self._error_event) > 0
 
     def name(self) -> str:
         """
@@ -183,10 +292,10 @@ class Event:
         """
         if not self._done:
             self._done = True
-            if self.done_event:
-                # done event emits and set to done too
-                self.done_event.emit(self)
-                self.done_event.set_done()
+            done_event = self._done_event
+            if done_event is not None:  # nobody listens to one never created
+                done_event.emit(self)
+                done_event.set_done()
 
     def value(self):
         """
@@ -194,13 +303,9 @@ class Event:
         """
         v = self._value
 
-        return (
-            NO_VALUE if v is NO_VALUE else v[0] if len(v) == 1 else v if v else NO_VALUE
-        )
+        return NO_VALUE if v is NO_VALUE else v[0] if len(v) == 1 else v or NO_VALUE
 
-    def connect(
-        self, listener, error=None, done=None, keep_ref: bool = False
-    ) -> "Event":
+    def connect(self, listener, error=None, done=None, keep_ref: bool = False) -> Event:
         """
         Connect a listener to this event. If the listener is added multiple
         times then it is invoked just as many times on emit.
@@ -250,35 +355,62 @@ class Event:
 
         self._slots.add(obj, ref, func)
 
-        if self.done_event and done is not None:
+        if done is not None:
             self.done_event.connect(done)
 
-        if self.error_event and error is not None:
+        if error is not None:
             self.error_event.connect(error)
 
         return self
 
     def disconnect(self, listener, error=None, done=None):
         """
-        Disconnect a listener from this event.
+        Undo one :meth:`connect`: remove one connection of the listener
+        (and of the given error and done callbacks). A listener connected
+        twice stays connected once. Disconnecting a listener that is not
+        connected does nothing. An operator connected with ``connect(op)``
+        is detached from this event.
 
         The ``-=`` operator can be used as a synonym for this method.
+        :meth:`disconnect_all` removes every connection of a listener,
+        :meth:`disconnect_obj` everything connected on an object, and
+        :meth:`clear` all listeners.
 
         Args:
-            listener: The callback to disconnect. The callback is removed at
-                most once. It is valid if the callback is already
-                not connected.
+            listener: The callback to disconnect.
             error: The error callback to disconnect.
             done: The done callback to disconnect.
         """
+        return self._disconnect(listener, error, done, every=False)
+
+    def disconnect_all(self, listener, error=None, done=None):
+        """
+        Remove every connection of the listener (and of the given error
+        and done callbacks), however many times it was connected.
+
+        Args:
+            listener: The callback to disconnect.
+            error: The error callback to disconnect.
+            done: The done callback to disconnect.
+        """
+        return self._disconnect(listener, error, done, every=True)
+
+    def _disconnect(self, listener, error, done, *, every: bool):
+        if isinstance(listener, Op):
+            # the inverse of connect(op): detach the operator from this event
+            if listener._source is self:
+                listener._disconnect_from(self)
+                listener._source = None
+            return self
+
         obj, func = self._split(listener)
-        self._slots.remove(obj, func)
+        self._slots.remove(obj, func, every=every)
 
-        if self.done_event and done is not None:
-            self.done_event.disconnect(done)
+        if self._done_event is not None and done is not None:
+            self._done_event._disconnect(done, None, None, every=every)
 
-        if self.error_event and error is not None:
-            self.error_event.disconnect(error)
+        if self._error_event is not None and error is not None:
+            self._error_event._disconnect(error, None, None, every=every)
 
         return self
 
@@ -293,11 +425,11 @@ class Event:
         """
         self._slots.remove_obj(obj)
 
-        if self.error_event is not None:
-            self.error_event.disconnect_obj(obj)
+        if self._error_event is not None:
+            self._error_event.disconnect_obj(obj)
 
-        if self.done_event is not None:
-            self.done_event.disconnect_obj(obj)
+        if self._done_event is not None:
+            self._done_event.disconnect_obj(obj)
 
     def emit(self, *args):
         """
@@ -314,7 +446,7 @@ class Event:
         Threadsafe version of :meth:`emit` that doesn't invoke the
         listeners directly but via the event loop of the main thread.
         """
-        get_event_loop().call_soon_threadsafe(self.emit, *args)
+        main_thread_loop().call_soon_threadsafe(self.emit, *args)
 
     def clear(self):
         """
@@ -322,7 +454,7 @@ class Event:
         """
         self._slots.clear()
 
-    def run(self) -> List:
+    def run(self) -> builtins.list:
         """
         Start the asyncio event loop, run this event to completion and
         return all values as a list::
@@ -337,18 +469,60 @@ class Event:
 
         .. note::
 
-            When running inside a Jupyter notebook this will give an error
-            that the asyncio event loop is already running. This can be
-            remedied by applying
-            `nest_asyncio <https://github.com/erdewit/nest_asyncio>`_
-            or by using the top-level ``await`` statement of Jupyter::
+            ``run()`` raises ``RuntimeError`` when the thread's event loop
+            is already running, as it is inside a Jupyter notebook or any
+            coroutine, unless the loop has been made re-entrant with
+            ``nest_asyncio.apply()``. Await the event there instead::
 
                 await event.list()
         """
         loop = get_event_loop()
-        return loop.run_until_complete(self.list())
 
-    def pipe(self, *targets: "Event"):
+        if loop.is_running() and not getattr(loop, "_nest_patched", False):
+            raise RuntimeError(
+                "Event.run() cannot be called from within an already running "
+                "asyncio event loop. Use 'await event.list()' instead."
+            )
+
+        # Subscribe to the collector before attaching it, and before the
+        # loop runs: an event that has already ended makes it emit at once,
+        # and a source can end on its very first step (an empty sequence).
+        result = loop.create_future()
+
+        def on_values(values):
+            if not result.done():
+                result.set_result(values)
+
+        def on_error(_source, error):
+            if not result.done():
+                result.set_exception(error)
+
+        collector = ListOp()
+        collector.connect(on_values, on_error, keep_ref=True)
+        collector.set_source(self)
+        # The events of this pipeline, found now while every upstream link is
+        # still connected (operators cut their links when they end).
+        nodes = _pipeline_nodes([collector])
+        owned = _pipeline_tasks(nodes)
+
+        async def _run_and_clean():
+            try:
+                return await result
+            finally:
+                # The pipeline may have ended before some of its parts did
+                # (e.g. ``timeout``, ``take``): stop what is left of it, and
+                # only that, so unrelated work on the loop keeps running.
+                # Tasks started during the run are found on the same events
+                # and on events linked to them since (an emap's nested ones).
+                current = _pipeline_tasks(_pipeline_nodes(nodes.values()))
+                leftover = [t for t in owned | current if not t.done()]
+                for task in leftover:
+                    task.cancel()
+                await asyncio.gather(*leftover, return_exceptions=True)
+
+        return loop.run_until_complete(_run_and_clean())
+
+    def pipe(self, *targets: Event):
         """
         Form several events into a pipe::
 
@@ -374,7 +548,7 @@ class Event:
 
         return source
 
-    def fork(self, *targets: "Event") -> "Fork":
+    def fork(self, *targets: Event) -> Fork:
         """
         Fork this event into one or more target events.
         Square brackets can be used as a synonym::
@@ -418,12 +592,17 @@ class Event:
             return (c.__self__, c.__func__)
 
         if isinstance(c, types.BuiltinMethodType):
-            if type(c.__self__) is type:
-                # built-in method
-                return (c.__self__, c)
-            else:
-                # built-in function
-                return (None, c)
+            owner = c.__self__
+            if owner is not None and not isinstance(owner, types.ModuleType):
+                # A built-in method bound to an object, e.g. ``a_list.append``:
+                # each access makes a new bound method, so split it into the
+                # object and the class's method descriptor, which has a
+                # stable identity (needed to disconnect it again).
+                descriptor = getattr(type(owner), c.__name__, None)
+                if isinstance(descriptor, types.MethodDescriptorType):
+                    return (owner, descriptor)
+            # a built-in function such as print
+            return (None, c)
 
         if hasattr(c, "__call__"):
             return (c, None)
@@ -469,7 +648,7 @@ class Event:
         if self.done():
             return
 
-        q: asyncio.Queue[Tuple[str, AnyType]] = asyncio.Queue()
+        q: asyncio.Queue[tuple[str, AnyType]] = asyncio.Queue()
         self.connect(on_event, on_error, on_done)
         try:
             while True:
@@ -480,9 +659,7 @@ class Event:
                         if tuples
                         else args[0]
                         if len(args) == 1
-                        else args
-                        if args
-                        else NO_VALUE
+                        else args or NO_VALUE
                     )
                 elif what == "ERROR":
                     raise args
@@ -505,7 +682,7 @@ class Event:
     def __bool__(self):
         return True
 
-    def __getitem__(self, fork_targets) -> "Fork":
+    def __getitem__(self, fork_targets) -> Fork:
         if not hasattr(fork_targets, "__iter__"):
             fork_targets = (fork_targets,)
 
@@ -527,9 +704,7 @@ class Event:
 
         def on_event(*args):
             if not fut.done():
-                fut.set_result(
-                    args[0] if len(args) == 1 else args if args else NO_VALUE
-                )
+                fut.set_result(args[0] if len(args) == 1 else args or NO_VALUE)
 
         def on_error(source, error):
             if not fut.done():
@@ -541,7 +716,7 @@ class Event:
         if self.done():
             raise ValueError("Event already done")
 
-        fut = asyncio.Future()
+        fut: asyncio.Future[AnyType] = asyncio.get_running_loop().create_future()
         self.connect(on_event, on_error)
         fut.add_done_callback(on_future_done)
         return fut.__await__()
@@ -566,12 +741,9 @@ class Event:
 
     def __reduce__(self):
         """
-        Don't pickle slots.
+        Pickle as a new event of the same name: listeners are not pickled.
         """
-        with_error_done_event = (
-            self.error_event is not None or self.done_event is not None
-        )
-        return self.__class__, (self._name, with_error_done_event)
+        return self.__class__, (self._name,)
 
     @staticmethod
     def init(obj, event_names: Iterable):
@@ -615,7 +787,7 @@ class Event:
         raise ValueError(f"Invalid type: {obj}")
 
     @staticmethod
-    def wait(future: Awaitable) -> "Wait":
+    def wait(future: Awaitable) -> Wait:
         """
         Create a new event that emits the value of the
         awaitable when it becomes available and then set this event done.
@@ -628,7 +800,7 @@ class Event:
         return Wait(future)
 
     @staticmethod
-    def aiterate(ait: AsyncIterable) -> "Aiterate":
+    def aiterate(ait: AsyncIterable) -> Aiterate:
         """
         Create a new event that emits the yielded values from the
         asynchronous iterator.
@@ -650,8 +822,8 @@ class Event:
     def sequence(
         values: Iterable,
         interval: float = 0,
-        times: Union[Iterable[float], None] = None,
-    ) -> "Sequence":
+        times: Iterable[float] | None = None,
+    ) -> Sequence:
         """
         Create a new event that emits the given values.
         Supply at most one ``interval`` or ``times``.
@@ -669,8 +841,8 @@ class Event:
         value=NO_VALUE,
         count=1,
         interval: float = 0,
-        times: Union[Iterable[float], None] = None,
-    ) -> "Repeat":
+        times: Iterable[float] | None = None,
+    ) -> Repeat:
         """
         Create a new event that repeats ``value`` a number of ``count`` times.
 
@@ -685,8 +857,8 @@ class Event:
 
     @staticmethod
     def range(
-        *args, interval: float = 0, times: Union[Iterable[float], None] = None
-    ) -> "Range":
+        *args, interval: float = 0, times: Iterable[float] | None = None
+    ) -> Range:
         """
         Create a new event that emits the values from a range.
 
@@ -699,7 +871,7 @@ class Event:
         return Range(*args, interval=interval, times=times)
 
     @staticmethod
-    def timerange(start=0, end=None, step=1) -> "Timerange":
+    def timerange(start=0, end=None, step=1) -> Timerange:
         """
         Create a new event that emits the datetime value, at that datetime,
         from a range of datetimes.
@@ -722,7 +894,7 @@ class Event:
         return Timerange(start, end, step)
 
     @staticmethod
-    def timer(interval: float, count: Union[int, None] = None) -> "Timer":
+    def timer(interval: float, count: int | None = None) -> Timer:
         """
         Create a new timer event that emits at regularly paced intervals
         the number of seconds since starting it.
@@ -735,8 +907,8 @@ class Event:
 
     @staticmethod
     def marble(
-        s: str, interval: float = 0, times: Union[Iterable[float], None] = None
-    ) -> "Marble":
+        s: str, interval: float = 0, times: Iterable[float] | None = None
+    ) -> Marble:
         """
         Create a new event that emits the values from a Rx-type marble string.
 
@@ -751,7 +923,7 @@ class Event:
 
     # dot access to operators
 
-    def filter(self, predicate=bool) -> "Filter":
+    def filter(self, predicate=bool) -> Filter:
         """
         For every source value, apply predicate and re-emit when True.
 
@@ -761,7 +933,7 @@ class Event:
         """
         return Filter(predicate, self)
 
-    def skip(self, count: int = 1) -> "Skip":
+    def skip(self, count: int = 1) -> Skip:
         """
         Drop the first ``count`` values from source and follow the source
         after that.
@@ -771,7 +943,7 @@ class Event:
         """
         return Skip(count, self)
 
-    def take(self, count: int = 1) -> "Take":
+    def take(self, count: int = 1) -> Take:
         """
         Re-emit first ``count`` values from the source and then end.
 
@@ -780,7 +952,7 @@ class Event:
         """
         return Take(count, self)
 
-    def takewhile(self, predicate=bool) -> "TakeWhile":
+    def takewhile(self, predicate=bool) -> TakeWhile:
         """
         Re-emit values from the source until the predicate becomes False
         and then end.
@@ -791,7 +963,7 @@ class Event:
         """
         return TakeWhile(predicate, self)
 
-    def dropwhile(self, predicate=lambda x: not x) -> "DropWhile":
+    def dropwhile(self, predicate=lambda x: not x) -> DropWhile:
         """
         Drop source values until the predicate becomes False and after that
         re-emit everything from the source.
@@ -802,7 +974,7 @@ class Event:
         """
         return DropWhile(predicate, self)
 
-    def takeuntil(self, notifier: "Event") -> "TakeUntil":
+    def takeuntil(self, notifier: Event) -> TakeUntil:
         """
         Re-emit values from the source until the ``notifier`` emits
         and then end. If the notifier ends without any emit then
@@ -813,7 +985,7 @@ class Event:
         """
         return TakeUntil(notifier, self)
 
-    def constant(self, constant) -> "Constant":
+    def constant(self, constant) -> Constant:
         """
         On emit of the source emit a constant value::
 
@@ -824,7 +996,7 @@ class Event:
         """
         return Constant(constant, self)
 
-    def iterate(self, it) -> "Iterate":
+    def iterate(self, it) -> Iterate:
         """
         On emit of the source, emit the next value from an iterator::
 
@@ -839,7 +1011,7 @@ class Event:
         """
         return Iterate(it, self)
 
-    def count(self, start=0, step=1) -> "Count":
+    def count(self, start=0, step=1) -> Count:
         """
         Count and emit the number of source emits::
 
@@ -851,7 +1023,7 @@ class Event:
         """
         return Count(start, step, self)
 
-    def enumerate(self, start=0, step=1) -> "Enumerate":
+    def enumerate(self, start=0, step=1) -> Enumerate:
         """
         Add a count to every source value::
 
@@ -863,7 +1035,7 @@ class Event:
         """
         return Enumerate(start, step, self)
 
-    def timestamp(self) -> "Timestamp":
+    def timestamp(self) -> Timestamp:
         """
         Add a timestamp (from time.time()) to every source value::
 
@@ -874,7 +1046,7 @@ class Event:
         """
         return Timestamp(self)
 
-    def partial(self, *left_args) -> "Partial":
+    def partial(self, *left_args) -> Partial:
         """
         Pad source values with extra arguments on the left::
 
@@ -885,7 +1057,7 @@ class Event:
         """
         return Partial(*left_args, source=self)
 
-    def partial_right(self, *right_args) -> "PartialRight":
+    def partial_right(self, *right_args) -> PartialRight:
         """
         Pad source values with extra arguments on the right::
 
@@ -896,7 +1068,7 @@ class Event:
         """
         return PartialRight(*right_args, source=self)
 
-    def star(self) -> "Star":
+    def star(self) -> Star:
         """
         Unpack a source tuple into positional arguments, similar to the
         star operator::
@@ -907,7 +1079,7 @@ class Event:
         """
         return Star(self)
 
-    def pack(self) -> "Pack":
+    def pack(self) -> Pack:
         """
         Pack positional arguments into a tuple::
 
@@ -917,7 +1089,7 @@ class Event:
         """
         return Pack(self)
 
-    def pluck(self, *selections: Union[int, str]) -> "Pluck":
+    def pluck(self, *selections: int | str) -> Pluck:
         """
         Extract arguments or nested properties from the source values.
 
@@ -947,7 +1119,7 @@ class Event:
         """
         return Pluck(*selections, source=self)
 
-    def map(self, func, timeout=None, ordered=True, task_limit=None) -> "Map":
+    def map(self, func, timeout=None, ordered=True, task_limit=None) -> Map:
         """
         Apply a sync or async function to source values using
         positional arguments::
@@ -958,7 +1130,9 @@ class Event:
 
             emit(a, b, ...) -> emit(await func(a, b, ...))
 
-        In case of timeout or other failure, ``NO_VALUE`` is emitted.
+        When ``func`` raises (or its awaitable fails or times out), the error
+        is emitted on ``error_event`` as ``(this event, exception)`` and no
+        value is emitted.
 
         Args:
             func: The function or coroutine constructor to apply.
@@ -970,11 +1144,71 @@ class Event:
             task_limit: Max number of concurrent tasks, or None for no limit.
 
         ``timeout``, ``ordered`` and ``task_limit`` apply to
-        async functions only.
+        async functions only. To run ``func`` in other threads or
+        processes, see :meth:`poolmap`.
         """
         return Map(func, timeout, ordered, task_limit, source=self)
 
-    def emap(self, constr, joiner: "AddableJoinOp") -> "Emap":
+    def poolmap(
+        self,
+        executor: Executor,
+        func,
+        *,
+        timeout: float | None = None,
+        chunksize: int = 1,
+        ordered: bool = True,
+    ) -> PoolMap:
+        """
+        Apply ``func`` to source values in a :mod:`concurrent.futures`
+        executor, so the work runs in parallel outside the event loop::
+
+            emit(a, b, ...) -> emit(func(a, b, ...))  # run by the executor
+
+        ``executor`` is any :class:`concurrent.futures.Executor`:
+
+        * :class:`~concurrent.futures.ProcessPoolExecutor`: CPU-bound work
+          on all cores (``func`` and the values must be picklable, so
+          ``func`` is a module-level function, not a lambda);
+        * :class:`~concurrent.futures.InterpreterPoolExecutor` (Python
+          3.14+): CPU-bound work in parallel subinterpreters;
+        * :class:`~concurrent.futures.ThreadPoolExecutor`: blocking I/O,
+          or CPU-bound work on a free-threaded Python build;
+        * any other executor with the same interface.
+
+        The executor belongs to the caller, who shuts it down; ``poolmap``
+        only submits to it::
+
+            import bz2
+            from concurrent.futures import ProcessPoolExecutor
+
+            with ProcessPoolExecutor() as pool:
+                sizes = (
+                    ev.Sequence(data).poolmap(pool, bz2.compress)
+                    .map(len).list().run()
+                )
+
+        As with :meth:`map`, an exception raised by ``func`` for a value is
+        emitted on ``error_event`` as ``(this event, exception)`` with no
+        value, and the other values are unaffected.
+
+        Args:
+            executor: The executor that runs ``func``.
+            func: A plain (not async) function.
+            timeout: Seconds a submitted chunk may take; when it is
+                exceeded, ``asyncio.TimeoutError`` is emitted as the error
+                of that chunk, and the chunk is cancelled if it has not
+                started yet. ``None``: no limit.
+            chunksize: Number of source values sent to the executor in one
+                submission. Larger chunks cut the per-call overhead of small
+                tasks (above all with processes); values are held until
+                their chunk is full or the source ends.
+            ordered:
+                * ``True``: results in the order of the source values;
+                * ``False``: results of each chunk as soon as it completes.
+        """
+        return PoolMap(executor, func, timeout, chunksize, ordered, source=self)
+
+    def emap(self, constr, joiner: AddableJoinOp) -> Emap:
         """
         Higher-order event map that creates a new ``Event`` instance
         for every source value::
@@ -990,7 +1224,7 @@ class Event:
         """
         return Emap(constr, joiner, self)
 
-    def mergemap(self, constr) -> "Mergemap":
+    def mergemap(self, constr) -> Mergemap:
         """
         :meth:`emap` that uses :meth:`merge` to combine the nested events::
 
@@ -999,28 +1233,33 @@ class Event:
                 '_1   2  3    4',
                 '__K   L     M   N']
 
-            ev.Range(3).mergemap(lambda v: ev.Marble(marbles[v]))
+            ev.Range(3, interval=1).mergemap(
+                lambda v: ev.Marble(marbles[v], interval=1))
             ->
             ['A', '1', 'K', 'B', '2', 'L', '3', 'C', 'M', '4', 'D', 'N']
         """
         return Mergemap(constr, self)
 
-    def concatmap(self, constr) -> "Concatmap":
+    def concatmap(self, constr) -> Concatmap:
         """
-        :meth:`emap` that uses :meth:`concat` to combine the nested events::
+        :meth:`emap` that uses :meth:`concat` to combine the nested events:
+        each nested event is followed until it ends, then the next one;
+        what a later one emits before its turn is dropped (``1``, ``2``
+        and ``K`` here)::
 
             marbles = [
                 'A    B    C    D',
                 '_       1    2    3    4',
                 '__                  K    L      M   N']
 
-            ev.Range(3).concatmap(lambda v: ev.Marble(marbles[v]))
+            ev.Range(3, interval=1).concatmap(
+                lambda v: ev.Marble(marbles[v], interval=1))
             ->
-            ['A', 'B', '1', '2', '3', 'K', 'L', 'M', 'N']
+            ['A', 'B', 'C', 'D', '3', '4', 'L', 'M', 'N']
         """
         return Concatmap(constr, self)
 
-    def chainmap(self, constr) -> "Chainmap":
+    def chainmap(self, constr) -> Chainmap:
         """
         :meth:`emap` that uses :meth:`chain` to combine the nested events::
 
@@ -1029,13 +1268,14 @@ class Event:
                 '_       1    2    3    4',
                 '__                  K    L      M   N']
 
-            ev.Range(3).chainmap(lambda v: ev.Marble(marbles[v]))
+            ev.Range(3, interval=1).chainmap(
+                lambda v: ev.Marble(marbles[v], interval=1))
             ->
             ['A', 'B', 'C', 'D', '1', '2', '3', '4', 'K', 'L', 'M', 'N']
         """
         return Chainmap(constr, self)
 
-    def switchmap(self, constr) -> "Switchmap":
+    def switchmap(self, constr) -> Switchmap:
         """
         :meth:`emap` that uses :meth:`switch` to combine the nested events::
 
@@ -1044,13 +1284,14 @@ class Event:
                 '_                 K    L      M   N',
                 '__      1    2      3    4'
             ]
-            ev.Range(3).switchmap(lambda v: Event.marble(marbles[v]))
+            ev.Range(3, interval=1).switchmap(
+                lambda v: ev.Marble(marbles[v], interval=1))
             ->
-            ['A', 'B', '1', '2', 'K', 'L', 'M', 'N'])
+            ['A', 'B', '1', '2', 'K', 'L', 'M', 'N']
         """
         return Switchmap(constr, self)
 
-    def reduce(self, func, initializer=NO_VALUE) -> "Reduce":
+    def reduce(self, func, initializer=NO_VALUE) -> Reduce:
         """
         Apply a two-argument reduction function to the previous reduction
         result and the current value and emit the new reduction result.
@@ -1069,19 +1310,19 @@ class Event:
         """
         return Reduce(func, initializer, self)
 
-    def min(self) -> "Min":
+    def min(self) -> Min:
         """
         Minimum value.
         """
         return Min(self)
 
-    def max(self) -> "Max":
+    def max(self) -> Max:
         """
         Maximum value.
         """
         return Max(self)
 
-    def sum(self, start=0) -> "Sum":
+    def sum(self, start=0) -> Sum:
         """
         Total sum.
 
@@ -1090,7 +1331,7 @@ class Event:
         """
         return Sum(start, self)
 
-    def product(self, start=1) -> "Product":
+    def product(self, start=1) -> Product:
         """
         Total product.
 
@@ -1099,27 +1340,25 @@ class Event:
         """
         return Product(start, self)
 
-    def mean(self) -> "Mean":
+    def mean(self) -> Mean:
         """
         Total average.
         """
         return Mean(self)
 
-    def any(self) -> "Any":
+    def any(self) -> Any:
         """
         Test if predicate holds for at least one source value.
         """
         return Any(self)
 
-    def all(self) -> "All":
+    def all(self) -> All:
         """
         Test if predicate holds for all source values.
         """
         return All(self)
 
-    def ema(
-        self, n: Union[int, None] = None, weight: Union[float, None] = None
-    ) -> "Ema":
+    def ema(self, n: int | None = None, weight: float | None = None) -> Ema:
         """
         Exponential moving average.
 
@@ -1132,7 +1371,7 @@ class Event:
         """
         return Ema(n, weight, self)
 
-    def previous(self, count: int = 1) -> "Previous":
+    def previous(self, count: int = 1) -> Previous:
         """
         For every source value, emit the ``count``-th previous value::
 
@@ -1146,7 +1385,7 @@ class Event:
         """
         return Previous(count, self)
 
-    def pairwise(self) -> "Pairwise":
+    def pairwise(self) -> Pairwise:
         """
         Emit ``(previous_source_value, current_source_value)`` tuples.
         Starts emitting on the second source emit::
@@ -1156,13 +1395,13 @@ class Event:
         """
         return Pairwise(self)
 
-    def changes(self) -> "Changes":
+    def changes(self) -> Changes:
         """
         Emit only source values that have changed from the previous value.
         """
         return Changes(self)
 
-    def unique(self, key=None) -> "Unique":
+    def unique(self, key=None) -> Unique:
         """
         Emit only unique values, dropping values that have already
         been emitted.
@@ -1174,19 +1413,19 @@ class Event:
         """
         return Unique(key, self)
 
-    def last(self) -> "Last":
+    def last(self) -> Last:
         """
         Wait until source has ended and re-emit its last value.
         """
         return Last(self)
 
-    def list(self) -> "ListOp":
+    def list(self) -> ListOp:
         """
         Collect all source values and emit as list when the source ends.
         """
         return ListOp(self)
 
-    def deque(self, count=0) -> "Deque":
+    def deque(self, count=0) -> Deque:
         """
         Emit a ``deque`` with the last ``count`` values from the source
         (or less in the lead-in phase).
@@ -1196,7 +1435,7 @@ class Event:
         """
         return Deque(count, self)
 
-    def array(self, count=0) -> "Array":
+    def array(self, count=0) -> Array:
         """
         Emit a numpy array with the last ``count`` values from the source
         (or less in the lead-in phase).
@@ -1206,7 +1445,7 @@ class Event:
         """
         return Array(count, self)
 
-    def chunk(self, size: int) -> "Chunk":
+    def chunk(self, size: int) -> Chunk:
         """
         Chunk values up in lists of equal size. The last chunk can be shorter.
 
@@ -1215,7 +1454,7 @@ class Event:
         """
         return Chunk(size, self)
 
-    def chunkwith(self, timer: "Event", emit_empty: bool = True) -> "ChunkWith":
+    def chunkwith(self, timer: Event, emit_empty: bool = True) -> ChunkWith:
         """
         Emit a chunked list of values when the timer emits.
 
@@ -1225,7 +1464,7 @@ class Event:
         """
         return ChunkWith(timer, emit_empty, self)
 
-    def chain(self, *sources: "Event") -> "Chain":
+    def chain(self, *sources: Event) -> Chain:
         """
         Re-emit from a source until it ends, then move to the next source,
         Repeat until all sources have ended, ending the chain.
@@ -1242,7 +1481,7 @@ class Event:
         """
         return Chain(self, *sources)
 
-    def merge(self, *sources) -> "Merge":
+    def merge(self, *sources) -> Merge:
         """
         Re-emit everything from the source events::
 
@@ -1256,7 +1495,7 @@ class Event:
         """
         return Merge(self, *sources)
 
-    def concat(self, *sources) -> "Concat":
+    def concat(self, *sources) -> Concat:
         """
         Re-emit everything from one source until it ends and then move
         to the next source::
@@ -1271,7 +1510,7 @@ class Event:
         """
         return Concat(self, *sources)
 
-    def switch(self, *sources) -> "Switch":
+    def switch(self, *sources) -> Switch:
         """
         Re-emit everything from one source and move to another source as soon
         as that other source starts to emit::
@@ -1286,11 +1525,12 @@ class Event:
         """
         return Switch(self, *sources)
 
-    def zip(self, *sources) -> "Zip":
+    def zip(self, *sources) -> Zip:
         """
         Zip sources together: The i-th emit has the i-th value from
         each source as positional arguments. Only emits when each source has
-        emtted its i-th value and ends when any source ends::
+        emitted its i-th value, and ends as soon as a source has ended with
+        no value left to pair (no further tuple is possible)::
 
             source 1:    -a----b------------------c------d---e--f---|
             source 2:    --------1-------2-------3---------4-----|
@@ -1302,7 +1542,7 @@ class Event:
         """
         return Zip(self, *sources)
 
-    def ziplatest(self, *sources, partial: bool = True) -> "Ziplatest":
+    def ziplatest(self, *sources, partial: bool = True) -> Ziplatest:
         """
         Emit zipped values with the latest value from each of the
         source events. Emits every time when a source emits::
@@ -1319,7 +1559,7 @@ class Event:
         """
         return Ziplatest(self, *sources, partial=partial)
 
-    def delay(self, delay) -> "Delay":
+    def delay(self, delay) -> Delay:
         """
         Time-shift all source events by a delay::
 
@@ -1333,7 +1573,7 @@ class Event:
         """
         return Delay(delay, self)
 
-    def timeout(self, timeout) -> "Timeout":
+    def timeout(self, timeout) -> Timeout:
         """
         When the source doesn't emit for longer than the timeout period,
         do an empty emit and set this event as done.
@@ -1343,7 +1583,9 @@ class Event:
         """
         return Timeout(timeout, self)
 
-    def throttle(self, maximum, interval, cost_func=None) -> "Throttle":
+    def throttle(
+        self, maximum, interval, cost_func=None, *, inclusive: bool = False
+    ) -> Throttle:
         """
         Limit number of emits per time without dropping values.
         Values that come in too fast are queued and re-emitted as soon
@@ -1357,14 +1599,20 @@ class Event:
         Args:
             maximum: Maximum payload per interval.
             interval: Time interval (in seconds).
-            cost_func: The sum of ``cost_func(value)`` for every
-                source value inside the ``interval`` that is to remain
-                under the ``maximum``. The default is to count every
-                source value as 1.
-        """
-        return Throttle(maximum, interval, cost_func, self)
+            cost_func: The cost of a value; the sum of the costs of the
+                values emitted inside any ``interval`` is limited by
+                ``maximum``. The default is to count every value as 1.
+            inclusive: ``False`` (the default) keeps that sum below the
+                ``maximum``, so ``throttle(10, 1)`` emits at most 9 values
+                per second; ``True`` lets it reach the ``maximum``, so
+                ``throttle(10, 1, inclusive=True)`` emits up to 10.
 
-    def debounce(self, delay, on_first: bool = False) -> "Debounce":
+        Either way, a value whose cost alone exceeds the limit is emitted on
+        its own, once the interval holds no other emits.
+        """
+        return Throttle(maximum, interval, cost_func, self, inclusive=inclusive)
+
+    def debounce(self, delay, on_first: bool = False) -> Debounce:
         """
         Filter out values from the source that happen in rapid succession.
 
@@ -1386,19 +1634,19 @@ class Event:
         """
         return Debounce(delay, on_first, self)
 
-    def copy(self) -> "Copy":
+    def copy(self) -> Copy:
         """
         Create a shallow copy of the source values.
         """
         return Copy(self)
 
-    def deepcopy(self) -> "Deepcopy":
+    def deepcopy(self) -> Deepcopy:
         """
         Create a deep copy of the source values.
         """
         return Deepcopy(self)
 
-    def sample(self, timer: "Event") -> "Sample":
+    def sample(self, timer: Event) -> Sample:
         """
         At the times that the timer emits, sample the value from this
         event and emit the sample.
@@ -1408,13 +1656,13 @@ class Event:
         """
         return Sample(timer, self)
 
-    def errors(self) -> "Errors":
+    def errors(self) -> Errors:
         """
         Emit errors from the source.
         """
         return Errors(self)
 
-    def end_on_error(self) -> "EndOnError":
+    def end_on_error(self) -> EndOnError:
         """
         End on any error from the source.
         """
@@ -1438,14 +1686,6 @@ from .ops.aggregate import (
 from .ops.aggregate import List as ListOp
 from .ops.array import (
     Array,
-    ArrayAll,
-    ArrayAny,
-    ArrayMax,
-    ArrayMean,
-    ArrayMin,
-    ArrayProd,
-    ArrayStd,
-    ArraySum,
 )
 from .ops.combine import (
     AddableJoinOp,
@@ -1498,6 +1738,7 @@ from .ops.transform import (
     Partial,
     PartialRight,
     Pluck,
+    PoolMap,
     Previous,
     Star,
     Switchmap,

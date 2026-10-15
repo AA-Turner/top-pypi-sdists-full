@@ -179,7 +179,6 @@ impl IdleFilter {
         let filename = code
             .getattr(intern!(py, "co_filename"))?
             .extract::<String>()?;
-        // Empty filenames are filtered by inspecting the caller (attrs).
         if filename.is_empty()
             || filters::include_frame(py, &filename, &self.include_frames, &self.ignore_frames)?
         {
@@ -226,10 +225,7 @@ impl IdleFilter {
 
     fn unguarded_idle_event(&self, code: &Bound<'_, PyCode>) -> Py<PyAny> {
         let py = code.py();
-        // Kolo's own threads (and save sections) only disable what the
-        // filters statically exclude: their activity says nothing about the
-        // user code around a session, so it must not count towards disabling
-        // recordable code and dirtying the filter.
+        // Kolo worker events do not count toward disabling recordable code; their exclusion says nothing about user threads.
         let hooks_off = thread_hooks::get() & thread_hooks::OFF != 0;
         let code_id = code.as_ptr() as usize;
         if let Some(events) = self.recordable_events().get_mut(&code_id) {
@@ -254,7 +250,6 @@ impl IdleFilter {
                 recordable_events.insert(code_id, 1);
                 py.None()
             }
-            // Leaving the location enabled is always sound.
             Err(_) => py.None(),
         }
     }
@@ -369,8 +364,6 @@ mod tests {
         ignore: &[&str],
         plugins: &HashMap<String, Vec<PluginProcessor>>,
     ) -> IdleFilter {
-        // Any distinct object stands in for sys.monitoring.DISABLE, which
-        // older Pythons running these tests do not have.
         let disable = PyDict::new(py).into_any().unbind();
         IdleFilter::new(
             &build_finders(include.iter().map(|path| path.to_string()).collect()),
@@ -398,7 +391,6 @@ mod tests {
         Python::attach(|py| {
             let idle = idle_filter(py, &[], &[], &processors(py, "django/db/backends/"));
             let library = function_code(py, "helper", "/venv/lib/site-packages/lib.py");
-            // A plugin candidate by name whose filename the plugin rejects.
             let other_execute = function_code(py, "execute", "/venv/site-packages/x.py");
             let ignored = function_code(py, "helper", "/srv/app/ignored/views.py");
             let idle = IdleFilter {
@@ -450,21 +442,16 @@ mod tests {
             let library = function_code(py, "helper", "/venv/lib/site-packages/lib.py");
             for flag in [thread_hooks::WORKER, thread_hooks::SUSPENDED] {
                 thread_hooks::set(flag, true);
-                // Static exclusions still apply on Kolo's threads...
                 assert!(idle.idle_event(&library).bind(py).is(idle.disable.bind(py)));
-                // ...but their activity never counts towards disabling
-                // recordable code.
                 for _ in 0..=RECORDABLE_EVENTS_BEFORE_DISABLE {
                     assert!(idle.idle_event(&view).bind(py).is_none());
                 }
                 thread_hooks::set(flag, false);
                 assert!(!idle.take_dirty());
             }
-            // A traced thread's count starts from scratch.
             for _ in 0..RECORDABLE_EVENTS_BEFORE_DISABLE {
                 assert!(idle.idle_event(&view).bind(py).is_none());
             }
-            // Once counted, Kolo's threads still don't add to the count.
             thread_hooks::set(thread_hooks::WORKER, true);
             for _ in 0..RECORDABLE_EVENTS_BEFORE_DISABLE {
                 assert!(idle.idle_event(&view).bind(py).is_none());
@@ -483,7 +470,6 @@ mod tests {
             let idle = idle_filter(py, &[], &[], &HashMap::new());
             let view = function_code(py, "view", "/srv/app/views.py");
 
-            // Panic while holding the counts' lock, as a real bug might.
             let result = idle.guarded(py, || {
                 let _counts = idle.recordable_events();
                 panic!("kolo bug")
@@ -491,9 +477,7 @@ mod tests {
 
             assert!(result.bind(py).is_none());
             assert!(!pyo3::PyErr::occurred(py));
-            // The next session restarts events.
             assert!(idle.take_dirty());
-            // Later idle callbacks still work on the poisoned lock.
             assert!(idle.idle_event(&view).bind(py).is_none());
         });
     }

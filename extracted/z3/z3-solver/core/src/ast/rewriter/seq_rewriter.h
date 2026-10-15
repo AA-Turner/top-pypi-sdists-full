@@ -87,6 +87,7 @@ class seq_rewriter {
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
     bool m_coalesce_chars = true;
+    unsigned m_max_power_expansion = 2;
     bool           m_in_bisim { false };   
     unsigned       m_re_deriv_depth { 0 };
     static const unsigned m_max_re_deriv_depth = 512;
@@ -148,6 +149,7 @@ class seq_rewriter {
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
+    br_status mk_seq_power(expr* a, expr* b, expr_ref& result);
     expr_ref mk_len(rational const& offset, expr_ref_vector const& xs);
     bool extract_pop_suffix(expr_ref_vector const& as, expr* b, expr* c, expr_ref& result);
     bool extract_push_offset(expr_ref_vector const& as, expr* b, expr* c, expr_ref& result);
@@ -280,6 +282,7 @@ public:
         m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m),
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m) {
+        updt_params(p);
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
@@ -334,6 +337,58 @@ public:
         return result;
     }
 
+    expr_ref mk_to_re(expr* a) {
+        expr_ref result(m());
+        if (mk_str_to_regexp(a, result) == BR_FAILED)
+            result = re().mk_to_re(a);
+        return result;
+    }
+
+    expr_ref mk_star(expr* a) {
+        expr_ref result(m());
+        if (mk_re_star(a, result) == BR_FAILED)
+            result = re().mk_star(a);
+        return result;
+    }
+
+    expr_ref mk_plus(expr* a) {
+        expr_ref result(m());
+        if (mk_re_plus(a, result) == BR_FAILED)
+            result = re().mk_plus(a);
+        return result;
+    }
+
+    expr_ref mk_opt(expr* a) {
+        expr_ref result(m());
+        if (mk_re_opt(a, result) == BR_FAILED)
+            result = re().mk_opt(a);
+        return result;
+    }
+
+    expr_ref mk_loop(expr* a, unsigned lo) {
+        app_ref loop(re().mk_loop(a, lo), m());
+        return mk_app(loop->get_decl(), loop->get_num_args(), loop->get_args());
+    }
+
+    expr_ref mk_loop(expr* a, unsigned lo, unsigned hi) {
+        app_ref loop(re().mk_loop(a, lo, hi), m());
+        return mk_app(loop->get_decl(), loop->get_num_args(), loop->get_args());
+    }
+
+    expr_ref mk_diff(expr* a, expr* b) {
+        expr_ref result(m());
+        if (mk_re_diff(a, b, result) == BR_FAILED)
+            result = re().mk_diff(a, b);
+        return result;
+    }
+
+    expr_ref mk_reverse(expr* a) {
+        expr_ref result(m());
+        if (mk_re_reverse(a, result) == BR_FAILED)
+            result = re().mk_reverse(a);
+        return result;
+    }
+
     /*
     * makes concat and simplifies
     */
@@ -356,7 +411,12 @@ public:
         return result;
     }
 
-    expr_ref mk_seq_reverse(expr* s);
+    /**
+     * Reverse a concrete sequence, i.e. a concatenation of str.unit terms and string
+     * literals. Returns false if some element is neither, because sequences have no
+     * reverse operator to fall back on and the reverse is then not expressible.
+     */
+    bool mk_seq_reverse(expr* s, expr_ref& result);
 
     /**
      * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences

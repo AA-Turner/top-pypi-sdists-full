@@ -320,7 +320,11 @@ def init(
         from . import probe_config as _probe_config
 
         hit = _exclusions.run_excluded()
-        if hit is not None:
+        if hit is not None and hit[1].identity_only:
+            # `hash`: the run opens (V9) and records metrics, config and file
+            # identities; no bytes, and no console log (`outputs.log_enabled`).
+            _exclusions.warn(_exclusions.say(_probe_config.INIT_HASH_ONLY, *hit))
+        elif hit is not None:
             _exclusions.warn(_exclusions.say(_probe_config.INIT_EXCLUDED, *hit))
             run_mode = Mode.DISABLED
     if run_mode is Mode.OFFLINE:

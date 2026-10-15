@@ -90,7 +90,7 @@ def dedup_upserts(df, key, label=""):
 
 
 def load_outlook(db_path, table, *, model=None, extra_columns=(),
-                 require_obs=False, validate_ci=False):
+                 text_columns=(), require_obs=False, validate_ci=False):
     """Read one crop table's outlook rows with the shared cleanup applied.
 
     Parameters
@@ -102,6 +102,9 @@ def load_outlook(db_path, table, *, model=None, extra_columns=(),
         Optional numeric DB columns to carry along, e.g. ``Area (ha)`` or the
         CI bounds. Columns absent from the table are backfilled with NaN so
         callers never have to probe for them.
+    text_columns : tuple of str
+        Optional columns carried along as they are (``Country``, ``Crop``):
+        the numeric coercion of ``extra_columns`` would blank them.
     require_obs : bool
         Drop rows without an observed yield. Skill scoring needs the truth on
         every row (leadtime); the cone must NOT set this because the live
@@ -115,7 +118,8 @@ def load_outlook(db_path, table, *, model=None, extra_columns=(),
             f'"{PRED}"', f'"{OBS}"']
     # Date/Time are always fetched, whatever the caller asked for: the
     # de-duplication below needs them to decide which of two writes is fresh.
-    optional = ("Stage Window Display",) + tuple(extra_columns) + ("Date", "Time")
+    optional = (("Stage Window Display",) + tuple(extra_columns)
+                + tuple(text_columns) + ("Date", "Time"))
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         present = pd.read_sql(f'PRAGMA table_info("{table}")', con)["name"].tolist()
@@ -148,8 +152,14 @@ def load_outlook(db_path, table, *, model=None, extra_columns=(),
     # Duplicates double-weight a region in every aggregate and make the
     # cone's full-pool calibration filters reject every year — silently.
     # Model is part of the key because leadtime loads every model at once; a
-    # model-free key would "dedup" cubist against tabpfn.
-    df = dedup_upserts(df, ["Model", "Region", "year", "stage"], table)
+    # model-free key would "dedup" cubist against tabpfn. Country joins the
+    # key when it was asked for: a pooled table holds the same region name
+    # under two countries ("Northern" in Malawi and Zambia), and a
+    # country-free key would keep one of them.
+    key = ["Model", "Region", "year", "stage"]
+    if "Country" in text_columns:
+        key.append("Country")
+    df = dedup_upserts(df, key, table)
     df = df.copy()
 
     if validate_ci:

@@ -157,7 +157,9 @@ def test_ignore_check(home, monkeypatch, capsys):
     rows = json.loads(capsys.readouterr().out)
     assert rows[0]["excluded"] is True and rows[0]["source"].endswith(".probe.config:2 (*.ckpt)")
     assert rows[0]["level"] == "off"
-    assert rows[1] == {"path": rows[1]["path"], "level": "on", "excluded": False, "source": None, "at": None}
+    assert rows[1] == {
+        "path": rows[1]["path"], "level": "on", "excluded": False, "identity_only": False, "source": None, "at": None,
+    }
 
 
 def test_ignore_check_prints_each_level_and_its_line(home, monkeypatch, capsys):

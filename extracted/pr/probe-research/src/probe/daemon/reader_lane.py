@@ -340,7 +340,7 @@ class ReaderLane:
         about READ_MAX_CHARS as rendered (at least one): one window, oldest first."""
         out, used = [], 0
         for ev in self.store.events_after(self.cursor() if after is None else after, READ_MAX_EVENTS):
-            used += bite_mod.shown_chars(ev)
+            used += bite_mod.reader_shown_chars(ev)
             if out and used > READ_MAX_CHARS:
                 break
             out.append(ev)
@@ -353,7 +353,7 @@ class ReaderLane:
         skipped backlog before it as still fits."""
         out, used = [], 0
         for ev in reversed(self.store.events_upto(self.cursor(), last, READ_MAX_EVENTS)):
-            used += bite_mod.shown_chars(ev)
+            used += bite_mod.reader_shown_chars(ev)
             if out and used > READ_MAX_CHARS:
                 break
             out.append(ev)
@@ -364,6 +364,11 @@ class ReaderLane:
             return None
         if self.store.waiting_read_asks():
             return "ask"
+        if self._catching_up():
+            # The session's first worker is still reading the history it found: its
+            # judgment moves this cursor to the current turn (`Worker._catch_up`).
+            # An ask is answered meanwhile, on no events (`run_turn`).
+            return None
         paused = getattr(self.w, "paused", None)
         if paused is not None and paused():
             # The ML gate paused the daemon (not ML work): no unasked turn. The
@@ -378,11 +383,15 @@ class ReaderLane:
             return None
         # Anywhere in the backlog: a prompt past the first READ_MAX_EVENTS still wakes
         # the reader, which then reads its way to it turn by turn.
-        if self.store.has_prompt_after(mark):
+        if self.store.has_prompt_after(mark, new=True):
             return "prompt"
         if READ_EVERY_S > 0 and self.clock() - self.last_turn_at >= READ_EVERY_S:
             return "events"
         return None
+
+    def _catching_up(self) -> bool:
+        catching_up = getattr(self.w, "catching_up", None)
+        return catching_up is not None and catching_up()
 
     def _skip_to_turn_start(self) -> None:
         start = self.store.first_seq_of_turn(self.store.current_turn())
@@ -481,7 +490,7 @@ class ReaderLane:
             if sent:
                 parts.append(SENT_HEADER + "\n" + "\n".join(f"- {_clip(text, SENT_CHARS)}" for text in reversed(sent)))
         if events:
-            parts.append(DIVIDER + "\n\n" + "\n\n".join(bite_mod.render(ev) for ev in events))
+            parts.append(DIVIDER + "\n\n" + "\n\n".join(bite_mod.render_for_reader(ev) for ev in events))
         if question is not None:
             parts.append(ASK_LINE.format(question=question))
         return "\n\n".join(parts) or DIVIDER
@@ -508,7 +517,14 @@ class ReaderLane:
                 # Started, but no turn has saved yet (every one so far failed): the
                 # same fresh start, not another row per failed turn.
                 return int(live["id"]), None
-            if int(live["compactions"] or 0) < _compactions_before_fresh():
+            # A conversation an older CLI compacted (a summary at its head) starts
+            # fresh once: the reader no longer compacts, so nothing keeps that head
+            # in a shape every model accepts (`agent.user_turn_first`).
+            if int(live["compactions"] or 0):
+                log.info("reader: starting fresh: the conversation was compacted by an older CLI")
+                with self.store.tx():
+                    self.store.end_read_conversation(int(live["id"]), "compacted by an older CLI: started fresh")
+            else:
                 try:
                     return int(live["id"]), ModelMessagesTypeAdapter.validate_json(live["messages"])
                 except Exception as exc:  # noqa: BLE001 -- unreadable: a fresh start
@@ -532,21 +548,42 @@ class ReaderLane:
         asks = self.store.waiting_read_asks()
         ask = asks[0] if asks else None
         if events is None:
-            events = self.new_events()
+            # An ask while the first worker still reads the session's history: answered
+            # on no events, the cursor where it is (the history is judged first).
+            events = [] if self._catching_up() else self.new_events()
         instructions = read_session_text()
-        conv, history = self._history(instructions, self._fingerprint(instructions))
+        fingerprint = self._fingerprint(instructions)
+        size = agent_mod.read_context_tokens()
+        conv, history = self._history(instructions, fingerprint)
         prompt = self.build_prompt(events, ask["question"] if ask else None, first=history is None)
+        why_fresh = None
+        if history is not None:
+            try:
+                why_fresh = _over_size(history, prompt, size)
+            except Exception as exc:  # noqa: BLE001 -- an unsized history is kept, as before
+                log.warning("reader: could not size the conversation: %s", exc)
+        if why_fresh is not None:
+            # Rule A at the start of a turn: the new events would take the kept
+            # conversation past its size, where a summary call would run first --
+            # 140-310 s on gpt-6.1-sol, inside the turn's time, so one retry cut the
+            # turn with nothing read (strand-ai, 2026-10-14). The reader never
+            # compacts; this turn starts the conversation fresh instead.
+            log.info("reader: starting fresh: %s", why_fresh)
+            with self.store.tx():
+                self.store.end_read_conversation(conv, why_fresh)
+                conv = self.store.start_read_conversation(instructions, fingerprint)
+            history = None
+            prompt = self.build_prompt(events, ask["question"] if ask else None, first=True)
         last_seq = events[-1].seq if events else self.cursor()
         with self.store.tx():
             turn_id = self.store.open_read_turn(trigger, ask["id"] if ask else None,
                                                 events[0].seq if events else None, last_seq)
 
-        state = agent_mod.ReaderState(conversation=True, summary_prompt=agent_mod.READER_SUMMARY_PROMPT,
-                                      context_tokens=agent_mod.read_context_tokens(),
+        state = agent_mod.ReaderState(conversation=True, context_tokens=size,
                                       ask=ask["id"] if ask else None, started=time.monotonic(),
                                       trace=self.trace)
         self.trace.start_run(turn_id, trigger=trigger, ask=ask["id"] if ask else None,
-                             history_messages=len(history or []),
+                             history_messages=len(history or []), fresh=why_fresh,
                              events=[events[0].seq if events else None, last_seq],
                              gate=str(gate.decision) if gate is not None else None)
         # The gate's call is part of what this wake cost.
@@ -657,11 +694,10 @@ class ReaderLane:
         self.failures = 0
         self.last_turn_at = self.clock()
         self.next_attempt_at = 0.0
-        # The turn ended over the size: the next turn would compact (a summary call
-        # and a re-cache of the whole history) -- every turn, when one turn adds
-        # about as much as compaction takes off. Starting fresh costs neither, and
-        # the fresh turn is told what was already sent (Richard 2026-10-07, rule A:
-        # $3.60 vs $6.36 an active hour on the 40K reader bench, recall equal).
+        # The turn ended over the size: the next turn starts fresh -- told what was
+        # already sent -- never a summary call and a re-cache of the whole history
+        # (Richard 2026-10-07, rule A: $3.60 vs $6.36 an active hour on the 40K
+        # reader bench, recall equal).
         too_big = _too_big(seen.get("run"), state.context_tokens)
         why = stopped or state.limit_why or state.detector.tripped
         write_status(self.sid, Status.TURN_STOPPED if why else Status.OK, why or "")
@@ -734,12 +770,6 @@ class ReaderLane:
         return TurnResult(Outcome.FAILED)
 
 
-def _compactions_before_fresh() -> int:
-    from probe.daemon import worker as worker_mod
-
-    return worker_mod.COMPACTIONS_BEFORE_FRESH
-
-
 def _clip(text: str, limit: int) -> str:
     text = " ".join((text or "").split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
@@ -760,12 +790,30 @@ def _last_prompt_tokens(run: Any) -> int | None:
     return None
 
 
+def _over_size(history: list, prompt: str, size: int) -> str | None:
+    """Why a kept conversation must start fresh before this turn, or None: with
+    the turn's prompt it is over the size -- the provider's count of the last
+    answer's request plus an estimate of what came after it, as compaction would
+    have judged it -- or over the message count the model route refuses near."""
+    from pydantic_ai.messages import ModelRequest, UserPromptPart
+    from pydantic_ai_harness.compaction import estimate_context_tokens
+
+    messages = [*history, ModelRequest(parts=[UserPromptPart(prompt)])]
+    tokens = estimate_context_tokens(messages)
+    if size > 0 and tokens > size:
+        return f"this turn would be about {tokens:,} tokens, over the size ({size:,})"
+    wire = agent_mod.wire_messages(messages)
+    if wire > agent_mod.COMPACT_MESSAGES:
+        return f"this turn would be {wire:,} messages, over {agent_mod.COMPACT_MESSAGES:,}"
+    return None
+
+
 def _too_big(run: Any, size: int, exc: BaseException | None = None) -> str | None:
     """Why the reader's conversation must start fresh next turn, or None: the
     request was refused as too long (or, through Probe's route, refused as sent,
     or refused by the route itself: a 400, such as more than 2,000 messages), or
-    the turn ended over the size or over the message count compaction runs at
-    (rule A: fresh, not a summary call at the start of the next turn)."""
+    the turn ended over the size or over the message count the route refuses
+    near (rule A: fresh, never a summary call)."""
     if exc is not None:
         status = getattr(exc, "status_code", None)
         body = str(getattr(exc, "body", "") or "")

@@ -532,6 +532,14 @@ async def execute_ai_request(
     if holding is not None:
         return await holding.answer(config, metadata)
 
+    # TOOL READINESS: a turn that carries registered tools never runs on an
+    # unloaded registry (that was a silent zero-tool turn). Load on demand,
+    # bounded; if that fails the provider boundary refuses the turn loudly.
+    if config.tools:
+        from matrx_ai.tools.handle_tool_calls import ensure_tool_system_ready
+
+        await ensure_tool_system_ready(route="execute_ai_request")
+
     # THE RUN RECORD for an AGENT-held code call (AF-R): the call is its own
     # run — its own conversation, linked to the one it ran inside — never a
     # turn written into the surrounding chat or the parent run's record. A
@@ -560,7 +568,8 @@ async def execute_ai_request(
         # non-standard type (workflow, scheduled, ...).
         held_type = getattr(ctx, "conversation_type", None) or "standard"
         if held_type == "standard":
-            held_type = "subagent"
+            # "subagent" means "has a parent conversation"; a root held call is ``auto``.
+            held_type = "subagent" if surrounding else "auto"
         token = set_app_context(
             ctx.with_overrides(
                 conversation_id=own_conversation_id,

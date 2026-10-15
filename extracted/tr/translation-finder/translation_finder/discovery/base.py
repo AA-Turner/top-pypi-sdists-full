@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import fnmatch
 import re
+import warnings
+from dataclasses import dataclass, fields
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -18,7 +20,7 @@ from weblate_language_data.language_codes import LANGUAGES
 
 from translation_finder.data import LANGUAGES_BLACKLIST
 
-from .result import DiscoveryCandidate, DiscoveryResult
+from .result import DiscoveryCandidate, DiscoveryLimit, DiscoveryResult
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -35,6 +37,174 @@ LOCALES = {"latn", "cyrl", "hant", "hans"}
 FORMAT_SNIFF_MAX_BYTES = 1024 * 1024
 FORMAT_SNIFF_MAX_FILES = 10
 ENCODING_SNIFF_MAX_FILES = 10
+DISCOVERY_SNIFF_MAX_BYTES = 64 * 1024 * 1024
+DISCOVERY_SNIFF_MAX_FILES = 512
+DISCOVERY_MAX_CANDIDATES = 4096
+DISCOVERY_MAX_RESULTS = 4096
+DISCOVERY_MAX_NEW_BASE_CHECKS = 65_536
+MAX_MASKS_PER_PATH = 32
+DISCOVERY_TRUNCATED_MESSAGE = (
+    "Translation discovery reached its resource limit; results may be incomplete"
+)
+
+
+@dataclass(frozen=True)
+class DiscoveryLimits:
+    """Discovery resource bounds; None disables an individual limit."""
+
+    max_candidates: int | None = DISCOVERY_MAX_CANDIDATES
+    max_results: int | None = DISCOVERY_MAX_RESULTS
+    max_new_base_checks: int | None = DISCOVERY_MAX_NEW_BASE_CHECKS
+    max_masks_per_path: int | None = MAX_MASKS_PER_PATH
+    sniff_max_bytes: int | None = DISCOVERY_SNIFF_MAX_BYTES
+    sniff_max_files: int | None = DISCOVERY_SNIFF_MAX_FILES
+
+    def __post_init__(self) -> None:
+        """Reject negative resource bounds."""
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if value is not None and value < 0:
+                msg = f"{field.name} must be nonnegative or None"
+                raise ValueError(msg)
+
+    @classmethod
+    def unlimited(cls) -> DiscoveryLimits:
+        """Disable discovery budgets, retaining internal parser safeguards."""
+        return cls(**dict.fromkeys(field.name for field in fields(cls)))
+
+
+class DiscoveryBudget:
+    """Bound path-derived work across one discovery run."""
+
+    def __init__(
+        self,
+        candidates: int | None = DISCOVERY_MAX_CANDIDATES,
+        new_base_checks: int | None = DISCOVERY_MAX_NEW_BASE_CHECKS,
+        masks_per_path: int | None = MAX_MASKS_PER_PATH,
+    ) -> None:
+        self.max_masks_per_path = masks_per_path
+        self.remaining_candidates = candidates
+        self.remaining_new_base_checks = new_base_checks
+        self.limit_reasons: set[DiscoveryLimit] = set()
+
+    @property
+    def truncated(self) -> bool:
+        """Whether a resource limit might have made results incomplete."""
+        return bool(self.limit_reasons)
+
+    def reach_limit(self, reason: DiscoveryLimit) -> None:
+        """Record that a resource limit affected discovery."""
+        self.limit_reasons.add(reason)
+
+    @property
+    def exhausted(self) -> bool:
+        """Whether another candidate can be generated."""
+        return self.remaining_candidates is not None and self.remaining_candidates <= 0
+
+    def consume_candidate(self) -> bool:
+        """Consume one generated candidate when capacity remains."""
+        if self.exhausted:
+            self.reach_limit(DiscoveryLimit.CANDIDATES)
+            return False
+        if self.remaining_candidates is not None:
+            self.remaining_candidates -= 1
+        return True
+
+    def consume_new_base_check(self) -> bool:
+        """Consume one new-base lookup when capacity remains."""
+        if (
+            self.remaining_new_base_checks is not None
+            and self.remaining_new_base_checks <= 0
+        ):
+            self.reach_limit(DiscoveryLimit.NEW_BASE_CHECKS)
+            return False
+        if self.remaining_new_base_checks is not None:
+            self.remaining_new_base_checks -= 1
+        return True
+
+
+class SniffBudget:
+    """Bound content sniffing and optionally charge a parent budget."""
+
+    def __init__(
+        self,
+        max_bytes: int | None,
+        max_files: int | None,
+        *,
+        parent: SniffBudget | None = None,
+    ) -> None:
+        self.remaining_bytes = max_bytes
+        self.remaining_files = max_files
+        self.parent = parent
+
+    @property
+    def exhausted(self) -> bool:
+        """Whether another file can be inspected."""
+        return (
+            (self.remaining_bytes is not None and self.remaining_bytes <= 0)
+            or (self.remaining_files is not None and self.remaining_files <= 0)
+            or (self.parent is not None and self.parent.exhausted)
+        )
+
+    def read(
+        self,
+        finder: Finder,
+        path: PurePath,
+        size: int = FORMAT_SNIFF_MAX_BYTES,
+    ) -> tuple[bytes, bool] | None:
+        """Read one sample and charge it to this and all parent budgets."""
+        allowance = self.reserve(size)
+        if allowance is None:
+            return None
+
+        if not hasattr(path, "open"):
+            return None
+        try:
+            with finder.open(path, "rb") as handle:
+                content = handle.read(allowance + 1)
+        except (OSError, TypeError):
+            return None
+
+        sample = content[:allowance]
+        self.charge(len(sample))
+        return sample, len(content) <= allowance
+
+    def reserve(self, size: int) -> int | None:
+        """Reserve one file attempt and return the available byte allowance."""
+        budgets = [self]
+        parent = self.parent
+        while parent is not None:
+            budgets.append(parent)
+            parent = parent.parent
+
+        if any(budget.exhausted for budget in budgets):
+            return None
+
+        allowance = min(
+            [
+                size,
+                *[
+                    budget.remaining_bytes
+                    for budget in budgets
+                    if budget.remaining_bytes is not None
+                ],
+            ]
+        )
+        for budget in budgets:
+            if budget.remaining_files is not None:
+                budget.remaining_files -= 1
+        return allowance
+
+    def charge(self, size: int) -> None:
+        """Charge sampled bytes to this and all parent budgets."""
+        budgets = [self]
+        parent = self.parent
+        while parent is not None:
+            budgets.append(parent)
+            parent = parent.parent
+        for budget in budgets:
+            if budget.remaining_bytes is not None:
+                budget.remaining_bytes -= size
 
 
 def _replace_with_wildcard(found: re.Match[str], *, wildcard: str) -> str:
@@ -134,10 +304,41 @@ class BaseDiscovery:
     def __init__(self, finder: Finder, source_language: str = "en") -> None:
         self.finder: Finder = finder
         self.source_language: str = source_language
+        self._run_discovery_budget: DiscoveryBudget | None = None
+        self._run_sniff_budget: SniffBudget | None = None
         self._new_base_by_directory: dict[str, tuple[int, PurePath]] | None = None
         self._new_base_by_name: dict[tuple[str, str], tuple[int, PurePath]] | None = (
             None
         )
+        self._new_bases_by_name: (
+            dict[str, list[tuple[str, tuple[int, PurePath]]]] | None
+        ) = None
+        self._new_base_fallback_cache: dict[str, str | None] = {}
+
+    def _set_run_discovery_budget(self, budget: DiscoveryBudget) -> None:
+        """Use a shared candidate budget for this discovery run."""
+        self._run_discovery_budget = budget
+
+    def _set_run_sniff_budget(self, budget: SniffBudget) -> None:
+        """Use a shared content-sniffing budget for this discovery run."""
+        self._run_sniff_budget = budget
+
+    def _new_sniff_budget(
+        self,
+        max_bytes: int = FORMAT_SNIFF_MAX_BYTES,
+        max_files: int = FORMAT_SNIFF_MAX_FILES,
+    ) -> SniffBudget:
+        """Create a local sniffing budget linked to the current run."""
+        return SniffBudget(max_bytes, max_files, parent=self._run_sniff_budget)
+
+    def _read_run_sniff_sample(
+        self,
+        path: PurePath,
+        size: int = FORMAT_SNIFF_MAX_BYTES,
+    ) -> tuple[bytes, bool] | None:
+        """Read a sample charged directly to the current run."""
+        budget = self._run_sniff_budget or SniffBudget(size, 1)
+        return budget.read(self.finder, path, size)
 
     @staticmethod
     def is_country_code(code: str) -> bool:
@@ -222,35 +423,72 @@ class BaseDiscovery:
                 basename = basename.replace(replacement_match, replacement)
         new_name = self.new_base_mask.replace("*", basename).lower()
 
-        best_result = None
-        new_base_by_directory, new_base_by_name = self._index_new_bases()
+        best_result: str | None = None
+        new_base_by_directory, _new_base_by_name = self._index_new_bases()
+        if not new_base_by_directory:
+            return
+
+        directory_signature = path.rsplit("/", 1)[0] if "/" in path else ""
+        exact_complete, exact_result = self._find_exact_new_base(
+            directory_signature, new_name
+        )
+        if not exact_complete:
+            return
+        if exact_result is not None:
+            result["new_base"] = exact_result
+            return
+
+        cached_fallback = self._new_base_fallback_cache.get(directory_signature, ...)
+        if cached_fallback is not ...:
+            if isinstance(cached_fallback, str):
+                result["new_base"] = cached_fallback
+            return
 
         while "/" in path:
+            if (
+                self._run_discovery_budget is not None
+                and not self._run_discovery_budget.consume_new_base_check()
+            ):
+                return
             path = path.rsplit("/", 1)[0]
             path_wild = path.replace("*", "")
             directories = {path, path_wild}
-            exact_matches = (
-                new_base_by_name[directory, new_name]
+            fallback_matches = (
+                new_base_by_directory[directory]
                 for directory in directories
-                if (directory, new_name) in new_base_by_name
+                if directory in new_base_by_directory
             )
-            exact_match = min(exact_matches, default=None)
-            if exact_match is not None:
-                result["new_base"] = "/".join(exact_match[1].parts)
-                return
+            fallback_match = min(fallback_matches, default=None)
+            if fallback_match is not None:
+                best_result = "/".join(fallback_match[1].parts)
+                break
 
-            if best_result is None:
-                fallback_matches = (
-                    new_base_by_directory[directory]
-                    for directory in directories
-                    if directory in new_base_by_directory
-                )
-                fallback_match = min(fallback_matches, default=None)
-                if fallback_match is not None:
-                    best_result = "/".join(fallback_match[1].parts)
+        self._new_base_fallback_cache[directory_signature] = best_result
 
         if best_result is not None:
             result["new_base"] = best_result
+
+    def _find_exact_new_base(
+        self, directory_signature: str, new_name: str
+    ) -> tuple[bool, str | None]:
+        """Find the nearest exact new base without walking every ancestor."""
+        candidates = (self._new_bases_by_name or {}).get(new_name, ())
+        if not candidates:
+            return True, None
+
+        path_wild = directory_signature.replace("*", "")
+        for directory, candidate in candidates:
+            if (
+                self._run_discovery_budget is not None
+                and not self._run_discovery_budget.consume_new_base_check()
+            ):
+                return False, None
+            if any(
+                path == directory or path.startswith(f"{directory}/")
+                for path in (directory_signature, path_wild)
+            ):
+                return True, "/".join(candidate[1].parts)
+        return True, None
 
     def _index_new_bases(
         self,
@@ -259,9 +497,14 @@ class BaseDiscovery:
         dict[tuple[str, str], tuple[int, PurePath]],
     ]:
         """Index possible new-base files for repeated constant-time lookups."""
-        if self._new_base_by_directory is None or self._new_base_by_name is None:
+        if (
+            self._new_base_by_directory is None
+            or self._new_base_by_name is None
+            or self._new_bases_by_name is None
+        ):
             self._new_base_by_directory = {}
             self._new_base_by_name = {}
+            self._new_bases_by_name = {}
             if self.new_base_mask is not None:
                 for position, match in enumerate(
                     self.finder.filter_masks(self.new_base_mask)
@@ -269,9 +512,19 @@ class BaseDiscovery:
                     directory = "/".join(match.parts[:-1]).lower()
                     candidate = (position, match)
                     self._new_base_by_directory.setdefault(directory, candidate)
-                    self._new_base_by_name.setdefault(
-                        (directory, match.parts[-1].lower()),
-                        candidate,
+                    name = match.parts[-1].lower()
+                    key = (directory, name)
+                    if key not in self._new_base_by_name:
+                        self._new_base_by_name[key] = candidate
+                        self._new_bases_by_name.setdefault(name, []).append(
+                            (directory, candidate)
+                        )
+                for candidates in self._new_bases_by_name.values():
+                    candidates.sort(
+                        key=lambda item: (
+                            -(item[0].count("/") + bool(item[0])),
+                            item[1][0],
+                        )
                     )
 
         return self._new_base_by_directory, self._new_base_by_name
@@ -360,30 +613,46 @@ class BaseDiscovery:
         self, *, eager: bool = False, hint: str | None = None
     ) -> Generator[DiscoveryResult]:
         """Yield translation configurations matching this discovery."""
+        owns_budget = self._run_discovery_budget is None
+        budget = self._run_discovery_budget or DiscoveryBudget()
+        if owns_budget:
+            self._run_discovery_budget = budget
         candidates: dict[str, DiscoveryCandidate] = {}
-        for candidate in self.get_masks(eager=eager, hint=hint):
-            filemask = candidate.result["filemask"]
-            if filemask in candidates:
-                candidates[filemask].merge_paths(candidate.paths)
-            else:
-                candidates[filemask] = candidate
+        try:
+            for candidate in self.get_masks(eager=eager, hint=hint):
+                if not budget.consume_candidate():
+                    break
+                filemask = candidate.result["filemask"]
+                if filemask in candidates:
+                    candidates[filemask].merge_paths(candidate.paths)
+                else:
+                    candidates[filemask] = candidate
 
-        for candidate in candidates.values():
-            result = candidate.result
-            self.fill_in_template(result)
-            if self.requires_template and "template" not in result:
-                continue
-            self.adjust_format(candidate)
-            self.fill_in_new_base(result)
-            self.fill_in_file_format(result)
-            self.fill_in_file_format_params(result)
-            if not self.include_candidate(candidate, eager=eager):
-                continue
-            discovery_result = DiscoveryResult(result)
-            discovery_result.meta["discovery"] = self.__class__.__name__
-            discovery_result.meta["origin"] = self.origin
-            discovery_result.meta["priority"] = self.priority
-            yield discovery_result
+            for candidate in candidates.values():
+                result = candidate.result
+                self.fill_in_template(result)
+                if self.requires_template and "template" not in result:
+                    continue
+                self.adjust_format(candidate)
+                self.fill_in_new_base(result)
+                self.fill_in_file_format(result)
+                self.fill_in_file_format_params(result)
+                if not self.include_candidate(candidate, eager=eager):
+                    continue
+                discovery_result = DiscoveryResult(result)
+                discovery_result.meta["discovery"] = self.__class__.__name__
+                discovery_result.meta["origin"] = self.origin
+                discovery_result.meta["priority"] = self.priority
+                yield discovery_result
+        finally:
+            if owns_budget:
+                self._run_discovery_budget = None
+                if budget.truncated:
+                    warnings.warn(
+                        DISCOVERY_TRUNCATED_MESSAGE,
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
 
     @property
     def masks_list(self) -> tuple[str, ...]:
@@ -425,21 +694,40 @@ class BaseDiscovery:
                 yield DiscoveryCandidate(result, [path])
                 continue
             skip = set()
+            generated_masks = 0
             for pos, part in enumerate(parts):
                 if pos in skip:
                     continue
                 wildcard = self.get_wildcard(part)
                 if wildcard:
+                    mask_limit = (
+                        self._run_discovery_budget.max_masks_per_path
+                        if self._run_discovery_budget is not None
+                        else MAX_MASKS_PER_PATH
+                    )
+                    if mask_limit is not None and generated_masks >= mask_limit:
+                        if self._run_discovery_budget is not None:
+                            self._run_discovery_budget.reach_limit(
+                                DiscoveryLimit.MASKS_PER_PATH
+                            )
+                        else:
+                            warnings.warn(
+                                DISCOVERY_TRUNCATED_MESSAGE,
+                                RuntimeWarning,
+                                stacklevel=2,
+                            )
+                        break
                     mask_parts = parts.copy()
                     match = re.compile(f"(^|[._-]){re.escape(part)}($|[._-])")
                     for i, current in enumerate(mask_parts):
-                        if match.findall(current):
+                        if match.search(current):
                             skip.add(i)
                             mask_parts[i] = match.sub(
                                 partial(_replace_with_wildcard, wildcard=wildcard),
                                 current,
                             )
                     mask_parts[pos] = wildcard
+                    generated_masks += 1
                     yield DiscoveryCandidate({"filemask": "/".join(mask_parts)}, [path])
 
 
@@ -511,24 +799,21 @@ class EncodingDiscovery(BaseDiscovery):
 
     def detect_encoding(self, candidate: DiscoveryCandidate) -> str | None:
         """Detect file encoding and translate it to a Weblate parameter value."""
-        remaining_bytes = FORMAT_SNIFF_MAX_BYTES
-        sampled_files = 0
+        budget = self._new_sniff_budget(
+            FORMAT_SNIFF_MAX_BYTES, ENCODING_SNIFF_MAX_FILES
+        )
         for path in self._result_paths(candidate, template_first=False):
-            if remaining_bytes <= 0 or sampled_files >= ENCODING_SNIFF_MAX_FILES:
+            if budget.exhausted:
                 break
             if not isinstance(path, Path):
                 # PurePath only
                 continue
-            try:
-                with self.finder.open(path, "rb") as handle:
-                    content = handle.read(remaining_bytes + 1)
-            except OSError:
+            sample = budget.read(self.finder, path)
+            if sample is None:
                 continue
-            sampled_files += 1
-            sampled_bytes = min(len(content), remaining_bytes)
-            remaining_bytes -= sampled_bytes
-            if len(content) > sampled_bytes:
-                content = _trim_incomplete_unicode_tail(content[:sampled_bytes])
+            content, complete = sample
+            if not complete:
+                content = _trim_incomplete_unicode_tail(content)
             detection_result = from_bytes(
                 content,
                 cp_isolation=["ascii", *self.encoding_map],

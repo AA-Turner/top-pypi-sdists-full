@@ -1,0 +1,87 @@
+- name: test 1
+  period: 2019
+  input:
+    state_code: CA
+    ca_cdcc_relevant_expenses: 6_000
+    ca_cdcc_rate: 0.25
+  output:
+    ca_federal_cdcc: 1_500
+
+- name: test 2
+  period: 2021
+  input:
+    state_code: CA
+    ca_cdcc_relevant_expenses: 6_000
+    ca_cdcc_rate: 0.25
+  output:
+    ca_federal_cdcc: 1_500
+
+- name: test 3
+  period: 2022
+  input:
+    state_code: CA
+    ca_cdcc_relevant_expenses: 6_000
+    ca_cdcc_rate: 0.25
+  output:
+    ca_federal_cdcc: 1_500
+
+- name: test 4
+  period: 2022
+  input:
+    state_code: CA
+    ca_cdcc_relevant_expenses: 4_000
+    ca_cdcc_rate: 0.2
+  output:
+    ca_federal_cdcc: 800
+
+- name: test 5
+  period: 2022
+  input:
+    state_code: CA
+    ca_cdcc_relevant_expenses: 3_000
+    ca_cdcc_rate: 0.35
+  output:
+    ca_federal_cdcc: 1_050
+
+- name: test 6, married filing separately gets no credit
+  period: 2021
+  input:
+    people:
+      person1:
+        is_tax_unit_head: true
+      person2:
+        age: 5
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        filing_status: SEPARATE
+        ca_cdcc_relevant_expenses: 6_000
+        ca_cdcc_rate: 0.25
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CA
+  output:
+    ca_federal_cdcc: 0
+
+- name: test 7, separated filer maintaining a home for a qualifying individual keeps the credit
+  period: 2021
+  input:
+    people:
+      person1:
+        is_tax_unit_head: true
+        is_separated: true
+      person2:
+        age: 5
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        filing_status: SEPARATE
+        ca_cdcc_relevant_expenses: 6_000
+        ca_cdcc_rate: 0.25
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CA
+  output:
+    ca_federal_cdcc: 1_500

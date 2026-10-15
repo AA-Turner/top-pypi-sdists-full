@@ -160,13 +160,38 @@ def _resolve_impl_and_device(
     impl = _resolve_impl(device)
 
   _check_impl_device_compatibility(impl, device)  # pyrefly: ignore[bad-argument-type]
-  return impl, device  # pytype: disable=bad-return-type
+  return impl, device  # pyrefly: ignore[bad-return]
 
 
 def _strip_weak_type(tree):
   def f(leaf):
     if isinstance(leaf, jax.Array):
       return leaf.astype(jax.dtypes.canonicalize_dtype(leaf.dtype))
+    return leaf
+
+  return jax.tree_util.tree_map(f, tree)
+
+
+def _tree_to_float32(tree):
+  """Casts float64 numpy leaves and python floats in `tree` to float32.
+
+  MuJoCo Warp is single precision. Fields taken from MjModel (e.g. public
+  Option and Statistic fields) or allocated with the default JAX float dtype
+  (e.g. Data.history) are float64 if jax_enable_x64 is set, which the MuJoCo
+  Warp FFI rejects.
+
+  Args:
+    tree: A pytree, e.g. an MJX Model or Data before `jax.device_put`.
+
+  Returns:
+    The pytree with float64 leaves cast to float32.
+  """
+
+  def f(leaf):
+    if isinstance(leaf, (np.ndarray, np.generic)) and leaf.dtype == np.float64:
+      return leaf.astype(np.float32)
+    if type(leaf) is float:  # pylint: disable=unidiomatic-typecheck
+      return np.float32(leaf)
     return leaf
 
   return jax.tree_util.tree_map(f, tree)
@@ -184,6 +209,14 @@ def _wp_to_np_type(wp_field: Any, name: str = '') -> Any:
     return wp_field.numpy()
 
   # static
+  if isinstance(wp_field, (float, np.floating)):
+    return np.float32(wp_field)
+  if isinstance(wp_field, np.ndarray):
+    return (
+        wp_field.astype(np.float32)
+        if np.issubdtype(wp_field.dtype, np.floating)
+        else wp_field
+    )
   static_types = (bool, int, float, np.bool, np.int32, np.int64,
                   np.float32, np.float64)  # fmt: skip
   is_static = lambda x: isinstance(x, static_types)
@@ -273,8 +306,8 @@ def _put_option(
     impl_fields['has_fluid_params'] = has_fluid_params
     return types.Option(**fields, _impl=types.OptionJAX(**impl_fields))
 
-
   if impl == types.Impl.WARP:
+    fields = {k: _wp_to_np_type(v, k) for k, v in fields.items()}
     impl_fields = {
         k: (
             v_np.reshape(v_np.shape[1:])
@@ -295,7 +328,8 @@ def _put_statistic(
   """Puts mujoco.MjStatistic onto a device, resulting in mjx.Statistic."""
   if impl == types.Impl.WARP:
     fields = {
-        f.name: getattr(s, f.name, None) for f in types.StatisticWarp.fields()
+        f.name: _wp_to_np_type(getattr(s, f.name, None), f.name)
+        for f in types.StatisticWarp.fields()
     }
     return types.StatisticWarp(**fields)
   return types.Statistic(
@@ -426,7 +460,7 @@ def _put_model_jax(
   for i in mesh_geomid:
     dataid = m.geom_dataid[i]
     if fields_jax['mesh_convex'][dataid] is None:
-      fields_jax['mesh_convex'][dataid] = mesh.convex(m, dataid)  # pytype: disable=unsupported-operands
+      fields_jax['mesh_convex'][dataid] = mesh.convex(m, dataid)  # pyrefly: ignore[unsupported-operation]
   fields_jax['mesh_convex'] = tuple(fields_jax['mesh_convex'])
 
   jax_impl = types.ModelJAX(**fields_jax)
@@ -492,6 +526,7 @@ def _put_model_warp(
       _impl=mjxw.types.ModelWarp(**impl_fields),
   )
 
+  model = _tree_to_float32(model)
   model = jax.device_put(model, device=device)
   return _strip_weak_type(model)
 
@@ -513,7 +548,7 @@ def _put_model_cpp(
 
   # get the pointer address
   # we use a 0-d array
-  addr = m._address  # pytype: disable=attribute-error
+  addr = m._address
   # To ensure that we retain the full pointer even if jax.config.enable_x64 is
   # set to True, we store the pointer as two 32-bit values. In the FFI call,
   # we combine the two values into a single pointer value.
@@ -805,6 +840,7 @@ def _make_data_warp(
       _impl=mjxw.types.DataWarp(**impl_fields),
   )
 
+  data = _tree_to_float32(data)
   data = jax.device_put(data, device=device)
 
   return data
@@ -837,7 +873,7 @@ def _make_data_cpp(
   mj_data = mujoco.MjData(mj_model)
 
   # Get the pointer address
-  addr = mj_data._address  # pytype: disable=attribute-error
+  addr = mj_data._address
   pointer_lo = jp.array(addr & 0xFFFFFFFF, dtype=jp.uint32)
   pointer_hi = jp.array(addr >> 32, dtype=jp.uint32)
 
@@ -1344,7 +1380,10 @@ def _get_data_into_warp(
           value = int(value)
       elif field.name in ('nefc', 'ncon'):
         value = {'nefc': nefc, 'ncon': ncon}[field.name]
-      elif field.name.endswith('xmat') or field.name == 'ximat':
+      elif field.name.endswith('xmat') or field.name in (
+          'ximat',
+          'flexedge_hessian',
+      ):
         value = value.reshape((-1, 9))
       # elif field.name == 'efc_J':  # TODO(btaba): add this back
       # elif field.name.startswith('efc_'):  # TODO(btaba): add this back
@@ -1836,7 +1875,7 @@ def create_render_context(
     Render context object that is JAX compatible.
   """
   _check_warp_installed()
-  from mujoco.mjx.warp import io as mjxw_io  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+  from mujoco.mjx.warp import io as mjxw_io  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-module-attribute]
   return mjxw_io.create_render_context(
       mjm, nworld=nworld, devices=devices, **kwargs  # pyrefly: ignore[bad-argument-type]
   )

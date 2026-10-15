@@ -1,0 +1,12 @@
+description: Colorado excludes this share of earnings from countable income under the Temporary Assistance for Needy Families program.
+
+values:
+  2013-07-01: 0.67
+
+metadata:
+  unit: /1
+  period: month
+  label: Colorado TANF earnings exclusion percent
+  reference:
+    - title: 9 CCR 2503-6, Section 3.606.2.A — 67% Earned Income Disregard
+      href: https://www.sos.state.co.us/CCR/GenerateRulePdf.do?ruleVersionId=10321#page=53

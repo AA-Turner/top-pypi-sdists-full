@@ -394,15 +394,28 @@ def evaluate_indexability(
     canonical_url: str | None,
     redirect_chain: list[dict],
     final_url: str | None,
+    requested_url: str | None = None,
 ) -> dict:
     tokens = _robots_tokens(meta_robots)
     noindex = "noindex" in tokens or "none" in tokens
     nofollow = "nofollow" in tokens or "none" in tokens
     redirect_hops = max(0, len(redirect_chain) - 1)
     if canonical_url and final_url:
-        canonical_matches = _normalize_url_for_comparison(
-            canonical_url
-        ) == _normalize_url_for_comparison(final_url)
+        # Self-canonical means the canonical names ANY address this page was
+        # reached by: the stored final URL, the URL that was requested, or a hop
+        # of the redirect chain. Comparing only the stored final URL read a
+        # perfectly self-referencing page as "points elsewhere" whenever the
+        # recorded final URL was wrong (crawler state leaking between pages).
+        known = [final_url]
+        if requested_url:
+            known.append(requested_url)
+        known.extend(
+            hop["url"]
+            for hop in redirect_chain
+            if isinstance(hop, dict) and isinstance(hop.get("url"), str) and hop["url"]
+        )
+        wanted = _normalize_url_for_comparison(canonical_url)
+        canonical_matches = any(_normalize_url_for_comparison(u) == wanted for u in known)
     else:
         canonical_matches = None
 
@@ -493,7 +506,7 @@ def build_stored_audit_metrics(
     social = evaluate_social_card(og_tags or {}, twitter_tags or {})
     heading_metrics = evaluate_heading_structure(headings or [])
     indexability = evaluate_indexability(
-        http_status, meta_robots, canonical_url, redirect_chain or [], final_url
+        http_status, meta_robots, canonical_url, redirect_chain or [], final_url, url
     )
     payload = {
         "v": 1,

@@ -112,7 +112,7 @@ class HomeAssistantAuthError(HomeAssistantError):
     """Authentication error with Home Assistant.
 
     Sibling of ``HomeAssistantAPIError`` (not a subclass). The codebase has
-    18 ``except HomeAssistantAPIError`` sites (util_helpers polling,
+    18 ``except HomeAssistantAPIError`` sites (ws_waiters polling,
     tools_integrations registry lookups, etc.) that deliberately rely on
     auth errors NOT matching so they can propagate to a paired
     ``except (HomeAssistantConnectionError, HomeAssistantAuthError): raise``
@@ -445,7 +445,7 @@ class HomeAssistantClient:
         """
         try:
             error_data = response.json()
-        except Exception:
+        except Exception:  # noqa: BLE001
             error_data = {"message": response.text}
 
         message = error_data.get("message")
@@ -628,8 +628,7 @@ class HomeAssistantClient:
     async def _request(
         self, method: str, endpoint: str, **kwargs: Any
     ) -> dict[str, Any]:
-        """
-        Make authenticated request to Home Assistant API and parse JSON body.
+        """Make authenticated request to Home Assistant API and parse JSON body.
 
         Args:
             method: HTTP method (GET, POST, etc.)
@@ -642,15 +641,17 @@ class HomeAssistantClient:
         Raises:
             HomeAssistantConnectionError: Connection failed
             HomeAssistantAuthError: Authentication failed
-            HomeAssistantAPIError: API error
+            HomeAssistantAPIError: API error, or a GET reply that is not JSON
         """
         response = await self._raw_request(method, endpoint, **kwargs)
         try:
             result: dict[str, Any] = response.json()
             return result
-        except json.JSONDecodeError:
-            # Some endpoints return empty responses
-            return {}
+        except ValueError as e:  # not JSON, or not UTF-8
+            if method != "GET" or not response.content.strip():
+                return {}  # empty body, or a write's reply: accepted, body unknown
+            # A read's {} would pass as the entity's config (e.g. in a backup).
+            raise HomeAssistantAPIError("GET reply is not JSON") from e
 
     async def get_config(self) -> dict[str, Any]:
         """Get Home Assistant configuration."""
@@ -662,7 +663,7 @@ class HomeAssistantClient:
 
         Raises ``HomeAssistantConnectionError`` when the response isn't the
         JSON array ``/states`` always returns on success -- including
-        ``_request``'s own empty-dict fallback for an unparseable body.
+        ``_request``'s own empty-dict fallback for an empty body.
         Silently returning ``[]`` here would let a genuine fetch failure
         masquerade as "this instance has zero entities", which no real,
         running Home Assistant instance produces; callers that need to
@@ -1188,7 +1189,7 @@ class HomeAssistantClient:
         on current HA Core releases (see #1116) — the direct path bypasses
         HA Core entirely and is the documented Supervisor contract.
 
-        On non-addon installs (Docker, pyinstaller, pip pointing at a normal
+        On non-addon installs (Docker, pip pointing at a normal
         HA URL), falls back to the HA Core proxy path. That path requires an
         admin LLA but works fine when not invoked from the add-on container.
 
@@ -1429,7 +1430,7 @@ class HomeAssistantClient:
         ``http://supervisor/{service}/logs`` with the Supervisor token
         (``hassio_api`` and ``hassio_role: manager`` required). On non-app
         installs (Docker
-        without Supervisor, pyinstaller, pip pointing at a normal HA URL),
+        without Supervisor, pip pointing at a normal HA URL),
         falls back to the HA Core proxy at ``/api/hassio/{service}/logs``.
 
         All eight service slugs are whitelisted in HA Core's hassio proxy
@@ -1459,7 +1460,7 @@ class HomeAssistantClient:
                 return True, None
             else:
                 return False, "Invalid response from Home Assistant"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # Intentional broad-catch: is_connected() contract maps any failure
             # to (False, error_msg); styleguide § "broad except at top-level
             # setup/teardown handlers" applies (connection probe is the analog).
@@ -1469,8 +1470,7 @@ class HomeAssistantClient:
     # Automation Configuration Management
 
     async def _resolve_automation_id(self, identifier: str) -> str:
-        """
-        Convert entity_id to unique_id if needed, or return unique_id as-is.
+        """Convert entity_id to unique_id if needed, or return unique_id as-is.
 
         Args:
             identifier: Either entity_id (automation.xxx) or unique_id
@@ -1479,9 +1479,8 @@ class HomeAssistantClient:
             The unique_id for configuration API
 
         Raises:
-            HomeAssistantAPIError: If automation not found
+            HomeAssistantAPIError: 404 if not found; other read failures propagate
         """
-        # If it looks like an entity_id, convert to unique_id
         if identifier.startswith("automation."):
             try:
                 state = await self.get_entity_state(identifier)
@@ -1495,7 +1494,9 @@ class HomeAssistantClient:
                     f"Converted entity_id {identifier} to unique_id {unique_id}"
                 )
                 return str(unique_id)
-            except HomeAssistantError as e:
+            except HomeAssistantAPIError as e:
+                if e.status_code != 404:  # a failed read is not a missing one
+                    raise
                 raise HomeAssistantAPIError(
                     f"Failed to resolve automation {identifier}: {str(e)}",
                     status_code=404,
@@ -1505,8 +1506,7 @@ class HomeAssistantClient:
             return identifier
 
     async def get_automation_config(self, identifier: str) -> dict[str, Any]:
-        """
-        Get automation configuration by unique_id or entity_id.
+        """Get automation configuration by unique_id or entity_id.
 
         Args:
             identifier: Either automation entity_id (automation.xxx) or unique_id
@@ -1638,7 +1638,7 @@ class HomeAssistantClient:
     # is fine when the WS happy path is the primary route. #1389's
     # cadence-measurement instrumentation also retired with the loop;
     # the WS waiter logs `time.monotonic()` elapsed via its own debug
-    # line at ``util_helpers._ws_wait_for_condition``.
+    # line at ``ws_waiters._ws_wait_for_condition``.
     _POLL_BUDGET_S: float = 6.0
 
     async def _poll_for_automation_entity(self, unique_id: str) -> str | None:
@@ -1650,10 +1650,10 @@ class HomeAssistantClient:
         polling of ``get_states()`` when the WebSocket is unavailable.
         See #1152 / #1395 for context.
         """
-        # Local import: ``util_helpers`` imports from ``rest_client`` for
+        # Local import: ``ws_waiters`` imports from ``rest_client`` for
         # the typed-error classes, so a module-level import here would be
         # circular. Mirrors the same pattern in ``_get_waiter_ws_client``.
-        from ..tools.util_helpers import wait_for_automation_entity_by_unique_id
+        from ..tools.ws_waiters import wait_for_automation_entity_by_unique_id
 
         try:
             entity_id = await wait_for_automation_entity_by_unique_id(

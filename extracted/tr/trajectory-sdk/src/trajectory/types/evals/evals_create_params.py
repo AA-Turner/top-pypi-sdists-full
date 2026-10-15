@@ -25,7 +25,6 @@ class EvalsCreateParams(TypedDict, total=False):
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
       "Qwen/Qwen3.5-397B-A17B",
-      "Qwen/Qwen3.6-27B",
       "Qwen/Qwen3.6-35B-A3B",
       "Qwen/Qwen3.8-27B",
       "qwen/qwen3-235b-a22b",

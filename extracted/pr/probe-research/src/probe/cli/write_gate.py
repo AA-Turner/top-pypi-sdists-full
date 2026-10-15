@@ -99,6 +99,27 @@ EXEC_EXCLUDED = (
 )
 
 
+#: Writes a `.probe.config` `hash` path does NOT refuse (C9): the command records
+#: only the file's identity. `exec` hashes what its command reads and writes
+#: (and its `--input`/`--output` files); `dataset add` records a REFERENCE --
+#: with `--upload` (`HASH_LEVEL_REFUSED_FLAGS`) it would send the bytes and is
+#: refused as for `off`. A `hash` working directory refuses no write: the run
+#: it opens records identities only.
+HASH_LEVEL_WRITES = frozenset({"exec", "dataset add"})
+#: Flags that make a `HASH_LEVEL_WRITES` command send a file's bytes.
+HASH_LEVEL_REFUSED_FLAGS = frozenset({"--upload"})
+
+
+def _hash_level_allowed(args: Sequence[str], words: Sequence[str]) -> bool:
+    """Does this write record only identities of a `hash` path it names?"""
+    own = list(args[: list(args).index("--")]) if "--" in args else list(args)
+    if words[:1] == ["exec"]:
+        return True
+    if " ".join(words[:2]) in HASH_LEVEL_WRITES:
+        return not any(a.split("=", 1)[0] in HASH_LEVEL_REFUSED_FLAGS for a in own)
+    return False
+
+
 def split_directed(args: Sequence[str]) -> tuple[list[str], bool]:
     """Remove every `--directed` before a standalone `--`; report whether one was there.
 
@@ -257,6 +278,48 @@ def _path_like(token: str, cwd: str, *, missing_ok: bool = False) -> str | None:
         return None
 
 
+#: Characters around a path inside a shell string (`<in`, `>out`, `$(cat x)`, `'x'`).
+_SHELL_EDGES = "\"'`()$<>|;&{}"
+
+
+def _pieces(token: str) -> list[str]:
+    """`token`, and when it is a shell string (`sh -c "head -n 3 data/a.jsonl"`)
+    each word inside it, stripped of quotes and redirection marks."""
+    out = [token]
+    if any(c.isspace() for c in token):
+        import shlex
+
+        try:
+            words = shlex.split(token, posix=True)
+        except ValueError:
+            words = token.split()
+        for word in words:
+            for part in word.replace(">", " ").replace("<", " ").split():
+                part = part.strip(_SHELL_EDGES)
+                if part:
+                    out.append(part)
+    return out
+
+
+def names_excluded(argv: Sequence[str], cwd: str, env: Mapping[str, str] | None = None) -> bool:
+    """Does a command name -- as an argument, or as a word inside a shell
+    string -- a path a `.probe.config` sets to anything but `on`? `probe exec`
+    then keeps no console log (review of #2791): the step may print the
+    file's records, and a `hash`, `read` or `off` path's text must never
+    leave the machine. Best effort over what the command line shows; a path
+    the command builds itself is beyond it. Never raises."""
+    try:
+        session_id = agent_session.session_id_from_env(env)
+        for token in argv:
+            for piece in _pieces(str(token)):
+                full = _path_like(piece, cwd)
+                if full is not None and session_marker.excluded(full, session_id).excluded:
+                    return True
+    except Exception:  # noqa: BLE001 - fails closed: keep no log
+        return True
+    return False
+
+
 def excluded_refusal(args: Sequence[str], env: Mapping[str, str] | None = None) -> tuple[str, list[str] | None] | None:
     """`(message, child)` when a `.probe.config` keeps this command from recording.
 
@@ -275,8 +338,9 @@ def excluded_refusal(args: Sequence[str], env: Mapping[str, str] | None = None) 
         session_id = agent_session.session_id_from_env(env)
         cwd = os.getcwd()
         hit = None
+        hash_ok = _hash_level_allowed(args, words)
         verdict = session_marker.excluded(cwd, session_id, as_cwd=True)
-        if verdict.excluded:
+        if verdict.excluded and not getattr(verdict, "identity_only", False):
             hit = (cwd, verdict)
         else:
             missing_ok = words[:2] == ["artifact", "add"]
@@ -291,7 +355,7 @@ def excluded_refusal(args: Sequence[str], env: Mapping[str, str] | None = None) 
                 if full is None:
                     continue
                 verdict = session_marker.excluded(full, session_id)
-                if verdict.excluded:
+                if verdict.excluded and not (hash_ok and getattr(verdict, "identity_only", False)):
                     hit = (full, verdict)
                     break
         if hit is None:

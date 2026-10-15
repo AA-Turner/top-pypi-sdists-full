@@ -33,7 +33,7 @@ async def test_nonadjacent_guard_creates_structured_system_error(monkeypatch) ->
             "request_id": "request-id",
             "user_id": "user-id",
             "conversation_id": "conversation-id",
-            "route": "/v2/ai/conversations/conversation-id",
+            "route": "/ai/conversations/conversation-id",
         },
     )
 

@@ -42,6 +42,22 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
     return result;
 }
 
+static void test_issue_6946() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    expr_ref fml = parse_fml(m, "(forall ((v Real)) (= (= a v) (= v 0)))");
+    expr_ref expected = parse_fml(m, "(= a 0)");
+    expr_ref result(m);
+    smt_params params;
+    qe::expr_quant_elim qelim(m, params);
+    qelim(m.mk_true(), fml, result);
+    VERIFY(!has_quantifiers(result));
+
+    smt::context ctx(m, params);
+    ctx.assert_expr(m.mk_not(m.mk_iff(result, expected)));
+    VERIFY(l_false == ctx.check());
+}
+
 static char const* example1 = "(and (<= x 3.0) (<= (* 3.0 x) y) (<= z y))";
 static char const* example2 = "(and (<= z x) (<= x 3.0) (<= (* 3.0 x) y) (<= z y))";
 static char const* example3 = "(and (<= z x) (<= x 3.0) (< (* 3.0 x) y) (<= z y))";
@@ -555,7 +571,11 @@ static void test_project() {
     lits.reset();
     vars.reset();
     vars.push_back(y);
-    lits.push_back(m.mk_eq(a.mk_mod(y, a.mk_int(3)), a.mk_int(1)));
+    {
+        expr_ref lhs(a.mk_mod(y, a.mk_int(3)), m);
+        expr_ref rhs(a.mk_int(1), m);
+        lits.push_back(m.mk_eq(lhs, rhs));
+    }
     lits.push_back(m.mk_eq(2*y, z));
     plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";
@@ -593,6 +613,7 @@ static void test_project() {
 
 
 void tst_qe_arith() {
+    test_issue_6946();
     test_project();
     return;
     check_random_ineqs();

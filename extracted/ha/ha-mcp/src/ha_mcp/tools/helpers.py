@@ -5,6 +5,7 @@ Centralized utilities that can be shared across multiple tool implementations.
 """
 
 import functools
+import inspect
 import json
 import logging
 import re
@@ -35,6 +36,7 @@ from ..errors import (
     create_validation_error,
 )
 from ..utils.usage_logger import log_tool_call
+from .coercion import UNSET
 
 logger = logging.getLogger(__name__)
 
@@ -250,6 +252,49 @@ def validate_identifier_not_empty(
     )
 
 
+WHITESPACE_CLEARS_NOTE = (
+    "A whitespace-only value acts like '', for clients that cannot send an "
+    "empty string."
+)
+_QUOTE_ONLY = re.compile(r"[\s\"'‘’“”]+")
+
+
+def clear_hint(param_name: str) -> str:
+    return (
+        f"To clear {param_name}, pass an empty string '', or a single space ' ' "
+        "if your client cannot send an empty string"
+    )
+
+
+def clearable_value(
+    value: str | None,
+    param_name: str,
+    *,
+    hint: str | None = None,
+) -> str | None:
+    """Map an empty or whitespace-only value to None, the registry's clear value.
+
+    Other values are returned stripped. A model whose client cannot send ``''``
+    falls back to ``'""'`` (#2585); a value made only of quotes and whitespace
+    is never a real value, so reject it.
+    """
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    if _QUOTE_ONLY.fullmatch(value):
+        raise_tool_error(
+            create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"{param_name} {value!r} contains only quote characters and whitespace",
+                suggestions=[hint or clear_hint(param_name)],
+                context={"parameter": param_name, "value": value},
+            )
+        )
+    return value
+
+
 async def get_connected_ws_client(
     base_url: str, token: str, verify_ssl: bool | None = None
 ) -> tuple[HomeAssistantWebSocketClient | None, dict[str, Any] | None]:
@@ -463,6 +508,32 @@ def _classify_by_message(
     return result
 
 
+# Environment failures: the classified guidance (token, admin rights, reachability)
+# is what fixes them and most callers do not anticipate them, so it leads and a
+# caller's own hints follow. Every other code keeps the caller's list as given.
+_ENVIRONMENT_CODES = frozenset(
+    {
+        ErrorCode.AUTH_INVALID_TOKEN.value,
+        ErrorCode.AUTH_EXPIRED.value,
+        ErrorCode.AUTH_INSUFFICIENT_PERMISSIONS.value,
+        ErrorCode.CONNECTION_FAILED.value,
+        ErrorCode.CONNECTION_TIMEOUT.value,
+    }
+)
+
+
+def _with_classified_suggestions(
+    error: dict[str, Any], suggestions: list[str]
+) -> list[str]:
+    """Put the classified suggestions of an environment code before the caller's."""
+    if error.get("code") not in _ENVIRONMENT_CODES:
+        return suggestions
+    classified = error.get("suggestions") or (
+        [error["suggestion"]] if error.get("suggestion") else []
+    )
+    return [*classified, *(s for s in suggestions if s not in classified)]
+
+
 def _append_macos_hints(error_response: dict[str, Any]) -> None:
     if not (
         sys.platform == "darwin"
@@ -531,6 +602,9 @@ def exception_to_structured_error(
                     If False, returns the error dict for further modification.
         suggestions: Optional list of actionable suggestions to embed in the error.
                     Saves callers from manually inserting suggestions after the call.
+                    They replace the classified ones, except for the AUTH_*,
+                    CONNECTION_FAILED and CONNECTION_TIMEOUT codes, where they
+                    follow them (duplicates dropped).
 
     Returns:
         Structured error response dictionary (only if raise_error=False)
@@ -573,6 +647,7 @@ def exception_to_structured_error(
         # rely on the plural key being present even for single-item caller
         # suggestions. Setting both keeps response consumers on both code
         # paths working.
+        suggestions = _with_classified_suggestions(error_response["error"], suggestions)
         error_response["error"]["suggestion"] = suggestions[0]
         error_response["error"]["suggestions"] = suggestions
 
@@ -619,7 +694,9 @@ def log_tool_usage(func: Any) -> Any:
             execution_time_ms = (time.time() - start_time) * 1000
             log_tool_call(
                 tool_name=tool_name,
-                parameters=kwargs,
+                # UNSET means the caller omitted the argument; ha_report_issue
+                # returns these entries as JSON, so the sentinel must not land.
+                parameters={k: v for k, v in kwargs.items() if v is not UNSET},
                 execution_time_ms=execution_time_ms,
                 success=success,
                 error_message=error_message,
@@ -653,8 +730,47 @@ async def safe_progress(
         logger.warning(
             "ctx.report_progress signature error (%s): %s", type(e).__name__, e
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.debug("ctx.report_progress failed (%s): %s", type(e).__name__, e)
+
+
+def ws_failure_code(result: dict[str, Any]) -> ErrorCode:
+    """Map Core's WS error code: ``invalid_format`` is the caller's input,
+    ``not_found`` an item Core does not hold (e.g. a YAML-configured helper)."""
+    code = result.get("error_code")
+    if code == "invalid_format":
+        return ErrorCode.VALIDATION_INVALID_PARAMETER
+    if code == "not_found":
+        return ErrorCode.RESOURCE_NOT_FOUND
+    return ErrorCode.SERVICE_CALL_FAILED
+
+
+def clear_or_keep(value: str | None, param_name: str) -> str | None:
+    """``clearable_value`` for params where None means "not passed": blank → ''."""
+    return None if value is None else clearable_value(value, param_name) or ""
+
+
+class _HiddenParam:
+    """Annotated marker for a parameter left out of the published input schema."""
+
+
+# Argument validation runs on the function signature, not the published schema,
+# so a hidden parameter is still accepted from callers that pass it.
+HIDDEN_PARAM = _HiddenParam()
+
+
+def hidden_param_names(fn: Any) -> frozenset[str]:
+    """Names of ``fn``'s parameters annotated with ``HIDDEN_PARAM``."""
+    try:
+        signature = inspect.signature(fn, eval_str=True)
+    except NameError:
+        # A string annotation naming a TYPE_CHECKING-only import can't resolve.
+        signature = inspect.signature(fn)
+    return frozenset(
+        name
+        for name, param in signature.parameters.items()
+        if HIDDEN_PARAM in getattr(param.annotation, "__metadata__", ())
+    )
 
 
 def register_tool_methods(mcp: Any, instance: Any) -> None:
@@ -662,13 +778,18 @@ def register_tool_methods(mcp: Any, instance: Any) -> None:
 
     Discovers methods bearing a ``__fastmcp__`` attribute (set by the outermost
     ``@tool`` decorator — must be listed above ``@log_tool_usage``) and registers
-    them via ``mcp.add_tool()``.
+    them via ``mcp.add_tool()``, dropping ``HIDDEN_PARAM`` parameters from the
+    published schema.
     """
     count = 0
     for attr in dir(instance):
         method = getattr(instance, attr)
         if callable(method) and hasattr(method, "__fastmcp__"):
-            mcp.add_tool(method)
+            registered = mcp.add_tool(method)
+            properties = getattr(registered, "parameters", {}).get("properties")
+            if isinstance(properties, dict):
+                for name in hidden_param_names(method):
+                    properties.pop(name, None)
             count += 1
     if count == 0:
         logger.warning(f"No @tool-decorated methods found on {type(instance).__name__}")

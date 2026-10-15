@@ -1,3 +1,4 @@
+import importlib
 import inspect
 import os
 import time
@@ -7,13 +8,11 @@ from braintrust import logger
 from braintrust.integrations.openrouter import OpenRouterIntegration, wrap_openrouter
 from braintrust.integrations.test_utils import assert_metrics_are_valid, verify_autoinstrument_script
 from braintrust.test_helpers import init_test_logger
+from wrapt import FunctionWrapper
 
 
 openrouter = pytest.importorskip("openrouter")
 from openrouter import OpenRouter
-from openrouter.chat import Chat
-from openrouter.embeddings import Embeddings
-from openrouter.responses import Responses
 
 
 PROJECT_NAME = "test-openrouter-sdk"
@@ -153,7 +152,7 @@ def test_wrap_openrouter_embeddings_generate(memory_logger):
 
 
 @pytest.mark.vcr
-def test_wrap_openrouter_responses_send(memory_logger):
+def test_wrap_openrouter_beta_responses_send(memory_logger):
     assert not memory_logger.pop()
 
     client = wrap_openrouter(_get_client())
@@ -183,6 +182,34 @@ def test_wrap_openrouter_responses_send(memory_logger):
     assert span["metrics"]["tokens"] > 0
     assert span["output"][0]["type"] == "message"
     assert_metrics_are_valid(span["metrics"], start, end)
+
+
+@pytest.mark.vcr
+def test_wrap_openrouter_responses_send(memory_logger):
+    client = _get_client()
+    if not hasattr(client, "responses"):
+        pytest.skip("GA Responses is unavailable in this OpenRouter version")
+
+    wrap_openrouter(client)
+    response = client.responses.send(
+        model=CHAT_MODEL,
+        input="Say one short sentence about observability.",
+        max_output_tokens=64,
+        temperature=0,
+    )
+    assert response.output
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["span_attributes"]["name"] == "openrouter.responses.send"
+    assert span["span_attributes"]["type"] == "llm"
+    assert span["input"] == "Say one short sentence about observability."
+    assert span["metadata"]["model"] == "gpt-4o-mini"
+    assert span["metadata"]["provider"] == "openai"
+    assert span["output"][0]["type"] == "message"
+    assert span["metrics"]["tokens"] > 0
+    assert span["context"]["span_origin"]["instrumentation"]["name"] == "openrouter-auto"
 
 
 @pytest.mark.vcr
@@ -220,6 +247,14 @@ async def test_wrap_openrouter_responses_send_async_stream(memory_logger):
 
 
 def test_openrouter_integration_setup_is_idempotent(monkeypatch):
+    # Resolve the classes at call time rather than at module import: openrouter's
+    # lazy sub-SDK loader drops and re-imports a module when CPython < 3.12's import
+    # lock raises a spurious KeyError, which would leave module-level names pointing
+    # at a stale class that setup() never patches.
+    Chat = importlib.import_module("openrouter.chat").Chat
+    Embeddings = importlib.import_module("openrouter.embeddings").Embeddings
+    Responses = importlib.import_module("openrouter.responses").Responses
+
     first_send = inspect.getattr_static(Chat, "send")
     first_generate = inspect.getattr_static(Embeddings, "generate")
     first_responses_send = inspect.getattr_static(Responses, "send")
@@ -229,13 +264,20 @@ def test_openrouter_integration_setup_is_idempotent(monkeypatch):
     patched_generate = inspect.getattr_static(Embeddings, "generate")
     patched_responses_send = inspect.getattr_static(Responses, "send")
 
+    # The first setup() wraps each original method exactly once.
+    for patched, original in (
+        (patched_send, first_send),
+        (patched_generate, first_generate),
+        (patched_responses_send, first_responses_send),
+    ):
+        assert isinstance(patched, FunctionWrapper)
+        assert patched.__wrapped__ is original
+
+    # The second setup() must not re-wrap.
     assert OpenRouterIntegration.setup()
     assert inspect.getattr_static(Chat, "send") is patched_send
     assert inspect.getattr_static(Embeddings, "generate") is patched_generate
     assert inspect.getattr_static(Responses, "send") is patched_responses_send
-    assert patched_send is not None
-    assert patched_generate is not None
-    assert patched_responses_send is not None
 
     monkeypatch.setattr(Chat, "send", first_send)
     monkeypatch.setattr(Embeddings, "generate", first_generate)

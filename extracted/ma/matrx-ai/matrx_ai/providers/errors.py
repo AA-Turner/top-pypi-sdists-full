@@ -1402,6 +1402,26 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             ),
         )
 
+    # A turn that needs registered tools reached the provider boundary while
+    # this process's tool registry was not loaded. Sending it would have been a
+    # silent zero-tool turn; it was refused instead. Not retryable, and not the
+    # provider's fault — no request was sent.
+    from matrx_ai.tools.registry import ToolSystemNotReadyError
+
+    if isinstance(exception, ToolSystemNotReadyError):
+        detail = str(exception).strip() or type(exception).__name__
+        return RetryableError(
+            error_type="matrx_tool_system_not_ready",
+            message=detail,
+            is_retryable=False,
+            details={"exception": type(exception).__qualname__},
+            user_message=(
+                "This server's tools are not loaded yet, so this turn was stopped "
+                f"instead of running without them (not a {provider} failure; no "
+                "request was sent). It has been recorded."
+            ),
+        )
+
     # asyncio lifecycle/affinity failures are deterministic local defects, not
     # provider congestion. Do not classify every RuntimeError as internal:
     # adapters also use RuntimeError for actual provider failures.

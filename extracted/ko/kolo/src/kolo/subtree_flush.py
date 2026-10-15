@@ -7,10 +7,8 @@ TRACKING_PROBE_INTERVAL = 1024
 ROOT_SUBTREE_NAME = "<root>"
 
 
-# NOTE: The Python and Rust subtree-flush trackers still implement the same
-# state machine independently. Keep the shared contract in
-# `python/tests/data/subtree_flush_tracker_contract.json` in sync with any
-# heuristic changes so both runtimes stay aligned.
+# The Rust subtree-flush tracker implements the same state machine: keep
+# python/tests/data/subtree_flush_tracker_contract.json in sync with heuristic changes.
 
 
 @dataclass
@@ -39,7 +37,6 @@ class SubtreeFlushTracker:
         self.flush_in_progress: set[str] = set()
         self._probed_frame_index: dict[str, int] = {}
         self._next_tracking_probe: dict[str, int] = {}
-        # Precompute thresholds to avoid per-event recomputation
         self._low_water_bytes = self._compute_low_water_bytes()
         self._tracking_start_bytes = self._compute_tracking_start_bytes()
 
@@ -53,10 +50,6 @@ class SubtreeFlushTracker:
             return 0
         if self.flush_subtree_bytes < 1024 * 1024:
             return 0
-        # Arm close to the flush threshold: only track subtrees for the last
-        # max(flush_bytes/8, 64MB) of data. For 500MB default this means
-        # arming at 436MB instead of 1MB, avoiding subtree bookkeeping for
-        # 99% of traces that never approach the flush point.
         window = max(self.flush_subtree_bytes // 8, 64 * 1024 * 1024)
         return max(0, self.flush_subtree_bytes - window)
 

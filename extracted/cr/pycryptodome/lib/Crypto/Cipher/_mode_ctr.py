@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 #  Cipher/mode_ctr.py : CTR mode
 #
@@ -24,20 +23,36 @@
 Counter (CTR) mode.
 """
 
-__all__ = ['CtrMode']
+from __future__ import annotations
+
+from typing import Any, Optional, Union, overload
+
+__all__ = ["CtrMode"]
 
 import struct
 
-from Crypto.Util._raw_api import (load_pycryptodome_raw_lib, VoidPointer,
-                                  create_string_buffer, get_raw_buffer,
-                                  SmartPointer, c_size_t, c_uint8_ptr,
-                                  is_writeable_buffer)
-
+from Crypto import MessageTooLongError
+from Crypto.Cipher._state_machine import Method
 from Crypto.Random import get_random_bytes
-from Crypto.Util.py3compat import _copy_bytes, is_native_int
+from Crypto.Util._raw_api import (
+    SmartPointer,
+    VoidPointer,
+    c_size_t,
+    c_uint8_ptr_len,
+    c_uint8_ptr_out,
+    create_output_buffer,
+    get_raw_buffer,
+    is_writeable_buffer,
+    load_pycryptodome_raw_lib,
+)
+from Crypto.Util._threads import range_boundaries, run_in_threads, threads_param
 from Crypto.Util.number import long_to_bytes
 
-raw_ctr_lib = load_pycryptodome_raw_lib("Crypto.Cipher._raw_ctr", """
+Buffer = Union[bytes, bytearray, memoryview]
+
+raw_ctr_lib = load_pycryptodome_raw_lib(
+    "Crypto.Cipher._raw_ctr",
+    """
                     int CTR_start_operation(void *cipher,
                                             uint8_t   initialCounterBlock[],
                                             size_t    initialCounterBlock_len,
@@ -53,11 +68,71 @@ raw_ctr_lib = load_pycryptodome_raw_lib("Crypto.Cipher._raw_ctr", """
                                     const uint8_t *in,
                                     uint8_t *out,
                                     size_t data_len);
-                    int CTR_stop_operation(void *ctrState);"""
-                                        )
+                    int CTR_encrypt_at(const void *ctrState,
+                                       const uint8_t *in,
+                                       uint8_t *out,
+                                       size_t offset,
+                                       size_t data_len);
+                    int CTR_skip(void *ctrState,
+                                 size_t data_len);
+                    int CTR_check(const void *ctrState,
+                                  size_t data_len);
+                    int CTR_stop_operation(void *ctrState);""",
+)
+
+# Minimum amount of data (1 MiB) that each thread must process:
+# with less, starting the thread costs more than what it saves.
+_MIN_BYTES_PER_THREAD = 1024 * 1024
 
 
-class CtrMode(object):
+def _ctr_threaded(state: Any, in_ptr: Any, out_ptr: Any, data_len: int, threads: int) -> int:
+    """Encrypt or decrypt ``data_len`` bytes in CTR mode, by splitting them
+    into ``threads`` contiguous ranges, which are processed in parallel.
+    Fewer threads are used if a range would be shorter than
+    ``_MIN_BYTES_PER_THREAD`` bytes.
+    The calling thread processes the first range.
+
+    ``state``, ``in_ptr`` and ``out_ptr`` are C pointers, whose types depend
+    on the backend (cffi or ctypes): see :mod:`Crypto.Util._raw_api`.
+
+    :return: the error code of the C library (0 for success)
+    """
+
+    threads = min(threads, data_len // _MIN_BYTES_PER_THREAD)
+    if threads <= 1:
+        return raw_ctr_lib.CTR_encrypt(state, in_ptr, out_ptr, c_size_t(data_len))
+
+    # Like CTR_encrypt(), process nothing if the key stream runs out
+    result = raw_ctr_lib.CTR_check(state, c_size_t(data_len))
+    if result:
+        return result
+
+    # Ranges may start in the middle of a cipher block: in CTR mode, each byte
+    # of the key stream only depends on its position (see CTR_encrypt_at)
+    bounds = range_boundaries(data_len, threads)
+
+    def worker(i: int) -> int:
+        # CTR_encrypt_at() does not change the state, and writes only
+        # out_ptr[start:end] (no two threads write the same bytes)
+        start, end = bounds[i], bounds[i + 1]
+        return raw_ctr_lib.CTR_encrypt_at(state, in_ptr, out_ptr, c_size_t(start), c_size_t(end - start))
+
+    results: list[int] = []
+    try:
+        results = run_in_threads(worker, threads)
+    finally:
+        # Move the state forward even after an error in a thread (some ranges may
+        # be processed already), so that the same key stream cannot be used again
+        skip_result = raw_ctr_lib.CTR_skip(state, c_size_t(data_len))
+
+    # Report the first error of a thread, if any
+    for result in results:
+        if result:
+            return result
+    return skip_result
+
+
+class CtrMode:
     """*CounTeR (CTR)* mode.
 
     This mode is very similar to ECB, in that
@@ -86,8 +161,15 @@ class CtrMode(object):
     :undocumented: __init__
     """
 
-    def __init__(self, block_cipher, initial_counter_block,
-                 prefix_len, counter_len, little_endian):
+    def __init__(
+        self,
+        block_cipher: SmartPointer,
+        initial_counter_block: Buffer,
+        prefix_len: int,
+        counter_len: int,
+        little_endian: bool,
+        threads: int = 1,
+    ) -> None:
         """Create a new block cipher, configured in CTR mode.
 
         :Parameters:
@@ -116,28 +198,35 @@ class CtrMode(object):
           little_endian : boolean
             True if the counter in the counter block is an integer encoded
             in little endian mode. If False, it is big endian.
+
+          threads : integer
+            The maximum number of threads used to process long data
+            (0 for as many as the CPU cores available).
         """
 
+        self._threads = threads_param(threads)
+
         if len(initial_counter_block) == prefix_len + counter_len:
-            self.nonce = _copy_bytes(None, prefix_len, initial_counter_block)
+            self.nonce = bytes(initial_counter_block[:prefix_len])
             """Nonce; not available if there is a fixed suffix"""
 
-        self._state = VoidPointer()
-        result = raw_ctr_lib.CTR_start_operation(block_cipher.get(),
-                                                 c_uint8_ptr(initial_counter_block),
-                                                 c_size_t(len(initial_counter_block)),
-                                                 c_size_t(prefix_len),
-                                                 counter_len,
-                                                 little_endian,
-                                                 self._state.address_of())
+        state = VoidPointer()
+        initial_counter_block_ptr, initial_counter_block_len = c_uint8_ptr_len(initial_counter_block)
+        result = raw_ctr_lib.CTR_start_operation(
+            block_cipher.get(),
+            initial_counter_block_ptr,
+            c_size_t(initial_counter_block_len),
+            c_size_t(prefix_len),
+            counter_len,
+            little_endian,
+            state.address_of(),
+        )
         if result:
-            raise ValueError("Error %X while instantiating the CTR mode"
-                             % result)
+            raise ValueError("Error %X while instantiating the CTR mode" % result)
 
         # Ensure that object disposal of this Python object will (eventually)
         # free the memory allocated by the raw library for the cipher mode
-        self._state = SmartPointer(self._state.get(),
-                                   raw_ctr_lib.CTR_stop_operation)
+        self._state = SmartPointer(state.get(), raw_ctr_lib.CTR_stop_operation)
 
         # Memory allocated for the underlying block cipher is now owed
         # by the cipher mode
@@ -146,9 +235,17 @@ class CtrMode(object):
         self.block_size = len(initial_counter_block)
         """The block size of the underlying cipher, in bytes."""
 
-        self._next = ["encrypt", "decrypt"]
+        self._next = [Method.ENCRYPT, Method.DECRYPT]
 
-    def encrypt(self, plaintext, output=None):
+    @overload
+    def encrypt(self, plaintext: Buffer) -> bytes: ...
+
+    @overload
+    def encrypt(self, plaintext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
+
+    def encrypt(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Encrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have encrypted a message
@@ -181,38 +278,21 @@ class CtrMode(object):
           Otherwise, ``None``.
         """
 
-        if "encrypt" not in self._next:
+        if Method.ENCRYPT not in self._next:
             raise TypeError("encrypt() cannot be called after decrypt()")
-        self._next = ["encrypt"]
+        self._next = [Method.ENCRYPT]
 
-        if output is None:
-            ciphertext = create_string_buffer(len(plaintext))
-        else:
-            ciphertext = output
+        return self._process(plaintext, output, "encrypting")
 
-            if not is_writeable_buffer(output):
-                raise TypeError("output must be a bytearray or a writeable memoryview")
+    @overload
+    def decrypt(self, ciphertext: Buffer) -> bytes: ...
 
-            if len(plaintext) != len(output):
-                raise ValueError("output must have the same length as the input"
-                                 "  (%d bytes)" % len(plaintext))
+    @overload
+    def decrypt(self, ciphertext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
 
-        result = raw_ctr_lib.CTR_encrypt(self._state.get(),
-                                         c_uint8_ptr(plaintext),
-                                         c_uint8_ptr(ciphertext),
-                                         c_size_t(len(plaintext)))
-        if result:
-            if result == 0x60002:
-                raise OverflowError("The counter has wrapped around in"
-                                    " CTR mode")
-            raise ValueError("Error %X while encrypting in CTR mode" % result)
-
-        if output is None:
-            return get_raw_buffer(ciphertext)
-        else:
-            return None
-
-    def decrypt(self, ciphertext, output=None):
+    def decrypt(
+        self, ciphertext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Decrypt data with the key and the parameters set at initialization.
 
         A cipher object is stateful: once you have decrypted a message
@@ -245,36 +325,52 @@ class CtrMode(object):
           Otherwise, ``None``.
         """
 
-        if "decrypt" not in self._next:
+        if Method.DECRYPT not in self._next:
             raise TypeError("decrypt() cannot be called after encrypt()")
-        self._next = ["decrypt"]
+        self._next = [Method.DECRYPT]
+
+        return self._process(ciphertext, output, "decrypting")
+
+    def _process(
+        self, data: Buffer, output: Optional[Union[bytearray, memoryview]], what: str
+    ) -> Optional[bytes]:
+        """Encrypt or decrypt (which are the same operation in CTR mode)"""
 
         if output is None:
-            plaintext = create_string_buffer(len(ciphertext))
+            result_buffer = create_output_buffer(len(data))
         else:
-            plaintext = output
+            result_buffer = output
 
             if not is_writeable_buffer(output):
                 raise TypeError("output must be a bytearray or a writeable memoryview")
 
-            if len(ciphertext) != len(output):
-                raise ValueError("output must have the same length as the input"
-                                 "  (%d bytes)" % len(plaintext))
+            if len(data) != len(output):
+                raise ValueError("output must have the same length as the input  (%d bytes)" % len(data))
 
-        result = raw_ctr_lib.CTR_decrypt(self._state.get(),
-                                         c_uint8_ptr(ciphertext),
-                                         c_uint8_ptr(plaintext),
-                                         c_size_t(len(ciphertext)))
-        if result:
-            if result == 0x60002:
-                raise OverflowError("The counter has wrapped around in"
-                                    " CTR mode")
-            raise ValueError("Error %X while decrypting in CTR mode" % result)
+        with c_uint8_ptr_out(result_buffer) as result_ptr:
+            data_ptr, data_len = c_uint8_ptr_len(data)
+            # Check the lengths of the buffers that C code gets
+            if len(result_ptr) != data_len:
+                raise ValueError("output must have the same length as the input  (%d bytes)" % data_len)
+            result = self._ctr(data_ptr, result_ptr, data_len)
+        self._check(result, what)
 
         if output is None:
-            return get_raw_buffer(plaintext)
+            return get_raw_buffer(result_buffer)
         else:
             return None
+
+    def _ctr(self, in_ptr, out_ptr, data_len: int) -> int:
+        if self._threads > 1:
+            return _ctr_threaded(self._state.get(), in_ptr, out_ptr, data_len, self._threads)
+        return raw_ctr_lib.CTR_encrypt(self._state.get(), in_ptr, out_ptr, c_size_t(data_len))
+
+    @staticmethod
+    def _check(result: int, what: str) -> None:
+        if result:
+            if result == 0x60002:
+                raise MessageTooLongError("The counter has wrapped around in CTR mode")
+            raise ValueError("Error %X while %s in CTR mode" % (result, what))
 
 
 def _create_ctr_cipher(factory, **kwargs):
@@ -309,10 +405,16 @@ def _create_ctr_cipher(factory, **kwargs):
         of the counter block. This parameter is incompatible to both ``nonce``
         and ``initial_value``.
 
+      threads : integer
+        The maximum number of threads used to process long data
+        (default: 1, no extra threads; 0 for all CPU cores).
+
     Any other keyword will be passed to the underlying block cipher.
     See the relevant documentation for details (at least ``key`` will need
     to be present).
     """
+
+    threads = kwargs.pop("threads", 1)
 
     cipher_state = factory._create_base_cipher(kwargs)
 
@@ -323,15 +425,13 @@ def _create_ctr_cipher(factory, **kwargs):
         raise TypeError("Invalid parameters for CTR mode: %s" % str(kwargs))
 
     if counter is not None and (nonce, initial_value) != (None, None):
-        raise TypeError("'counter' and 'nonce'/'initial_value'"
-                        " are mutually exclusive")
+        raise TypeError("'counter' and 'nonce'/'initial_value' are mutually exclusive")
 
     if counter is None:
         # Crypto.Util.Counter is not used
         if nonce is None:
             if factory.block_size < 16:
-                raise TypeError("Impossible to create a safe nonce for short"
-                                " block sizes")
+                raise TypeError("Impossible to create a safe nonce for short block sizes")
             nonce = get_random_bytes(factory.block_size // 2)
         else:
             if len(nonce) >= factory.block_size:
@@ -343,21 +443,26 @@ def _create_ctr_cipher(factory, **kwargs):
         if initial_value is None:
             initial_value = 0
 
-        if is_native_int(initial_value):
+        if isinstance(initial_value, int):
             if (1 << (counter_len * 8)) - 1 < initial_value:
                 raise ValueError("Initial counter value is too large")
             initial_counter_block = nonce + long_to_bytes(initial_value, counter_len)
         else:
             if len(initial_value) != counter_len:
-                raise ValueError("Incorrect length for counter byte string (%d bytes, expected %d)" %
-                                 (len(initial_value), counter_len))
+                raise ValueError(
+                    "Incorrect length for counter byte string (%d bytes, expected %d)"
+                    % (len(initial_value), counter_len)
+                )
             initial_counter_block = nonce + initial_value
 
-        return CtrMode(cipher_state,
-                       initial_counter_block,
-                       len(nonce),                     # prefix
-                       counter_len,
-                       False)                          # little_endian
+        return CtrMode(
+            cipher_state,
+            initial_counter_block,
+            len(nonce),  # prefix
+            counter_len,
+            False,  # little_endian
+            threads,
+        )
 
     # Crypto.Util.Counter is used
 
@@ -371,23 +476,22 @@ def _create_ctr_cipher(factory, **kwargs):
         initial_value = _counter.pop("initial_value")
         little_endian = _counter.pop("little_endian")
     except KeyError:
-        raise TypeError("Incorrect counter object"
-                        " (use Crypto.Util.Counter.new)")
+        raise TypeError("Incorrect counter object (use Crypto.Util.Counter.new)")
 
     # Compute initial counter block
     words = []
     while initial_value > 0:
-        words.append(struct.pack('B', initial_value & 255))
+        words.append(struct.pack("B", initial_value & 255))
         initial_value >>= 8
-    words += [b'\x00'] * max(0, counter_len - len(words))
+    words += [b"\x00"] * max(0, counter_len - len(words))
     if not little_endian:
         words.reverse()
     initial_counter_block = prefix + b"".join(words) + suffix
 
     if len(initial_counter_block) != factory.block_size:
-        raise ValueError("Size of the counter block (%d bytes) must match"
-                         " block size (%d)" % (len(initial_counter_block),
-                                               factory.block_size))
+        raise ValueError(
+            "Size of the counter block (%d bytes) must match"
+            " block size (%d)" % (len(initial_counter_block), factory.block_size)
+        )
 
-    return CtrMode(cipher_state, initial_counter_block,
-                   len(prefix), counter_len, little_endian)
+    return CtrMode(cipher_state, initial_counter_block, len(prefix), counter_len, little_endian, threads)

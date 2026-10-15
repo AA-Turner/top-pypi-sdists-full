@@ -41,7 +41,7 @@ class SwapsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ListSwapsResponse:
         """
-        Retrieve the account's completed or pending swaps — currently just the latest one.
+        Lists the completed or pending swaps for an account or user — currently only the most recent one.
 
         Parameters
         ----------
@@ -64,7 +64,7 @@ class SwapsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -88,7 +88,7 @@ class SwapsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateSwapsResponse:
         """
-        Swaps one token for another from the account's wallet, or converts between fiat currencies in the account's ledger at the mid-market rate. Crypto swaps finish in the background — check the swap for its status.
+        Swaps one token for another in an account or user's wallet, or converts between their fiat balances at the mid-market rate. Crypto swaps finish in the background — retrieve the swap to follow its status.
 
         Parameters
         ----------
@@ -132,7 +132,7 @@ class SwapsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -170,7 +170,7 @@ class SwapsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateQuoteSwapsResponse:
         """
-        Previews the price of a swap. Fiat pairs quote the in-ledger mid-market conversion — the same rate creating the swap fills at. No funds move and nothing is saved.
+        Previews the price of a swap before you create it. Fiat pairs quote the mid-market rate — the same rate creating the swap fills at. No funds move, nothing is saved, and no authentication is required.
 
         Parameters
         ----------
@@ -214,7 +214,7 @@ class SwapsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -240,7 +240,7 @@ class SwapsClient:
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> RetrieveSwapsResponse:
         """
-        Retrieves a single swap and its status.
+        Retrieves a swap and its status. Poll it after creating a crypto swap, which finishes in the background.
 
         Parameters
         ----------
@@ -260,7 +260,7 @@ class SwapsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -295,7 +295,7 @@ class AsyncSwapsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ListSwapsResponse:
         """
-        Retrieve the account's completed or pending swaps — currently just the latest one.
+        Lists the completed or pending swaps for an account or user — currently only the most recent one.
 
         Parameters
         ----------
@@ -320,7 +320,7 @@ class AsyncSwapsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -350,7 +350,7 @@ class AsyncSwapsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateSwapsResponse:
         """
-        Swaps one token for another from the account's wallet, or converts between fiat currencies in the account's ledger at the mid-market rate. Crypto swaps finish in the background — check the swap for its status.
+        Swaps one token for another in an account or user's wallet, or converts between their fiat balances at the mid-market rate. Crypto swaps finish in the background — retrieve the swap to follow its status.
 
         Parameters
         ----------
@@ -396,7 +396,7 @@ class AsyncSwapsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -440,7 +440,7 @@ class AsyncSwapsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateQuoteSwapsResponse:
         """
-        Previews the price of a swap. Fiat pairs quote the in-ledger mid-market conversion — the same rate creating the swap fills at. No funds move and nothing is saved.
+        Previews the price of a swap before you create it. Fiat pairs quote the mid-market rate — the same rate creating the swap fills at. No funds move, nothing is saved, and no authentication is required.
 
         Parameters
         ----------
@@ -486,7 +486,7 @@ class AsyncSwapsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -520,7 +520,7 @@ class AsyncSwapsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> RetrieveSwapsResponse:
         """
-        Retrieves a single swap and its status.
+        Retrieves a swap and its status. Poll it after creating a crypto swap, which finishes in the background.
 
         Parameters
         ----------
@@ -542,7 +542,7 @@ class AsyncSwapsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

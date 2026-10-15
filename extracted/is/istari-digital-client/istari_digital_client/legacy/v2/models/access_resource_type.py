@@ -39,7 +39,6 @@ class AccessResourceType(str, Enum):
     SYSTEM = 'system'
     FUNCTIONAUTHSECRET = 'functionauthsecret'
     AUTHINTEGRATION = 'authintegration'
-    DOCUMENT = 'document'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

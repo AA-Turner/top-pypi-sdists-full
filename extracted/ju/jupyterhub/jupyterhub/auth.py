@@ -12,6 +12,7 @@ from functools import partial
 from shutil import which
 from subprocess import PIPE, STDOUT, Popen
 from textwrap import dedent
+from urllib.parse import unquote
 
 try:
     import pamela
@@ -69,6 +70,44 @@ class Authenticator(LoggingConfigurable):
         """,
     )
 
+    reconcile_auth_state_hook = Any(
+        config=True,
+        help="""
+        An optional hook function that you can implement to reconcile existing
+        and new auth_state during authentication. For example, creating new API
+        tokens in external services but only if they aren't already in auth_state
+        or just to put in additional information in `auth_state` that persists
+        over time.
+
+        This function is called after the user has passed all authentication checks
+        and is ready to successfully authenticate. This function must return the
+        auth_state dict reguardless of changes to it.
+
+        The hook is called with 3 positional arguments: `(authenticator, auth_model, existing_auth_state)`.
+        `auth_model` is a dict with the result of the current authentication flow, including
+        the new `auth_state`. `existing_auth_state` is the previous `auth_state`, set to
+        `None` if there was no `auth_state` prior.
+
+        This may be a coroutine.
+
+        .. versionadded: 6.1
+
+        Example::
+
+            # Create a secret once and persist it across logins in auth_state,
+            # ignoring any new auth_state.
+            import secrets
+            def my_hook(authenticator, auth_model, existing_auth_state):
+                if 'MY_SECRET' in existing_auth_state:
+                    return existing_auth_state
+                existing_auth_state['MY_SECRET'] = secrets.token_hex(16)
+
+                return existing_auth_state
+
+            c.Authenticator.reconcile_auth_state_hook = my_hook
+        """,
+    )
+
     auth_refresh_age = Integer(
         300,
         config=True,
@@ -85,6 +124,34 @@ class Authenticator(LoggingConfigurable):
 
         Set `auth_refresh_age = 0` to disable time-based calls to `refresh_user`.
         You can still use :attr:`refresh_pre_spawn` or :attr:`refresh_pre_stop` if `auth_refresh_age` is disabled.
+        """,
+    )
+
+    auth_refresh_strict = Bool(
+        False,
+        config=True,
+        help="""
+
+        When refresh_user would be called (refresh_pre_spawn, auth_refresh_age),
+        not all requests can be redirected to a login, such as:
+
+        - token-authenticated API requests
+        - admin spawn of other users' servers
+
+        If a user's auth state is stale and cannot be refreshed (e.g. missing or outdated oauth token),
+        the user must log in again before these actions can be taken.
+
+        Since auth state is unlikely to be invalid, forcing a refresh when it cannot be refreshed
+        is often counterproductive.
+        
+        However, if auth freshness is strictly required, this can be set to True,
+        in which case admin spawns for other users, or even API requests from users' own servers
+        will fail until the user completes a fresh login.
+
+        .. versionadded:: 6.1
+            Prior to 6.1, the behavior was the same as `Authenticator.auth_refresh_strict = True`.
+            6.1 adds this configuration and makes it False by default,
+            due to the problems seen when it is True.
         """,
     )
 
@@ -431,11 +498,20 @@ class Authenticator(LoggingConfigurable):
 
         Return True if username is valid, False otherwise.
         """
+        try:
+            unquoted = unquote(username)
+        except Exception as e:
+            unquoted = username
+
         if '/' in username:
             # / is not allowed in usernames
             return False
         if not username:
             # empty usernames are not allowed
+            return False
+        if set(username) == {"."} or set(unquoted) == {"."}:
+            # usernames that can resolve to weird url components are not allowed
+            # excludes names that are just `.` or `..`
             return False
         if username != username.strip():
             # starting/ending with space is not allowed

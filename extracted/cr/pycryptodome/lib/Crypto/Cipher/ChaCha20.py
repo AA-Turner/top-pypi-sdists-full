@@ -1,45 +1,31 @@
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
+from __future__ import annotations
+
+from typing import Any, Optional, Union, overload
+
+from Crypto import MessageTooLongError
+from Crypto.Cipher._state_machine import Method
 from Crypto.Random import get_random_bytes
+from Crypto.Util._cpu_features import load_avx2_bmi2_lib
+from Crypto.Util._raw_api import (
+    SmartPointer,
+    VoidPointer,
+    c_size_t,
+    c_uint8_ptr_len,
+    c_uint8_ptr_out,
+    c_ulong,
+    create_output_buffer,
+    get_raw_buffer,
+    is_writeable_buffer,
+    load_pycryptodome_raw_lib,
+)
+from Crypto.Util._threads import range_boundaries, run_in_threads, threads_param
 
-from Crypto.Util.py3compat import _copy_bytes
-from Crypto.Util._raw_api import (load_pycryptodome_raw_lib,
-                                  create_string_buffer,
-                                  get_raw_buffer, VoidPointer,
-                                  SmartPointer, c_size_t,
-                                  c_uint8_ptr, c_ulong,
-                                  is_writeable_buffer)
+Buffer = Union[bytes, bytearray, memoryview]
 
-_raw_chacha20_lib = load_pycryptodome_raw_lib("Crypto.Cipher._chacha20",
-                    """
+_chacha20_cdecl = """
                     int chacha20_init(void **pState,
                                       const uint8_t *key,
                                       size_t keySize,
@@ -58,29 +44,97 @@ _raw_chacha20_lib = load_pycryptodome_raw_lib("Crypto.Cipher._chacha20",
                                       unsigned long block_low,
                                       unsigned offset);
 
+                    int chacha20_check(const void *state, size_t len);
+
+                    int chacha20_encrypt_at(const void *state,
+                                            const uint8_t in[],
+                                            uint8_t out[],
+                                            size_t offset,
+                                            size_t len);
+
+                    int chacha20_skip(void *state, size_t len);
+
                     int hchacha20(  const uint8_t key[32],
                                     const uint8_t nonce16[16],
                                     uint8_t subkey[32]);
-                    """)
+                    """
+
+_raw_chacha20_portable_lib = load_pycryptodome_raw_lib("Crypto.Cipher._chacha20", _chacha20_cdecl)
+
+# The same code, with the key stream computed 8 blocks at a time (AVX2)
+_raw_chacha20_avx2_bmi2_lib = load_avx2_bmi2_lib("Crypto.Cipher._chacha20_avx2_bmi2", _chacha20_cdecl)
+
+if _raw_chacha20_avx2_bmi2_lib is not None:
+    _raw_chacha20_lib = _raw_chacha20_avx2_bmi2_lib
+else:
+    _raw_chacha20_lib = _raw_chacha20_portable_lib
+
+#: With several threads, each one processes at least this many bytes
+_MIN_BYTES_PER_THREAD = 1024 * 1024
 
 
-def _HChaCha20(key, nonce):
+def _chacha20_threaded(lib: Any, state: Any, in_ptr: Any, out_ptr: Any, data_len: int, threads: int) -> int:
+    """Encrypt or decrypt ``data_len`` bytes with ChaCha20, by splitting them
+    into ``threads`` contiguous ranges, which are processed in parallel.
+    Fewer threads are used if a range would be shorter than
+    ``_MIN_BYTES_PER_THREAD`` bytes.
+    The calling thread processes the first range.
 
-    assert(len(key) == 32)
-    assert(len(nonce) == 16)
+    ``state``, ``in_ptr`` and ``out_ptr`` are C pointers, whose types depend
+    on the backend (cffi or ctypes): see :mod:`Crypto.Util._raw_api`.
 
+    :return: the error code of the C library (0 for success)
+    """
+
+    threads = min(threads, data_len // _MIN_BYTES_PER_THREAD)
+    if threads <= 1:
+        return lib.chacha20_encrypt(state, in_ptr, out_ptr, c_size_t(data_len))
+
+    # Like chacha20_encrypt(), process nothing if the key stream runs out
+    result = lib.chacha20_check(state, c_size_t(data_len))
+    if result:
+        return result
+
+    # Each byte of the key stream only depends on its position
+    bounds = range_boundaries(data_len, threads)
+
+    def worker(i: int) -> int:
+        # chacha20_encrypt_at() does not change the state, and writes only
+        # out_ptr[start:end] (no two threads write the same bytes)
+        start, end = bounds[i], bounds[i + 1]
+        return lib.chacha20_encrypt_at(state, in_ptr, out_ptr, c_size_t(start), c_size_t(end - start))
+
+    results: list[int] = []
+    try:
+        results = run_in_threads(worker, threads)
+    finally:
+        # Move the state forward even after an error in a thread (some ranges may
+        # be processed already), so that the same key stream cannot be used again
+        skip_result = lib.chacha20_skip(state, c_size_t(data_len))
+
+    # Report the first error of a thread, if any
+    for result in results:
+        if result:
+            return result
+    return skip_result
+
+
+def _HChaCha20(key: Buffer, nonce: Buffer) -> bytearray:
     subkey = bytearray(32)
-    result = _raw_chacha20_lib.hchacha20(
-                c_uint8_ptr(key),
-                c_uint8_ptr(nonce),
-                c_uint8_ptr(subkey))
+    with c_uint8_ptr_out(subkey) as subkey_ptr:
+        # The C function reads exactly 32 bytes of key and 16 of nonce
+        key_ptr, key_len = c_uint8_ptr_len(key)
+        nonce_ptr, nonce_len = c_uint8_ptr_len(nonce)
+        if key_len != 32 or nonce_len != 16:
+            raise ValueError("Incorrect key or nonce length for HChaCha20")
+        result = _raw_chacha20_lib.hchacha20(key_ptr, nonce_ptr, subkey_ptr)
     if result:
         raise ValueError("Error %d when deriving subkey with HChaCha20" % result)
 
     return subkey
 
 
-class ChaCha20Cipher(object):
+class ChaCha20Cipher:
     """ChaCha20 (or XChaCha20) cipher object.
     Do not create it directly. Use :py:func:`new` instead.
 
@@ -88,41 +142,51 @@ class ChaCha20Cipher(object):
     :vartype nonce: bytes
     """
 
-    block_size = 1
+    block_size: int = 1
 
-    def __init__(self, key, nonce):
+    def __init__(self, key: Buffer, nonce: Buffer, threads: int = 1) -> None:
         """Initialize a ChaCha20/XChaCha20 cipher object
 
         See also `new()` at the module level."""
 
-        self.nonce = _copy_bytes(None, None, nonce)
+        self.nonce = bytes(nonce)
+        self._threads = threads_param(threads)
 
         # XChaCha20 requires a key derivation with HChaCha20
-        # See 2.3 in https://tools.ietf.org/html/draft-arciszewski-xchacha-03
+        # See 2.3 in https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03
         if len(nonce) == 24:
             key = _HChaCha20(key, nonce[:16])
-            nonce = b'\x00' * 4 + nonce[16:]
+            nonce = b"\x00" * 4 + nonce[16:]
             self._name = "XChaCha20"
         else:
             self._name = "ChaCha20"
             nonce = self.nonce
 
-        self._next = ("encrypt", "decrypt")
+        self._next: tuple[Method, ...] = (Method.ENCRYPT, Method.DECRYPT)
 
-        self._state = VoidPointer()
+        state = VoidPointer()
+        key_ptr, key_len = c_uint8_ptr_len(key)
         result = _raw_chacha20_lib.chacha20_init(
-                        self._state.address_of(),
-                        c_uint8_ptr(key),
-                        c_size_t(len(key)),
-                        nonce,
-                        c_size_t(len(nonce)))
+            state.address_of(), key_ptr, c_size_t(key_len), nonce, c_size_t(len(nonce))
+        )
         if result:
-            raise ValueError("Error %d instantiating a %s cipher" % (result,
-                                                                     self._name))
-        self._state = SmartPointer(self._state.get(),
-                                   _raw_chacha20_lib.chacha20_destroy)
+            raise ValueError("Error %d instantiating a %s cipher" % (result, self._name))
+        self._state = SmartPointer(state.get(), _raw_chacha20_lib.chacha20_destroy)
 
-    def encrypt(self, plaintext, output=None):
+    @overload
+    def encrypt(self, plaintext: Buffer) -> bytes: ...
+
+    @overload
+    def encrypt(self, plaintext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
+
+    @overload
+    def encrypt(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]: ...
+
+    def encrypt(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Encrypt a piece of data.
 
         Args:
@@ -135,16 +199,16 @@ class ChaCha20Cipher(object):
           Otherwise, ``None``.
         """
 
-        if "encrypt" not in self._next:
+        if Method.ENCRYPT not in self._next:
             raise TypeError("Cipher object can only be used for decryption")
-        self._next = ("encrypt",)
+        self._next = (Method.ENCRYPT,)
         return self._encrypt(plaintext, output)
 
     def _encrypt(self, plaintext, output):
         """Encrypt without FSM checks"""
 
         if output is None:
-            ciphertext = create_string_buffer(len(plaintext))
+            ciphertext = create_output_buffer(len(plaintext))
         else:
             ciphertext = output
 
@@ -152,14 +216,28 @@ class ChaCha20Cipher(object):
                 raise TypeError("output must be a bytearray or a writeable memoryview")
 
             if len(plaintext) != len(output):
-                raise ValueError("output must have the same length as the input"
-                                 "  (%d bytes)" % len(plaintext))
+                raise ValueError("output must have the same length as the input  (%d bytes)" % len(plaintext))
 
-        result = _raw_chacha20_lib.chacha20_encrypt(
-                                         self._state.get(),
-                                         c_uint8_ptr(plaintext),
-                                         c_uint8_ptr(ciphertext),
-                                         c_size_t(len(plaintext)))
+        with c_uint8_ptr_out(ciphertext) as ciphertext_ptr:
+            plaintext_ptr, plaintext_len = c_uint8_ptr_len(plaintext)
+            # Check the lengths of the buffers that C code gets
+            if len(ciphertext_ptr) != plaintext_len:
+                raise ValueError("output must have the same length as the input  (%d bytes)" % plaintext_len)
+            if self._threads > 1:
+                result = _chacha20_threaded(
+                    _raw_chacha20_lib,
+                    self._state.get(),
+                    plaintext_ptr,
+                    ciphertext_ptr,
+                    plaintext_len,
+                    self._threads,
+                )
+            else:
+                result = _raw_chacha20_lib.chacha20_encrypt(
+                    self._state.get(), plaintext_ptr, ciphertext_ptr, c_size_t(plaintext_len)
+                )
+        if result == 10:  # ERR_MAX_DATA
+            raise MessageTooLongError("The key stream of %s is exhausted for this nonce" % self._name)
         if result:
             raise ValueError("Error %d while encrypting with %s" % (result, self._name))
 
@@ -168,7 +246,20 @@ class ChaCha20Cipher(object):
         else:
             return None
 
-    def decrypt(self, ciphertext, output=None):
+    @overload
+    def decrypt(self, ciphertext: Buffer) -> bytes: ...
+
+    @overload
+    def decrypt(self, ciphertext: Buffer, output: Union[bytearray, memoryview]) -> None: ...
+
+    @overload
+    def decrypt(
+        self, ciphertext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]: ...
+
+    def decrypt(
+        self, ciphertext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Decrypt a piece of data.
 
         Args:
@@ -181,16 +272,18 @@ class ChaCha20Cipher(object):
           Otherwise, ``None``.
         """
 
-        if "decrypt" not in self._next:
+        if Method.DECRYPT not in self._next:
             raise TypeError("Cipher object can only be used for encryption")
-        self._next = ("decrypt",)
+        self._next = (Method.DECRYPT,)
 
         try:
             return self._encrypt(ciphertext, output)
+        except MessageTooLongError:
+            raise
         except ValueError as e:
             raise ValueError(str(e).replace("enc", "dec"))
 
-    def seek(self, position):
+    def seek(self, position: int) -> None:
         """Seek to a certain position in the key stream.
 
         If you want to seek to a certain block,
@@ -206,11 +299,8 @@ class ChaCha20Cipher(object):
         block_high = block_number >> 32
 
         result = _raw_chacha20_lib.chacha20_seek(
-                                                 self._state.get(),
-                                                 c_ulong(block_high),
-                                                 c_ulong(block_low),
-                                                 offset
-                                                 )
+            self._state.get(), c_ulong(block_high), c_ulong(block_low), offset
+        )
         if result:
             raise ValueError("Error %d while seeking with %s" % (result, self._name))
 
@@ -227,24 +317,24 @@ def _derive_Poly1305_key_pair(key, nonce):
     if nonce is None:
         padded_nonce = nonce = get_random_bytes(12)
     elif len(nonce) == 8:
-        # See RFC7538, 2.6: [...] ChaCha20 as specified here requires a 96-bit
+        # See RFC 8439, 2.6: [...] ChaCha20 as specified here requires a 96-bit
         # nonce.  So if the provided nonce is only 64-bit, then the first 32
         # bits of the nonce will be set to a constant number.
         # This will usually be zero, but for protocols with multiple senders it may be
         # different for each sender, but should be the same for all
         # invocations of the function with the same key by a particular
         # sender.
-        padded_nonce = b'\x00\x00\x00\x00' + nonce
+        padded_nonce = b"\x00\x00\x00\x00" + nonce
     elif len(nonce) == 12:
         padded_nonce = nonce
     else:
         raise ValueError("Poly1305 with ChaCha20 requires an 8- or 12-byte nonce")
 
-    rs = new(key=key, nonce=padded_nonce).encrypt(b'\x00' * 32)
+    rs = new(key=key, nonce=padded_nonce).encrypt(b"\x00" * 32)
     return rs[:16], rs[16:], nonce
 
 
-def new(**kwargs):
+def new(*, key: Buffer, nonce: Optional[Buffer] = None, threads: int = 1) -> ChaCha20Cipher:
     """Create a new ChaCha20 or XChaCha20 cipher
 
     Keyword Args:
@@ -261,15 +351,14 @@ def new(**kwargs):
             If not provided, 8 bytes will be randomly generated
             (you can find them back in the ``nonce`` attribute).
 
+        threads (integer): The maximum number of threads used to
+            encrypt or decrypt long data (default: 1, no extra threads;
+            0 for as many threads as the CPU cores available to the process).
+            Each thread processes at least 1 MiB.
+
     :Return: a :class:`Crypto.Cipher.ChaCha20.ChaCha20Cipher` object
     """
 
-    try:
-        key = kwargs.pop("key")
-    except KeyError as e:
-        raise TypeError("Missing parameter %s" % e)
-
-    nonce = kwargs.pop("nonce", None)
     if nonce is None:
         nonce = get_random_bytes(8)
 
@@ -279,13 +368,11 @@ def new(**kwargs):
     if len(nonce) not in (8, 12, 24):
         raise ValueError("Nonce must be 8/12 bytes(ChaCha20) or 24 bytes (XChaCha20)")
 
-    if kwargs:
-        raise TypeError("Unknown parameters: " + str(kwargs))
+    return ChaCha20Cipher(key, nonce, threads)
 
-    return ChaCha20Cipher(key, nonce)
 
 # Size of a data block (in bytes)
-block_size = 1
+block_size: int = 1
 
 # Size of a key (in bytes)
-key_size = 32
+key_size: int = 32

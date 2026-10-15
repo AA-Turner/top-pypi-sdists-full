@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: linkpreview
-Version: 0.12.1
+Version: 0.13.2
 Summary: Get link (URL) preview
 Home-page: UNKNOWN
 Author: MeyT
@@ -97,6 +97,16 @@ Description: # linkpreview
         print("absolute_favicon:", preview.absolute_favicon)
         ```
         
+        ### Security
+        
+        If URLs come from untrusted users, pass `allow_private=False` to avoid
+        SSRF: only `http`/`https` URLs resolving to public addresses are fetched
+        (re-checked on every redirect), otherwise `BlockedAddressError` is raised.
+        
+        ```python
+        link_preview(url, allow_private=False)
+        ```
+        
         ### Advanced
         
         ```python
@@ -178,5 +188,10 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Description-Content-Type: text/markdown

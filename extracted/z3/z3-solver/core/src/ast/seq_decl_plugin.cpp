@@ -204,6 +204,7 @@ void seq_decl_plugin::init() {
     sort* strTreT[2] = { strT, reT };
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
+    sort* strTintT[2] = { strT, intT };
     sort* seq3A[3] = { seqA, seqA, seqA };
 
     m_sigs.resize(LAST_SEQ_OP);
@@ -223,6 +224,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_NTH_I]     = alloc(psig, m, "seq.nth_i",    1, 2, seqAintT, A);
     m_sigs[OP_SEQ_NTH_U]     = alloc(psig, m, "seq.nth_u",    1, 2, seqAintT, A);
     m_sigs[OP_SEQ_LENGTH]    = alloc(psig, m, "seq.len",      1, 1, &seqA, intT);
+    m_sigs[OP_SEQ_POWER]     = alloc(psig, m, "seq.power",    1, 2, seqAintT, seqA);
     m_sigs[OP_RE_PLUS]       = alloc(psig, m, "re.+",         1, 1, &reA, reA);
     m_sigs[OP_RE_STAR]       = alloc(psig, m, "re.*",         1, 1, &reA, reA);
     m_sigs[OP_RE_OPTION]     = alloc(psig, m, "re.opt",       1, 1, &reA, reA);
@@ -268,6 +270,7 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_REGEXP_EMPTY]      = alloc(psig, m, "re.none", 0, 0, nullptr, reT);
     m_sigs[_OP_REGEXP_FULL_CHAR]  = alloc(psig, m, "re.allchar", 0, 0, nullptr, reT);
     m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
+    m_sigs[_OP_STRING_POWER]      = alloc(psig, m, "str.power", 0, 2, strTintT, strT);
 }
 
 
@@ -580,6 +583,11 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case _OP_STRING_LENGTH:
         return mk_str_fun(k, arity, domain, range, OP_SEQ_LENGTH);
 
+    case OP_SEQ_POWER:
+        return mk_seq_fun(k, arity, domain, range, _OP_STRING_POWER);
+    case _OP_STRING_POWER:
+        return mk_str_fun(k, arity, domain, range, OP_SEQ_POWER);
+
     case OP_SEQ_CONTAINS:
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_STRCTN);
     case _OP_STRING_STRCTN:
@@ -685,6 +693,9 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("re.complement", OP_RE_COMPLEMENT));
     op_names.push_back(builtin_name("str.from_ubv", OP_STRING_UBVTOS));
     op_names.push_back(builtin_name("str.from_sbv", OP_STRING_SBVTOS));
+    op_names.push_back(builtin_name("seq.replace_all", OP_SEQ_REPLACE_ALL));
+    op_names.push_back(builtin_name("seq.replace_re", OP_SEQ_REPLACE_RE));
+    op_names.push_back(builtin_name("seq.replace_re_all", OP_SEQ_REPLACE_RE_ALL));
 }
 
 void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
@@ -721,30 +732,34 @@ bool seq_decl_plugin::is_unique_value(app* e) const {
 }
 
 bool seq_decl_plugin::is_value(app* e) const {
-    while (true) {
-        if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) 
-            return true;
-        if (is_app_of(e, m_family_id, OP_STRING_CONST)) 
-            return true;
-        if (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
-            m_manager->is_value(e->get_arg(0))) 
-            return true;
-        if (is_app_of(e, m_family_id, OP_SEQ_CONCAT)) {
-            bool first = true;
-            for (expr* arg : *e) {
-                if (first) {
-                    first = false;
-                }
-                else if (is_app(arg) && !is_value(to_app(arg))) {
+    // Use an explicit worklist instead of recursing into concat arguments:
+    // a long chain of str.++ (e.g. from repeated quantifier instantiation)
+    // can otherwise drive recursion deep enough to overflow the native
+    // stack (#11042), regardless of whether the chain is left- or
+    // right-associated.
+    ptr_vector<app> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        app* a = todo.back();
+        todo.pop_back();
+        if (is_app_of(a, m_family_id, OP_SEQ_EMPTY)) 
+            continue;
+        if (is_app_of(a, m_family_id, OP_STRING_CONST)) 
+            continue;
+        if (is_app_of(a, m_family_id, OP_SEQ_UNIT) &&
+            m_manager->is_value(a->get_arg(0))) 
+            continue;
+        if (is_app_of(a, m_family_id, OP_SEQ_CONCAT)) {
+            for (expr* arg : *a) {
+                if (!is_app(arg))
                     return false;
-                }
+                todo.push_back(to_app(arg));
             }
-            if (!is_app(e->get_arg(0))) return false;            
-            e = to_app(e->get_arg(0));
             continue;
         }
         return false;
     }
+    return true;
 }
 
 bool seq_decl_plugin::is_model_value(app* e) const {
@@ -927,24 +942,40 @@ app* seq_util::str::mk_nth_c(expr* s, unsigned i) const {
 }
 
 void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
-    expr* e1, *e2;
-    while (is_concat(e, e1, e2)) {
-        get_concat(e1, es);
-        e = e2;
-    }
-    if (!is_empty(e)) {
-        es.push_back(e);
+    // Flatten with an explicit worklist instead of recursing on the left
+    // child: a chain of concatenations deep enough (e.g. from repeated
+    // quantifier instantiation of `s ++ s`) can otherwise overflow the
+    // native stack (#11042).
+    ptr_buffer<expr> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        expr* cur = todo.back();
+        todo.pop_back();
+        expr* e1, *e2;
+        if (is_concat(cur, e1, e2)) {
+            todo.push_back(e2);
+            todo.push_back(e1);
+            continue;
+        }
+        if (!is_empty(cur))
+            es.push_back(cur);
     }
 }
 
 void seq_util::str::get_concat(expr* e, ptr_vector<expr>& es) const {
-    expr* e1, * e2;
-    while (is_concat(e, e1, e2)) {
-        get_concat(e1, es);
-        e = e2;
-    }
-    if (!is_empty(e)) {
-        es.push_back(e);
+    ptr_buffer<expr> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        expr* cur = todo.back();
+        todo.pop_back();
+        expr* e1, * e2;
+        if (is_concat(cur, e1, e2)) {
+            todo.push_back(e2);
+            todo.push_back(e1);
+            continue;
+        }
+        if (!is_empty(cur))
+            es.push_back(cur);
     }
 }
 
@@ -1528,6 +1559,31 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
                 out << "){" << lo << "," << hi << "}";
         }
     }
+    else if (re.is_loop(e, r1, s, s2)) {
+        // loop with symbolic bounds: (re.loop r1 lo hi)
+        if (can_skip_parenth(r1))
+            print(out, r1);
+        else {
+            out << "(";
+            print(out, r1);
+            out << ")";
+        }
+        out << "{";
+        print(out, s) << ",";
+        print(out, s2) << "}";
+    }
+    else if (re.is_loop(e, r1, s)) {
+        // loop with symbolic lower bound and unbounded upper bound: (re.loop r1 lo)
+        if (can_skip_parenth(r1))
+            print(out, r1);
+        else {
+            out << "(";
+            print(out, r1);
+            out << ")";
+        }
+        out << "{";
+        print(out, s) << ",}";
+    }
     else if (re.is_diff(e, r1, r2)) {
         out << "(";
         print(out, r1);
@@ -1693,13 +1749,24 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             return i1.opt();
         case OP_RE_RANGE: {
             // A concrete range [lo, hi] with lo <= hi is non-empty and classical.
-            zstring slo, shi;
-            if (u.str.is_string(e->get_arg(0), slo) && slo.length() == 1 &&
-                u.str.is_string(e->get_arg(1), shi) && shi.length() == 1 &&
-                slo[0] <= shi[0])
+            // A bound is concrete either as a length-1 string literal, or as the
+            // equivalent (seq.unit (_ Char c)) term -- the shape produced internally,
+            // e.g., during derivative/complement processing.
+            auto get_char = [&](expr* b, unsigned& code) {
+                zstring s;
+                expr* unit_arg = nullptr;
+                if (u.str.is_string(b, s) && s.length() == 1) {
+                    code = s[0];
+                    return true;
+                }
+                return u.str.is_unit(b, unit_arg) && u.is_const_char(unit_arg, code);
+            };
+            unsigned clo = 0, chi = 0;
+            bool interpreted = get_char(e->get_arg(0), clo) && get_char(e->get_arg(1), chi);
+            if (interpreted && clo <= chi)
                 return info(true, l_false, 1, 1, true);
-            // Symbolic or unknown: not classical
-            return info(true, l_false, 1, 1, false);
+            // Symbolic bounds are not suitable for ground-regex reasoning.
+            return info(interpreted, l_false, 1, 1, false);
         }
         case OP_RE_FULL_CHAR_SET:
         case OP_RE_OF_PRED:
@@ -1917,7 +1984,14 @@ seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) co
     if (is_known()) {
         if (rhs.is_known()) {
             info r(interpreted & rhs.interpreted,
-                ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
+                // Soundness: Lambda(r \ s) is nullable only if Lambda(r) is nullable (it is a
+                // subset of Lambda(r)), so the only way to conclude l_false is nullable == l_false.
+                // rhs.nullable == l_false alone does NOT force non-nullability: e.g. r is a
+                // symbolic sequence with unknown nullability (l_undef) and s has nullable == l_false;
+                // if r happens to denote the empty word, r \ s is nullable, so l_false would be
+                // unsound here. (Previously this disjunct read
+                // `nullable == l_false || rhs.nullable == l_false`, which was unsound.)
+                ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false) ? l_false : l_undef)),
                 0, 0,
                 false);
             // Lambda(r \ s) is contained in Lambda(r), so the lhs abstraction carries over.

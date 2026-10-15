@@ -44,7 +44,6 @@ import unittest
 import urllib.request
 from pathlib import Path
 
-# Keep the traces out of the project directory. Kolo reads this when it saves.
 TRACE_ROOT = tempfile.mkdtemp(prefix="kolo-pgo-")
 os.environ["KOLO_PATH"] = TRACE_ROOT
 
@@ -56,7 +55,6 @@ from kolo.utils import extract_main_frames_from_data  # noqa: E402
 
 HERE = str(Path(__file__).resolve())
 
-# User code that some sessions tell Kolo to ignore (filters.ignore_frames).
 IGNORED = str(Path(TRACE_ROOT) / "kolo_pgo_ignored.py")
 Path(IGNORED).write_text(
     "def audit(order_id, lines):\n"
@@ -73,8 +71,6 @@ ORDERS = 25
 REPEATS = 3
 SMALL_TRACES = 30
 LARGE_ROWS = 4000
-# Records at INFO and above reach Logger._log, where Kolo's logging plugin
-# hooks in. They are not printed.
 logger = logging.getLogger("kolo_pgo_train")
 logger.addHandler(logging.NullHandler())
 logger.propagate = False
@@ -259,7 +255,7 @@ def worker(results, errors, inventory, start):
     try:
         orders = range(start, start + 3)
         results.append([process_order(order_id, inventory) for order_id in orders])
-    except Exception as exc:  # reported by workload(): join() would hide it
+    except Exception as exc:
         errors.append(exc)
 
 
@@ -347,13 +343,11 @@ def configs():
     only_this_file = dict(base, filters={"include_frames": [HERE]})
     yield base
     yield only_this_file
-    # Trace the worker threads too (off by default).
     yield dict(only_this_file, threading=True)
     yield dict(base, filters={"ignore_frames": [IGNORED]})
     if sys.version_info >= (3, 12):
         yield dict(base, line_events=True)
         yield dict(only_this_file, line_events=True)
-        # The sys.setprofile backend, the default before Python 3.12.
         yield dict(base, use_monitoring=False)
         yield dict(only_this_file, use_monitoring=False)
         yield dict(only_this_file, use_monitoring=False, threading=True)
@@ -363,7 +357,6 @@ def configs():
 def large_configs():
     base = {"auto_emit": False, "filters": {"include_frames": [HERE]}}
     yield base
-    # Flush finished subtrees early, as a trace of hundreds of MB would.
     yield dict(base, flush_subtree_mb=0.25)
     yield dict(base, flush_subtree_mb=False)
     if sys.version_info >= (3, 12):
@@ -413,7 +406,6 @@ def main():
                 sessions += 1
         recorded.wait_for("process_order", sessions)
 
-        # Many small traces, saved the default way: by the writer thread.
         requests = 0
         for _ in range(SMALL_TRACES):
             with enable({"auto_emit": False}):
@@ -421,7 +413,6 @@ def main():
             requests += 1
         recorded.wait_for("fetch_stock", requests)
 
-        # A large trace: tens of thousands of frames carrying the same values.
         reports = 0
         for config in large_configs():
             for save_in_thread in (False, True):

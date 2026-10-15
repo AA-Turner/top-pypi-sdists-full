@@ -37,7 +37,8 @@ class FakeSessions:
 
     def filter(self, **kwargs: Any) -> _Query:
         self.filters.append(kwargs)
-        rows = [r for r in self.rows if r.status in kwargs["status__in"]]
+        allowed = kwargs["status__in"] if "status__in" in kwargs else [kwargs["status"]]
+        rows = [r for r in self.rows if r.status in allowed]
         if "updated_at__lt" in kwargs:
             rows = [r for r in rows if r.updated_at < kwargs["updated_at__lt"]]
         return _Query(rows)
@@ -132,12 +133,17 @@ async def test_the_scraper_servers_existing_reaper_loop_runs_it(monkeypatch: pyt
         return []
 
     monkeypatch.setattr(WebCrawlRepository, "fail_stale_sessions", staticmethod(fail_stale))
+    async def dead(**_: Any) -> list[str]:
+        calls.append("dead")
+        return []
+
     monkeypatch.setattr(lease_reaper, "settle_lease_expired_sessions", settle)
+    monkeypatch.setattr(lease_reaper, "fail_dead_lease_sessions", dead, raising=False)
     monkeypatch.setattr(app, "STALE_SESSION_REAPER_INTERVAL_SECONDS", 0)
 
     with pytest.raises(asyncio.CancelledError):
         await app._run_stale_session_reaper()
-    assert calls == ["settled"]
+    assert calls == ["dead", "settled"]
 
 
 @pytest.mark.asyncio
@@ -178,3 +184,68 @@ def test_a_zombie_runs_session_writes_never_touch_a_settled_row() -> None:
     source = stable_source(WebCrawlRepository.persist_event)
     assert '"status__in": list(ACTIVE_SESSION_STATUSES)' in source
     assert source.count("session_filter,") >= 3
+
+
+# --- a dead run lease is handed to crash-resume within minutes ---------------
+
+
+@pytest.mark.asyncio
+async def test_a_run_whose_lease_went_silent_is_handed_to_crash_resume_in_minutes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Live 34df4541 (2026-10-14): the lease never beat after acquisition and the
+    session sat `running`. Ten missed 30 s beats now mean the process is gone:
+    a live session is failed with the stale marker (the handoff the owning
+    deployment's crash-resume consumes), a deleted one is settled, a beating
+    one is left alone."""
+    from matrx_scraper.web_crawl.persistence import (
+        DEAD_RUN_LEASE_AFTER,
+        STALE_SESSION_ERROR,
+    )
+
+    assert DEAD_RUN_LEASE_AFTER == timedelta(minutes=5)
+    silent = NOW - timedelta(minutes=6)
+    dead = _session("dead", "running", heartbeat=silent, updated=silent)
+    dead.metadata["run_lease"]["deployment"] = "production"
+    dead_deleted = _session("dead-deleted", "running", heartbeat=silent, updated=silent, deleted=True)
+    beating = _session("beating", "running", heartbeat=NOW - timedelta(seconds=30), updated=silent)
+    leaseless = _session("leaseless", "running", heartbeat=None, updated=silent)
+    fake = FakeSessions([dead, dead_deleted, beating, leaseless])
+    monkeypatch.setattr(lease_reaper, "WebCrawlSession", fake)
+
+    settled = await lease_reaper.fail_dead_lease_sessions(now=NOW)
+
+    assert settled == ["dead", "dead-deleted"]
+    assert (dead.status, dead.error) == ("failed", STALE_SESSION_ERROR)
+    # Ownership survives the handoff: crash-resume matches on the deployment.
+    assert dead.metadata["run_lease"]["deployment"] == "production"
+    assert dead.metadata["run_lease"]["owner"] == "reaped:owner-dead"
+    assert dead_deleted.status == "partial"
+    assert dead_deleted.stats["stop_reason"] == "lease_expired"
+    assert beating.status == "running"
+    assert leaseless.status == "running"  # the 30-minute reaper's, no heartbeat to judge
+    assert fake.filters[0]["updated_at__lt"] == NOW - DEAD_RUN_LEASE_AFTER
+
+
+def test_a_leased_run_is_judged_dead_after_the_short_window() -> None:
+    from matrx_scraper.web_crawl.persistence import run_lease_is_live
+
+    silent = NOW - timedelta(minutes=6)
+    assert not run_lease_is_live(_session("x", "running", heartbeat=silent, updated=silent), now=NOW)
+    assert run_lease_is_live(
+        _session("y", "running", heartbeat=NOW - timedelta(minutes=4), updated=silent), now=NOW
+    )
+    # A leaseless running session keeps the 30-minute quiet window.
+    assert run_lease_is_live(_session("z", "running", heartbeat=None, updated=silent), now=NOW)
+
+
+def test_the_initialization_run_beats_its_lease() -> None:
+    """run_initialize claimed a lease but started its watcher without the token,
+    so the lease never beat (34df4541: heartbeat_at == acquired_at)."""
+    from matrx_utils.source_guard import stable_source
+
+    from matrx_scraper.web_crawl.service import WebCrawlService
+
+    source = stable_source(WebCrawlService.run_initialize)
+    watcher = source.index("self._watch_for_cancel(")
+    assert "lease_token=prepared.state.run_lease_token" in source[watcher : watcher + 600]

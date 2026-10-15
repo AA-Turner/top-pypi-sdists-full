@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.55.1
+Version: 1.55.2
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -40,7 +40,7 @@ Requires-Dist: wheel
 Requires-Dist: snowflake-connector-python<5.0.0,>=3.17.0
 Requires-Dist: typing-extensions<5.0.0,>=4.1.0
 Requires-Dist: pyyaml
-Requires-Dist: cloudpickle!=2.1.0,!=2.2.0,<=3.1.1,>=1.6.0
+Requires-Dist: cloudpickle!=2.1.0,!=2.2.0,<=3.1.2,>=1.6.0
 Requires-Dist: protobuf<6.34,>=3.20; python_version < "3.14"
 Requires-Dist: protobuf<6.34,>=5.29.0; python_version >= "3.14"
 Requires-Dist: python-dateutil

@@ -814,13 +814,13 @@ def test_ladder_lost_its_secret_q_g_closes():
     assert pan.phase == "lobby"
 
 
-def test_login_strip_says_out_not_back():
-    """ESC at login leaves the lobby entirely — the strip speaks the app's
-    leave-to-home word."""
+def test_login_strip_says_leave_not_back():
+    """ESC at login leaves the lobby entirely — the strip speaks the
+    leave-a-place word (menus call #11 = A, 2026-10-15)."""
     p = Pet(num=100, stage="Champion", attribute="Vaccine")
     pan = lobbyscreen.LobbyPanel(p, lambda name, pw, card: None)
     assert pan.phase == "login"
-    assert "out" in pan.strip() and "back" not in pan.strip()
+    assert "leave" in pan.strip() and "back" not in pan.strip()
 
 
 def test_pm_flush_keeps_undelivered_mail(tmp_path, monkeypatch):
@@ -902,10 +902,13 @@ def test_the_podium_ceremony_holds_then_any_key_skips():
     ack now stages the ceremony: champion cheer under the pulsing light
     with the payout line pinned for PODIUM_T; any key skips (show idiom);
     the durable status line survives for after the show."""
+    from copy import deepcopy
+    # Animation audit 2026-10-14: original >120-tick hold; dismissal cannot re-claim or type into chat.
     s = LobbyState()
     pan = _panel(s)
     pan.client.ladder = {"award": {"season": "2026-06"}}
-    pan.client.ladder_claim = lambda season: None
+    claims = []
+    pan.client.ladder_claim = lambda season: claims.append(season)
     pan.client.ladder_reward = {"ok": True, "season": "2026-06",
                                 "rank": 1, "bits": 25000}
     pan.anim()
@@ -916,13 +919,18 @@ def test_the_podium_ceremony_holds_then_any_key_skips():
         pan.anim()
     assert pan.pshow is not None                   # mid-hold: still on stage
     assert "PODIUM" in pan.text().plain
+    before = deepcopy(pan.pet.__dict__), list(claims), pan.buf
     assert pan.key("z") is None and pan.pshow is None   # any key skips
     assert "PODIUM" not in pan.text().plain
     assert "claimed" in pan.status                 # the durable line remains
+    assert "+25000b" in pan.status
+    assert (pan.pet.__dict__, claims, pan.buf) == before
     # and left alone, the hold expires on its own
     pan.pshow = {"t": 0, "line": "x"}
-    for _ in range(121):
+    for _ in range(120):
         pan.anim()
+    assert pan.pshow is not None
+    pan.anim()
     assert pan.pshow is None
 
 

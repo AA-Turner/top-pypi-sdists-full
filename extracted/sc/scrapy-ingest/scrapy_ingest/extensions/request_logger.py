@@ -7,21 +7,19 @@ from ..collector import ensure_collector
 from ..middleware import install_parent_url_tracking
 from ..utils.fingerprint import get_request_fingerprint
 from ..utils.parent import get_parent_url
+from ..utils.request_meta import (
+    format_response_size_bytes,
+    response_from_exception,
+    response_size_bytes_for_request,
+    status_code_from_exception,
+)
 
-
-def _body_size(response):
-    if response is None:
-        return None
-    body = getattr(response, "body", None)
-    return len(body) if body is not None else None
-
-
-def format_response_size_bytes(response):
-    """Return comma-formatted body size (e.g. ``117,001``), or ``None``."""
-    size = _body_size(response)
-    if size is None:
-        return None
-    return f"{size:,}"
+__all__ = (
+    "RequestLogger",
+    "format_response_size_bytes",
+    "response_from_exception",
+    "status_code_from_exception",
+)
 
 
 def _http_error(response):
@@ -106,7 +104,7 @@ class RequestLogger:
             return
 
         start = request.meta.get("start_time", time.time())
-        status_code = getattr(response, "status", 0)
+        status_code = status_code_from_exception(failure, response)
         self.collector.add_request(
             {
                 "url": request.url,
@@ -114,7 +112,9 @@ class RequestLogger:
                 "method": request.method,
                 "status_code": status_code,
                 "response_time_secs": round(time.time() - start, 2),
-                "response_size_bytes": format_response_size_bytes(response),
+                "response_size_bytes": response_size_bytes_for_request(
+                    request, failure, response
+                ),
                 "fingerprint": fingerprint,
                 "error": error,
                 "success": False,

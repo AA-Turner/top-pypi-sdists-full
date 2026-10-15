@@ -874,3 +874,46 @@ def test_a_note_saying_replaced_by_marks_the_run_superseded():
     assert score._flagged(state, run)
     state["entities"][run]["notes"] = "Test-split evaluation of the chosen SVM."
     assert not score._flagged(state, run)
+
+
+def test_an_agents_conclusion_counts_as_a_recorded_document() -> None:
+    """0361: the daemon may record an experiment's answer as its conclusion
+    rather than in its notes; the scorer reads it there. A person's or the
+    page lane's is not the daemon's work and does not count."""
+    sc = _load("score")
+    state = {"entities": {
+        "e1": {"conclusion": "Use Adam lr 0.01: 96.18% vs 95.49%", "conclusion_source": "agent",
+               "conclusion_changed": True},
+        "e2": {"conclusion": "a person's answer", "conclusion_source": "human", "conclusion_changed": True},
+        "e3": {"conclusion": "the page's answer", "conclusion_source": "lane", "conclusion_changed": True},
+        "e4": {"conclusion": None, "conclusion_source": None},
+        # An agent's conclusion the fixture already held: not this replay's work.
+        "e5": {"conclusion": "an earlier session's answer", "conclusion_source": "agent", "conclusion_changed": False},
+    }}
+    assert sc.documents(state) == [("e1", "Use Adam lr 0.01: 96.18% vs 95.49%")]
+    assert sc.documents(state, ids={"e2", "e3", "e5"}) == []
+
+
+@pytest.mark.parametrize(
+    ("source", "had", "by", "sent", "want"),
+    [
+        (None, None, "agent", "x", ("x", "agent")),
+        ("human", "old", "agent", " old ", None),  # same text again: a no-op, not a 409
+        ("human", None, "agent", "new", ("new", "agent")),  # after a person's clear
+        ("human", "old", "human", "", (None, "human")),  # a person's clear is kept
+        ("lane", "same", "agent", "same", None),  # no re-attribution of unchanged text
+        ("agent", "old", None, "new", ("new", None)),
+        ("human", "old", None, "new", ("new", "human")),
+    ],
+)
+def test_the_fake_follows_the_servers_conclusion_rules(source, had, by, sent, want) -> None:
+    probe = SimpleNamespace(view=lambda _eid: {"conclusion": had, "conclusion_source": source})
+    body = {"conclusion": sent, **({"authored_by": by} if by else {})}
+    assert fp.FakeProbe._conclusion_write(probe, "e", body) == want
+
+
+def test_the_fake_refuses_an_agent_over_a_persons_conclusion() -> None:
+    probe = SimpleNamespace(view=lambda _eid: {"conclusion": "theirs", "conclusion_source": "human"})
+    with pytest.raises(fp.Refused) as refused:
+        fp.FakeProbe._conclusion_write(probe, "e", {"conclusion": "mine", "authored_by": "agent"})
+    assert refused.value.status == 409

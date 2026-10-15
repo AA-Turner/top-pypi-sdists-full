@@ -1173,7 +1173,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_greeks_implied_volatility(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
+    def option_snapshot_greeks_implied_volatility(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1202,6 +1202,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["use_market_value"] = str(use_market_value)
             if current_day_only is not None:
                 query_parameters["current_day_only"] = str(current_day_only)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1229,6 +1231,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.use_market_value = use_market_value
         if current_day_only:
             query.current_day_only = current_day_only
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionSnapshotGreeksImpliedVolatilityRequest(query_info=query_info, params=query)
 
         try:
@@ -1236,7 +1240,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_implied_volatility({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_implied_volatility({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -1246,7 +1250,7 @@ of the option respectively. The underlying price represents whatever the last un
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
+    def option_snapshot_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1275,6 +1279,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["use_market_value"] = str(use_market_value)
             if current_day_only is not None:
                 query_parameters["current_day_only"] = str(current_day_only)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1302,6 +1308,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.use_market_value = use_market_value
         if current_day_only:
             query.current_day_only = current_day_only
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionSnapshotGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -1309,7 +1317,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -1320,7 +1328,7 @@ of the option respectively. The underlying price represents whatever the last un
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
+    def option_snapshot_binomial_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1351,6 +1359,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["use_market_value"] = str(use_market_value)
             if current_day_only is not None:
                 query_parameters["current_day_only"] = str(current_day_only)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1380,6 +1390,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.use_market_value = use_market_value
         if current_day_only:
             query.current_day_only = current_day_only
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionSnapshotBinomialGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -1387,7 +1399,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -1397,7 +1409,7 @@ of the option respectively. The underlying price represents whatever the last un
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
+    def option_snapshot_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1426,6 +1438,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["use_market_value"] = str(use_market_value)
             if current_day_only is not None:
                 query_parameters["current_day_only"] = str(current_day_only)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1453,6 +1467,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.use_market_value = use_market_value
         if current_day_only:
             query.current_day_only = current_day_only
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionSnapshotGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1460,7 +1476,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -1471,7 +1487,7 @@ of the option respectively. The underlying price represents whatever the last un
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
+    def option_snapshot_binomial_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1502,6 +1518,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["use_market_value"] = str(use_market_value)
             if current_day_only is not None:
                 query_parameters["current_day_only"] = str(current_day_only)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1531,6 +1549,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.use_market_value = use_market_value
         if current_day_only:
             query.current_day_only = current_day_only
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionSnapshotBinomialGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1538,7 +1558,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -1548,7 +1568,7 @@ of the option respectively. The underlying price represents whatever the last un
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
+    def option_snapshot_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1577,6 +1597,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["use_market_value"] = str(use_market_value)
             if current_day_only is not None:
                 query_parameters["current_day_only"] = str(current_day_only)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1604,6 +1626,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.use_market_value = use_market_value
         if current_day_only:
             query.current_day_only = current_day_only
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionSnapshotGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1611,7 +1635,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -1622,7 +1646,7 @@ of the option respectively. The underlying price represents whatever the last un
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
+    def option_snapshot_binomial_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1653,6 +1677,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["use_market_value"] = str(use_market_value)
             if current_day_only is not None:
                 query_parameters["current_day_only"] = str(current_day_only)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1682,6 +1708,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.use_market_value = use_market_value
         if current_day_only:
             query.current_day_only = current_day_only
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionSnapshotBinomialGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1689,7 +1717,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -1699,7 +1727,7 @@ of the option respectively. The underlying price represents whatever the last un
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
+    def option_snapshot_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1728,6 +1756,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["use_market_value"] = str(use_market_value)
             if current_day_only is not None:
                 query_parameters["current_day_only"] = str(current_day_only)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1755,6 +1785,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.use_market_value = use_market_value
         if current_day_only:
             query.current_day_only = current_day_only
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionSnapshotGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1762,7 +1794,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -1773,7 +1805,7 @@ of the option respectively. The underlying price represents whatever the last un
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
+    def option_snapshot_binomial_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1804,6 +1836,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["use_market_value"] = str(use_market_value)
             if current_day_only is not None:
                 query_parameters["current_day_only"] = str(current_day_only)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1833,6 +1867,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.use_market_value = use_market_value
         if current_day_only:
             query.current_day_only = current_day_only
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionSnapshotBinomialGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1840,7 +1876,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2197,7 +2233,7 @@ of the option respectively. The underlying price represents whatever the last un
 - **Set `expiration` to ``*`` if you want to retrieve data for every option that shares the same ``symbol``. (note: Any ``expiration=*`` must be requested day by day)**
 
     """
-    def option_history_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None, option_use_nbbo:Optional[bool]=True):
+    def option_history_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None, option_use_nbbo:Optional[bool]=True, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2224,6 +2260,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["strike_range"] = str(strike_range)
             if option_use_nbbo is not None:
                 query_parameters["option_use_nbbo"] = str(option_use_nbbo)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2249,6 +2287,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.strike_range = strike_range
         if option_use_nbbo:
             query.option_use_nbbo = option_use_nbbo
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryGreeksEodRequest(query_info=query_info, params=query)
 
         try:
@@ -2256,7 +2296,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range },{ option_use_nbbo })")
+                raise NoDataFoundError(f"No data found for: option_history_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range },{ option_use_nbbo },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2266,7 +2306,7 @@ of the option respectively. The underlying price represents whatever the last un
 - **Set `expiration` to ``*`` if you want to retrieve data for every option that shares the same ``symbol``. (note: Any ``expiration=*`` must be requested day by day)**
 
     """
-    def option_history_binomial_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None, option_use_nbbo:Optional[bool]=True):
+    def option_history_binomial_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None, option_use_nbbo:Optional[bool]=True, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2295,6 +2335,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["strike_range"] = str(strike_range)
             if option_use_nbbo is not None:
                 query_parameters["option_use_nbbo"] = str(option_use_nbbo)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2322,6 +2364,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.strike_range = strike_range
         if option_use_nbbo:
             query.option_use_nbbo = option_use_nbbo
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryBinomialGreeksEodRequest(query_info=query_info, params=query)
 
         try:
@@ -2329,7 +2373,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range },{ option_use_nbbo })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range },{ option_use_nbbo },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2339,7 +2383,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_greeks_all(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_greeks_all(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2369,6 +2413,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2397,6 +2443,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -2404,7 +2452,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_greeks_all({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_greeks_all({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2415,7 +2463,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_binomial_greeks_all(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_binomial_greeks_all(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2447,6 +2495,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2477,6 +2527,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryBinomialGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -2484,7 +2536,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_all({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_all({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2494,7 +2546,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+    def option_history_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2527,6 +2579,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if perf_boost_intraday is not None:
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2558,6 +2612,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if perf_boost_intraday:
             query.perf_boost_intraday = perf_boost_intraday
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryTradeGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -2565,7 +2621,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_all({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_all({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2576,7 +2632,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+    def option_history_binomial_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2611,6 +2667,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if perf_boost_intraday is not None:
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2644,6 +2702,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if perf_boost_intraday:
             query.perf_boost_intraday = perf_boost_intraday
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryBinomialTradeGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -2651,7 +2711,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_all({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_all({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2661,7 +2721,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_greeks_first_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_greeks_first_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2691,6 +2751,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2719,6 +2781,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -2726,7 +2790,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_greeks_first_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_greeks_first_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2737,7 +2801,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_binomial_greeks_first_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_binomial_greeks_first_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2769,6 +2833,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2799,6 +2865,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryBinomialGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -2806,7 +2874,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_first_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_first_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2816,7 +2884,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+    def option_history_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2849,6 +2917,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if perf_boost_intraday is not None:
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2880,6 +2950,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if perf_boost_intraday:
             query.perf_boost_intraday = perf_boost_intraday
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryTradeGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -2887,7 +2959,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_first_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_first_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2898,7 +2970,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+    def option_history_binomial_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2933,6 +3005,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if perf_boost_intraday is not None:
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2966,6 +3040,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if perf_boost_intraday:
             query.perf_boost_intraday = perf_boost_intraday
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryBinomialTradeGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -2973,7 +3049,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_first_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_first_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -2983,7 +3059,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_greeks_second_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_greeks_second_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3013,6 +3089,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3041,6 +3119,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3048,7 +3128,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_greeks_second_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_greeks_second_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -3059,7 +3139,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_binomial_greeks_second_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_binomial_greeks_second_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3091,6 +3171,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3121,6 +3203,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryBinomialGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3128,7 +3212,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_second_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_second_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -3138,7 +3222,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+    def option_history_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3171,6 +3255,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if perf_boost_intraday is not None:
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3202,6 +3288,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if perf_boost_intraday:
             query.perf_boost_intraday = perf_boost_intraday
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryTradeGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3209,7 +3297,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_second_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_second_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -3220,7 +3308,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+    def option_history_binomial_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3255,6 +3343,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if perf_boost_intraday is not None:
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3288,6 +3378,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if perf_boost_intraday:
             query.perf_boost_intraday = perf_boost_intraday
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryBinomialTradeGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3295,7 +3387,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_second_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_second_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -3305,7 +3397,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_greeks_third_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_greeks_third_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3335,6 +3427,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3363,6 +3457,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3370,7 +3466,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_greeks_third_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_greeks_third_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -3381,7 +3477,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_binomial_greeks_third_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_binomial_greeks_third_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3413,6 +3509,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3443,6 +3541,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryBinomialGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3450,7 +3550,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_third_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_third_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -3460,7 +3560,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+    def option_history_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3493,6 +3593,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if perf_boost_intraday is not None:
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3524,6 +3626,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if perf_boost_intraday:
             query.perf_boost_intraday = perf_boost_intraday
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryTradeGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3531,7 +3635,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_third_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_third_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -3542,7 +3646,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+    def option_history_binomial_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3577,6 +3681,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if perf_boost_intraday is not None:
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3610,6 +3716,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if perf_boost_intraday:
             query.perf_boost_intraday = perf_boost_intraday
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryBinomialTradeGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3617,7 +3725,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_third_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_third_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -3626,7 +3734,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_greeks_implied_volatility(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_greeks_implied_volatility(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3656,6 +3764,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3684,6 +3794,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryGreeksImpliedVolatilityRequest(query_info=query_info, params=query)
 
         try:
@@ -3691,7 +3803,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_greeks_implied_volatility({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_greeks_implied_volatility({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
             else:
                 raise e
 
@@ -3700,7 +3812,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_implied_volatility(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+    def option_history_trade_greeks_implied_volatility(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3733,6 +3845,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if perf_boost_intraday is not None:
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            if annual_dividend_amount is not None:
+                query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3764,6 +3878,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if perf_boost_intraday:
             query.perf_boost_intraday = perf_boost_intraday
+        if annual_dividend_amount:
+            query.annual_dividend_amount = annual_dividend_amount
         request = endpoints_pb2.OptionHistoryTradeGreeksImpliedVolatilityRequest(query_info=query_info, params=query)
 
         try:
@@ -3771,7 +3887,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_implied_volatility({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+                raise NoDataFoundError(f"No data found for: option_history_trade_greeks_implied_volatility({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
             else:
                 raise e
 

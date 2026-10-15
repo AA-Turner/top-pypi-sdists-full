@@ -1,0 +1,67 @@
+# Checks out airbytehq/saas-sandbox at the commit pinned in
+# `.github/saas-sandbox-ref`, installs its `sandbox` CLI and, with `start`,
+# starts a local sandbox server from the sandbox's own Compose file.
+#
+# Needs `uv` on PATH and this repository checked out as the workspace. Every
+# later `sandbox` call reads the connection from the variables exported here and
+# never passes `--local`, which is rejected whenever SAAS_API_URL is set. The
+# API key is the sandbox's public local development key, not a secret.
+name: Set up SaaS Sandbox
+description: Install the pinned SaaS Sandbox CLI and optionally start a local sandbox.
+
+inputs:
+  token:
+    description: A token that can read airbytehq/saas-sandbox.
+    required: true
+  start:
+    description: "'true' to start a local sandbox and export its connection to the job environment."
+    required: false
+    default: "true"
+
+outputs:
+  ref:
+    description: The saas-sandbox commit that was checked out.
+    value: ${{ steps.pin.outputs.ref }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read the saas-sandbox pin
+      id: pin
+      shell: bash
+      run: |
+        REF="$(tr -d '[:space:]' < .github/saas-sandbox-ref)"
+        if ! [[ "$REF" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::.github/saas-sandbox-ref must hold one full 40-character commit SHA"
+          exit 1
+        fi
+        echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+    - name: Check out SaaS Sandbox
+      uses: actions/checkout@v6
+      with:
+        repository: airbytehq/saas-sandbox
+        ref: ${{ steps.pin.outputs.ref }}
+        token: ${{ inputs.token }}
+        path: saas-sandbox
+        persist-credentials: false
+
+    - name: Install the sandbox CLI
+      shell: bash
+      run: |
+        uv tool install --python 3.13 ./saas-sandbox/oss
+        uv tool dir --bin >> "$GITHUB_PATH"
+
+    - name: Start the local sandbox
+      if: inputs.start == 'true'
+      shell: bash
+      run: |
+        docker compose -f saas-sandbox/oss/compose.yaml up -d --wait
+        {
+          echo "SAAS_API_URL=http://127.0.0.1:8088"
+          echo "SAAS_API_KEY=local-development-operator-key-0123456789"
+          echo "SAAS_WORKSPACE_ID=00000000-0000-4000-8000-000000000002"
+          echo "XDG_STATE_HOME=$RUNNER_TEMP/saas-state"
+          echo "SAAS_RELAY_API_URL=http://api:8080"
+          echo "SAAS_TRANSPORT_NETWORK=saas-sandbox_transport"
+        } >> "$GITHUB_ENV"

@@ -48,7 +48,7 @@ class ShipmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Shipment, ListShipmentsResponse]:
         """
-        Returns a paginated list of shipments for an account.
+        Lists an account's shipments.
 
         Parameters
         ----------
@@ -98,7 +98,7 @@ class ShipmentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -161,7 +161,7 @@ class ShipmentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -180,7 +180,7 @@ class ShipmentsClient:
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Shipment:
         """
-        Retrieves a shipment by its id, or by the payment id it fulfills.
+        Retrieves a shipment by its ID, or by the ID of the payment it fulfills.
 
         Parameters
         ----------
@@ -200,7 +200,7 @@ class ShipmentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -238,7 +238,7 @@ class ShipmentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -283,7 +283,7 @@ class AsyncShipmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Shipment, ListShipmentsResponse]:
         """
-        Returns a paginated list of shipments for an account.
+        Lists an account's shipments.
 
         Parameters
         ----------
@@ -335,7 +335,7 @@ class AsyncShipmentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -407,7 +407,7 @@ class AsyncShipmentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -432,7 +432,7 @@ class AsyncShipmentsClient:
 
     async def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Shipment:
         """
-        Retrieves a shipment by its id, or by the payment id it fulfills.
+        Retrieves a shipment by its ID, or by the ID of the payment it fulfills.
 
         Parameters
         ----------
@@ -454,7 +454,7 @@ class AsyncShipmentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -500,7 +500,7 @@ class AsyncShipmentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

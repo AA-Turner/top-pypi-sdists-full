@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: serialx
-Version: 1.13.0
+Version: 1.14.0
 Summary: Serial library with native sync and async support for Windows, Linux, macOS, and other platforms
 Author-email: puddly <puddly3@gmail.com>
 License-Expression: Apache-2.0
@@ -13,7 +13,7 @@ Requires-Dist: typing-extensions>=4.13.0
 Requires-Dist: async-timeout>=3.0.0; python_version < "3.11"
 Requires-Dist: pywin32; platform_system == "Windows"
 Provides-Extra: esphome
-Requires-Dist: aioesphomeapi>=46.5.0; python_version >= "3.11" and extra == "esphome"
+Requires-Dist: aioesphomeapi>=46.12.0; python_version >= "3.11" and extra == "esphome"
 Dynamic: license-file
 
 # Introduction

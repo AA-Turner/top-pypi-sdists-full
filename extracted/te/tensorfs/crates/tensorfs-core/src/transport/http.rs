@@ -32,6 +32,7 @@ use crate::transport::ledger::{Deadline, Ledger};
 use crate::transport::policy::CheckedUrl;
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, ServerName};
+use std::collections::BTreeSet;
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -209,7 +210,7 @@ const MAX_IDLE: usize = 32;
 /// A connection belongs to its origin and the credentials sent on it, never to one
 /// request target: a signed CDN URL changes per resolve, and keying on it meant the
 /// delivery hop never reused a socket.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 struct Scope {
     https: bool,
     host: String,
@@ -226,7 +227,8 @@ impl Scope {
             // can assign different meaning to their first or last occurrence.
             let name = name.to_ascii_lowercase();
             // Which bytes are asked for is not who is asking: chunks share a connection.
-            if name == "range" {
+            // Neither is a per-request proof (RFC 9449): the token beside it is.
+            if name == "range" || name == "dpop" {
                 continue;
             }
             hash.update(&(name.len() as u64).to_le_bytes());
@@ -257,6 +259,54 @@ struct Idle {
 /// trusted stays trusted, and every shared client picks up an addition on its next exchange.
 static EXTRA_ROOTS: Mutex<Vec<CertificateDer<'static>>> = Mutex::new(Vec::new());
 static TRUST_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// Origins (host, port) whose certificate this process has verified in a completed handshake.
+static VERIFIED: Mutex<BTreeSet<(String, u16)>> = Mutex::new(BTreeSet::new());
+
+/// A certificate verdict from an origin this process has already verified is the link's
+/// weather (run 5438: tensorhub.com, after many handshakes in one upload), not the origin's
+/// identity. It waits the transfer's measured patience and answers as the exchange's own
+/// failure, so each caller asks again backed off. Once the transfer has moved nothing for
+/// longer than its measured stillness, the verdict stands.
+fn recanted(
+    checked: &CheckedUrl,
+    refusal: Refusal,
+    ledger: &Ledger,
+    deadline: Deadline,
+    fail: Code,
+) -> Refusal {
+    let origin = (checked.host.clone(), checked.port);
+    if refusal.code != Code::TLS_UNTRUSTED || !VERIFIED.lock().unwrap().contains(&origin) {
+        return refusal;
+    }
+    let (still, stillness) = (ledger.still(), ledger.stillness());
+    if still.silent > stillness {
+        return Refusal {
+            code: Code::TLS_UNTRUSTED,
+            detail: format!(
+                "{}; this process verified {} before, and the transfer has moved nothing for \
+                 {:.1} s against the {:.1} s its measured pace allows",
+                refusal.detail,
+                checked.host,
+                still.silent.as_secs_f64(),
+                stillness.as_secs_f64(),
+            ),
+        };
+    }
+    let patience = ledger.patience();
+    if let Err(stopped) = ledger.pause(patience, deadline) {
+        return stopped;
+    }
+    Refusal {
+        code: fail,
+        detail: format!(
+            "{} — {} verified earlier in this process, so asked again after {:.1} s",
+            refusal.detail,
+            checked.host,
+            patience.as_secs_f64(),
+        ),
+    }
+}
 
 /// Trust the PEM certificates in `pem` for every client this process uses.
 pub fn trust_roots(pem: &[u8]) -> Result<usize> {
@@ -712,6 +762,10 @@ impl<'l> Response<'l> {
             .map(|(_, v)| v.as_str())
     }
 
+    pub(crate) fn headers(&self) -> &[(String, String)] {
+        &self.headers
+    }
+
     pub fn into_body(self) -> BodyReader<'l> {
         self.body
     }
@@ -834,9 +888,14 @@ impl BodyReader<'_> {
     /// reader is dropped: the consumer may still spend seconds hashing, fsyncing and
     /// committing what arrived, and the next object's GET should find this socket idle.
     fn recycle_if_consumed(&mut self) {
-        // Only a fully consumed, unambiguous Content-Length response is reusable.
-        // Dropped/failed bodies, chunked bodies and EOF-delimited replies close.
-        if !matches!(self.framing, Framing::Length { remaining: 0 }) || self.raw_len() != 0 {
+        // Only a fully consumed, unambiguously framed response is reusable: its
+        // Content-Length read, or its last chunk and trailers. Dropped/failed bodies and
+        // EOF-delimited replies close.
+        let consumed = matches!(
+            self.framing,
+            Framing::Length { remaining: 0 } | Framing::Chunked { done: true, .. }
+        );
+        if !consumed || self.raw_len() != 0 {
             return;
         }
         let Some(recycle) = self.recycle.take() else {
@@ -1036,6 +1095,7 @@ impl BodyReader<'_> {
                             in_chunk: 0,
                             done: true,
                         };
+                        self.recycle_if_consumed();
                         return Ok(0);
                     }
                     in_chunk = size;
@@ -1163,12 +1223,23 @@ pub fn send<'l>(
     fail: Code,
 ) -> Result<Response<'l>> {
     ledger.check_running()?;
-    let opened = Instant::now();
     let scope = pool.map(|scoped| Scope::of(checked, scoped));
-    let cached = scope.as_ref().and_then(|scope| client.take(scope, checked));
-    let mut wire = if let Some(wire) = cached {
-        wire
-    } else {
+    let exchange = |wire: Wire, opened: Instant| {
+        exchange(
+            client, checked, method, headers, body, scope.as_ref(), wire, opened, deadline, ledger,
+            judge, write_silence, fail,
+        )
+    };
+    // An idle connection its origin closed meanwhile fails before any answer: every pooled
+    // exchange is idempotent, so it is made again on a fresh connection.
+    if let Some(wire) = scope.as_ref().and_then(|scope| client.take(scope, checked)) {
+        match exchange(wire, Instant::now()) {
+            Err(refusal) if refusal.code == fail && ledger.check_running().is_ok() => {}
+            answered => return answered,
+        }
+    }
+    let opened = Instant::now();
+    let wire = {
         let sock = connect(checked, deadline, ledger, judge, fail)?;
         if checked.https {
             let name = ServerName::try_from(checked.host.clone()).map_err(|_| Refusal {
@@ -1181,7 +1252,7 @@ pub fn send<'l>(
             })?;
             let mut sock = sock;
             let mut conn = Box::new(conn);
-            tls_handshake(
+            let shaken = tls_handshake(
                 &checked.host,
                 &mut sock,
                 &mut conn,
@@ -1190,13 +1261,40 @@ pub fn send<'l>(
                 judge,
                 opened,
                 fail,
-            )?;
+            );
+            if let Err(refusal) = shaken {
+                drop((sock, conn));
+                return Err(recanted(checked, refusal, ledger, deadline, fail));
+            }
+            VERIFIED
+                .lock()
+                .unwrap()
+                .insert((checked.host.clone(), checked.port));
             Wire::Tls { sock, conn }
         } else {
             Wire::Plain(sock)
         }
     };
+    exchange(wire, opened)
+}
 
+/// One request written on `wire` and its answer's head read.
+#[allow(clippy::too_many_arguments)]
+fn exchange<'l>(
+    client: &Client,
+    checked: &CheckedUrl,
+    method: &str,
+    headers: &[(String, String)],
+    body: Option<Payload<'_>>,
+    scope: Option<&Scope>,
+    mut wire: Wire,
+    opened: Instant,
+    deadline: Deadline,
+    ledger: &'l Ledger,
+    judge: Judge,
+    write_silence: Option<Duration>,
+    fail: Code,
+) -> Result<Response<'l>> {
     let default_port = if checked.https { 443 } else { 80 };
     let mut head = format!("{method} {} HTTP/1.1\r\n", checked.target);
     if checked.port == default_port {
@@ -1265,20 +1363,19 @@ pub fn send<'l>(
     ledger.answered();
 
     let framing = framing_of(status, &response_headers, fail)?;
+    let lengths = response_headers.iter().filter(|(name, _)| name == "content-length").count();
     let reusable = http11
         && status >= 200
-        && matches!(framing, Framing::Length { .. })
-        && response_headers
-            .iter()
-            .filter(|(name, _)| name == "content-length")
-            .count()
-            == 1
+        && match framing {
+            Framing::Length { .. } => lengths == 1,
+            Framing::Chunked { .. } => lengths == 0,
+            Framing::Eof => false,
+        }
         && !response_headers.iter().any(|(name, value)| {
-            name == "transfer-encoding"
-                || name == "connection"
-                    && value
-                        .split(',')
-                        .any(|part| part.trim().eq_ignore_ascii_case("close"))
+            name == "connection"
+                && value
+                    .split(',')
+                    .any(|part| part.trim().eq_ignore_ascii_case("close"))
         });
     Ok(Response {
         status,
@@ -1287,7 +1384,7 @@ pub fn send<'l>(
             wire: Some(wire),
             recycle: scope
                 .filter(|_| reusable)
-                .map(|scope| Box::new((Arc::clone(&client.idle), scope))),
+                .map(|scope| Box::new((Arc::clone(&client.idle), scope.clone()))),
             framing,
             raw: spill,
             raw_at: 0,

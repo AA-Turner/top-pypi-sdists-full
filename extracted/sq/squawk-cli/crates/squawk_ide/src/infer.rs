@@ -37,7 +37,7 @@ impl fmt::Display for Type {
 }
 
 pub(crate) fn infer_type_from_expr(expr: &ast::Expr) -> Option<Type> {
-    match expr {
+    match &expr.unparen() {
         ast::Expr::CastExpr(cast_expr) => infer_type_from_ty(&cast_expr.ty()?),
         ast::Expr::ArrayExpr(array_expr) => {
             let first_elem = array_expr.exprs().next()?;
@@ -49,7 +49,6 @@ pub(crate) fn infer_type_from_expr(expr: &ast::Expr) -> Option<Type> {
         ast::Expr::BinExpr(_bin_expr) => None,
         ast::Expr::Collate(collate) => infer_type_from_expr(&collate.expr()?),
         ast::Expr::Literal(literal) => infer_type_from_literal(literal),
-        ast::Expr::ParenExpr(paren) => paren.expr().and_then(|e| infer_type_from_expr(&e)),
         ast::Expr::TupleExpr(_) => Some(Type::Record),
         _ => None,
     }
@@ -72,8 +71,8 @@ fn infer_int_type(literal: &ast::Literal) -> Type {
         .integer_value()
         .and_then(|value| u64::try_from(value).ok())
     {
-        Some(n) if n <= i32::MAX as u64 => Type::Integer,
-        Some(n) if n <= i64::MAX as u64 => Type::Bigint,
+        Some(n) if i32::try_from(n).is_ok() => Type::Integer,
+        Some(n) if i64::try_from(n).is_ok() => Type::Bigint,
         _ => Type::Numeric,
     }
 }

@@ -41,13 +41,17 @@ class SupportChannelsClient:
         last: typing.Optional[int] = None,
         view: typing.Optional[SupportChannelView] = None,
         open: typing.Optional[bool] = None,
+        customer_user_id: typing.Optional[str] = None,
+        participated: typing.Optional[bool] = None,
+        include_last_message: typing.Optional[bool] = None,
+        include_participated: typing.Optional[bool] = None,
         direction: typing.Optional[Direction] = None,
         order: typing.Optional[MessageChannelOrder] = None,
         account_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SupportChannelListItem, ListSupportChannelsResponse]:
         """
-        Returns a paginated list of support channels for a specific company, with optional filtering by resolution status and custom sorting.
+        Lists support channels between an account's team and its customers, most recently active first by default. Pass `open=true` to find channels awaiting a support response.
 
         Required permissions:
          - `support_chat:read`
@@ -71,6 +75,18 @@ class SupportChannelsClient:
         open : typing.Optional[bool]
             Whether to filter by open or resolved support channels. Set to true to only return channels awaiting a response, or false for resolved channels.
 
+        customer_user_id : typing.Optional[str]
+            Only return support channels opened by this customer.
+
+        participated : typing.Optional[bool]
+            Set to true to only return channels the authenticated user has joined as a participant. Requires a user.
+
+        include_last_message : typing.Optional[bool]
+            Set to true to return `last_message` and `unread` on each channel. Both are `null` otherwise, which keeps large lists fast.
+
+        include_participated : typing.Optional[bool]
+            Set to true to return `participated` on each channel. It is `null` otherwise, which keeps large lists fast.
+
         direction : typing.Optional[Direction]
 
         order : typing.Optional[MessageChannelOrder]
@@ -91,7 +107,7 @@ class SupportChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -113,6 +129,10 @@ class SupportChannelsClient:
             last=last,
             view=view,
             open=open,
+            customer_user_id=customer_user_id,
+            participated=participated,
+            include_last_message=include_last_message,
+            include_participated=include_participated,
             direction=direction,
             order=order,
             account_id=account_id,
@@ -129,7 +149,7 @@ class SupportChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SupportChannel:
         """
-        Open a new support channel between a company team member and a customer. Returns the existing channel if one already exists for that user.
+        Opens a support channel between an account's team and a customer. Returns the existing channel if that customer already has one.
 
         Required permissions:
          - `support_chat:create`
@@ -161,7 +181,7 @@ class SupportChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -204,7 +224,7 @@ class SupportChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -240,13 +260,17 @@ class AsyncSupportChannelsClient:
         last: typing.Optional[int] = None,
         view: typing.Optional[SupportChannelView] = None,
         open: typing.Optional[bool] = None,
+        customer_user_id: typing.Optional[str] = None,
+        participated: typing.Optional[bool] = None,
+        include_last_message: typing.Optional[bool] = None,
+        include_participated: typing.Optional[bool] = None,
         direction: typing.Optional[Direction] = None,
         order: typing.Optional[MessageChannelOrder] = None,
         account_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SupportChannelListItem, ListSupportChannelsResponse]:
         """
-        Returns a paginated list of support channels for a specific company, with optional filtering by resolution status and custom sorting.
+        Lists support channels between an account's team and its customers, most recently active first by default. Pass `open=true` to find channels awaiting a support response.
 
         Required permissions:
          - `support_chat:read`
@@ -270,6 +294,18 @@ class AsyncSupportChannelsClient:
         open : typing.Optional[bool]
             Whether to filter by open or resolved support channels. Set to true to only return channels awaiting a response, or false for resolved channels.
 
+        customer_user_id : typing.Optional[str]
+            Only return support channels opened by this customer.
+
+        participated : typing.Optional[bool]
+            Set to true to only return channels the authenticated user has joined as a participant. Requires a user.
+
+        include_last_message : typing.Optional[bool]
+            Set to true to return `last_message` and `unread` on each channel. Both are `null` otherwise, which keeps large lists fast.
+
+        include_participated : typing.Optional[bool]
+            Set to true to return `participated` on each channel. It is `null` otherwise, which keeps large lists fast.
+
         direction : typing.Optional[Direction]
 
         order : typing.Optional[MessageChannelOrder]
@@ -292,7 +328,7 @@ class AsyncSupportChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -321,6 +357,10 @@ class AsyncSupportChannelsClient:
             last=last,
             view=view,
             open=open,
+            customer_user_id=customer_user_id,
+            participated=participated,
+            include_last_message=include_last_message,
+            include_participated=include_participated,
             direction=direction,
             order=order,
             account_id=account_id,
@@ -337,7 +377,7 @@ class AsyncSupportChannelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SupportChannel:
         """
-        Open a new support channel between a company team member and a customer. Returns the existing channel if one already exists for that user.
+        Opens a support channel between an account's team and a customer. Returns the existing channel if that customer already has one.
 
         Required permissions:
          - `support_chat:create`
@@ -371,7 +411,7 @@ class AsyncSupportChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -422,7 +462,7 @@ class AsyncSupportChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

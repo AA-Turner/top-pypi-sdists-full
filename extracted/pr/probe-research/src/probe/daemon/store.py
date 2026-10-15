@@ -356,6 +356,10 @@ def add_device_tokens(n: int, lane: str = LANE_WRITE) -> None:
 #: `events.bite` for an event that arrived while the switch read `read only
 #: (daemon)`: the reader reads it, no bite ever covers it (-1 is a deferred one).
 UNRECORDED_BITE = -2
+#: `events.bite` for an event the session held before its first worker started,
+#: stamped more than `worker.CATCH_UP_S` before its newest (`cover_before_daemon`):
+#: covered -- context the writer sees and `session` reaches, never new.
+BEFORE_DAEMON_BITE = -3
 #: Fact: a conversation run paused and the next bite carries on (`worker.CARRY_ON`).
 CARRY_ON = "carry_on"
 #: A bite's outcome when its run finished, and when it paused (`Worker._paused`).
@@ -378,6 +382,12 @@ def _epoch(ts: str | None) -> float | None:
 
 #: The writer's view of the events table: every row but those (`recorded=True`).
 _RECORDED = f"(bite IS NULL OR bite != {UNRECORDED_BITE})"
+#: The session's own history (`cover_before_daemon`): its chat logs and its scripts' run messages.
+_HISTORY = "(stream = 'main' OR stream LIKE 'subagent:%' OR stream = 'sdk')"
+#: Every row but the history a session's first worker left as context. A helper
+#: agent's log is read after the main chat's chunk, so its old events can sit
+#: among new ones by seq: a span of new events, and the reader's windows, skip them.
+_NOT_BEFORE_DAEMON = f"(bite IS NULL OR bite != {BEFORE_DAEMON_BITE})"
 
 class StoreVersionError(RuntimeError):
     """The store was written by a newer CLI: respawning cannot help."""
@@ -650,6 +660,44 @@ class Store:
             self.db.execute("UPDATE events SET bite = ? WHERE seq = ?", (UNRECORDED_BITE, seq))
         return len(seqs)
 
+    def newest_stamp(self) -> float | None:
+        """The latest readable stamp of the session's own history (`_HISTORY`: its
+        chat logs and its scripts' run messages, all on the machine's clock), or None."""
+        stamps = [at for (ts,) in self.db.execute(f"SELECT ts FROM events WHERE {_HISTORY}")
+                  if (at := _epoch(ts)) is not None]
+        return max(stamps) if stamps else None
+
+    def first_uncovered_seq(self) -> int | None:
+        row = self.db.execute("SELECT min(seq) AS s FROM events WHERE bite IS NULL").fetchone()
+        return int(row["s"]) if row is not None and row["s"] is not None else None
+
+    def cover_before_daemon(self, until: float) -> tuple[int, int, int]:
+        """Inside a transaction: every uncovered event stamped before `until` (epoch
+        seconds) of the session's own history (`_HISTORY`) becomes BEFORE_DAEMON_BITE.
+        Anything else stays new -- a request to the writer (answered however old it
+        is), a reader message, a daemon notice, a file change -- and so does an event
+        with no readable stamp. `(events marked, first turn, last turn)`."""
+        rows = self.db.execute(f"SELECT seq, ts, turn FROM events WHERE bite IS NULL AND {_HISTORY}").fetchall()
+        hits = [(int(r["seq"]), int(r["turn"] or 0)) for r in rows
+                if (at := _epoch(r["ts"])) is not None and at < until]
+        if not hits:
+            return 0, 0, 0
+        # A helper agent's marker has no stamp of its own: it is history when the
+        # agent's first stamped line is.
+        markers = self.db.execute("SELECT seq, stream, turn FROM events WHERE bite IS NULL AND kind = ? "
+                                  "AND ts IS NULL", (Kind.SUBAGENT.value,)).fetchall()
+        if markers:
+            first: dict[str, float] = {}  # one pass, never a scan per helper
+            for stream, ts in self.db.execute("SELECT stream, ts FROM events WHERE stream LIKE 'subagent:%' "
+                                              "AND ts IS NOT NULL"):
+                if (at := _epoch(ts)) is not None and at < first.get(stream, float("inf")):
+                    first[stream] = at
+            hits += [(int(r["seq"]), int(r["turn"] or 0)) for r in markers if first.get(r["stream"], until) < until]
+        self.db.executemany("UPDATE events SET bite = ? WHERE seq = ? AND bite IS NULL",
+                            [(BEFORE_DAEMON_BITE, seq) for seq, _ in hits])
+        turns = [turn for _, turn in hits]
+        return len(hits), min(turns), max(turns)
+
     def leave_unrecorded_in(self, intervals: list[tuple[float, float | None]], *,
                             after_seq: int = 0) -> list[tuple[float, int]]:
         """Mark every uncovered event after `after_seq` stamped inside one of
@@ -725,20 +773,22 @@ class Store:
     def events_upto(self, after: int, last: int, limit: int) -> list[StoredEvent]:
         """The newest `limit` events after `after` up to `last`, oldest first (seq
         numbers have gaps: an ignored duplicate still uses one up)."""
-        rows = self.db.execute("SELECT * FROM events WHERE seq > ? AND seq <= ? ORDER BY seq DESC LIMIT ?",
-                               (int(after), int(last), int(limit)))
+        rows = self.db.execute(f"SELECT * FROM events WHERE seq > ? AND seq <= ? AND {_NOT_BEFORE_DAEMON} "
+                               "ORDER BY seq DESC LIMIT ?", (int(after), int(last), int(limit)))
         return [StoredEvent.from_row(r) for r in rows][::-1]
 
     def events_after(self, seq: int, limit: int) -> list[StoredEvent]:
         """At most `limit` events after `seq`, oldest first: one window, never
         the whole backlog."""
         return [StoredEvent.from_row(r) for r in self.db.execute(
-            "SELECT * FROM events WHERE seq > ? ORDER BY seq LIMIT ?", (int(seq), int(limit)))]
+            f"SELECT * FROM events WHERE seq > ? AND {_NOT_BEFORE_DAEMON} ORDER BY seq LIMIT ?",
+            (int(seq), int(limit)))]
 
     def events_between(self, first_seq: int, last_seq: int | None = None, *,
-                       recorded: bool = False) -> list[StoredEvent]:
-        """`recorded`: the writer's view -- no event from `read only (daemon)`."""
-        only = f" AND {_RECORDED}" if recorded else ""
+                       recorded: bool = False, new: bool = False) -> list[StoredEvent]:
+        """`recorded`: the writer's view -- no event from `read only (daemon)`.
+        `new`: a span of new events -- none of the history a first worker left as context."""
+        only = (f" AND {_RECORDED}" if recorded else "") + (f" AND {_NOT_BEFORE_DAEMON}" if new else "")
         if last_seq is None:
             rows = self.db.execute(f"SELECT * FROM events WHERE seq >= ?{only} ORDER BY seq", (first_seq,))
         else:
@@ -1088,14 +1138,17 @@ class Store:
         """Is anything stored after `seq` (on a stream other than `other_than`)? One
         row, not the backlog."""
         if other_than is None:
-            return self.db.execute("SELECT 1 FROM events WHERE seq > ? LIMIT 1", (int(seq),)).fetchone() is not None
-        return self.db.execute("SELECT 1 FROM events WHERE seq > ? AND stream != ? LIMIT 1",
+            return self.db.execute(f"SELECT 1 FROM events WHERE seq > ? AND {_NOT_BEFORE_DAEMON} LIMIT 1",
+                                   (int(seq),)).fetchone() is not None
+        return self.db.execute(f"SELECT 1 FROM events WHERE seq > ? AND stream != ? AND {_NOT_BEFORE_DAEMON} LIMIT 1",
                                (int(seq), other_than)).fetchone() is not None
 
-    def has_prompt_after(self, seq: int) -> bool:
+    def has_prompt_after(self, seq: int, *, new: bool = False) -> bool:
         """Did the researcher type a prompt after `seq`? Anywhere in the backlog,
-        not only in the first batch a turn shows."""
-        return self.db.execute("SELECT 1 FROM events WHERE seq > ? AND kind = ? LIMIT 1",
+        not only in the first batch a turn shows. `new`: not one from the history
+        a first worker left as context."""
+        only = f" AND {_NOT_BEFORE_DAEMON}" if new else ""
+        return self.db.execute(f"SELECT 1 FROM events WHERE seq > ? AND kind = ?{only} LIMIT 1",
                                (int(seq), Kind.PROMPT.value)).fetchone() is not None
 
     def mark_read_message_published(self, message_id: str) -> None:

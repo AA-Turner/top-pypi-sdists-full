@@ -128,6 +128,12 @@ class TogetherTranslator(BaseTranslator):
         # to "max" — we never do that. ThinkingConfig.to_together_reasoning_params
         # always sends an explicit effort (OUR default = "high").
 
+        # TAIL CHANNEL (config/live_plan.py): one message after the newest tool
+        # results, the same follow-up shape image-bearing results use above.
+        tail_text = self.get_tail_context_text(config)
+        if tail_text:
+            messages.append({"role": "user", "content": tail_text})
+
         # Build request
         together_request = {
             "model": config.model,

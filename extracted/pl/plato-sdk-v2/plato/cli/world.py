@@ -125,6 +125,7 @@ def world_publish(
         help="Force Docker rebuild even with --dev (overrides the default skip behavior). "
         "A dev rebuild pushes and prefetches :<version> only; :latest moves only on a release publish",
     ),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Build Docker image without cache"),
     wheel_only: bool = typer.Option(
         False,
         "--wheel-only",
@@ -328,6 +329,7 @@ def world_publish(
         # iteration has no business moving it. The dev image is launchable
         # by its pinned version (schema.json bakes :<version>).
         promote_latest=not dev,
+        no_cache=no_cache,
         wheel_only=wheel_only,
     )
 

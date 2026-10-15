@@ -33,8 +33,6 @@ from istari_digital_client.sdk._generated.v3.models.batch_resolve_users_response
 from istari_digital_client.sdk._generated.v3.models.browse_entry_dto import BrowseEntryDto
 from istari_digital_client.sdk._generated.v3.models.bulk_inbox_action_dto import BulkInboxActionDto
 from istari_digital_client.sdk._generated.v3.models.bulk_inbox_action_result_dto import BulkInboxActionResultDto
-from istari_digital_client.sdk._generated.v3.models.chat_request import ChatRequest
-from istari_digital_client.sdk._generated.v3.models.chat_response import ChatResponse
 from istari_digital_client.sdk._generated.v3.models.comment_dto import CommentDto
 from istari_digital_client.sdk._generated.v3.models.connected_container_create_dto import ConnectedContainerCreateDto
 from istari_digital_client.sdk._generated.v3.models.connected_container_dto import ConnectedContainerDto
@@ -43,6 +41,8 @@ from istari_digital_client.sdk._generated.v3.models.connected_resource_dto impor
 from istari_digital_client.sdk._generated.v3.models.connected_resource_status_dto import ConnectedResourceStatusDto
 from istari_digital_client.sdk._generated.v3.models.connected_source_create_dto import ConnectedSourceCreateDto
 from istari_digital_client.sdk._generated.v3.models.connected_source_dto import ConnectedSourceDto
+from istari_digital_client.sdk._generated.v3.models.connection_dto import ConnectionDto
+from istari_digital_client.sdk._generated.v3.models.connections_response import ConnectionsResponse
 from istari_digital_client.sdk._generated.v3.models.container_selection_dto import ContainerSelectionDto
 from istari_digital_client.sdk._generated.v3.models.create_conversation_request import CreateConversationRequest
 from istari_digital_client.sdk._generated.v3.models.cursor_page_ai_conversation_dto import CursorPageAiConversationDto
@@ -63,6 +63,7 @@ from istari_digital_client.sdk._generated.v3.models.cursor_page_sending_connecti
 from istari_digital_client.sdk._generated.v3.models.cursor_page_shareable_sending_connection_dto import CursorPageShareableSendingConnectionDto
 from istari_digital_client.sdk._generated.v3.models.cursor_page_sync_status_update_dto_customized import CursorPageSyncStatusUpdateDtoCustomized
 from istari_digital_client.sdk._generated.v3.models.cursor_page_workflow_log_entry_dto import CursorPageWorkflowLogEntryDto
+from istari_digital_client.sdk._generated.v3.models.discovered_models_response import DiscoveredModelsResponse
 from istari_digital_client.sdk._generated.v3.models.evaluate_sending_tag_sets_with_hypothetical_rule_set_dto import EvaluateSendingTagSetsWithHypotheticalRuleSetDto
 from istari_digital_client.sdk._generated.v3.models.favorite_ids_dto import FavoriteIdsDto
 from istari_digital_client.sdk._generated.v3.models.favorite_type import FavoriteType
@@ -111,11 +112,14 @@ from istari_digital_client.sdk._generated.v3.models.suggested_item_type import S
 from istari_digital_client.sdk._generated.v3.models.suggested_items_dto import SuggestedItemsDto
 from istari_digital_client.sdk._generated.v3.models.suggestion_signal import SuggestionSignal
 from istari_digital_client.sdk._generated.v3.models.tag_match_mode import TagMatchMode
+from istari_digital_client.sdk._generated.v3.models.test_connection_request import TestConnectionRequest
+from istari_digital_client.sdk._generated.v3.models.test_connection_response import TestConnectionResponse
 from istari_digital_client.sdk._generated.v3.models.update_comment_dto import UpdateCommentDto
 from istari_digital_client.sdk._generated.v3.models.update_conversation_request import UpdateConversationRequest
 from istari_digital_client.sdk._generated.v3.models.update_receiving_connection_dto import UpdateReceivingConnectionDto
 from istari_digital_client.sdk._generated.v3.models.update_sending_connection_dto import UpdateSendingConnectionDto
 from istari_digital_client.sdk._generated.v3.models.update_user_steering_request import UpdateUserSteeringRequest
+from istari_digital_client.sdk._generated.v3.models.upsert_connection_request import UpsertConnectionRequest
 from istari_digital_client.sdk._generated.v3.models.upsert_endpoint_request import UpsertEndpointRequest
 from istari_digital_client.sdk._generated.v3.models.upsert_model_request import UpsertModelRequest
 from istari_digital_client.sdk._generated.v3.models.user_selectable_models_response import UserSelectableModelsResponse
@@ -149,223 +153,6 @@ class V3Api:
             api_client = ApiClient.get_default()
         self.api_client = api_client
         self.config = config
-
-
-    @validate_call
-    @log_method
-    def ai_chat(
-        self,
-        chat_request: ChatRequest,
-        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ChatResponse:
-
-        """
-        Chat with the configured LLM
-
-        :param chat_request: (required)
-        :type chat_request: ChatRequest
-        :param http_request_timeout_secs: timeout setting for this request
-        :type http_request_timeout_secs: int, optional
-
-        """ # noqa: E501
-
-        _param = self._ai_chat_serialize(
-            chat_request=chat_request,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ChatResponse",
-            '422': "HTTPValidationError",
-        }
-
-
-        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
-
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    def ai_chat_with_http_info(
-        self,
-        chat_request: ChatRequest,
-        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[ChatResponse]:
-
-        """
-        Chat with the configured LLM
-
-        :param chat_request: (required)
-        :type chat_request: ChatRequest
-        :param http_request_timeout_secs: timeout setting for this request
-        :type http_request_timeout_secs: int, optional
-
-        """ # noqa: E501
-
-        _param = self._ai_chat_serialize(
-            chat_request=chat_request,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ChatResponse",
-            '422': "HTTPValidationError",
-        }
-
-
-        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
-
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    def ai_chat_without_preload_content(
-        self,
-        chat_request: ChatRequest,
-        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> RESTResponseType:
-
-        """
-        Chat with the configured LLM
-
-        :param chat_request: (required)
-        :type chat_request: ChatRequest
-        :param http_request_timeout_secs: timeout setting for this request
-        :type http_request_timeout_secs: int, optional
-
-        """ # noqa: E501
-
-        _param = self._ai_chat_serialize(
-            chat_request=chat_request,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ChatResponse",
-            '422': "HTTPValidationError",
-        }
-
-        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
-
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=request_timeout
-        )
-        return response_data.response
-
-
-    def _ai_chat_serialize(
-        self,
-        chat_request,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[
-            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
-        ] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-        if chat_request is not None:
-            _body_params = chat_request
-
-
-        # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-        # set the HTTP header `Content-Type`
-        if _content_type:
-            _header_params['Content-Type'] = _content_type
-        else:
-            _default_content_type = (
-                self.api_client.select_header_content_type(
-                    [
-                        'application/json'
-                    ]
-                )
-            )
-            if _default_content_type is not None:
-                _header_params['Content-Type'] = _default_content_type
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'RequestAuthenticator'
-        ]
-
-        return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/api/v3/ai/chat',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
 
 
     @validate_call
@@ -2763,6 +2550,1067 @@ class V3Api:
 
     @validate_call
     @log_method
+    def ai_create_connection(
+        self,
+        upsert_connection_request: UpsertConnectionRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectionDto:
+
+        """
+        Create an LLM connection
+
+        :param upsert_connection_request: (required)
+        :type upsert_connection_request: UpsertConnectionRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_create_connection_serialize(
+            upsert_connection_request=upsert_connection_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectionDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_create_connection_with_http_info(
+        self,
+        upsert_connection_request: UpsertConnectionRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectionDto]:
+
+        """
+        Create an LLM connection
+
+        :param upsert_connection_request: (required)
+        :type upsert_connection_request: UpsertConnectionRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_create_connection_serialize(
+            upsert_connection_request=upsert_connection_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectionDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_create_connection_without_preload_content(
+        self,
+        upsert_connection_request: UpsertConnectionRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Create an LLM connection
+
+        :param upsert_connection_request: (required)
+        :type upsert_connection_request: UpsertConnectionRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_create_connection_serialize(
+            upsert_connection_request=upsert_connection_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectionDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_create_connection_serialize(
+        self,
+        upsert_connection_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if upsert_connection_request is not None:
+            _body_params = upsert_connection_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/ai/connections',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_create_connection_model(
+        self,
+        connection_id: StrictStr,
+        upsert_model_request: UpsertModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> LlmModelDto:
+
+        """
+        Add a model under a connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param upsert_model_request: (required)
+        :type upsert_model_request: UpsertModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_create_connection_model_serialize(
+            connection_id=connection_id,
+            upsert_model_request=upsert_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_create_connection_model_with_http_info(
+        self,
+        connection_id: StrictStr,
+        upsert_model_request: UpsertModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[LlmModelDto]:
+
+        """
+        Add a model under a connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param upsert_model_request: (required)
+        :type upsert_model_request: UpsertModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_create_connection_model_serialize(
+            connection_id=connection_id,
+            upsert_model_request=upsert_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_create_connection_model_without_preload_content(
+        self,
+        connection_id: StrictStr,
+        upsert_model_request: UpsertModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Add a model under a connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param upsert_model_request: (required)
+        :type upsert_model_request: UpsertModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_create_connection_model_serialize(
+            connection_id=connection_id,
+            upsert_model_request=upsert_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_create_connection_model_serialize(
+        self,
+        connection_id,
+        upsert_model_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connection_id is not None:
+            _path_params['connection_id'] = connection_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if upsert_model_request is not None:
+            _body_params = upsert_model_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/ai/connections/{connection_id}/models',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_delete_connection(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> object:
+
+        """
+        Delete an LLM connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_delete_connection_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "object",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_delete_connection_with_http_info(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[object]:
+
+        """
+        Delete an LLM connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_delete_connection_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "object",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_delete_connection_without_preload_content(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Delete an LLM connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_delete_connection_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "object",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_delete_connection_serialize(
+        self,
+        connection_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connection_id is not None:
+            _path_params['connection_id'] = connection_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/v3/ai/connections/{connection_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_discover_connection_models(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> DiscoveredModelsResponse:
+
+        """
+        Discover a connection's available models
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_discover_connection_models_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoveredModelsResponse",
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_discover_connection_models_with_http_info(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[DiscoveredModelsResponse]:
+
+        """
+        Discover a connection's available models
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_discover_connection_models_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoveredModelsResponse",
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_discover_connection_models_without_preload_content(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Discover a connection's available models
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_discover_connection_models_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoveredModelsResponse",
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_discover_connection_models_serialize(
+        self,
+        connection_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connection_id is not None:
+            _path_params['connection_id'] = connection_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/ai/connections/{connection_id}/models',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_list_connections(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectionsResponse:
+
+        """
+        List LLM connections
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_list_connections_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectionsResponse",
+            '403': None,
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_list_connections_with_http_info(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectionsResponse]:
+
+        """
+        List LLM connections
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_list_connections_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectionsResponse",
+            '403': None,
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_list_connections_without_preload_content(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List LLM connections
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_list_connections_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectionsResponse",
+            '403': None,
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_list_connections_serialize(
+        self,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/ai/connections',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def ai_list_user_models(
         self,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -2932,6 +3780,479 @@ class V3Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v3/ai/models',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_test_connection(
+        self,
+        connection_id: StrictStr,
+        test_connection_request: TestConnectionRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> TestConnectionResponse:
+
+        """
+        Test a connection can invoke a model
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param test_connection_request: (required)
+        :type test_connection_request: TestConnectionRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_test_connection_serialize(
+            connection_id=connection_id,
+            test_connection_request=test_connection_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "TestConnectionResponse",
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_test_connection_with_http_info(
+        self,
+        connection_id: StrictStr,
+        test_connection_request: TestConnectionRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[TestConnectionResponse]:
+
+        """
+        Test a connection can invoke a model
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param test_connection_request: (required)
+        :type test_connection_request: TestConnectionRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_test_connection_serialize(
+            connection_id=connection_id,
+            test_connection_request=test_connection_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "TestConnectionResponse",
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_test_connection_without_preload_content(
+        self,
+        connection_id: StrictStr,
+        test_connection_request: TestConnectionRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Test a connection can invoke a model
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param test_connection_request: (required)
+        :type test_connection_request: TestConnectionRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_test_connection_serialize(
+            connection_id=connection_id,
+            test_connection_request=test_connection_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "TestConnectionResponse",
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_test_connection_serialize(
+        self,
+        connection_id,
+        test_connection_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connection_id is not None:
+            _path_params['connection_id'] = connection_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if test_connection_request is not None:
+            _body_params = test_connection_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/ai/connections/{connection_id}/test',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_update_connection(
+        self,
+        connection_id: StrictStr,
+        upsert_connection_request: UpsertConnectionRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectionDto:
+
+        """
+        Update an LLM connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param upsert_connection_request: (required)
+        :type upsert_connection_request: UpsertConnectionRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_update_connection_serialize(
+            connection_id=connection_id,
+            upsert_connection_request=upsert_connection_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectionDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_update_connection_with_http_info(
+        self,
+        connection_id: StrictStr,
+        upsert_connection_request: UpsertConnectionRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectionDto]:
+
+        """
+        Update an LLM connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param upsert_connection_request: (required)
+        :type upsert_connection_request: UpsertConnectionRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_update_connection_serialize(
+            connection_id=connection_id,
+            upsert_connection_request=upsert_connection_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectionDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_update_connection_without_preload_content(
+        self,
+        connection_id: StrictStr,
+        upsert_connection_request: UpsertConnectionRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Update an LLM connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param upsert_connection_request: (required)
+        :type upsert_connection_request: UpsertConnectionRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_update_connection_serialize(
+            connection_id=connection_id,
+            upsert_connection_request=upsert_connection_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectionDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_update_connection_serialize(
+        self,
+        connection_id,
+        upsert_connection_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connection_id is not None:
+            _path_params['connection_id'] = connection_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if upsert_connection_request is not None:
+            _body_params = upsert_connection_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/ai/connections/{connection_id}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -16578,6 +17899,7 @@ class V3Api:
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived receiving remotes.")] = None,
         only_starred: Annotated[Optional[StrictBool], Field(description="Only include receiving remotes the caller has starred.")] = None,
+        tenant_id: Annotated[Optional[StrictStr], Field(description="Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -16598,6 +17920,8 @@ class V3Api:
         :type show_archived: bool
         :param only_starred: Only include receiving remotes the caller has starred.
         :type only_starred: bool
+        :param tenant_id: Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.
+        :type tenant_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -16609,6 +17933,7 @@ class V3Api:
             include_total=include_total,
             show_archived=show_archived,
             only_starred=only_starred,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -16643,6 +17968,7 @@ class V3Api:
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived receiving remotes.")] = None,
         only_starred: Annotated[Optional[StrictBool], Field(description="Only include receiving remotes the caller has starred.")] = None,
+        tenant_id: Annotated[Optional[StrictStr], Field(description="Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -16663,6 +17989,8 @@ class V3Api:
         :type show_archived: bool
         :param only_starred: Only include receiving remotes the caller has starred.
         :type only_starred: bool
+        :param tenant_id: Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.
+        :type tenant_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -16674,6 +18002,7 @@ class V3Api:
             include_total=include_total,
             show_archived=show_archived,
             only_starred=only_starred,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -16708,6 +18037,7 @@ class V3Api:
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived receiving remotes.")] = None,
         only_starred: Annotated[Optional[StrictBool], Field(description="Only include receiving remotes the caller has starred.")] = None,
+        tenant_id: Annotated[Optional[StrictStr], Field(description="Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -16728,6 +18058,8 @@ class V3Api:
         :type show_archived: bool
         :param only_starred: Only include receiving remotes the caller has starred.
         :type only_starred: bool
+        :param tenant_id: Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.
+        :type tenant_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -16739,6 +18071,7 @@ class V3Api:
             include_total=include_total,
             show_archived=show_archived,
             only_starred=only_starred,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -16767,6 +18100,7 @@ class V3Api:
         include_total,
         show_archived,
         only_starred,
+        tenant_id,
         _request_auth,
         _content_type,
         _headers,
@@ -16808,6 +18142,10 @@ class V3Api:
         if only_starred is not None:
 
             _query_params.append(('only_starred', only_starred))
+
+        if tenant_id is not None:
+
+            _query_params.append(('tenant_id', tenant_id))
 
         # process the header parameters
         # process the form parameters
@@ -19432,6 +20770,7 @@ class V3Api:
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived sending remotes.")] = None,
         only_starred: Annotated[Optional[StrictBool], Field(description="Only include sending remotes the caller has starred.")] = None,
+        tenant_id: Annotated[Optional[StrictStr], Field(description="Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -19452,6 +20791,8 @@ class V3Api:
         :type show_archived: bool
         :param only_starred: Only include sending remotes the caller has starred.
         :type only_starred: bool
+        :param tenant_id: Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.
+        :type tenant_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -19463,6 +20804,7 @@ class V3Api:
             include_total=include_total,
             show_archived=show_archived,
             only_starred=only_starred,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -19497,6 +20839,7 @@ class V3Api:
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived sending remotes.")] = None,
         only_starred: Annotated[Optional[StrictBool], Field(description="Only include sending remotes the caller has starred.")] = None,
+        tenant_id: Annotated[Optional[StrictStr], Field(description="Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -19517,6 +20860,8 @@ class V3Api:
         :type show_archived: bool
         :param only_starred: Only include sending remotes the caller has starred.
         :type only_starred: bool
+        :param tenant_id: Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.
+        :type tenant_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -19528,6 +20873,7 @@ class V3Api:
             include_total=include_total,
             show_archived=show_archived,
             only_starred=only_starred,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -19562,6 +20908,7 @@ class V3Api:
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived sending remotes.")] = None,
         only_starred: Annotated[Optional[StrictBool], Field(description="Only include sending remotes the caller has starred.")] = None,
+        tenant_id: Annotated[Optional[StrictStr], Field(description="Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -19582,6 +20929,8 @@ class V3Api:
         :type show_archived: bool
         :param only_starred: Only include sending remotes the caller has starred.
         :type only_starred: bool
+        :param tenant_id: Only include connections of this tenant. The tenant must be one the caller administers (any tenant for a platform administrator); omitted, the listing spans every tenant the caller administers.
+        :type tenant_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -19593,6 +20942,7 @@ class V3Api:
             include_total=include_total,
             show_archived=show_archived,
             only_starred=only_starred,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -19621,6 +20971,7 @@ class V3Api:
         include_total,
         show_archived,
         only_starred,
+        tenant_id,
         _request_auth,
         _content_type,
         _headers,
@@ -19662,6 +21013,10 @@ class V3Api:
         if only_starred is not None:
 
             _query_params.append(('only_starred', only_starred))
+
+        if tenant_id is not None:
+
+            _query_params.append(('tenant_id', tenant_id))
 
         # process the header parameters
         # process the form parameters

@@ -4,12 +4,15 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .domain_apple_pay import DomainApplePay
 from .domain_availability import DomainAvailability
 from .domain_issue import DomainIssue
 from .domain_list_item_status import DomainListItemStatus
 from .domain_owner import DomainOwner
+from .domain_pixel import DomainPixel
 from .domain_platform import DomainPlatform
 from .domain_registration import DomainRegistration
+from .domain_stats import DomainStats
 from .domain_verification import DomainVerification
 from .domain_website import DomainWebsite
 
@@ -18,6 +21,11 @@ class DomainListItem(UniversalBaseModel):
     account_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     ID of the account the domain belongs to, prefixed `biz_`.
+    """
+
+    apple_pay: typing.Optional[DomainApplePay] = pydantic.Field(default=None)
+    """
+    Offering Apple Pay at checkouts served from the domain. `null` when not enrolled or not visible to you.
     """
 
     availability: typing.Optional[DomainAvailability] = pydantic.Field(default=None)
@@ -51,6 +59,11 @@ class DomainListItem(UniversalBaseModel):
     The other account that has proven it owns this hostname. `null` when no other account does.
     """
 
+    pixel: typing.Optional[DomainPixel] = pydantic.Field(default=None)
+    """
+    Tracking page views on the domain with the Whop pixel. `null` when not tracked or not visible to you.
+    """
+
     platform: typing.Optional[DomainPlatform] = pydantic.Field(default=None)
     """
     An address on a zone Whop runs, such as example.whop.site, that follows its app's route. `null` for other domains or when not visible to you.
@@ -59,6 +72,11 @@ class DomainListItem(UniversalBaseModel):
     registration: typing.Optional[DomainRegistration] = pydantic.Field(default=None)
     """
     Buying the domain through Whop, renewing it, and running its DNS. `null` when not wanted or not visible to you.
+    """
+
+    stats: typing.Optional[DomainStats] = pydantic.Field(default=None)
+    """
+    Traffic on the domain. `null` when the domain isn't on Whop or isn't visible to you.
     """
 
     status: typing.Optional[DomainListItemStatus] = pydantic.Field(default=None)

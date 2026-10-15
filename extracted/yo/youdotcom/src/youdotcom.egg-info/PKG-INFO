@@ -1,9 +1,23 @@
 Metadata-Version: 2.4
 Name: youdotcom
-Version: 3.5.0
+Version: 3.6.0
 Summary: The official You.com Python SDK.
 Author: You.com
 License-Expression: MIT
+Project-URL: Homepage, https://you.com/docs/welcome
+Project-URL: Repository, https://github.com/youdotcom-oss/youdotcom-python-sdk
+Project-URL: Changelog, https://github.com/youdotcom-oss/youdotcom-python-sdk/blob/main/CHANGELOG.md
+Project-URL: Issues, https://github.com/youdotcom-oss/youdotcom-python-sdk/issues
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -117,7 +131,11 @@ either of the others. The API returns `422` if you try. Search also supports
 
 #### Page content extraction
 
-Pass `extraction` to attach page content to each result. Two modes:
+`extraction` is on by default: a plain `you.search(query=...)` sends
+`extraction_mode="highlights"`, so query-relevant excerpts land in
+`contents.highlights` and `snippets` are omitted. Pass `extraction=None`
+for a plain snippets-only search, or an `Extraction` object for either
+mode. Two modes:
 
 ```python
 import os
@@ -159,11 +177,17 @@ available and crawls the page live otherwise, `"cache"` returns cached
 content only (`contents` is omitted for results with none), and `"fetch"`
 always crawls the page live.
 
+In `highlights` mode, the optional `highlights` object carries
+`total_max_tokens`, capping highlight tokens across the whole response
+(1024–8192 when set). Omit it for the provider's default; out-of-range
+values raise `ValidationError` locally, mirroring the server's 422.
+
 #### Knowledge results
 
-Pass `knowledge="core"` to add cards backed by licensed data providers —
-encyclopedias, market-data firms, reference publishers. They come back in
-their own section:
+`knowledge` is on by default: a plain `you.search(query=...)` sends
+`knowledge="core"` and gets cards backed by licensed data providers —
+encyclopedias, market-data firms, reference publishers — in their own
+section. Pass `knowledge=None` to skip them.
 
 ```python
 import os
@@ -227,7 +251,11 @@ for source in res.output.sources or []:
 ```
 
 `you.finance_research()` is the finance-tuned counterpart, taking
-`research_effort` of `deep` or `exhaustive`.
+`research_effort` of `deep` or `exhaustive`. Both research methods accept
+`output_schema` for structured JSON output — the same schema works on both
+endpoints, with every effort level on the finance side. (`you.research()`
+accepts `output_schema` only with `standard`, `deep`, or `exhaustive`;
+sending it with `research_effort="lite"` returns a `422`.)
 
 Deep and exhaustive runs can take minutes, and `frontier` runs far longer. For
 anything beyond `standard`, use [background mode](#long-running-research).

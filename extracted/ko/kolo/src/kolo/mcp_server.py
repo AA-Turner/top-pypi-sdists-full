@@ -5,7 +5,6 @@ from .cli_mcp_shared import get_compact_traces, get_formatted_traces, get_node_d
 from .db import load_trace_from_db, load_trace_with_size_from_db, setup_db
 from .mcp_plumbing import MCPServer
 
-# Create a global MCP server instance
 mcp = MCPServer("kolo")
 
 
@@ -150,6 +149,5 @@ def list_traces(count: int = 30) -> List[str]:
     """
     db_path = setup_db()
 
-    # get_formatted_traces returns an iterator, not an awaitable
     formatted_traces = get_formatted_traces(db_path, count=count)
     return list(formatted_traces)

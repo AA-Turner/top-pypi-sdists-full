@@ -189,7 +189,7 @@ def _assert_persisted(completed: Any, at_least_ms: int) -> int:
 
 
 async def test_agentless_v2_chat_streaming_text(monkeypatch: pytest.MonkeyPatch) -> None:
-    arm_request_latency(path="/v2/ai/chat")
+    arm_request_latency(path="/ai/chat")
     _use(StreamEmitter())
     await asyncio.sleep(_DELAY_S)  # route prep BEFORE the execution: not counted
     state, request = ExecutionState(), _request()
@@ -211,7 +211,7 @@ async def test_reasoning_delta_counts_as_first_output(monkeypatch: pytest.Monkey
 async def test_manual_builder_non_streaming_provider_stamps_at_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    arm_request_latency(path="/v2/ai/manual")
+    arm_request_latency(path="/ai/manual")
     _use(ConsoleEmitter("builder", accumulate=False))
     state, request = ExecutionState(), _request()
     await _iteration(request, _Provider(wait_s=_DELAY_S), state)  # nothing streamed
@@ -231,7 +231,7 @@ async def test_no_emitter_mandate_run(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def test_tool_call_first_turn(monkeypatch: pytest.MonkeyPatch) -> None:
-    arm_request_latency(path="/v2/ai/agents/a1")
+    arm_request_latency(path="/ai/agents/a1")
     _use(StreamEmitter())
     state, request = ExecutionState(), _request()
     await _iteration(request, _Provider(wait_s=_DELAY_S), state, tool_s=0.03)  # tool call only

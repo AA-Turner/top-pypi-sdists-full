@@ -119,6 +119,27 @@ def _no_real_update_reports(monkeypatch: pytest.MonkeyPatch) -> list:
 
 
 @pytest.fixture(autouse=True)
+def _no_real_computer_workspace(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    """No install-flow test may list a real server's workspaces.
+
+    Every finished install runs the wizard's "Where should this computer's work
+    go?" step (`probe.cli.computer_workspace.choose`), which lists workspaces
+    with the saved credential -- or a developer's exported PROBE_TOKEN, against
+    whatever base URL the test set, production included. Replaced with a step
+    that shows nothing. Tests ABOUT the step ask for `real_computer_workspace`."""
+    if "real_computer_workspace" in request.fixturenames:
+        return
+    from probe.cli import computer_workspace
+
+    monkeypatch.setattr(computer_workspace, "choose", lambda **_k: [])
+
+
+@pytest.fixture
+def real_computer_workspace() -> None:
+    """Opt out of `_no_real_computer_workspace`: run the real wizard step."""
+
+
+@pytest.fixture(autouse=True)
 def _no_real_daemon_install(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test may pip-install the daemon's AI libraries for real.
 
@@ -532,6 +553,14 @@ def _no_real_agent_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PATH", f"{_NO_AGENT_BIN}{os.pathsep}{os.environ['PATH']}")
 
 
+#: The server's 409 for an agent write over a person's conclusion: a plain
+#: string detail, which the CLI prints as is.
+CONCLUSION_LOCKED_DETAIL = (
+    "A person wrote this conclusion. Put your finding in the experiment's notes; "
+    "replace the conclusion only if the researcher asked for this text "
+    "(`--authored-by human`)."
+)
+
 _RUN_METRICS = re.compile(r"^/v1/runs/([^/]+)/metrics$")
 _RUN_METRICS_GROUPED = re.compile(r"^/v1/runs/([^/]+)/metrics/grouped$")
 _RUN_METRICS_WIDE = re.compile(r"^/v1/runs/([^/]+)/metrics/wide$")
@@ -571,6 +600,7 @@ _PROJ_RUNS = re.compile(r"^/v1/projects/([^/]+)/runs$")
 _EXP_ITEM = re.compile(r"^/v1/experiments/([^/]+)$")
 _PROJ_ITEM = re.compile(r"^/v1/projects/([^/]+)$")
 _WS_ITEM = re.compile(r"^/v1/workspaces/([^/]+)$")
+_WS_DEFAULT = re.compile(r"^/v1/workspaces/([^/]+)/default$")
 _WS_FILES = re.compile(r"^/v1/workspaces/([^/]+)/files$")
 _WS_FILE_UPLOADS = re.compile(r"^/v1/workspaces/([^/]+)/files/uploads$")
 _PROJ_ARTIFACTS = re.compile(r"^/v1/projects/([^/]+)/artifacts$")
@@ -1661,6 +1691,14 @@ class FakeApp:
             }
         return min(self.workspaces.values(), key=lambda w: (w["created_at"], w["id"]))["id"]
 
+    def _unaddressed_create_workspace_id(self) -> str | None:
+        """Model `resolve_workspace_for_create` (per-computer workspaces, 2026-10-14):
+        a team's only workspace (its first if none); None when there are several,
+        which the create handler answers 422 `workspace_required`."""
+        if len(self.workspaces) > 1:
+            return None
+        return self._default_workspace_id()
+
     def _notes_cap_for(self, row: dict) -> int | None:
         """Which cap this response's row is enforced against, or None.
 
@@ -2129,6 +2167,7 @@ class FakeApp:
         {
             "name",
             "question",
+            "conclusion",
             "notes",
             "base_version",
             "force",
@@ -2147,6 +2186,8 @@ class FakeApp:
             "legacy_slug": row.get("legacy_slug"),
             "name": row.get("name") or row.get("slug"),
             "question": row.get("question"),
+            "conclusion": row.get("conclusion"),
+            "conclusion_source": row.get("conclusion_source"),
             "run_count": sum(1 for r in self.runs.values() if r.get("experiment_id") == row["id"]),
             "created_at": row.get("created_at") or _T0,
             "updated_at": row.get("updated_at") or row.get("created_at") or _T0,
@@ -2320,6 +2361,21 @@ class FakeApp:
                 return httpx.Response(422, json={"detail": "an experiment is always filed under a project"})
             if target is not None and target in self.experiments:
                 return httpx.Response(422, json={"detail": "the target is an experiment"})
+            if body.get("conclusion") is not None:
+                # The server's guard: an agent never replaces a person's
+                # conclusion. Undeclared text reads as a person's, as
+                # `authorship_locked` reads it.
+                source = row.get("conclusion_source")
+                locked = source == "human" or (
+                    source is None and bool((row.get("conclusion") or "").strip())
+                )
+                if body.get("authored_by") == "agent" and locked:
+                    return httpx.Response(409, json={"detail": CONCLUSION_LOCKED_DETAIL})
+                text = body["conclusion"] if body["conclusion"].strip() else None
+                row["conclusion"] = text
+                row["conclusion_source"] = (
+                    body.get("authored_by") if text is not None else None
+                )
             for key in ("name", "question", "authored_by"):
                 if body.get(key) is not None:
                     row[key] = body[key]
@@ -3099,8 +3155,24 @@ class FakeApp:
             if workspace_id is None:
                 parent = self.projects.get(body.get("parent_project_id"))
                 workspace_id = (
-                    parent["workspace_id"] if parent is not None else self._default_workspace_id()
+                    parent["workspace_id"]
+                    if parent is not None
+                    else self._unaddressed_create_workspace_id()
                 )
+                if workspace_id is None:
+                    return httpx.Response(
+                        422,
+                        json={
+                            "detail": {
+                                "code": "workspace_required",
+                                "message": (
+                                    "this team has more than one workspace and the request names "
+                                    "none. Pick this computer's workspace with `probe workspace use "
+                                    "<slug>`"
+                                ),
+                            }
+                        },
+                    )
             pid = str(uuid.uuid4())
             row = {
                 "id": pid,
@@ -3243,7 +3315,8 @@ class FakeApp:
                         }
                     },
                 )
-            # Team kind, no owner: the route mints nothing else.
+            # Team kind, no owner: the route mints nothing else (no default
+            # since per-computer workspaces, 2026-10-14).
             row = {
                 "id": str(uuid.uuid4()),
                 "customer_id": "lab-42",
@@ -3252,10 +3325,16 @@ class FakeApp:
                 "kind": "team",
                 "owner_user_id": None,
                 "project_count": 0,
+                "is_default": False,
                 "created_at": self._stamp(),
             }
             self.workspaces[row["id"]] = row
             return httpx.Response(201, json=row)
+
+        m = _WS_DEFAULT.match(path)
+        if m and method == "PUT":
+            # Retired with per-person defaults (2026-10-14).
+            return httpx.Response(410, json={"detail": "there is no per-person default workspace any more"})
 
         if path == "/v1/workspaces" and method == "GET":
             # Server order does not depend on the caller or historical kind:
@@ -5509,7 +5588,7 @@ class FakeApp:
             if verb == "confirm":
                 row["status"] = "complete"
                 return httpx.Response(200, json=row)
-            # Unshare uses the same default as an unscoped project create.
+            # Unshare takes the team's oldest workspace (ensure_default_workspace).
             workspace_id = self._default_workspace_id()
             self.artifacts.get("shared:team", []).remove(row)
             row["workspace_id"] = workspace_id
@@ -6010,11 +6089,14 @@ class FakeApp:
 
 
 #: `POST /v1/runs/{id}/outputs` rows (lineage plan 3's shared contract): these
-#: keys, exactly.
+#: keys, exactly, plus the optional `RUN_OUTPUT_OPTIONAL_KEYS`.
 RUN_OUTPUT_KEYS = (
     "path", "host", "content_hash", "fingerprint", "size_bytes",
     "first_written_at", "last_modified_at", "observation_id",
 )
+#: Data catalog C9: a row count, sent only when the hashing read counted one
+#: (int >= 0; the key is absent otherwise).
+RUN_OUTPUT_OPTIONAL_KEYS = ("rows",)
 
 
 def run_outputs_problems(batch) -> list[str]:
@@ -6036,9 +6118,13 @@ def run_outputs_problems(batch) -> list[str]:
     if coverage is not None and (not isinstance(coverage, dict) or len(json.dumps(coverage)) > 4000):
         problems.append("coverage must be a small object")
     for i, row in enumerate(rows):
-        if not isinstance(row, dict) or tuple(sorted(row)) != tuple(sorted(RUN_OUTPUT_KEYS)):
+        if not isinstance(row, dict) or tuple(sorted(set(row) - set(RUN_OUTPUT_OPTIONAL_KEYS))) != tuple(
+            sorted(RUN_OUTPUT_KEYS)
+        ):
             problems.append(f"row {i} keys: {sorted(row) if isinstance(row, dict) else row!r}")
             continue
+        if "rows" in row and (type(row["rows"]) is not int or row["rows"] < 0):
+            problems.append(f"row {i} rows {row['rows']!r}")
         if not isinstance(row["path"], str) or not row["path"] or len(row["path"].encode()) > 2048:
             problems.append(f"row {i} path")
         if row["host"] is not None and not isinstance(row["host"], str):
@@ -6077,13 +6163,19 @@ def make_client(
     fail_open: bool = True,
     tmp_spool=None,
     async_writes: bool = False,
+    workspace: str | None = _WS_MINE,
     **client_kwargs,
 ) -> Client:
+    # A SET-UP computer by default: the wizard pins the workspace this machine's
+    # work goes into, and the fake seeds two, so an unpinned client is refused
+    # (workspace_required) exactly as the server refuses it. Pass workspace=None
+    # to test that refusal.
     settings = Settings(
         base_url="http://test",
         token="ros_pat_deadbeef",
         ingest_token="ros_ing_cafef00d",
         hmac_secret="s3cr3t",
+        workspace=workspace,
     )
     httpx_client = httpx.Client(base_url="http://test", transport=httpx.MockTransport(app.handler))
     transport = Transport(settings, client=httpx_client)

@@ -1,0 +1,12 @@
+description: California provides an extra monthly income limit for the CalWORKS assistance unit over this size.
+
+metadata:
+  unit: int
+  period: month
+  label: California CalWORKs maximum assistance unit size for MBSAC
+  reference:
+    - title: California Department of Social Services, Executive Summary, All County Letter No. 24-55, CalWORKs Payment Standards Chart Effective October 1, 2024
+      href: https://cdss.ca.gov/Portals/9/Additional-Resources/Letters-and-Notices/ACLs/2024/24-55.pdf#page=7
+
+values:
+  2015-07-01: 10

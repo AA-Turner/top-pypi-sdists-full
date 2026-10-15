@@ -64,7 +64,7 @@ class CardsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -86,7 +86,7 @@ class CardsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateCardsResponse:
         """
-        Issue a virtual card, or apply for card issuing. An account with no application files one here and gets back a `202`; call again to issue the card once it is approved.
+        Issues a virtual card, or applies for card issuing. An account with no application files one here and gets back a `202`; call again to issue the card once it is approved.
 
         Parameters
         ----------
@@ -124,7 +124,7 @@ class CardsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -151,7 +151,7 @@ class CardsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RetrieveCardsResponse:
         """
-        Retrieve a single card.
+        Retrieves a single card, including its `secrets` (card number, CVC, and PIN), which List Cards does not return.
 
         Parameters
         ----------
@@ -177,7 +177,7 @@ class CardsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -209,7 +209,7 @@ class CardsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateCardsResponse:
         """
-        Update, freeze, or cancel a card. Updating the card's name, billing address, or limits requires both `payout:account:update` and `company:balance:read`; a card's assigned holder may update their own card's pin and frozen state with any user token.
+        Updates, freezes, or cancels a card. Updating the card's name, billing address, or limits requires both `payout:account:update` and `company:balance:read`; a card's assigned holder may update their own card's pin and frozen state with any user token.
 
         Parameters
         ----------
@@ -265,7 +265,7 @@ class CardsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -340,7 +340,7 @@ class AsyncCardsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -368,7 +368,7 @@ class AsyncCardsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateCardsResponse:
         """
-        Issue a virtual card, or apply for card issuing. An account with no application files one here and gets back a `202`; call again to issue the card once it is approved.
+        Issues a virtual card, or applies for card issuing. An account with no application files one here and gets back a `202`; call again to issue the card once it is approved.
 
         Parameters
         ----------
@@ -408,7 +408,7 @@ class AsyncCardsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -441,7 +441,7 @@ class AsyncCardsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RetrieveCardsResponse:
         """
-        Retrieve a single card.
+        Retrieves a single card, including its `secrets` (card number, CVC, and PIN), which List Cards does not return.
 
         Parameters
         ----------
@@ -469,7 +469,7 @@ class AsyncCardsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -507,7 +507,7 @@ class AsyncCardsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateCardsResponse:
         """
-        Update, freeze, or cancel a card. Updating the card's name, billing address, or limits requires both `payout:account:update` and `company:balance:read`; a card's assigned holder may update their own card's pin and frozen state with any user token.
+        Updates, freezes, or cancels a card. Updating the card's name, billing address, or limits requires both `payout:account:update` and `company:balance:read`; a card's assigned holder may update their own card's pin and frozen state with any user token.
 
         Parameters
         ----------
@@ -565,7 +565,7 @@ class AsyncCardsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

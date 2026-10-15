@@ -1732,6 +1732,7 @@ def subset_lookups(self, lookup_indices):
         (
             f.FeatureTableSubstitution.subset_lookups(lookup_indices)
             for f in self.FeatureVariationRecord
+            if f.FeatureTableSubstitution is not None
         ),
         [],
     )
@@ -1743,6 +1744,7 @@ def collect_lookups(self, feature_indices):
         (
             r.Feature.LookupListIndex
             for vr in self.FeatureVariationRecord
+            if vr.FeatureTableSubstitution is not None
             for r in vr.FeatureTableSubstitution.SubstitutionRecord
             if r.FeatureIndex in feature_indices
         ),
@@ -1780,12 +1782,13 @@ def prune_features(self, feature_index_map):
 def subset_features(self, feature_indices):
     self.ensureDecompiled()
     for r in self.FeatureVariationRecord:
-        r.FeatureTableSubstitution.subset_features(feature_indices)
+        if r.FeatureTableSubstitution is not None:
+            r.FeatureTableSubstitution.subset_features(feature_indices)
     # Prune empty records at the end only
     # https://github.com/fonttools/fonttools/issues/1881
-    while (
-        self.FeatureVariationRecord
-        and not self.FeatureVariationRecord[
+    while self.FeatureVariationRecord and (
+        self.FeatureVariationRecord[-1].FeatureTableSubstitution is None
+        or not self.FeatureVariationRecord[
             -1
         ].FeatureTableSubstitution.SubstitutionCount
     ):
@@ -1798,12 +1801,13 @@ def subset_features(self, feature_indices):
 def prune_features(self, feature_index_map):
     self.ensureDecompiled()
     for r in self.FeatureVariationRecord:
-        r.FeatureTableSubstitution.prune_features(feature_index_map)
+        if r.FeatureTableSubstitution is not None:
+            r.FeatureTableSubstitution.prune_features(feature_index_map)
     # Prune empty records at the end only
     # https://github.com/fonttools/fonttools/issues/1881
-    while (
-        self.FeatureVariationRecord
-        and not self.FeatureVariationRecord[
+    while self.FeatureVariationRecord and (
+        self.FeatureVariationRecord[-1].FeatureTableSubstitution is None
+        or not self.FeatureVariationRecord[
             -1
         ].FeatureTableSubstitution.SubstitutionCount
     ):
@@ -2293,7 +2297,7 @@ def _pruneGDEF(font):
         return
     gdef = font["GDEF"]
     table = gdef.table
-    if not hasattr(table, "VarStore"):
+    if getattr(table, "VarStore", None) is None:
         return
 
     store = table.VarStore
@@ -2304,6 +2308,10 @@ def _pruneGDEF(font):
     table.collect_device_varidxes(usedVarIdxes)
     if "GPOS" in font:
         font["GPOS"].table.collect_device_varidxes(usedVarIdxes)
+    if "MATH" in font:
+        font["MATH"].table.collect_device_varidxes(usedVarIdxes)
+    if "JSTF" in font:
+        font["JSTF"].table.collect_device_varidxes(usedVarIdxes)
 
     # Subset.
     varidx_map = store.subset_varidxes(usedVarIdxes)
@@ -2312,6 +2320,10 @@ def _pruneGDEF(font):
     table.remap_device_varidxes(varidx_map)
     if "GPOS" in font:
         font["GPOS"].table.remap_device_varidxes(varidx_map)
+    if "MATH" in font:
+        font["MATH"].table.remap_device_varidxes(varidx_map)
+    if "JSTF" in font:
+        font["JSTF"].table.remap_device_varidxes(varidx_map)
 
 
 @_add_method(ttLib.getTableClass("GDEF"))
@@ -2328,7 +2340,7 @@ def prune_post_subset(self, font, options):
         table.AttachList = None
     if hasattr(table, "VarStore"):
         _pruneGDEF(font)
-        if table.VarStore.VarDataCount == 0:
+        if table.VarStore is None or table.VarStore.VarDataCount == 0:
             if table.Version == 0x00010003:
                 table.Version = 0x00010002
     if (

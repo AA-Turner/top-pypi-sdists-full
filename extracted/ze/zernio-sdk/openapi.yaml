@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.275.0"
+  version: "1.281.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -969,6 +969,10 @@ components:
         `x-business-use-case-usage` estimate when Meta sends one, otherwise it
         is Meta's documented 60-second minimum (30 seconds for the one-write-per-30-seconds
         limit on a single object).
+
+        Pinterest ads: Pinterest rate-limits per user and app, per category
+        (ads_read, ads_write, ads_analytics). `Retry-After` comes from
+        Pinterest's `x-ratelimit-reset` when it sends one, otherwise 60 seconds.
       headers:
         Retry-After:
           description: 'Seconds remaining until the upstream quota resets.'
@@ -5096,12 +5100,13 @@ components:
                 Facebook: populated from a Graph API lookup of the parent post. Present when the post is an
                 ad dark post (isDarkPost true, whatever its promotionStatus) or an organic post that is or was
                 boosted (promotionStatus "active", "extendable" or "finished"). Meta does not link a dark post
-                back to its ad, so id and title are never set on Facebook.
+                back to its ad, so on Facebook id is set only when exactly one ad on the Page, created before the
+                dark post, carries the same copy as the post. title is never set on Facebook.
                 Absent for comments on organic posts that are not promoted.
               properties:
                 id:
                   type: string
-                  description: Meta ad ID (Instagram only).
+                  description: 'Meta ad ID. Instagram: from the webhook. Facebook: only on a dark post matched to a single ad by its copy.'
                 title:
                   type: string
                   description: Ad creative title (Instagram only).
@@ -8041,7 +8046,11 @@ components:
         or running; cleared when the target publishes or is retried manually.
         errorMessage stays the human-readable summary; this block is for
         diagnostics and support tickets. Instagram media processing failures
-        carry no code or subcode, only Meta's status text in message.
+        carry no code or subcode, only Meta's status text in message. On an
+        Instagram publish whose outcome is uncertain (for example errorMessage
+        starting "Instagram did not confirm"), carries the last media_publish
+        error Meta returned, when it returned one; errorMessage stays the
+        verdict, so do not read this block as a confirmed failure.
       properties:
         code:
           type: integer
@@ -8104,7 +8113,7 @@ components:
           type: string
           description: Queue ID if the post was scheduled via a specific queue
         createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time, description: 'Last change to the post or to any of its platforms (a publish, a failure, a resolved URL).' }
 
     RecyclingConfig:
       type: object
@@ -8762,6 +8771,7 @@ components:
           description: 'Most recent media first, up to `limit`.'
           items:
             type: object
+            required: [id, caption, mediaType, mediaProductType, timestamp, permalink, likeCount, commentsCount, mediaUrl, thumbnailUrl, viewCount, children]
             properties:
               id: { type: string }
               caption: { type: [string, "null"] }
@@ -8771,6 +8781,20 @@ components:
               permalink: { type: [string, "null"] }
               likeCount: { type: [integer, "null"], description: Null when the owner hides like counts }
               commentsCount: { type: [integer, "null"] }
+              mediaUrl: { type: [string, "null"], description: 'Temporary CDN URL that expires; download the file rather than storing the link. Null on videos whose audio is licensed music, use thumbnailUrl for the cover.' }
+              thumbnailUrl: { type: [string, "null"], description: 'Video cover frame, VIDEO only. Temporary CDN URL.' }
+              viewCount: { type: [integer, "null"], description: 'Reels only. Null on images and carousels.' }
+              children:
+                type: [array, "null"]
+                description: 'Carousel slides in order. Null unless mediaType is CAROUSEL_ALBUM.'
+                items:
+                  type: object
+                  required: [id, mediaType, mediaUrl, thumbnailUrl]
+                  properties:
+                    id: { type: string }
+                    mediaType: { type: [string, "null"] }
+                    mediaUrl: { type: [string, "null"] }
+                    thumbnailUrl: { type: [string, "null"] }
     InstagramAudioAsset:
       type: object
       description: 'One asset from the Instagram audio catalog. Licensed music carries artist/artwork fields; original sounds carry creator fields instead, so most fields are nullable.'
@@ -10559,7 +10583,7 @@ components:
           example: { "0": 0.9923, "1": 0.9937, "4": 0.8637, "8": 0.5313, "12": 0.3605 }
           description: 'Facebook Reels and TikTok business lane: share still watching at each second of playback, fractions 0 to 1. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Facebook Reels (Meta post_video_retention_graph): the base is a subset of plays that Meta selects and does not expose, on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays; loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. TikTok accounts connected through the TikTok for Business app (TikTok video_view_retention): one point per whole second, at most 61 points, thinned evenly on videos longer than 60 s. Empty object for other media and platforms. On a cross-posted post this is the curve of the account with the most views among those reporting one, never a blend: curves from different platforms and accounts measure different audiences and different seconds. Each platformAnalytics entry keeps its own curve.'
         reposts: { type: integer, example: 0, description: 'Instagram accounts connected with Facebook Login only: reposts of the media by other users, minus deleted reposts, on feed posts, reels and stories. Meta does not expose this metric for accounts connected with Instagram Login, so those always report 0. 0 for other platforms, including Threads, where reposts are counted in shares instead.' }
-        videoDurationSeconds: { type: [integer, "null"], example: 30, description: 'Video length in seconds. Currently Instagram Reels only; combine with igReelsAvgWatchTime (ms) to estimate retention. Null when unknown (other platforms, non-video media, or when Instagram does not expose the media URL, e.g. reels with copyrighted audio).' }
+        videoDurationSeconds: { type: [integer, "null"], example: 30, description: 'Video length in seconds. Filled for public YouTube videos once their analytics next refresh (from the Data API; live streams may report null). The YouTube Data API has no Shorts flag: a video over 180 seconds cannot be a Short, but a shorter one may be a regular upload. Also filled for Instagram Reels (combine with igReelsAvgWatchTime (ms) to estimate retention). Null when unknown: platforms that do not report a length, non-video media, or when Instagram does not expose the media URL, e.g. reels with copyrighted audio.' }
         engagementRate: { type: number, example: 6.59, description: 'Percentage, rounded to 2 decimals: (likes + comments + shares + saves) / (impressions or reach or views) * 100. Clicks and follows are never counted. The denominator is the FIRST of impressions, reach, views that is non-zero, so it is not the same basis on every post: a post with impressions divides by impressions, one without falls back to reach, then to views. If you need a single consistent basis (e.g. interactions / reach), compute it from the raw fields above. When this object is the post-level roll-up of a cross-posted post, the denominator is the SUM of the denominators resolved per platform entry: an entry reporting none of impressions, reach or views is excluded from both sides of the ratio. Each platformAnalytics entry below keeps its own single denominator. The engagementRate on the LinkedIn account endpoints is a different formula.' }
         lastUpdated: { type: string, format: date-time }
     PlatformAnalytics:
@@ -11373,9 +11397,47 @@ components:
                 LinkedIn withholds both below its audience privacy threshold, in which case the
                 keys are ABSENT rather than 0. `audiencePenetration` is available here only: it
                 is not part of the stored metrics series.
+
+                TikTok rows are keyed by TikTok's own dimension name (`country_code` for
+                `country`, `platform` for `publisher_platform`). `placement` rows carry the
+                label TikTok Ads Manager shows (`TikTok`, `TikTok Ad Network`, `News Feed App Series`)
+                in `placement` and TikTok's API value (`PLACEMENT_TIKTOK`, `PLACEMENT_PANGLE`,
+                `PLACEMENT_GLOBAL_APP_BUNDLE`) in `placementRaw`; a value without a known label
+                carries the raw value in both.
+
+                A requested dimension with no data in the range is an empty array.
               additionalProperties:
                 type: array
                 items: { type: object }
+            unsupportedBreakdowns:
+              type: array
+              items: { type: string }
+              description: "Requested breakdowns this platform cannot break down by (e.g. region on TikTok, any breakdown on Google). Absent when every requested breakdown is supported."
+            breakdownHints:
+              type: object
+              additionalProperties: { type: string }
+              description: "Guidance for some names in unsupportedBreakdowns, keyed by that name (e.g. placement on Meta points at publisher_platform and platform_position; platform_position on TikTok points at placement). Absent when no unsupported name has a hint."
+            breakdownErrors:
+              type: array
+              description: "TikTok only: breakdowns the platform failed to return (rate limit, permission, rejected query). Each one is an empty array under breakdowns; summary and daily are unaffected. Absent when every breakdown answered."
+              items:
+                type: object
+                properties:
+                  breakdown: { type: string }
+                  message: { type: string, description: "The platform's error message." }
+            breakdownDroppedMetrics:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }
+              description: "TikTok only: TikTok metric names TikTok refused for a breakdown, keyed by the requested breakdown (e.g. total_purchase and total_purchase_value have no relation to platform, ac or language). Every row value derived from a refused metric is null in that breakdown (purchaseValue and roas, or the matching actions and actionValues entries), never a number computed without it. Absent when no metric was refused."
+              example: { publisher_platform: [total_purchase, total_purchase_value, total_initiate_checkout_value] }
+            breakdownsRange:
+              type: object
+              description: "TikTok only, present when the requested range is longer than the 365 days TikTok serves per breakdown: the window the breakdowns cover (the last 365 days of the range). summary and daily still cover the full range."
+              properties:
+                fromDate: { type: string, format: date }
+                toDate: { type: string, format: date }
     AdAnalyticsResponse:
       type: object
       properties:
@@ -11422,9 +11484,47 @@ components:
                 LinkedIn withholds both below its audience privacy threshold, in which case the
                 keys are ABSENT rather than 0. `audiencePenetration` is available here only: it
                 is not part of the stored metrics series.
+
+                TikTok rows are keyed by TikTok's own dimension name (`country_code` for
+                `country`, `platform` for `publisher_platform`). `placement` rows carry the
+                label TikTok Ads Manager shows (`TikTok`, `TikTok Ad Network`, `News Feed App Series`)
+                in `placement` and TikTok's API value (`PLACEMENT_TIKTOK`, `PLACEMENT_PANGLE`,
+                `PLACEMENT_GLOBAL_APP_BUNDLE`) in `placementRaw`; a value without a known label
+                carries the raw value in both.
+
+                A requested dimension with no data in the range is an empty array.
               additionalProperties:
                 type: array
                 items: { type: object }
+            unsupportedBreakdowns:
+              type: array
+              items: { type: string }
+              description: "Requested breakdowns this platform cannot break down by (e.g. region on TikTok, any breakdown on Google). Absent when every requested breakdown is supported."
+            breakdownHints:
+              type: object
+              additionalProperties: { type: string }
+              description: "Guidance for some names in unsupportedBreakdowns, keyed by that name (e.g. placement on Meta points at publisher_platform and platform_position; platform_position on TikTok points at placement). Absent when no unsupported name has a hint."
+            breakdownErrors:
+              type: array
+              description: "TikTok only: breakdowns the platform failed to return (rate limit, permission, rejected query). Each one is an empty array under breakdowns; summary and daily are unaffected. Absent when every breakdown answered."
+              items:
+                type: object
+                properties:
+                  breakdown: { type: string }
+                  message: { type: string, description: "The platform's error message." }
+            breakdownDroppedMetrics:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }
+              description: "TikTok only: TikTok metric names TikTok refused for a breakdown, keyed by the requested breakdown (e.g. total_purchase and total_purchase_value have no relation to platform, ac or language). Every row value derived from a refused metric is null in that breakdown (purchaseValue and roas, or the matching actions and actionValues entries), never a number computed without it. Absent when no metric was refused."
+              example: { publisher_platform: [total_purchase, total_purchase_value, total_initiate_checkout_value] }
+            breakdownsRange:
+              type: object
+              description: "TikTok only, present when the requested range is longer than the 365 days TikTok serves per breakdown: the window the breakdowns cover (the last 365 days of the range). summary and daily still cover the full range."
+              properties:
+                fromDate: { type: string, format: date }
+                toDate: { type: string, format: date }
     AdMetrics:
       type: object
       properties:
@@ -11972,7 +12072,7 @@ components:
           description: "Optional catalog ID. If supplied with productSetId, the set must belong to this catalog (checked by Zernio when the Meta login carries catalog_management, by Meta otherwise). A catalog ID cannot replace productSetId."
         productSetId:
           type: string
-          description: "Meta product SET ID, for example from GET /v1/ads/catalogs/{catalogId}/product-sets. Creating catalog ads needs only ads_management on the Meta login, not catalog_management. Zernio checks before creation that the set is visible to the token, and a set it cannot see returns a 400 naming promotedObject.productSetId (a catalog ID is caught the same way when the login carries catalog_management, and rejected by Meta otherwise). When the login can also read the set's catalog (catalog_management), a mismatch with productCatalogId returns a 400 naming promotedObject.productCatalogId; otherwise Meta judges the catalog match. With validateOnly and a new campaign, Meta cannot dry-run the set inside the ad set, so the adSet result carries a reason; pass existingCampaignId to dry-run it in full."
+          description: "Meta product SET ID, for example from GET /v1/ads/catalogs/{catalogId}/product-sets. Creating catalog ads needs only ads_management on the Meta login, not catalog_management. Zernio reads the set before creation and returns a 400 naming promotedObject.productSetId when Meta rejects the ID outright. When Meta answers that the login lacks the permission to read it (common without catalog_management, even for a set a live ad set already uses), Zernio leaves the check to Meta's own create validation, which rejects an unusable set or a catalog ID with the same 400. When the login can also read the set's catalog (catalog_management), a mismatch with productCatalogId returns a 400 naming promotedObject.productCatalogId; otherwise Meta judges the catalog match. With validateOnly and a new campaign, Meta cannot dry-run the set inside the ad set, so the adSet result carries a reason; pass existingCampaignId to dry-run it in full."
         offlineConversionDataSetId:
           type: string
           description: 'Meta only. Offline event set (dataset) to optimise toward. Post-merger these are datasets: the id is the dataset id (for pixel-backed datasets, the pixel id).'
@@ -12883,6 +12983,7 @@ components:
         _id: { type: string }
         name: { type: string }
         platform: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit] }
+        profileId: { type: string, description: 'Profile the row belongs to: the profile of its owning connection (`accountId`); when that connection no longer exists, the requested profile (`profileId` filter) that reaches the row ad account, else the profile of the oldest connection of the row owner that reaches it.' }
         status: { allOf: [{ $ref: '#/components/schemas/AdStatus' }], description: "Delivery status. Derived from the platform `effective_status`, so it inherits ancestor pauses (an ACTIVE ad under a PAUSED campaign reads `paused`). For the ad's own on/off toggle use `configuredStatus`; for the review state use `reviewStatus`." }
         configuredStatus:
           type: [string, "null"]
@@ -13277,7 +13378,7 @@ components:
         platformAdAccountId: { type: string }
         platformAdAccountName: { type: [string, "null"], description: "Human-readable advertiser/account name from the platform. Refreshed on every sync." }
         accountId: { type: string }
-        profileId: { type: string }
+        profileId: { type: string, description: 'Profile the row belongs to: the profile of its owning connection (`accountId`); when that connection no longer exists, the requested profile (`profileId` filter) that reaches the row ad account, else the profile of the oldest connection of the row owner that reaches it.' }
         isSmartPlus: { type: boolean, description: "TikTok only. true when the campaign is an Upgraded Smart+ campaign (TikTok lists it on /smart_plus/campaign/get/), false when it is not. Set by ads sync, so the key is absent on other platforms and on TikTok campaigns not synced since this field shipped. On Smart+ objects Zernio can pause, resume, rename, delete and change the budget of the campaign and ad set, and pause or resume an ad; other edits answer 422 and belong in TikTok Ads Manager." }
         advertisingChannelType:
           type: [string, "null"]
@@ -13370,7 +13471,7 @@ components:
         platformAdAccountId: { type: string }
         platformAdAccountName: { type: [string, "null"], description: "Human-readable advertiser/account name from the platform. Refreshed on every sync." }
         accountId: { type: string }
-        profileId: { type: string }
+        profileId: { type: string, description: 'Profile the row belongs to: the profile of its owning connection (`accountId`); when that connection no longer exists, the requested profile (`profileId` filter) that reaches the row ad account, else the profile of the oldest connection of the row owner that reaches it.' }
         isSmartPlus: { type: boolean, description: "TikTok only. true when the campaign is an Upgraded Smart+ campaign. See AdTreeCampaign.isSmartPlus." }
         advertisingChannelType:
           type: [string, "null"]
@@ -13477,7 +13578,7 @@ components:
         platformCriterionId: { type: string, description: 'Google ad_group_criterion.criterion_id. Unique only within its ad group (`adSetId`), not across the account.' }
         resourceName: { type: string, description: 'Google resource name, customers/{adAccountId}/adGroupCriteria/{adSetId}~{platformCriterionId}.' }
         accountId: { type: string, description: Account ID owning the sync }
-        profileId: { type: string }
+        profileId: { type: string, description: 'Profile the row belongs to: the profile of its owning connection (`accountId`); when that connection no longer exists, the requested profile (`profileId` filter) that reaches the row ad account, else the profile of the oldest connection of the row owner that reaches it.' }
         platform: { type: string, enum: [google] }
         adAccountId: { type: string, description: Google customer ID }
         campaignId: { type: string }
@@ -13760,7 +13861,7 @@ components:
         warnings:
           type: array
           items: { type: string }
-          description: 'Present when Meta created the ad set differently from the request. Today: Meta kept the ad set without the requested `whatsappPhoneNumber` in its promoted_object (the ads still carry it on their WhatsApp button).'
+          description: 'Present when Meta created the ad set differently from the request: Meta kept the ad set without the requested `whatsappPhoneNumber` in its promoted_object (the ads still carry it on their WhatsApp button), or the ad set joined a CBO campaign (`existingCampaignId`) whose own bid strategy applies, so a different `bidStrategy` or a `roasAverageFloor` that strategy cannot take was not applied.'
 
     CtwaMultiResponse:
       type: object
@@ -13784,7 +13885,7 @@ components:
         warnings:
           type: array
           items: { type: string }
-          description: 'Present when Meta created the ad set differently from the request. Today: Meta kept the ad set without the requested `whatsappPhoneNumber` in its promoted_object (the ads still carry it on their WhatsApp button).'
+          description: 'Present when Meta created the ad set differently from the request: Meta kept the ad set without the requested `whatsappPhoneNumber` in its promoted_object (the ads still carry it on their WhatsApp button), or the ad set joined a CBO campaign (`existingCampaignId`) whose own bid strategy applies, so a different `bidStrategy` or a `roasAverageFloor` that strategy cannot take was not applied.'
 
     CustomConversion:
       type: object
@@ -24263,7 +24364,7 @@ paths:
                   description: 'Meta locale code for the verification message, e.g. en_US.'
       responses:
         '200':
-          description: 'Code requested, or the number was already CONNECTED and no code was needed.'
+          description: 'Code requested, or the number was already CONNECTED with a current verification and no code was needed.'
           content:
             application/json:
               schema:
@@ -31106,7 +31207,7 @@ paths:
       operationId: getLinkedInAggregateAnalytics
       tags: [Analytics]
       summary: Get LinkedIn aggregate stats
-      description: Returns aggregate analytics across all posts for a LinkedIn personal account. Only includes posts published through Zernio (LinkedIn API limitation). Org accounts should use /v1/analytics instead. Requires r_member_postAnalytics scope. Saves (POST_SAVE) and sends (POST_SEND) are available for personal accounts; organization pages always return 0 for these two metrics because LinkedIn does not expose them on the organization analytics endpoint.
+      description: Returns aggregate analytics across all posts for a LinkedIn personal account. Covers every post authored by the member, whether or not it was published through Zernio (LinkedIn aggregates by member, not by post). Org accounts should use /v1/analytics instead. Requires r_member_postAnalytics scope. Saves (POST_SAVE) and sends (POST_SEND) are available for personal accounts; organization pages always return 0 for these two metrics because LinkedIn does not expose them on the organization analytics endpoint.
       parameters:
         - name: accountId
           in: path
@@ -31952,6 +32053,8 @@ paths:
         up any public Business or Creator handle.
 
         `likeCount` is null when the owner hides like counts.
+
+        Media URLs are temporary, and fields Meta does not return come back as null, never omitted.
       parameters:
         - name: accountId
           in: path
@@ -35559,7 +35662,7 @@ paths:
         - name: folder
           in: query
           schema: { type: string, enum: [inbox, requests], default: inbox }
-          description: 'requests lists Facebook and Instagram Message Requests (threads from people the account has not accepted) live from Meta, first page only, each item with `folder: requests`. Meta has no accept call: replying moves a thread to the inbox, which is what POST /v1/inbox/conversations/{conversationId}/accept does. When Meta will not list the folder for the one account asked (`accountId`), the call answers 400 PLATFORM_LIMITATION; across several accounts the refusal is reported per account in meta.failedAccounts.'
+          description: 'requests lists Facebook and Instagram Message Requests (threads from people the account has not accepted) live from Meta, each item with `folder: requests`. Meta has no accept call: replying moves a thread to the inbox, which is what POST /v1/inbox/conversations/{conversationId}/accept does. When Meta will not list the folder for the one account asked (`accountId`), the call answers 400 PLATFORM_LIMITATION; across several accounts the refusal is reported per account in meta.failedAccounts. Instagram accounts connected with Instagram Login answer PLATFORM_LIMITATION (Meta does not expose the folder on that login); Facebook and Instagram via Facebook Login are served. One page of up to `limit` threads; `pagination.hasMore` is true when threads past `limit` were cut (narrow with `accountId`), `pagination.nextCursor` is always null and a `cursor` answers 400.'
         - name: sortOrder
           in: query
           schema: { type: string, enum: [asc, desc], default: desc }
@@ -35567,7 +35670,7 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
-          description: Maximum number of conversations to return
+          description: 'Maximum number of conversations to return; values above 100 are served as 100.'
         - name: cursor
           in: query
           schema: { type: string }
@@ -42203,11 +42306,13 @@ paths:
       tags: [Voice]
       summary: Dial from the browser softphone
       description: |
-        Step 2 of the browser softphone handshake: places an outbound call
-        whose answered leg is bridged to the browser registered with the
-        credential from `POST /v1/voice/calls/web`. The call runs through the
-        normal outbound lane, so it is logged as outbound (from = your number,
-        to = target) and recorded per the number's settings.
+        Step 2 of the browser softphone handshake: rings the browser registered
+        with the credential from `POST /v1/voice/calls/web` first, and dials
+        the target only once the browser answers, so the callee's pickup
+        connects immediately with no ringing after they answer. The call is
+        logged as outbound (from = your number, to = target) and recorded per
+        the number's settings. `ringTimeoutSeconds` applies to the target's
+        phone, not to the browser.
       security:
         - bearerAuth: []
       requestBody:
@@ -43410,7 +43515,7 @@ paths:
       summary: Look up carrier + line type
       description: |
         Carrier name and line type (mobile / landline / voip / toll-free) for a
-        number, plus `smsReachable` (landlines can't receive SMS). Use it to
+        number, plus `smsReachable`. Use it to
         validate recipients before sending. Each lookup is billed by the
         carrier-data provider, so call it explicitly (e.g. pre-validating an
         opt-in list), not on every send.
@@ -43429,7 +43534,7 @@ paths:
                   phoneNumber: { type: string }
                   carrierName: { type: [string, "null"] }
                   lineType: { type: string, enum: [mobile, landline, voip, toll-free, unknown] }
-                  smsReachable: { type: boolean, description: True when the line type can receive SMS (not a landline). }
+                  smsReachable: { type: boolean, description: 'False for landlines, toll-free numbers, ambiguous fixed-or-mobile lines and carriers whose numbers are not SMS-routable. True is a best guess, not a delivery guarantee.' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '502': { description: Lookup provider failed }
 
@@ -55783,7 +55888,7 @@ paths:
                         platformCampaignId: { type: [string, "null"] }
                         platformAdAccountId: { type: string }
                         accountId: { type: [string, "null"] }
-                        profileId: { type: string }
+                        profileId: { type: string, description: 'Profile the row belongs to: the profile of its owning connection (`accountId`); when that connection no longer exists, the requested profile (`profileId` filter) that reaches the row ad account, else the profile of the oldest connection of the row owner that reaches it.' }
                         currency: { type: [string, "null"] }
                         budget:
                           type: [object, "null"]
@@ -56132,9 +56237,14 @@ paths:
         - `LOWEST_COST_WITH_BID_CAP` / `COST_CAP`: `bidAmount` REQUIRED (whole currency units).
         - `LOWEST_COST_WITH_MIN_ROAS`: `roasAverageFloor` REQUIRED (decimal multiplier, e.g. 2.0 = 2.0x ROAS).
         - Meta only: send `bidAmount` WITHOUT `bidStrategy` to change the cap amount on an ad set
-          under a COST_CAP / LOWEST_COST_WITH_BID_CAP parent campaign, leaving the strategy itself
-          (inherited from the campaign) untouched. `roasAverageFloor` without `bidStrategy` is
-          rejected (it has no meaning outside LOWEST_COST_WITH_MIN_ROAS).
+          whose strategy (its own, or the campaign's under CBO) is COST_CAP / LOWEST_COST_WITH_BID_CAP,
+          leaving the strategy untouched. Send `roasAverageFloor` WITHOUT `bidStrategy` the same way
+          to change the floor of a LOWEST_COST_WITH_MIN_ROAS ad set. Either field against an
+          incompatible current strategy is a 400.
+        - Meta CBO (the campaign holds the budget): the campaign also holds the bid strategy, so only
+          `bidAmount` or `roasAverageFloor` is written on the ad set. A `bidStrategy` equal to the
+          campaign's is accepted; a different one is a 409 (change it with
+          PUT /v1/ads/campaigns/{campaignId}).
 
         Delivery settings are validated by Meta against the campaign objective;
         incompatible combinations (e.g. a billingEvent the optimization goal
@@ -56221,6 +56331,8 @@ paths:
                   description: |
                     Minimum ROAS as a decimal multiplier (2.0 = 2.0x). Required when bidStrategy is
                     LOWEST_COST_WITH_MIN_ROAS. Sent to Meta as `bid_constraints.roas_average_floor` × 10000.
+                    Meta only: may be sent alone, WITHOUT bidStrategy, to update the floor on an ad set
+                    whose strategy (its own, or the campaign's under CBO) is LOWEST_COST_WITH_MIN_ROAS.
                     Not supported on OpenAI (422).
                 valueRuleSetId:
                   type: string
@@ -56309,7 +56421,7 @@ paths:
         '403':
           description: 'Returned with code `ads_allowance_exceeded` when the team has no payment method on file and has reached the 500 free live ads: add a card to resume.'
         '404': { description: Ad set not found }
-        '409': { description: "Campaign is CBO. Route to /v1/ads/campaigns/{campaignId} instead" }
+        '409': { description: "Campaign is CBO: a budget, or a bidStrategy other than the campaign's (Meta), belongs on /v1/ads/campaigns/{campaignId}" }
         '422': { description: "bidStrategy is LOWEST_COST_WITH_MIN_ROAS on OpenAI or Reddit (unsupported: no ROAS-based bidding), or a Reddit budget that the ad group cannot take (campaign budget, or a daily/lifetime switch)" }
         '501': { description: "bidStrategy not supported on the platform (Meta, TikTok, OpenAI and Reddit only)" }
     delete:
@@ -56567,9 +56679,20 @@ paths:
         - the creative's `effective_object_story_id` (`{pageId}_{postId}` shape, Facebook side)
         - the creative's `effective_instagram_media_id` (Instagram side)
 
-        Any of the four resolve to the same ad. Caller doesn't need a translation step.
+        - an Instagram media id an ad comment arrived on (`comment.platformPostId` of a `comment.received`
+          carrying `comment.ad.id`), including the extra media Meta creates for placement variants
+
+        Any of these resolve to the same ad. Caller doesn't need a translation step.
         `creative.creativeFeatures` holds the stored requested settings, which do not confirm
         platform application.
+
+        **Facebook ad dark posts.** Meta gives an ad with per-placement assets one extra unpublished
+        post per placement, and comments land on it. Meta exposes no link from that post to its ad.
+        When exactly one ad on the Page, created before the dark post, carries the same copy as the
+        post, the dark post id resolves to that ad. Otherwise, when the id is a dark post Zernio has
+        seen comments on and its Page is connected, the response is `ad: null` plus `darkPost`, which
+        carries the Meta Ads account and the ad accounts running ads for that Page. Read its comments
+        with GET /v1/ads/{adId}/comments using the same id.
 
         **Status freshness.** `status`, `configuredStatus`, `platformStatus`, `platformAdSetStatus`
         and `platformCampaignStatus` are the values Zernio last stored. Background sync refreshes
@@ -56618,6 +56741,20 @@ paths:
                   cachedAt: { type: [string, "null"], format: date-time, description: "Google RSA details cache timestamp." }
                   stale: { type: boolean, description: "Whether Google RSA details use the last successful cached response." }
                   statusReadAt: { type: [string, "null"], format: date-time, description: "Only with `live=true`. When the switches were read from the platform; null when the live read failed and the stored values were returned." }
+                  darkPost:
+                    type: object
+                    description: 'Only when `{adId}` is a Facebook ad dark post with no resolvable ad (then `ad` is null).'
+                    properties:
+                      platform: { type: string, enum: [facebook] }
+                      platformPostId: { type: string, description: 'The dark post id, `{pageId}_{postId}`.' }
+                      pageId: { type: string }
+                      isDarkPost: { type: boolean, description: 'Always true.' }
+                      adId: { type: [string, "null"], description: 'Always null: Meta exposes no link from a placement dark post to its ad.' }
+                      accountId: { type: [string, "null"], description: 'Zernio Meta Ads account id for the Page, null when none is connected.' }
+                      facebookAccountId: { type: string, description: 'Zernio Facebook account id of the Page.' }
+                      platformAdAccountIds: { type: array, items: { type: string }, description: 'Meta ad accounts (`act_...`) with synced ads on this Page.' }
+                      firstSeenAt: { type: string, format: date-time }
+                      lastActivityAt: { type: string, format: date-time }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -57879,9 +58016,9 @@ paths:
 
         Returns performance analytics for a whole campaign in one call: summary metrics, a daily
         timeline over the requested date range (summed across the campaign's ads), and optional
-        demographic breakdowns. Breakdowns are fetched live from Meta at the campaign level (one call
-        per dimension, no per-ad fan-out), so an agency dashboard gets campaign-level age/gender/etc.
-        without summing thousands of per-ad reads. `campaignId` is the platform campaign id; pass
+        demographic breakdowns. Breakdowns are fetched live from Meta, TikTok or LinkedIn at the campaign
+        level (one call per dimension, no per-ad fan-out), so an agency dashboard gets campaign-level
+        age/gender/placement/etc. without summing thousands of per-ad reads. `campaignId` is the platform campaign id; pass
         `platform` when a campaign id could be ambiguous across platforms. If no date range is provided,
         defaults to the last 90 days. Date range is capped at 730 days max.
         Google adds searchImpressionShare, searchBudgetLostImpressionShare,
@@ -57905,10 +58042,22 @@ paths:
             **Meta**: age, gender, country, publisher_platform, device_platform, region,
             platform_position, impression_device, video_asset, image_asset, body_asset, title_asset.
 
+            **TikTok**: gender, age, country (or country_code), publisher_platform (or platform),
+            ac, language, placement. TikTok serves at most 365 days per breakdown, so a longer
+            range is read over its last 365 days and `analytics.breakdownsRange` says which window.
+
             **LinkedIn** (firmographics): job_title, job_function, seniority, industry,
             company, company_size, country, region. Rows carry the raw pivot `value`
             plus a resolved `name`. LinkedIn serves these aggregated over the whole
             range, delays the data 12-24h, and omits segments with fewer than 3 events.
+
+            A known dimension the platform cannot break down by is listed in
+            `analytics.unsupportedBreakdowns` instead of being dropped (with guidance in
+            `analytics.breakdownHints` where there is an alternative); the rest of the response
+            is unchanged. An unknown name returns 400. A TikTok dimension that fails is listed
+            in `analytics.breakdownErrors` and the response stays 200.
+            Metrics TikTok refuses for a dimension are listed in `analytics.breakdownDroppedMetrics`,
+            and the row values derived from them are null.
       responses:
         '200':
           description: Campaign analytics
@@ -58405,7 +58554,7 @@ paths:
         - { name: pageToken, in: query, schema: { type: string }, description: "Google only: cursor from paging.nextPageToken of the previous page." }
         - { name: level, in: query, schema: { type: string, enum: [ad, adset, campaign, account] }, description: Row granularity }
         - { name: fields, in: query, schema: { type: string }, description: "Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set." }
-        - { name: breakdowns, in: query, schema: { type: string }, description: "Comma-separated Graph breakdowns (e.g. age,gender or publisher_platform)." }
+        - { name: breakdowns, in: query, schema: { type: string }, description: "Meta only: comma-separated Graph breakdowns (e.g. age,gender or publisher_platform). Returns 400 on TikTok (add the breakdown to dimensions with reportType=AUDIENCE, e.g. dimensions=campaign_id,placement) and on Google (select segments.* in the query)." }
         - { name: actionBreakdowns, in: query, schema: { type: string }, description: "Comma-separated Graph action breakdowns; segments the actions[] arrays in each row. Pass `none` to clear Meta's default action_type breakdown, required to combine some non-action breakdowns such as instagram_ads_follow_type (otherwise Meta returns a (#100) invalid-combination error)." }
         - { name: actionAttributionWindows, in: query, schema: { type: string }, description: "Comma-separated Meta attribution windows. Action values are returned keyed per window." }
         - { name: actionReportTime, in: query, schema: { type: string }, description: "When actions are counted: impression, conversion or mixed." }
@@ -58581,10 +58730,10 @@ paths:
       x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x", "reddit"]
       summary: Get ad analytics
       description: |
-        Returns one ad's performance summary and daily timeline, with optional audience breakdowns on Meta and TikTok.
+        Returns one ad's performance summary and daily timeline, with optional audience breakdowns on Meta, TikTok and LinkedIn.
 
         Includes summary metrics, a daily timeline
-        over the requested date range, and optional demographic breakdowns (Meta and TikTok only).
+        over the requested date range, and optional demographic breakdowns (Meta, TikTok and LinkedIn only).
         If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
       security:
         - bearerAuth: []
@@ -58598,14 +58747,25 @@ paths:
           description: |
             Comma-separated breakdown dimensions.
 
-            **Meta**: age, gender, country, publisher_platform, device_platform, region.
+            **Meta**: age, gender, country, publisher_platform, device_platform, region,
+            platform_position, impression_device, video_asset, image_asset, body_asset, title_asset.
 
-            **TikTok**: gender, age, country_code, platform, ac, language.
+            **TikTok**: gender, age, country (or country_code), publisher_platform (or platform),
+            ac, language, placement. TikTok serves at most 365 days per breakdown, so a longer
+            range is read over its last 365 days and `analytics.breakdownsRange` says which window.
 
             **LinkedIn** (firmographics): job_title, job_function, seniority, industry,
             company, company_size, country, region. Rows carry the raw pivot `value`
             plus a resolved `name`. LinkedIn serves these aggregated over the whole
             range, delays the data 12-24h, and omits segments with fewer than 3 events.
+
+            A known dimension the platform cannot break down by is listed in
+            `analytics.unsupportedBreakdowns` instead of being dropped (with guidance in
+            `analytics.breakdownHints` where there is an alternative); the rest of the response
+            is unchanged. An unknown name returns 400. A TikTok dimension that fails is listed
+            in `analytics.breakdownErrors` and the response stays 200.
+            Metrics TikTok refuses for a dimension are listed in `analytics.breakdownDroppedMetrics`,
+            and the row values derived from them are null.
       responses:
         '200':
           description: Ad analytics
@@ -58777,6 +58937,12 @@ paths:
         param the Instagram side is returned when it exists, otherwise Facebook. The
         identifiers are read from the ad record (persisted during sync) with a Marketing-API
         fallback for ads that predate the field.
+
+        Comments can land on extra posts Meta creates for placement variants, which the creative
+        does not report. On Instagram, every media a `comment.received` for this ad arrived on is
+        read too; on Facebook, every dark post matched to this ad by its copy. They are merged
+        newest first. With more than one post, `pagination.cursor` is a Zernio cursor covering all
+        of them: pass it back unchanged.
 
         For Instagram-placed comments, the Instagram account that runs the ad must be connected
         to Zernio, because those comments are read through that account's token. If no connected
@@ -63281,6 +63447,7 @@ paths:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: Account ID }
         - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "Filter response to a single platform ad account ID (e.g. `act_123` for Meta, advertiser_id for TikTok). Returns at most one item." }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 1000 }, description: "Clamp the returned `accounts[]` length. Useful for typeahead pickers on agency tokens with hundreds of advertisers." }
+        - { name: inScopeOnly, in: query, required: false, schema: { type: boolean, default: false }, description: "Google Ads only. `true` returns only the customers this connection accepts as `adAccountId` (or `customerId`) on the other /v1/ads endpoints, i.e. those inside its ad-account selection. Without it every customer the Google login can reach is listed, including ones selected on another connection of the same login, which those endpoints answer with a 400. Ignored on other platforms." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
@@ -64101,6 +64268,7 @@ paths:
             is reused with a different request body, and as `ad_account_unusable`
             when Meta refuses writes on the ad account because its status is
             ineligible to manage ads (see `ErrorResponse.details`).
+        '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
 
   /v1/ads/campaigns/{campaignId}/asset-groups:
     get:
@@ -67213,7 +67381,9 @@ paths:
       description: |
         Lists the Meta product catalogs a business portfolio owns or has been shared, for catalog and shopping ads.
 
-        The business comes from `businessId`, else the ad account's owner (`adAccountId`), else the WhatsApp Business Account's owner when `accountId` is a WhatsApp connection, else the only business the Meta login can see. Reads work with scopes customers already granted.
+        The business comes from `businessId`, else the ad account's owner (`adAccountId`), else the WhatsApp Business Account's owner when `accountId` is a WhatsApp connection, else the only business the Meta login can see.
+
+        Listing catalogs needs catalog_management on the Meta login. The permission is pending Meta App Review and is not requested on connect yet, so most logins get the 403 below (Meta's code 100 "This application has not been approved to use this api"); pass catalogAccountId naming a facebook, instagram or metaads connection whose Meta login already holds it. Creating a catalog_sales ad from a known product set ID does not need it (see promotedObject.productSetId on POST /v1/ads/create).
       security:
         - bearerAuth: []
       parameters:
@@ -72103,6 +72273,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required (Ads add-on on legacy plans, included on usage-based plans), or the Meta token lacks ads permissions (reconnect required).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
         '501': { description: 'The platform does not offer this operation (code `platform_not_supported`); the message names the reason and the alternative.' }
         '502': { description: 'Meta was unreachable or returned an unclassified error (type: platform_error; the raw Meta payload is in platformError). Retryable.' }
@@ -72212,6 +72383,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required (Ads add-on on legacy plans, included on usage-based plans), or the Meta token lacks ads permissions (reconnect required).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
         '501': { description: 'The platform does not offer this operation (code `platform_not_supported`); the message names the reason and the alternative.' }
         '422': { description: 'OpenAI Ads only: the ad account is not enabled for pixel management. Contact your OpenAI partner representative.' }
@@ -72279,6 +72451,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required (Ads add-on on legacy plans, included on usage-based plans), or the Meta token lacks ads permissions (reconnect required).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
         '501': { description: 'The platform does not offer this operation (code `platform_not_supported`); the message names the reason and the alternative.' }
         '502': { description: 'Meta was unreachable or returned an unclassified error (type: platform_error; the raw Meta payload is in platformError). Retryable.' }
@@ -72659,6 +72832,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required (Ads add-on on legacy plans, included on usage-based plans), or the Meta token lacks ads permissions (reconnect required).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '501': { description: 'The platform does not offer this operation (code `platform_not_supported`); the message names the reason and the alternative.' }
         '409': { $ref: '#/components/responses/StoreReconnectRequired' }
         '422':
@@ -72733,6 +72907,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required (Ads add-on on legacy plans, included on usage-based plans).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '501': { description: 'The platform does not offer this operation (code `platform_not_supported`); the message names the reason and the alternative.' }
         '409': { $ref: '#/components/responses/StoreReconnectRequired' }
     delete:
@@ -72853,6 +73028,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required, or the platform token lacks the permission (reconnect required).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '501': { description: 'The platform has no conversion-event objects (code `platform_not_supported`); the message names the alternative.' }
     post:
@@ -72961,6 +73137,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required, or the platform token lacks the permission (reconnect required).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '501': { description: 'The platform cannot create conversion events through its API (code `platform_not_supported`).' }
   /v1/accounts/{accountId}/tracking-tags/{tagId}/events/{eventId}:
@@ -73024,6 +73201,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required, or the platform token lacks the permission (reconnect required).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '501': { description: 'The platform cannot update conversion events through its API (code `platform_not_supported`).' }
     delete:
@@ -73084,6 +73262,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required, or the platform token lacks the permission (reconnect required).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '501': { description: 'The platform cannot remove conversion events through its API (code `platform_not_supported`).' }
 
@@ -73393,6 +73572,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Ads access required (Ads add-on on legacy plans, included on usage-based plans), or the Meta token lacks ads permissions (reconnect required).' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
         '501': { description: 'The platform does not offer this operation (code `platform_not_supported`); the message names the reason and the alternative.' }
         '502': { description: 'Meta was unreachable or returned an unclassified error (type: platform_error; the raw Meta payload is in platformError). Retryable.' }

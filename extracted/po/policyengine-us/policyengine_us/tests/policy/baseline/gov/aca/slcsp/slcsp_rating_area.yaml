@@ -1,0 +1,61 @@
+- name: Shasta County CA
+  period: 2023
+  input:
+    county_str: SHASTA_COUNTY_CA
+  output:
+    slcsp_rating_area: 1
+
+- name: Effingham County IL
+  period: 2023
+  input:
+    county_str: EFFINGHAM_COUNTY_IL
+  output:
+    slcsp_rating_area: 13
+
+- name: Graves County KY
+  period: 2023
+  input:
+    county_str: GRAVES_COUNTY_KY
+  output:
+    slcsp_rating_area: 1   
+
+- name: Bay County MI
+  period: 2023
+  input:
+    county_str: BAY_COUNTY_MI
+  output:
+    slcsp_rating_area: 8
+
+- name: Unknown county defaults to 1
+  period: 2023
+  input:
+    county_str: UNKNOWN_COUNTY_XX
+  output:
+    slcsp_rating_area: 1
+
+- name: LA county (Pasadena)
+  period: 2023
+  input:
+    three_digit_zip_code: 911
+    county_str: LOS_ANGELES_COUNTY_CA
+  output:
+    slcsp_rating_area: 15
+
+- name: LA county falls back to county-level rating area when zip code is missing
+  period: 2024
+  input:
+    county_str: LOS_ANGELES_COUNTY_CA
+    three_digit_zip_code: ""
+  output:
+    # The zip-based LA lookup returns 0 without a zip, so the formula must
+    # fall back to slcsp_rating_area_default, which maps LA County to 16.
+    slcsp_rating_area: 16
+
+- name: LA county with unmapped zip prefix falls back to county default
+  period: 2024
+  input:
+    county_str: LOS_ANGELES_COUNTY_CA
+    three_digit_zip_code: "999"
+  output:
+    slcsp_rating_area: 16
+

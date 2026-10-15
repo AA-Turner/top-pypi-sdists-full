@@ -38,7 +38,6 @@ def process_urllib3(
     if event == "call":
         headers = frame_locals["headers"]
         if headers is None:
-            # urlopen sends the pool's default headers when given none
             headers = frame_locals["self"].headers
         request_headers = {
             key: decode_header_value(value) for key, value in headers.items()

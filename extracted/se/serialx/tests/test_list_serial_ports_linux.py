@@ -11,7 +11,6 @@ if sys.platform not in ("linux", "darwin"):
     pytest.skip("Linux-only tests", allow_module_level=True)
 
 from pathlib import Path
-import re
 import shutil
 from unittest.mock import patch
 
@@ -55,6 +54,7 @@ def test_replay_debian_12_kernel_6_1(
             bcd_device=None,
             interface_description=None,
             interface_num=None,
+            port_number=None,
         ),
     ]
 
@@ -80,6 +80,7 @@ def test_replay_debian_13_kernel_6_12(
             bcd_device=0x0100,
             interface_description="Nabu Casa ZBT-2",
             interface_num=0,
+            port_number=None,
         ),
         SerialPortInfo(
             device=str(dev_root / "ttyS0"),
@@ -92,6 +93,7 @@ def test_replay_debian_13_kernel_6_12(
             bcd_device=None,
             interface_description=None,
             interface_num=None,
+            port_number=None,
         ),
         SerialPortInfo(
             device=str(
@@ -107,6 +109,7 @@ def test_replay_debian_13_kernel_6_12(
             bcd_device=0x0100,
             interface_description="CP2102 USB to UART Bridge Controller",
             interface_num=0,
+            port_number=0,
         ),
         SerialPortInfo(
             device=str(
@@ -122,6 +125,7 @@ def test_replay_debian_13_kernel_6_12(
             bcd_device=0x0100,
             interface_description=None,
             interface_num=0,
+            port_number=0,
         ),
         SerialPortInfo(
             device=str(by_id / "usb-FTDI_FT232R_USB_UART_A5069RR4-if00-port0"),
@@ -134,6 +138,7 @@ def test_replay_debian_13_kernel_6_12(
             bcd_device=0x0600,
             interface_description="FT232R USB UART",
             interface_num=0,
+            port_number=0,
         ),
         SerialPortInfo(
             device=str(dev_root / "ttyUSB3"),
@@ -146,6 +151,7 @@ def test_replay_debian_13_kernel_6_12(
             bcd_device=0x0600,
             interface_description="FT232R USB UART",
             interface_num=0,
+            port_number=0,
         ),
         SerialPortInfo(
             device=str(by_id / "usb-FTDI_FT232R_USB_UART_rutabaga-if00-port0"),
@@ -158,6 +164,7 @@ def test_replay_debian_13_kernel_6_12(
             bcd_device=0x0600,
             interface_description="FT232R USB UART",
             interface_num=0,
+            port_number=0,
         ),
         SerialPortInfo(
             device=str(
@@ -173,6 +180,92 @@ def test_replay_debian_13_kernel_6_12(
             bcd_device=0x0605,
             interface_description=None,
             interface_num=0,
+            port_number=0,
+        ),
+    ]
+
+
+def test_replay_debian_13_kernel_7_0(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Kernel 7.0 with a CH9102 and ZBT-2 on CDC ACM, a dual-port CP2105 and an FT-X."""
+    with caplog.at_level(logging.WARNING):
+        dev_root, ports = _list_ports(tmp_path, "debian-13-7.0.umockdev")
+    assert "Unknown serial device subsystem" not in caplog.text
+
+    by_id = dev_root / "serial/by-id"
+    assert ports == [
+        # The CH9102 has no manufacturer string, so udev names it by vendor ID
+        SerialPortInfo(
+            device=str(by_id / "usb-1a86_USB_Single_Serial_5424007932-if00"),
+            resolved_device=str(dev_root / "ttyACM0"),
+            vid=0x1A86,
+            pid=0x55D4,
+            serial_number="5424007932",
+            manufacturer=None,
+            product="USB Single Serial",
+            bcd_device=0x0443,
+            interface_description=None,
+            interface_num=0,
+            port_number=None,
+        ),
+        SerialPortInfo(
+            device=str(by_id / "usb-Nabu_Casa_ZBT-2_10B41DE589E4-if00"),
+            resolved_device=str(dev_root / "ttyACM2"),
+            vid=0x303A,
+            pid=0x4001,
+            serial_number="10B41DE589E4",
+            manufacturer="Nabu Casa",
+            product="ZBT-2",
+            bcd_device=0x0100,
+            interface_description="Nabu Casa ZBT-2",
+            interface_num=0,
+            port_number=None,
+        ),
+        SerialPortInfo(
+            device=str(
+                by_id
+                / "usb-Silicon_Labs_HubZ_Smart_Home_Controller_51600403-if00-port0"
+            ),
+            resolved_device=str(dev_root / "ttyUSB0"),
+            vid=0x10C4,
+            pid=0x8A2A,
+            serial_number="51600403",
+            manufacturer="Silicon Labs",
+            product="HubZ Smart Home Controller",
+            bcd_device=0x0100,
+            interface_description="HubZ Z-Wave Com Port",
+            interface_num=0,
+            port_number=0,
+        ),
+        SerialPortInfo(
+            device=str(
+                by_id
+                / "usb-Silicon_Labs_HubZ_Smart_Home_Controller_51600403-if01-port0"
+            ),
+            resolved_device=str(dev_root / "ttyUSB1"),
+            vid=0x10C4,
+            pid=0x8A2A,
+            serial_number="51600403",
+            manufacturer="Silicon Labs",
+            product="HubZ Smart Home Controller",
+            bcd_device=0x0100,
+            interface_description="HubZ ZigBee Com Port",
+            interface_num=1,
+            port_number=0,
+        ),
+        SerialPortInfo(
+            device=str(by_id / "usb-FTDI_ZiGate_ZIGATE+-if00-port0"),
+            resolved_device=str(dev_root / "ttyUSB2"),
+            vid=0x0403,
+            pid=0x6015,
+            serial_number="ZIGATE+",
+            manufacturer="FTDI",
+            product="ZiGate",
+            bcd_device=0x1000,
+            interface_description="ZiGate",
+            interface_num=0,
+            port_number=0,
         ),
     ]
 
@@ -198,6 +291,7 @@ def test_replay_haos_x86_kernel_6_12(
             bcd_device=0x0101,
             interface_description="Nabu Casa ZBT-2",
             interface_num=0,
+            port_number=None,
         ),
         SerialPortInfo(
             device=str(by_id / "usb-Nabu_Casa_ZBT-2_10B41DE58A2C-if00"),
@@ -210,6 +304,7 @@ def test_replay_haos_x86_kernel_6_12(
             bcd_device=0x0100,
             interface_description="Nabu Casa ZBT-2",
             interface_num=0,
+            port_number=None,
         ),
     ]
 
@@ -234,6 +329,7 @@ def test_replay_haos_yellow_kernel_6_6(
             bcd_device=None,
             interface_description=None,
             interface_num=None,
+            port_number=None,
         )
         for name in ("ttyAMA0", "ttyAMA1", "ttyAMA10", "ttyAMA2")
     ]
@@ -434,6 +530,7 @@ def test_replay_github_actions_ubuntu_24_04_kernel_6_17(
             bcd_device=None,
             interface_description=None,
             interface_num=None,
+            port_number=None,
         ),
         SerialPortInfo(
             device=str(dev_root / "ttyS1"),
@@ -446,6 +543,7 @@ def test_replay_github_actions_ubuntu_24_04_kernel_6_17(
             bcd_device=None,
             interface_description=None,
             interface_num=None,
+            port_number=None,
         ),
     ]
 
@@ -496,10 +594,7 @@ def test_udev_serial_by_id_stem_matches_recorded_links(
     links = _recorded_by_id_links(dump)
 
     for port in ports:
-        expected = {
-            re.sub(r"-port\d+$", "", link)
-            for link in links[Path(port.resolved_device).name]
-        }
+        expected = links[Path(port.resolved_device).name]
         stem = udev_serial_by_id_stem(port)
 
         assert expected == (set() if stem is None else {stem})

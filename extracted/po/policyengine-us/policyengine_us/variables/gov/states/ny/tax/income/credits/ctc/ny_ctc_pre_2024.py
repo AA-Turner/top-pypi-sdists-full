@@ -1,0 +1,84 @@
+from policyengine_us.model_api import *
+from policyengine_us.tools.pinned_tbs import (
+    CREDIT_DEPENDENT_VARIABLES,
+    get_pre_tcja_ctc_tbs,
+)
+
+
+class ny_ctc_pre_2024(Variable):
+    value_type = float
+    entity = TaxUnit
+    label = "NY CTC pre-2024 rules"
+    documentation = (
+        "New York's Empire State Child Credit under pre-2024 rules (original system)"
+    )
+    unit = USD
+    definition_period = YEAR
+    reference = "https://www.nysenate.gov/legislation/laws/TAX/606"  # (c-1)
+    defined_for = "ny_ctc_pre_2024_eligible"
+
+    def formula(tax_unit, period, parameters):
+        p = parameters(period).gov.states.ny.tax.income.credits.ctc
+        person = tax_unit.members
+        age = person("age", period)
+        agi = tax_unit("adjusted_gross_income", period)
+
+        # Original CTC rules (pre-2025 and post-2027)
+        if not p.pre_tcja:
+            federal_ctc = tax_unit("ctc", period)
+            gov = parameters(period).gov
+            qualifies_for_federal_ctc = person("ctc_qualifying_child", period)
+        else:
+            # Initialize pre-TCJA CTC branch with cached pinned parameters
+            # (one clone per process; see tools/pinned_tbs.py, issue #8114).
+            simulation = tax_unit.simulation
+            pre_tcja_ctc = get_branch_for_period(simulation, "pre_tcja_ctc", period)
+            pre_tcja_ctc.tax_benefit_system = get_pre_tcja_ctc_tbs(
+                simulation.tax_benefit_system
+            )
+            branch_parameters = pre_tcja_ctc.tax_benefit_system.parameters
+            # Delete all arrays from pre-TCJA CTC branch.
+            for variable in pre_tcja_ctc.tax_benefit_system.variables:
+                if "ctc" in variable or any(
+                    name in variable for name in CREDIT_DEPENDENT_VARIABLES
+                ):
+                    pre_tcja_ctc.delete_arrays(variable)
+            # Calculate pre-TCJA CTC.
+            maximum_ctc = pre_tcja_ctc.calculate("ctc_child_individual_maximum", period)
+            meets_ny_minimum_age = age >= p.minimum_age
+            pre_tcja_ctc.set_input(
+                "ctc_individual_maximum",
+                period,
+                maximum_ctc * meets_ny_minimum_age,
+            )
+            # Get maximum federal CTC from pre-TCJA rules
+            max_federal_ctc = pre_tcja_ctc.tax_unit("ctc", period)
+
+            # Limit by actual tax liability (for non-refundable portion)
+            limiting_tax = pre_tcja_ctc.tax_unit("ctc_limiting_tax_liability", period)
+            non_refundable_ctc = min_(max_federal_ctc, limiting_tax)
+
+            # Get refundable portion (requires earned income)
+            refundable_ctc = pre_tcja_ctc.tax_unit("refundable_ctc", period)
+
+            # Total federal CTC they can actually claim
+            federal_ctc = non_refundable_ctc + refundable_ctc
+
+            qualifies_for_federal_ctc = pre_tcja_ctc.person(
+                "ctc_qualifying_child", period
+            )
+            gov = branch_parameters(period).gov
+
+        # Remaining logic is based on NY parameters.
+        qualifies = qualifies_for_federal_ctc & (age >= p.minimum_age)
+        qualifying_children = tax_unit.sum(qualifies)
+        federal_match = federal_ctc * p.amount.percent
+        # Filers with income below the CTC phase-out threshold receive a
+        # minimum amount per child.
+        minimum = p.amount.minimum * qualifying_children
+        federal_threshold = gov.irs.credits.ctc.phase_out.threshold[
+            tax_unit("filing_status", period)
+        ]
+        eligible_for_minimum = agi < federal_threshold
+        applicable_minimum = eligible_for_minimum * minimum
+        return max_(applicable_minimum, federal_match)

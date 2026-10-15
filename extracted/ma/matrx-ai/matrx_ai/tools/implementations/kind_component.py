@@ -52,6 +52,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from matrx_ai.db._registry import get_model as get_db_model
+from matrx_ai.tools.implementations import kind_layer
 from matrx_ai.tools.implementations.kind_shared import (
     CODE_SECTIONS,
     COMPONENT_PLATFORMS,
@@ -249,6 +250,8 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
     from matrx_ai.tools._generated_declarations import KindcompGetContextArgs
 
     KindcompGetContextArgs.model_validate(args)  # enforce the declared arg contract
+    if kind_layer.is_layer_target(args) or kind_layer.target_refusal(args):
+        return kind_layer.target_refusal(args) or await kind_layer.layer_get_context(args, ctx)
     kind_ref = (args.get("kind") or "").strip()
     component_id = (args.get("component_id") or "").strip()
     if not kind_ref and not component_id:
@@ -411,6 +414,10 @@ async def kindcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
     refusal, compile_checked = await _refuse_broken_source(component_source)
     if refusal:
         return refusal
+    if kind_layer.is_layer_target(args) or kind_layer.target_refusal(args):
+        return kind_layer.target_refusal(args) or await kind_layer.layer_create(
+            args, ctx, compile_checked=compile_checked
+        )
 
     try:
         kd, failure = await resolve_kind(kind_ref, ctx)
@@ -536,6 +543,10 @@ async def kindcomp_get_code(args: dict[str, Any], ctx: ToolContext) -> ToolResul
     invalid = [s for s in sections if s not in CODE_SECTIONS]
     if invalid:
         return err("validation", f"Invalid sections: {invalid}. Valid: {list(CODE_SECTIONS)}")
+    if kind_layer.is_layer_target(args) or kind_layer.target_refusal(args):
+        return kind_layer.target_refusal(args) or await kind_layer.layer_get_code(
+            {**args, "component_id": component_id}, ctx, list(sections)
+        )
     try:
         KindComponent = get_db_model("KindComponent")
         comp = await KindComponent.get_or_none(use_cache=False, id=component_id)
@@ -648,8 +659,16 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         )
         if refusal:
             return refusal
+    layered = kind_layer.is_layer_target(args)
+    if layered or kind_layer.target_refusal(args):
+        bad = kind_layer.target_refusal(args)
+        if bad:
+            return bad
     try:
-        comp, _kd, failure = await _load_editable_component(component_id, ctx)
+        if layered:
+            comp, failure = await kind_layer.load_editable_layer(args, ctx)
+        else:
+            comp, _kd, failure = await _load_editable_component(component_id, ctx)
         if failure:
             return failure
         sections = list(updates.keys())
@@ -661,10 +680,17 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             updates["notes"] = notes
         updates["updated_by"] = ctx_user_id(ctx)
         KindComponent = get_db_model("KindComponent")
-        rows = await KindComponent.update_where({"id": component_id}, **updates)
-        if not rows:
-            return err("execution", "Update affected no rows. Check component_id.")
-        fresh = await KindComponent.get_or_none(use_cache=False, id=component_id)
+        if layered:
+            updates.pop("updated_by", None)
+            refusal_result = await kind_layer.write_layer(component_id, ctx, **updates)
+            if refusal_result:
+                return refusal_result
+            fresh = await kind_layer.reload_layer(component_id)
+        else:
+            rows = await KindComponent.update_where({"id": component_id}, **updates)
+            if not rows:
+                return err("execution", "Update affected no rows. Check component_id.")
+            fresh = await KindComponent.get_or_none(use_cache=False, id=component_id)
         from matrx_ai.tools.kinds.kind_components import KindComponentUpdateResult
 
         return attach_sections_surface_write(
@@ -686,7 +712,7 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             ),
             before=prior_sections,
             after=after_sections,
-            target_type="kind_component",
+            target_type="kind_component_layer" if layered else "kind_component",
             target_id=component_id,
             target_label=str(getattr(comp, "component_key", None) or component_id),
             mode="overwrite",
@@ -733,8 +759,15 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
             p["new_string"] = p["replace"]
         if "old_string" not in p or "new_string" not in p:
             return err("validation", f"Patch {i} is missing 'old_string' or 'new_string'.")
+    layered = kind_layer.is_layer_target(args)
+    bad = kind_layer.target_refusal(args)
+    if bad:
+        return bad
     try:
-        comp, _kd, failure = await _load_editable_component(component_id, ctx)
+        if layered:
+            comp, failure = await kind_layer.load_editable_layer(args, ctx)
+        else:
+            comp, _kd, failure = await _load_editable_component(component_id, ctx)
         if failure:
             return failure
         code = getattr(comp, section) or ""
@@ -792,14 +825,21 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
                     "Nothing was written. Adjust the patches so the result passes the "
                     "props contract, import allowlist, and TSX syntax gate.",
                 )
-        payload: dict[str, Any] = {section: working, "updated_by": ctx_user_id(ctx)}
+        payload: dict[str, Any] = {section: working}
         if bump_version:
             payload["semver"] = _bump_semver_patch(comp.semver)
         if notes:
             payload["notes"] = notes
         KindComponent = get_db_model("KindComponent")
-        await KindComponent.update_where({"id": component_id}, **payload)
-        fresh = await KindComponent.get_or_none(use_cache=False, id=component_id)
+        if layered:
+            refusal_result = await kind_layer.write_layer(component_id, ctx, **payload)
+            if refusal_result:
+                return refusal_result
+            fresh = await kind_layer.reload_layer(component_id)
+        else:
+            payload["updated_by"] = ctx_user_id(ctx)
+            await KindComponent.update_where({"id": component_id}, **payload)
+            fresh = await KindComponent.get_or_none(use_cache=False, id=component_id)
         from matrx_ai.tools.kinds.kind_components import (
             KindComponentPatchOutcome,
             KindComponentPatchResult,
@@ -820,7 +860,7 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
             ),
             before=code,
             after=working,
-            target_type="kind_component",
+            target_type="kind_component_layer" if layered else "kind_component",
             target_id=component_id,
             target_label=f"{getattr(comp, 'component_key', None) or component_id} · {section}",
             mode="patch",
@@ -868,17 +908,39 @@ async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
         return err("validation", f"Unknown settings keys: {invalid}. Valid: {sorted(valid)}")
     if not settings:
         return err("validation", "No settings provided.")
+    layered = kind_layer.is_layer_target(args)
+    bad = kind_layer.target_refusal(args)
+    if bad:
+        return bad
+    if layered:
+        not_for_layers = [k for k in settings if k not in kind_layer.LAYER_SETTINGS_KEYS]
+        if not_for_layers:
+            return err(
+                "validation",
+                f"Settings not available on a personal/organization view: {not_for_layers}. "
+                f"Valid: {sorted(kind_layer.LAYER_SETTINGS_KEYS)}",
+                "A view is never the default; is_default belongs to the shared view only.",
+            )
     try:
-        _comp, _kd, failure = await _load_editable_component(component_id, ctx)
+        if layered:
+            _comp, failure = await kind_layer.load_editable_layer(args, ctx)
+        else:
+            _comp, _kd, failure = await _load_editable_component(component_id, ctx)
         if failure:
             return failure
-        settings["updated_by"] = ctx_user_id(ctx)
         KindComponent = get_db_model("KindComponent")
-        rows = await KindComponent.update_where({"id": component_id}, **settings)
-        if not rows:
-            return err("execution", "Update affected no rows.")
-        settings.pop("updated_by", None)
-        fresh = await KindComponent.get_or_none(use_cache=False, id=component_id)
+        if layered:
+            refusal_result = await kind_layer.write_layer(component_id, ctx, **settings)
+            if refusal_result:
+                return refusal_result
+            fresh = await kind_layer.reload_layer(component_id)
+        else:
+            settings["updated_by"] = ctx_user_id(ctx)
+            rows = await KindComponent.update_where({"id": component_id}, **settings)
+            if not rows:
+                return err("execution", "Update affected no rows.")
+            settings.pop("updated_by", None)
+            fresh = await KindComponent.get_or_none(use_cache=False, id=component_id)
         from matrx_ai.tools.kinds.kind_components import KindComponentUpdateResult
 
         return attach_structured_write(
@@ -890,7 +952,7 @@ async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
             ),
             before={k: getattr(_comp, k, None) for k in settings},
             after={k: getattr(fresh, k, None) for k in settings},
-            target_type="kind_component",
+            target_type="kind_component_layer" if layered else "kind_component",
             target_id=component_id,
             target_label=f"{getattr(_comp, 'component_key', None) or component_id} · settings",
         )
@@ -915,6 +977,13 @@ async def kindcomp_resolve_incident(args: dict[str, Any], ctx: ToolContext) -> T
     resolution_notes = (args.get("resolution_notes") or "").strip() or None
     if not incident_id:
         return err("validation", "incident_id is required.")
+    if kind_layer.is_layer_target(args):
+        return err(
+            "validation",
+            "Render incidents are not filed against personal or organization views yet; "
+            "there is nothing to resolve for target mine/organization.",
+            "Resolve incidents on the shared view with target 'shared'.",
+        )
     try:
         KindComponentIncident = get_db_model("KindComponentIncident")
         inc = await KindComponentIncident.get_or_none(use_cache=False, id=incident_id)

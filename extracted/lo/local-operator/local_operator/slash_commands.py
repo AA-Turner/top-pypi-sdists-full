@@ -1560,6 +1560,15 @@ SLASH_COMMANDS: list[SlashCommand] = [
         argument_shape=ArgumentShape.WORD,
         desktop_destination="usage",
     ),
+    # The Hub links surface — the per-link subscribe/auto-push policy page. The
+    # panel IS the receipt (the `/usage`/`/settings` rule): it replaces the
+    # transcript region and holds focus while open, so a notice printed behind it
+    # would only be readable after leaving. No `argument_shape`: this slice has
+    # no trailing-text control, so the text is prose (the `/context` criterion).
+    SlashCommand(
+        "hub",
+        _tr(wire_slash.hub()),
+    ),
     SlashCommand(
         "context",
         _tr(wire_slash.context()),
@@ -1892,6 +1901,8 @@ SLASH_COMMANDS: list[SlashCommand] = [
     # serves account, billing, usage and agent catalogue only), so a desktop
     # host would have to invent an upstream contract. The terminal command is
     # untouched and still does the whole job.
+    # Keep the default no-argument picker behavior: the optional setup grammar
+    # is parsed after submission, not offered as provider picker completions.
     SlashCommand("mobile", _tr(wire_slash.mobile())),
     # THE SECOND "this machine's connectivity" command, and the reason it sits
     # beside `/mobile`. One grouped command with a declared vocabulary rather

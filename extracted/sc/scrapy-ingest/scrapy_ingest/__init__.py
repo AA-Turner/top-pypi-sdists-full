@@ -31,7 +31,7 @@ from .utils.meta_info import _pkg_meta
 
 install_early()
 
-__version__ = _pkg_meta.version or "1.7.0"
+__version__ = _pkg_meta.version or "1.8.0"
 __author__ = _pkg_meta.author or "Fawad Ali"
 __license__ = _pkg_meta.license or "MIT"
 __description__ = "One pipeline. Full crawl observability in SQL or Elasticsearch."

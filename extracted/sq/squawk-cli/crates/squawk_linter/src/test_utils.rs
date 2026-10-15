@@ -2,7 +2,7 @@ use crate::{Edit, Linter, LinterSettings, Rule, Violation};
 use annotate_snippets::{AnnotationKind, Level, Patch, Renderer, Snippet, renderer::DecorStyle};
 
 fn lint(sql: &str, rule: Rule) -> Vec<Violation> {
-    lint_settings(sql, Default::default(), rule)
+    lint_settings(sql, LinterSettings::default(), rule)
 }
 
 pub(crate) fn lint_ok(sql: &str, rule: Rule) {
@@ -59,13 +59,13 @@ pub(crate) fn fix_sql_with(sql: &str, settings: LinterSettings, rule: Rule) -> S
     let errors = lint_settings(sql, settings.clone(), rule);
     assert!(!errors.is_empty(), "Should start with linter errors");
 
-    let fixes = errors.into_iter().flat_map(|x| x.fix).collect::<Vec<_>>();
+    let fixes = errors.into_iter().filter_map(|x| x.fix).collect::<Vec<_>>();
 
     let mut result = sql.to_string();
 
     let mut all_edits: Vec<&Edit> = fixes.iter().flat_map(|fix| &fix.edits).collect();
 
-    all_edits.sort_by(|a, b| b.text_range.start().cmp(&a.text_range.start()));
+    all_edits.sort_by_key(|edit| std::cmp::Reverse(edit.text_range.start()));
 
     for edit in all_edits {
         let start: usize = edit.text_range.start().into();
@@ -128,7 +128,7 @@ fn format_violations(sql: &str, violations: &[Violation]) -> String {
             group = group.element(patch_snippet);
         }
 
-        let rendered = renderer.render(&[group]).to_string();
+        let rendered = renderer.render(&[group]).clone();
         buf.push_str(&rendered);
         buf.push('\n');
     }

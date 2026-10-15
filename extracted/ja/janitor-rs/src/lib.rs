@@ -15,6 +15,12 @@ mod range_predicate;
 mod regions;
 mod single_range_predicate;
 
+/// Narrow Rust-only surface used by criterion benchmarks.
+#[doc(hidden)]
+pub mod bench_support {
+    pub use crate::regions::{dual_regions_aggregate, dual_regions_and_residual_aggregate};
+}
+
 /// Top-level composition point: each family owns and registers its own
 /// exports, so this function only has to know the surviving family names, not
 /// the ~900 individual dtype-specialized functions they expose.
@@ -47,11 +53,17 @@ mod registration_tests {
                 .expect("module creation must not fail");
             janitor_rs(&module).expect("registration must not fail");
             for name in [
-                "equi_join_indices",
+                "equi_range_indices",
+                "equi_range_and_residual_indices",
+                "equi_uniq_residual_indices",
+                "equi_aggregate",
                 "not_equals_aggregate_int64",
                 "range_join_indices",
                 "single_range_predicate_indices_int64",
-                "region_indices",
+                "dual_regions_indices",
+                "dual_regions_and_residual_indices",
+                "n_region_indices",
+                "n_region_and_residual_indices",
             ] {
                 assert!(module.getattr(name).is_ok(), "missing export: {name}");
             }

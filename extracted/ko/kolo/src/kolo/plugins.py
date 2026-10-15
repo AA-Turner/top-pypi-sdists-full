@@ -37,9 +37,6 @@ def clear_plugin_cache():
 
 
 def load_plugin_data(config):
-    # Return a fresh list because callers may modify it. Plugin definitions are
-    # static, while PluginProcessor rebuilds mutable context and frame state for
-    # every trace.
     processors = list(_load_default_plugin_data())
     local_processors = config.get("processors", [])
     processors.extend(load(processor) for processor in local_processors)

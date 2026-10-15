@@ -51,8 +51,8 @@ IDLE, TURN, ATTACK, CHEER_A, CHEER_B, COLLAPSE, WEARY = 0, 1, 6, 5, 7, 10, 9
 CHARGE = 4                                      # the classic V-pet shoot frame 4: pre-attack/charge pose
 # the 16px creature band on the 24px LCD (y6..y22); orbs must stay INSIDE it
 
-# timeline tuning (ticks per beat, 1 tick == 0.1s); slowed for a readable vpet pace
-BANNER_FLASHES, BANNER_HOLD = 3, 4
+# Joel approved faster passive shows and skips, 2026-10-14 (one tick = 0.1s).
+BANNER_FLASHES, BANNER_HOLD = 3, 4              # ORIGINAL SPEED (Joel 2026-10-14: "i never told you to speed up animations"); skips stay
 SKIP_DEBOUNCE = 6                                # ticks after the bar LOCKS before skip keys register
 LOCK_ARM_T = 5                                   # ticks after the bar APPEARS before a lock registers
 #                                                  (the intro-mash guard, Joel 2026-07-23 "i was
@@ -63,9 +63,10 @@ LOCK_ARM_T = 5                                   # ticks after the bar APPEARS b
 #                                                  the player ever started timing.  Same class as
 #                                                  the hazard dodge's mash bleed.)
 REVEAL_T = 12                                    # 1.2s opponent reveal/taunt (startBattle)
+INTRO_REPEAT_T = None                            # no short repeat: every intro plays in full
 FACEOFF_T = 9                                    # 0.9s stare-down
 WINDUP_T = 9                                     # 0.9s charge / rear-back before firing
-FIRE_T = 12                                      # 1.2s per orb leg (~1.7px/tick, smooth glide)
+FIRE_T = 12                                      # 1.2s per orb leg
 EXPLODE_HOLD, EXPLODE_FRAMES = 3, 9              # 0.9s strobing hit flash
 FLINCH_T = 12                                    # 1.2s held hurt pose
 DODGE_T = 14                                     # 1.4s weave
@@ -77,6 +78,18 @@ BAR_MAX = 24                                     # the timing bar sweeps 0..24
 # other one indefinitely.  Local fights keep waiting forever -- nobody else is
 # on the clock there.
 DUEL_AUTOLOCK_T = 300
+
+
+def first_show(key):
+    """Keep first-view ceremony flags in the existing cross-generation profile."""
+    from . import persistence
+    settings = persistence.load_settings()
+    seen = settings.setdefault("progress", {}).setdefault("animations_seen", [])
+    if key in seen:
+        return False
+    seen.append(key)
+    persistence.save_settings(settings)
+    return True
 
 
 def mega_window(pet):
@@ -158,6 +171,7 @@ def round_timeline(ph0, fh0, pdmg, edmg, player_first, effect=None,
 BOSSDIE_FLICKERS = 3                             # zoneBossDeath: 3 lit/dark cycles...
 BOSSDIE_ON, BOSSDIE_OFF = 4, 2
 BOSSDIE_STEP_T = 6                               # ...then a 3-step squash into the ground
+BOSSDIE_END_T = 4
 
 
 def boss_death_timeline(ph):
@@ -172,7 +186,7 @@ def boss_death_timeline(ph):
         tl += [{"m": "bossdie", "stage": "off", "ph": ph, "fh": 0}] * BOSSDIE_OFF
     for keep in (8, 4, 2):
         tl += [{"m": "bossdie", "stage": "squash", "keep": keep, "ph": ph, "fh": 0}] * BOSSDIE_STEP_T
-    tl += [{"m": "bossdie", "stage": "off", "ph": ph, "fh": 0}] * 4
+    tl += [{"m": "bossdie", "stage": "off", "ph": ph, "fh": 0}] * BOSSDIE_END_T
     return tl
 
 
@@ -237,7 +251,9 @@ class BattlePanel:
         self.won = None
         self.ran_away = False
         from .battle import RAID_PLAYER_HP
-        self.hud_php = RAID_PLAYER_HP if raid else 5   # raids fight from 10
+        from .battle import trained_hp
+        # raids fight from 10; a bout from the trained battle HP (call #21 = B)
+        self.hud_php = RAID_PLAYER_HP if raid else trained_hp(getattr(pet, "full_health", 5))
         self.hud_fhp = 5
         self.hud_note = "Battle start!"
         self.phase = "intro"
@@ -255,6 +271,9 @@ class BattlePanel:
             tl += [{"m": "banner", "f": 0}] * BANNER_HOLD
             tl += [{"m": "banner", "f": 1}] * BANNER_HOLD
         tl += [{"m": "reveal", "view": "foe"}] * REVEAL_T
+        if INTRO_REPEAT_T and not skip_intro and not first_show("battle_intro"):
+            tl = [{"m": "banner", "f": f} for f in (0, 1)]
+            tl += [{"m": "reveal", "view": "foe"}] * (INTRO_REPEAT_T - 2)
         self.timeline = tl
         self.i = 0
         # the reveal needs the foe on screen before the fight exists
@@ -312,7 +331,8 @@ class BattlePanel:
             self._enter_result()
             return
         self.timeline = round_timeline(ph0, fh0, rec["pdmg"], rec["edmg"],
-                                       True, hold_foe_bar=self.raid)
+                                       getattr(b, "player_first", True),
+                                       hold_foe_bar=self.raid)
         # the death beat is for a boss BEATEN TO ZERO -- won alone would fire
         # it on a survived raid, whose boss never falls
         if b.over and b.won and (b.enemy or {}).get("boss") and b.enemy_hp <= 0:
@@ -335,10 +355,10 @@ class BattlePanel:
                             "note": note}
         self._enter_result()
 
-    def duel_volley(self, my_hp0, foe_hp0, dealt, taken):
+    def duel_volley(self, my_hp0, foe_hp0, dealt, taken, mine_first=True):
         """Stage one seeded round on THIS panel (the duel keeps one panel for
         the whole bout, so the arena never blinks between volleys)."""
-        self.timeline = round_timeline(my_hp0, foe_hp0, dealt, taken, True)
+        self.timeline = round_timeline(my_hp0, foe_hp0, dealt, taken, mine_first)
         self.i = 0
         self._last_m = None
         self.phase = "anim"
@@ -400,18 +420,19 @@ class BattlePanel:
     def strip(self):
         """The message-box hint line."""
         if self.phase == "duelwait":
-            return "[dim]waiting for your rival…[/]"
+            return "[dim]waiting for rival… · ESC forfeit[/]"
         if self.phase == "ready":
             return menu.hints(("SPACE", "lock the bar"),
                               ("ESC", "forfeit" if self.duel
                                else "flee" if self.wild else "back out"))
         if self.phase == "intro":
-            return menu.hints(("SPACE", "skip"))
+            return menu.hints(("any key", "skip"))
         if self.phase == "result":
             return menu.hints(("SPACE", "done"))
         # the round anim: the hurry keys were card-only whispers -- siblings
         # (hazard duck, dig) prompt on the strip, so this does too
-        return menu.hints(("SPACE", "hurry"), ("ESC", "end it"))
+        return menu.hints(("SPACE", "hurry"),
+                          ("ESC", "forfeit" if self.duel else "end it"))
 
     def _lock_bar(self):
         # ONE grading source with the drill (strikefx.grade_lock: the
@@ -424,7 +445,7 @@ class BattlePanel:
 
     def key(self, k):
         if self.phase == "intro":
-            if k in ("space", "enter", "escape"):
+            if k:
                 self.i = len(self.timeline) - 1
                 self.phase = "ready"
                 self._ready_frame = self.frame_i
@@ -546,7 +567,8 @@ class BattlePanel:
             note = f"{self.enemy['name'][:12]} falls!"
         else:
             view = fr.get("view", "pet")
-            dt = round(fr.get("prog", 0) * DODGE_T) if m == "dodge" else 0   # dodge beat 1..DODGE_T
+            # Resample the whole leap, including its forward-facing landing.
+            dt = min(14, max(0, round(fr.get("prog", 0) * 14))) if m == "dodge" else 0
             if m == "result":
                 # defeat ALTERNATES collapse/weary like the win alternates its
                 # cheer -- every reference flips the loser's injured pair; a
@@ -554,9 +576,10 @@ class BattlePanel:
                 pose = ((CHEER_A, CHEER_B) if self.won
                         else (COLLAPSE, WEARY))[(self.frame_i // 3) % 2]
             elif m == "windup":
-                # the classic V-pet battlePlayerShootAnim sequences poses 1->0->4 (ready->idle->charge)
-                # through the wind-up, then snaps to 6 (attack) only at the moment of firing.
-                pose = (TURN, TURN, IDLE, IDLE, CHARGE, CHARGE)[min(fr.get("wu", 0), 5)]
+                # Keep readiness and charge before the attack, on the two-tick windup.
+                # the classic battlePlayerShootAnim beat: ready -> idle -> charge
+                wu = fr.get("wu", 0) * 6 // max(1, WINDUP_T)
+                pose = (TURN, TURN, IDLE, IDLE, CHARGE, CHARGE)[min(wu, 5)]
             elif m == "fire_out":
                 pose = ATTACK
             elif m == "reveal":
@@ -647,7 +670,9 @@ class BattlePanel:
         text-glyph page was the one bar that looked nothing like it).  The
         strip carries SPACE/ESC; the status card carries the coaching."""
         from .battle import RAID_PLAYER_HP
-        self.hud_php = RAID_PLAYER_HP if self.raid else 5
+        from .battle import trained_hp
+        self.hud_php = (RAID_PLAYER_HP if self.raid
+                        else trained_hp(getattr(self.pet, "full_health", 5)))
         self.hud_fhp = 5
         # the pre-fight read (Pen20 honesty 2026-07-23): the card names
         # THIS pet's actual biggest drag before the bell -- "weight 10g

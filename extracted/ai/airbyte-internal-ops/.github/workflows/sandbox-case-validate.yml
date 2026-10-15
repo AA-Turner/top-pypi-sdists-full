@@ -1,0 +1,329 @@
+# Validates a reproduction-case PR and, behind a switch, merges it without
+# human review (see "Case validation" in docs/regression-tests.md).
+#
+# Dispatch only, and only from `main`: the gate's logic always comes from
+# `main`, and the case PR's head is read as data (git objects for the gate,
+# a sparse checkout for the runs), so a case PR cannot change what judges it.
+#
+# 1. gate: the PR is open, targets `main` and comes from this repository; then
+#    `regression-case-gate` checks scope, origin and shape at the head SHA.
+# 2. reproduce-1/2: the case runs twice with goal `reproduced` (affected
+#    release vs its unmodified source), through sandbox-case-run.yml.
+# 3. finalize: re-reads the PR, sets the `sandbox-case-validate` status, and
+#    either comments on the PR (failure), only reports (switch off), or waits
+#    for GitHub to report the PR mergeable and squash-merges it at the
+#    validated SHA as the Octavia app, through the REST merge endpoint.
+#    Auto-merge is never enabled, so nothing stays armed.
+name: Sandbox Case Validate
+
+run-name: "Validate case PR #${{ inputs.pr }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "airbyte-ops-mcp PR number of the case PR to validate."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Queue rather than cancel: a running run, perhaps mid-merge, is never cut off.
+# GitHub keeps one pending run per group, so a newer dispatch replaces a
+# queued one, which then concludes `cancelled` without starting.
+concurrency:
+  group: sandbox-case-validate-${{ inputs.pr }}
+  cancel-in-progress: false
+
+env:
+  GH_REPO: ${{ github.repository }}
+  STATUS_CONTEXT: sandbox-case-validate
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  gate:
+    name: Case gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    outputs:
+      preflight: ${{ steps.preflight.outputs.preflight }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      refusal: ${{ steps.pr.outputs.refusal || steps.head.outputs.refusal }}
+      status: ${{ steps.gate.outputs.status }}
+      connector: ${{ steps.gate.outputs.connector }}
+      case: ${{ steps.gate.outputs.case }}
+      affected_image: ${{ steps.gate.outputs.affected_image }}
+      affected_ref: ${{ steps.gate.outputs.affected_ref }}
+    steps:
+      - name: Preflight
+        id: preflight
+        env:
+          REF: ${{ github.ref }}
+          PR: ${{ inputs.pr }}
+        run: |
+          # Guards against an accidental dispatch; it is not a security
+          # boundary, since a writer could dispatch a modified copy elsewhere.
+          refuse() {
+            echo "preflight=refused" >> "$GITHUB_OUTPUT"
+            echo "::error::$1"
+            exit 1
+          }
+          [ "$REF" = "refs/heads/main" ] || refuse "dispatch this workflow from main, not $REF"
+          # No leading zeros, so one PR has exactly one concurrency group.
+          [[ "$PR" =~ ^[1-9][0-9]*$ ]] || refuse "pr must be a PR number"
+          echo "preflight=ok" >> "$GITHUB_OUTPUT"
+
+      - name: Read the PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          gh pr view "$PR" --json headRefOid,state,baseRefName,isCrossRepository > "$RUNNER_TEMP/pr.json"
+          HEAD_SHA="$(jq -r .headRefOid "$RUNNER_TEMP/pr.json")"
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::unexpected head SHA"; exit 1; }
+          # Recorded before any other check, so every refusal from here on is
+          # reported on the PR.
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state=pending \
+            -f context="$STATUS_CONTEXT" -f description="validating" -f target_url="$RUN_URL" > /dev/null
+          refuse() {
+            echo "refusal=$1" >> "$GITHUB_OUTPUT"
+            echo "::error::$1"
+            exit 1
+          }
+          [ "$(jq -r .state "$RUNNER_TEMP/pr.json")" = "OPEN" ] || refuse "the PR is not open"
+          [ "$(jq -r .baseRefName "$RUNNER_TEMP/pr.json")" = "main" ] || refuse "the PR does not target main"
+          [ "$(jq -r .isCrossRepository "$RUNNER_TEMP/pr.json")" = "false" ] || refuse "the PR head is a fork"
+
+      # Every branch is fetched, including the same-repo PR head. A later
+      # `git fetch` would have no credentials on this internal repository.
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Find the PR head
+        id: head
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          if ! git cat-file -e "$HEAD_SHA^{commit}"; then
+            echo "refusal=the PR head $HEAD_SHA is not on any branch (did it move?)" >> "$GITHUB_OUTPUT"
+            echo "::error::PR head $HEAD_SHA not found"
+            exit 1
+          fi
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --group dev --group live-tests --all-packages
+
+      - name: Get SaaS Sandbox checkout token
+        id: sandbox-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+          owner: airbytehq
+          repositories: saas-sandbox
+          permission-contents: read
+
+      # The CLI only: the gate validates offline and starts no server.
+      - name: Set up SaaS Sandbox
+        uses: ./.github/actions/setup-saas-sandbox
+        with:
+          token: ${{ steps.sandbox-token.outputs.token }}
+          start: "false"
+
+      - name: Run the case gate
+        id: gate
+        env:
+          # Public airbytehq/airbyte reads (compare, metadata.yaml, manifest);
+          # unauthenticated ones would hit the rate limit and fail closed.
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/gate"
+          uv run airbyte-ops cloud connector regression-case-gate \
+            --base-ref origin/main --head-ref "$HEAD_SHA" --require-case \
+            --json-out "$RUNNER_TEMP/gate/gate.json"
+
+      - name: Upload the gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-case-gate
+          path: ${{ runner.temp }}/gate/gate.json
+          if-no-files-found: ignore
+
+  reproduce-1:
+    name: Reproduce (1)
+    needs: gate
+    if: needs.gate.result == 'success' && needs.gate.outputs.status == 'pass'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sandbox-case-run.yml
+    with:
+      connector_name: ${{ needs.gate.outputs.connector }}
+      case: ${{ needs.gate.outputs.case }}
+      goal: reproduced
+      control_image: ${{ needs.gate.outputs.affected_image }}
+      connector_ref: ${{ needs.gate.outputs.affected_ref }}
+      case_ref: ${{ needs.gate.outputs.head_sha }}
+      result_artifact_name: sandbox-case-result-1
+    secrets:
+      OCTAVIA_BOT_APP_ID: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+      OCTAVIA_BOT_PRIVATE_KEY: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+  reproduce-2:
+    name: Reproduce (2)
+    needs: gate
+    if: needs.gate.result == 'success' && needs.gate.outputs.status == 'pass'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sandbox-case-run.yml
+    with:
+      connector_name: ${{ needs.gate.outputs.connector }}
+      case: ${{ needs.gate.outputs.case }}
+      goal: reproduced
+      control_image: ${{ needs.gate.outputs.affected_image }}
+      connector_ref: ${{ needs.gate.outputs.affected_ref }}
+      case_ref: ${{ needs.gate.outputs.head_sha }}
+      result_artifact_name: sandbox-case-result-2
+    secrets:
+      OCTAVIA_BOT_APP_ID: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+      OCTAVIA_BOT_PRIVATE_KEY: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+  finalize:
+    name: Report and merge
+    needs: [gate, reproduce-1, reproduce-2]
+    # Not on a cancelled run (a queued newer run takes over) nor on a refused
+    # dispatch, which has no PR to report on.
+    if: ${{ !cancelled() && needs.gate.outputs.preflight == 'ok' && needs.gate.outputs.head_sha != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    env:
+      PR: ${{ inputs.pr }}
+      HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --group dev --group live-tests --all-packages
+
+      - name: Download the gate report
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sandbox-case-gate
+          path: ${{ runner.temp }}/gate
+
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          MERGE_ENABLED: ${{ vars.SANDBOX_CASE_AUTOMERGE_ENABLED == 'true' }}
+        run: |
+          printf '%s' "$NEEDS_JSON" > "$RUNNER_TEMP/needs.json"
+          SWITCH="--no-merge-enabled"
+          [ "$MERGE_ENABLED" = "true" ] && SWITCH="--merge-enabled"
+          uv run airbyte-ops cloud connector regression-case-validate-decide \
+            --pr "$PR" --needs "$RUNNER_TEMP/needs.json" \
+            --gate-report "$RUNNER_TEMP/gate/gate.json" "$SWITCH" \
+            --run-url "$RUN_URL" --comment-out "$RUNNER_TEMP/comment.md"
+
+      - name: Set the validation status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ steps.decide.outputs.state || 'failure' }}
+          DESCRIPTION: ${{ steps.decide.outputs.description || 'validation could not decide' }}
+        run: |
+          gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$STATE" \
+            -f context="$STATUS_CONTEXT" -f description="$DESCRIPTION" -f target_url="$RUN_URL" > /dev/null
+
+      - name: Comment on the failed case PR
+        if: steps.decide.outputs.action == 'fail'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DESCRIPTION: ${{ steps.decide.outputs.description }}
+        run: |
+          gh pr comment "$PR" --body-file "$RUNNER_TEMP/comment.md"
+          echo "::error::$DESCRIPTION"
+          exit 1
+
+      - name: Report without merging
+        if: steps.decide.outputs.action == 'report'
+        run: |
+          echo "Validated $HEAD_SHA; SANDBOX_CASE_AUTOMERGE_ENABLED is off, so the PR is not merged." >> "$GITHUB_STEP_SUMMARY"
+
+      # The only write-scoped app token in this workflow, minted after every
+      # check has passed and the PR was re-read at the validated head.
+      - name: Get merge token
+        id: token
+        if: steps.decide.outputs.action == 'merge'
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+          owner: airbytehq
+          repositories: airbyte-ops-mcp
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Merge
+        id: merge
+        if: steps.decide.outputs.action == 'merge'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          CONNECTOR: ${{ needs.gate.outputs.connector }}
+          CASE_NAME: ${{ needs.gate.outputs.case }}
+        run: |
+          uv run airbyte-ops cloud connector regression-case-merge \
+            --pr "$PR" --sha "$HEAD_SHA" --connector "$CONNECTOR" --case "$CASE_NAME" \
+            --run-url "$RUN_URL" --timeout-minutes 10
+
+      - name: Set the merge status
+        if: always() && steps.decide.outputs.action == 'merge'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ steps.merge.outputs.state || 'failure' }}
+          DESCRIPTION: ${{ steps.merge.outputs.description || 'validated; merge aborted' }}
+        run: |
+          gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$STATE" \
+            -f context="$STATUS_CONTEXT" -f description="$DESCRIPTION" -f target_url="$RUN_URL" > /dev/null
+          echo "$DESCRIPTION" >> "$GITHUB_STEP_SUMMARY"

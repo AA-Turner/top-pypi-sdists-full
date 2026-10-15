@@ -104,6 +104,7 @@ from probe.daemon import alerts
 from probe.daemon import scope
 from probe.daemon import requests as requests_mod
 from probe.daemon import gate as gate_mod
+from probe.daemon import model as model_mod
 from probe.daemon.adapters.base import MODE_BYPASS, MODE_UNKNOWN, Adapter
 from probe.daemon import exclusions as exclusions_mod
 from probe.daemon.events import (
@@ -166,6 +167,16 @@ BITE_REQUESTS = 40
 BITE_TOOL_CALLS = 80
 BITE_TOKENS = 1_500_000
 ENV_MODE = "PROBE_DAEMON_MODE"
+#: Lean history (daemon cost round 5): the last logbook write id a saved run's
+#: "writes since" list showed (only ever moves forward), whether the writes after it
+#: are still owed to a list (a lean save stripped their calls), and how many lines
+#: one list shows at most.
+LEAN_WRITES_MARK = "lean_writes_mark"
+LEAN_WRITES_OWED = "lean_writes_owed"
+LEAN_WRITES_SHOWN = 120
+#: Lean history: {"conversation", "compactions"} the last lean run saw (a
+#: compaction since, in that conversation, breaks the cached prefix once: D13).
+LEAN_COMPACTIONS_SEEN = "lean_compactions_seen"
 #: Conversation mode: a run is paused after this many model rounds, so the events
 #: that queued meanwhile get in; the next bite carries on (the fact CARRY_ON).
 ROUNDS_BEFORE_YIELD = BITE_REQUESTS
@@ -231,6 +242,27 @@ STALE_AFTER_S = trace_mod.KEEP_S
 HANDOVER_FRESH_S = 10.0
 LOCK_POLL_S = 1.0
 EXIT_DO_NOT_RESPAWN = 3
+#: A session's first worker found history already there (switched on late, or an
+#: old session resumed after the daemon became the default): only the events
+#: stamped within this long of the newest are new to it; older ones are context
+#: (`Store.cover_before_daemon`), and the reader starts at the current turn. Round 6
+#: (2026-10-14): 13 sessions 1-38 days old were replayed whole, one of 29 days in
+#: 1,980 model calls. `PROBE_DAEMON_CATCH_UP_S` overrides it.
+CATCH_UP_S = 2 * 3600.0
+ENV_CATCH_UP_S = "PROBE_DAEMON_CATCH_UP_S"
+#: Store fact: the store was new when this session's first worker started, and the
+#: history it found is still being read (`Worker._catch_up` decides once it is).
+CATCH_UP_PENDING = "catch_up_pending"
+
+
+def catch_up_s() -> float:
+    raw = (os.environ.get(ENV_CATCH_UP_S) or "").strip()
+    try:
+        return max(0.0, float(raw)) if raw else CATCH_UP_S
+    except ValueError:
+        return CATCH_UP_S
+
+
 #: Store facts: where `read only (daemon)` began (first event seq, turn), while it lasts.
 READ_ONLY_FROM = "read_only_from"
 READ_ONLY_TURN = "read_only_turn"
@@ -338,6 +370,12 @@ class Worker:
         #: Per chat stream: did its last read stop at READ_CHUNK_BYTES with whole
         #: lines still waiting (a backlog read a chunk a poll)?
         self.stream_behind: dict[str, bool] = {}
+        if replay is None and self.store.next_seq() == 1 and self.store.cursor("main")[0] is None:
+            # The session's first worker: what the session already holds is read
+            # before any bite or reader turn, then judged once (`_catch_up`).
+            with self.store.tx():
+                self.store.set_fact(CATCH_UP_PENDING, True)
+        self._catch_up_pending = bool(self.store.fact(CATCH_UP_PENDING))
         #: The newest stamp of any main chat line this worker has read (`_parse`).
         self.chat_seen_at: float | None = None
         self._start_reader_log()
@@ -396,6 +434,8 @@ class Worker:
         self.read_only_from: int | None = int(started) if started is not None else None
         self.read_only_turn = int(self.store.fact(READ_ONLY_TURN) or 0)
         self.mode = daemon_mode()
+        #: The writer's event indexer (`WriterEvents.INDEX`), built on its first use.
+        self._index_model = None
         if self.mode == Mode.CONVERSATION and not _compaction_available():
             self.mode = Mode.BITES
         if self.mode == Mode.BITES:
@@ -466,6 +506,8 @@ class Worker:
         releasing it, until it lapses), the lease could not be renewed."""
         if self.replay is not None:
             return None
+        if self.catching_up():
+            return "reading the history the session held before its first worker"
         if self.paused():
             return "paused: the session is not ML work (the events stay queued)"
         sid = self.session.session_id
@@ -547,6 +589,11 @@ class Worker:
         and no stream not named in it (the shutdown drain's snapshot)."""
         added = 0
         files = self.adapter.session_files(self.session.transcript)
+        if until is None:
+            # A helper log that is gone is never read again: never "behind" either.
+            live = {"main", "sdk", *(f"subagent:{p.stem}" for p in files.subagents)}
+            for stream in [s for s in self.stream_behind if s not in live]:
+                del self.stream_behind[stream]
         if until is None or "main" in until:
             added += self._read_stream("main", files.main, None if until is None else until["main"])
         for path in files.subagents:
@@ -567,7 +614,45 @@ class Worker:
         if until is None:  # not at the shutdown drain: a request filed now waits for the next worker
             added += self._take_requests()
         self._mark_inline()
+        self._catch_up()
         return added
+
+    def catching_up(self) -> bool:
+        """Is the history this session held before its first worker still being
+        read? No bite and no reader turn until it is (`_catch_up`)."""
+        return self._catch_up_pending
+
+    def _catch_up(self) -> None:
+        """Once every stream's history is read, a session's first worker judges it
+        once: events stamped more than `catch_up_s()` before the newest are
+        context, never new (the writer's window and `session` still show them);
+        the reader starts at the current turn. A session the worker starts with
+        holds no such events: nothing changes."""
+        if not self._catch_up_pending or any(self.stream_behind.values()):
+            return
+        newest = self.store.newest_stamp()
+        marked, first, last = 0, 0, 0
+        with self.store.tx():
+            if newest is not None:
+                marked, first, last = self.store.cover_before_daemon(newest - catch_up_s())
+            if marked:
+                # The reader starts at the current turn -- or, when that turn began before
+                # the cut (one long autonomous turn), at the first event still new.
+                start = max(self.store.first_seq_of_turn(self.store.current_turn()) or 0,
+                            self.store.first_uncovered_seq() or 0)
+                if start - 1 > int(self.store.fact("read_cursor") or 0):
+                    self.store.set_fact("read_cursor", start - 1)
+            self.store.set_fact(CATCH_UP_PENDING, None)
+        self._catch_up_pending = False
+        if not marked:
+            return
+        # No notice to the writer: a bite already shows what is above its divider as
+        # context. A notice naming the skipped turns told it the current turn was not
+        # to be recorded when that turn began before the cut (round-6 bench: one of two
+        # late-start runs then wrote nothing at all).
+        log.info("first start on a session with history: %s events (turns %s-%s) older than %.3g h before the "
+                 "newest are context, not recorded", marked, first, last, catch_up_s() / 3600)
+        self.trace.write({"type": "catch_up", "events": marked, "turns": [first, last], "window_s": catch_up_s()})
 
     def _end_offsets(self) -> dict[str, int]:
         """Where each stream ends now: what a stopping worker still takes on."""
@@ -603,6 +688,9 @@ class Worker:
         under the cursor stops the stream for good (`_stop_stream`) -- never read
         again from 0, where event ids (`<stream>:<offset>:<index>`) would pass old
         events off as new, nor on from the cursor, inside bytes it never read."""
+        # Set again below when there is more than a chunk to read: a stream that stopped,
+        # vanished or shrank is never "behind" (the first worker's catch-up waits on it).
+        self.stream_behind[stream] = False
         if self.store.fact(f"{STREAM_STOPPED}:{stream}") is not None:
             return 0
         _, offset = self.store.cursor(stream)
@@ -775,6 +863,7 @@ class Worker:
         store's counter, so an inbox rewritten from empty never reuses an id."""
         path = inbox_path(self.session.session_id)
         _, offset = self.store.cursor("sdk")
+        self.stream_behind["sdk"] = False
         try:
             size = path.stat().st_size
         except OSError:
@@ -782,6 +871,7 @@ class Worker:
         if size < offset:  # rotated or rewritten: all of it is new
             offset = 0
         end = size if until is None else min(size, until)
+        self.stream_behind["sdk"] = end - offset > READ_CHUNK_BYTES
         if end <= offset:
             return 0
         with path.open("rb") as handle:
@@ -1197,8 +1287,12 @@ class Worker:
         shrink = (int(cut["first_seq"]), int(cut["max_events"])) if cut.get("first_seq") else None
         conversation: int | None = None
         history = None
+        indexed = None
         if self.mode == Mode.CONVERSATION:
-            conversation, history, built = self._next_in_conversation(trigger, shrink)
+            indexed = await self._index_new_events(shrink)
+            conversation, history, built = self._next_in_conversation(
+                trigger, shrink, events_text=indexed.text if indexed is not None else None,
+                span=indexed.span if indexed is not None else None)
         else:
             # Bites mode: the memory closes the prompt, cached for every round of the bite.
             built = bite_mod.build(self.store, trigger=trigger, context_line=self.context_line(),
@@ -1225,9 +1319,32 @@ class Worker:
         # T-E0: whether the writer's least gap could have held this run back.
         deferrable = self.deferrable(trigger, self.store.pending(limit=bite_mod.MAX_EVENTS_PER_BITE + 1))
         self.last_run_at = self.clock()
+        lean = conversation is not None and model_mod.writer_history() == model_mod.WriterHistory.LEAN
+        if lean and built.writes_mark is None:
+            # A fresh start lists no writes of its own: the writes from here on are
+            # owed to the next run's list (the first message shows the recent ones).
+            newest = self.store.recent_writes(1)
+            built.writes_mark = int(newest[0]["id"]) if newest else 0
+        layout = {"history": str(model_mod.writer_history()), "events": str(model_mod.writer_events())}
+        if lean and history:
+            # The cache serves only a prompt sent whole before: saving a history that
+            # still holds tool traffic (a resumed run, the switch to lean) or that a
+            # compaction rewrote breaks that chain once (D13).
+            reset = _lean_reset(history, carry_on=bool(self.store.fact(CARRY_ON)))
+            compactions = int((self.store.live_conversation() or {"compactions": 0})["compactions"] or 0)
+            seen = self.store.fact(LEAN_COMPACTIONS_SEEN)
+            seen = seen if isinstance(seen, dict) else {}
+            before = int(seen.get("compactions") or 0) if seen.get("conversation") == conversation else 0
+            if reset is None and compactions > before:
+                reset = "compaction"  # the last run's summary rewrote what this one extends
+            self.store.set_fact(LEAN_COMPACTIONS_SEEN, {"conversation": conversation, "compactions": compactions})
+            if reset:
+                layout["cache_reset"] = reset
+        if indexed is not None and history:
+            layout.update(indexed.facts())
         self.trace.start_run(bite_id, trigger=trigger, mode=str(self.mode), conversation=conversation,
                              history_messages=len(history or []), events=[built.first_seq, built.last_seq],
-                             deferrable=deferrable)
+                             deferrable=deferrable, layout=layout)
         try:
             result = await self._until_finish_by(self._agent_run(built, deps, usage, state=state,
                                                                  history=history))
@@ -1252,11 +1369,15 @@ class Worker:
                                               "cached_tokens": cached})
         summary = getattr(result.output, "summary", None) or ""
         reply = getattr(result.output, "reply", None) or ""
-        saved = _dump_messages(result.all_messages()) if conversation is not None else None
+        messages = result.all_messages() if conversation is not None else None
+        if messages is not None and lean:
+            messages = _lean(messages)  # only a COMPLETED run: a paused one keeps its tool results (D2)
+        saved = _dump_messages(messages) if messages is not None else None
         with self.store.tx():
             self.store.set_note(summary, bite=bite_id)
             if conversation is not None:
                 self.store.save_conversation(conversation, saved, compactions=state.compactions)
+                self._settle_writes_list(built, lean=lean)
             self.store.mark_covered(bite_id, built.last_seq)
             self.store.close_bite(bite_id, outcome=BITE_DONE, input_tokens=in_tok, output_tokens=out_tok,
                                   cached_tokens=cached)
@@ -1302,11 +1423,13 @@ class Worker:
                 task.cancel()
 
     # -- conversation mode (T15) ----------------------------------------------
-    def _next_in_conversation(self, trigger: str, shrink: tuple[int, int] | None):
+    def _next_in_conversation(self, trigger: str, shrink: tuple[int, int] | None, *,
+                              events_text: str | None = None, span: tuple[int, int] | None = None):
         """`(conversation id, saved history, the bite)`: the next user message of
         the live conversation, or -- no usable saved history -- a fresh start
         from disk (today's bite) that opens one. `(None, None, None)` when nothing
-        is pending."""
+        is pending. `events_text`: the new events of `span` as the writer reads them,
+        when indexed (`WriterEvents.INDEX`); a fresh start shows them raw."""
         from pydantic_ai.messages import ModelMessagesTypeAdapter
 
         live = self.store.live_conversation()
@@ -1329,9 +1452,18 @@ class Worker:
                 live, history = None, None
             if history:
                 built = bite_mod.build_next(self.store, trigger=trigger, instructions=live["instructions"],
-                                            shrink=shrink, carry_on=bool(self.store.fact(CARRY_ON)))
+                                            shrink=shrink, carry_on=bool(self.store.fact(CARRY_ON)),
+                                            events_text=events_text, span=span)
                 if built is None:
                     return None, None, None
+                if (model_mod.writer_history() == model_mod.WriterHistory.LEAN
+                        or self.store.fact(LEAN_WRITES_OWED)):
+                    # Lean history keeps no tool traffic: the writes it made are listed instead,
+                    # in this message, once -- never rebuilt, so later requests extend it. Also
+                    # the first run after a switch back to full: the stripped history still
+                    # holds none of the lean runs' writes (review, Codex High).
+                    block, built.writes_mark = self._writes_since()
+                    built.prompt = f"{block}\n\n{built.prompt}"
                 mark = f"{live['id']}:{live['compactions']}"
                 if live["compactions"] and self.store.fact(INDEX_AFTER_COMPACTION) != mark:
                     # A compaction summarised the first message away, and the agent memory
@@ -1368,6 +1500,51 @@ class Worker:
         job = hashlib.sha256(bite_mod.instructions_for("").encode("utf-8")).hexdigest()
         return hashlib.sha256("\n".join([self.session.session_id, job, str(name),
                                          pydantic_ai.__version__]).encode("utf-8")).hexdigest()
+
+    async def _index_new_events(self, shrink: tuple[int, int] | None):
+        """`WriterEvents.INDEX`: the next message's new events, indexed
+        (`index.index_events`) -- only for a live conversation's next message; a
+        fresh start from disk shows its window raw. None otherwise."""
+        if model_mod.writer_events() != model_mod.WriterEvents.INDEX or self.probe_refused_key:
+            return None  # refused: the run would stop before the model; never pay to index for it
+        live = self.store.live_conversation()
+        if live is None or not live["messages"]:
+            return None
+        span = bite_mod.cover(self.store, shrink)
+        if span is None:
+            return None
+        from probe.daemon import index as index_mod
+
+        if self._index_model is None:
+            self._index_model = model_mod.build(model_mod.endpoint(), model_mod.LANE_INDEX, retries=0)
+        events = self.store.events_between(span[0], span[1], recorded=True, new=True)
+        # Bounded (`index.INDEX_TIMEOUT_S` per stretch, all at once): well inside the
+        # writer's lease, so no renewal is needed while it runs.
+        indexed = await index_mod.index_events(self._index_model, events)
+        indexed.span = span  # the message covers exactly these: never events it did not show
+        return indexed
+
+    def _settle_writes_list(self, built: bite_mod.Bite, *, lean: bool, paused: bool = False) -> None:
+        """A run with a "writes since" list was saved: the mark moves to what it
+        listed. A COMPLETED lean run owes its writes to the next list (their calls
+        are stripped); a completed full run owes nothing (its calls stay in its
+        history); a paused run leaves what is owed as it was."""
+        if built.writes_mark is None:
+            return
+        self.store.set_fact(LEAN_WRITES_MARK, built.writes_mark)
+        if not paused:
+            self.store.set_fact(LEAN_WRITES_OWED, bool(lean))
+
+    def _writes_since(self) -> tuple[str, int]:
+        """Lean history: the writes logged since the last completed run's list (all
+        of the session's, on the first lean run), oldest first; and the last id."""
+        mark = int(self.store.fact(LEAN_WRITES_MARK) or 0)
+        rows = [r for r in reversed(self.store.recent_writes(10_000)) if int(r["id"]) > mark]
+        last = max([mark] + [int(r["id"]) for r in rows])
+        older = max(0, len(rows) - LEAN_WRITES_SHOWN)
+        lines = [f"- {r['status']}: {' '.join(json.loads(r['argv']))[:240]}" for r in rows[older:]]
+        head = f"({older} older: `session` op=logbook)\n" if older else ""
+        return (f"# Your writes since your last run\n{head}" + ("\n".join(lines) or "- none")), last
 
     def _maybe_start_fresh(self, conversation: int) -> None:
         """After COMPACTIONS_BEFORE_FRESH compactions a summary of summaries has
@@ -1478,6 +1655,10 @@ class Worker:
         log.info("bite %s: paused after %s model rounds; the next bite carries on", bite_id, ROUNDS_BEFORE_YIELD)
         with self.store.tx():
             self.store.save_conversation(conversation, _dump_messages(stop.messages), compactions=compactions)
+            # The list it was sent is in the saved history now; its own writes are there
+            # as tool calls until the run that finishes it completes.
+            self._settle_writes_list(built, lean=model_mod.writer_history() == model_mod.WriterHistory.LEAN,
+                                     paused=True)
             self.store.mark_covered(bite_id, built.last_seq)
             self.store.close_bite(bite_id, outcome=BITE_PAUSED, error=stop.why, **spent)
             self.store.set_fact(CARRY_ON, True)
@@ -2278,6 +2459,35 @@ def build_agent(instructions: str, *, model, state=None):
     from probe.daemon.agent import build_agent as _build
 
     return _build(instructions, model=model, state=state)
+
+
+def _lean(messages) -> list:
+    """`WriterHistory.LEAN` (daemon cost round 5): the messages the writer was sent
+    -- its user prompts, and a compaction's summary (a system part) -- with its own
+    answers and tool traffic dropped. Each kept message is byte-identical to the
+    one sent, so the next run's request extends this run's first one: the only
+    prefix the model's prompt cache serves (measured 10-13, D3)."""
+    from pydantic_ai.messages import ModelRequest, SystemPromptPart, UserPromptPart
+
+    out = []
+    for message in messages:
+        if not isinstance(message, ModelRequest):
+            continue
+        parts = [p for p in message.parts if isinstance(p, (SystemPromptPart, UserPromptPart))]
+        if parts:
+            out.append(dataclasses.replace(message, parts=parts))
+    return out
+
+
+def _lean_reset(history, *, carry_on: bool) -> str | None:
+    """Why a lean run's request cannot extend the last run's first one (counted on
+    the trace, D13): its history still holds tool traffic -- a paused run being
+    finished (`resume`), or the first run after the switch to lean (`switch`)."""
+    from pydantic_ai.messages import ModelResponse
+
+    if any(isinstance(m, ModelResponse) for m in history):
+        return "resume" if carry_on else "switch"
+    return None
 
 
 def _dump_messages(messages) -> str:

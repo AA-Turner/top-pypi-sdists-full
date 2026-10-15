@@ -51,7 +51,7 @@ class Brand(MatrxEntity):
     kind = TextField(null=False, default='company')
     person_party_id = ForeignKey(to_model='Party', to_column='id', to_schema='crm', )
     person_user_id = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_asset': {'from_model': 'BrandAsset', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_asset', 'from_schema': 'web'}, 'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}, 'brand_persona': {'from_model': 'BrandPersona', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_persona', 'from_schema': 'web'}, 'business_fact': {'from_model': 'BusinessFact', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_fact', 'from_schema': 'web'}, 'business_location': {'from_model': 'BusinessLocation', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_location', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'site': {'from_model': 'Site', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}, 'voice_fingerprint': {'from_model': 'VoiceFingerprint', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'voice_fingerprint', 'from_schema': 'web'}}
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_asset': {'from_model': 'BrandAsset', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_asset', 'from_schema': 'web'}, 'brand_exclusion': {'from_model': 'BrandExclusion', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_exclusion', 'from_schema': 'web'}, 'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}, 'brand_persona': {'from_model': 'BrandPersona', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_persona', 'from_schema': 'web'}, 'business_fact': {'from_model': 'BusinessFact', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_fact', 'from_schema': 'web'}, 'business_location': {'from_model': 'BusinessLocation', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_location', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'site': {'from_model': 'Site', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}, 'voice_fingerprint': {'from_model': 'VoiceFingerprint', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'voice_fingerprint', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand"
     _db_schema = "web"
@@ -60,6 +60,54 @@ class Brand(MatrxEntity):
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "entity"
+
+
+
+class Visibility(str, Enum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(str, Enum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class BrandRelationKind(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    key = TextField(null=False)
+    label = TextField(null=False)
+    routes_to = TextField()
+    is_known = BooleanField(null=False, default=False)
+    sort = IntegerField(null=False, default=0)
+    status = TextField(null=False, default='active')
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    stance = TextField(null=False, default='associated')
+    description = TextField()
+    has_sentiment = BooleanField(null=False, default=False)
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "brand_relation_kind"
+    _db_schema = "web"
+    _entity_token = "web_brand_relation_kind"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "system"
 
 class ChannelAnalyticsDaily(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -82,6 +130,80 @@ class ChannelAnalyticsDaily(MatrxEntity):
     _table_name = "channel_analytics_daily"
     _db_schema = "web"
     _entity_token = "web_channel_analytics_daily"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = True
+    _rls_variant = "ledger"
+
+
+
+class Visibility(str, Enum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(str, Enum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class DomainCategory(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    host = TextField(null=False)
+    path_pattern = TextField(null=False)
+    provenance = TextField(null=False)
+    status = TextField(null=False, default='active')
+    confidence = DecimalField(null=False, default=1)
+    evidence_count = IntegerField(null=False, default=0)
+    note = TextField()
+    decided_by = UUIDField()
+    decided_at = DateTimeField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    category_id = ForeignKey(to_model='Categories', to_column='id', to_schema='platform', null=False)
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "domain_category"
+    _db_schema = "web"
+    _entity_token = "web_domain_category"
+    _is_versioned = True
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "system"
+
+class DomainCategoryObservation(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    host = TextField(null=False)
+    category = TextField(null=False)
+    url = TextField()
+    source = TextField(null=False)
+    source_ref = TextField()
+    outcome = TextField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "domain_category_observation"
+    _db_schema = "web"
+    _entity_token = "web_domain_category_observation"
     _is_versioned = False
     _has_soft_delete = False
     _is_org_scoped = True
@@ -422,6 +544,54 @@ class BrandAsset(MatrxEntity):
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "component"
+
+
+
+class ShownTo(str, Enum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class Visibility(str, Enum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class BrandExclusion(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    brand_id = ForeignKey(to_model=Brand, to_column='id', to_schema='web', null=False)
+    match_kind = TextField(null=False)
+    match_value = TextField(null=False)
+    url = TextField()
+    label = TextField()
+    relation_key = TextField(null=False, default='not_us')
+    source = TextField(null=False, default='smart_add')
+    context = JSONBField(null=False, default={})
+    shown_to = EnumField(enum_class=ShownTo, )
+    custom_fields = JSONBField(null=False, default={})
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "brand_exclusion"
+    _db_schema = "web"
+    _entity_token = "web_brand_exclusion"
+    _is_versioned = True
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
 
 class BrandOffering(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -887,6 +1057,8 @@ class DiscoveredItem(MatrxEntity):
     value_hash = TextField()
     resolved_property_id = ForeignKey(to_model='Property', to_column='id', to_schema='web', )
     custom_fields = JSONBField(null=False, default={})
+    relation_key = TextField()
+    sentiment = TextField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "discovered_item"
@@ -1577,7 +1749,10 @@ class VSiteScore(Model):
 
 __all__ = [
     "Brand",
+    "BrandRelationKind",
     "ChannelAnalyticsDaily",
+    "DomainCategory",
+    "DomainCategoryObservation",
     "ListingPublisher",
     "NewsItem",
     "OfferingTemplate",
@@ -1585,6 +1760,7 @@ __all__ = [
     "YoutubeVideo",
     "AnalysisItem",
     "BrandAsset",
+    "BrandExclusion",
     "BrandOffering",
     "BrandPersona",
     "BusinessFact",
@@ -1629,7 +1805,10 @@ __all__ = [
 model_registry.register_all(
 [
         Brand,
+        BrandRelationKind,
         ChannelAnalyticsDaily,
+        DomainCategory,
+        DomainCategoryObservation,
         ListingPublisher,
         NewsItem,
         OfferingTemplate,
@@ -1637,6 +1816,7 @@ model_registry.register_all(
         YoutubeVideo,
         AnalysisItem,
         BrandAsset,
+        BrandExclusion,
         BrandOffering,
         BrandPersona,
         BusinessFact,

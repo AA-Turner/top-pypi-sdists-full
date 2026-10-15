@@ -1,62 +1,33 @@
-# ===================================================================
-#
-# Copyright (c) 2018, Helder Eijs <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2018 Helder Eijs <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
-
-import os
-import sys
-import struct
 import distutils
+import os
+import struct
+import sys
 from distutils import ccompiler
 from distutils.errors import CCompilerError
 
 
-def test_compilation(program, extra_cc_options=None, extra_libraries=None,
-                     msg=''):
+def test_compilation(program, extra_cc_options=None, extra_libraries=None, msg=""):
     """Test if a certain C program can be compiled."""
 
     # Create a temporary file with the C program
     if not os.path.exists("build"):
         os.makedirs("build")
     fname = os.path.join("build", "test1.c")
-    f = open(fname, 'w')
+    f = open(fname, "w")
     f.write(program)
     f.close()
 
     # Name for the temporary executable
     oname = os.path.join("build", "test1.out")
 
-    debug = bool(os.environ.get('PYCRYPTODOME_DEBUG', None))
+    debug = bool(os.environ.get("PYCRYPTODOME_DEBUG", None))
     # Mute the compiler and the linker
     if msg:
         print("Testing support for %s" % msg)
-    if not (debug or os.name == 'nt'):
+    if not (debug or os.name == "nt"):
         old_stdout = os.dup(sys.stdout.fileno())
         old_stderr = os.dup(sys.stderr.fileno())
         dev_null = open(os.devnull, "w")
@@ -68,7 +39,7 @@ def test_compilation(program, extra_cc_options=None, extra_libraries=None,
         compiler = ccompiler.new_compiler()
         distutils.sysconfig.customize_compiler(compiler)
 
-        if compiler.compiler_type in ['msvc']:
+        if compiler.compiler_type in ["msvc"]:
             # Force creation of the manifest file (http://bugs.python.org/issue16296)
             # as needed by VS2010
             extra_linker_options = ["/MANIFEST"]
@@ -76,12 +47,13 @@ def test_compilation(program, extra_cc_options=None, extra_libraries=None,
             extra_linker_options = []
 
         # In Unix, force the linker step to use CFLAGS and not CC alone (see GH#180)
-        if compiler.compiler_type in ['unix']:
+        if compiler.compiler_type in ["unix"]:
             compiler.set_executables(linker_exe=compiler.compiler)
 
         objects = compiler.compile([fname], extra_postargs=extra_cc_options)
-        compiler.link_executable(objects, oname, libraries=extra_libraries,
-                                 extra_preargs=extra_linker_options)
+        compiler.link_executable(
+            objects, oname, libraries=extra_libraries, extra_preargs=extra_linker_options
+        )
         result = True
     except (CCompilerError, OSError):
         result = False
@@ -92,7 +64,7 @@ def test_compilation(program, extra_cc_options=None, extra_libraries=None,
             pass
 
     # Restore stdout and stderr
-    if not (debug or os.name == 'nt'):
+    if not (debug or os.name == "nt"):
         if old_stdout is not None:
             os.dup2(old_stdout, sys.stdout.fileno())
         if old_stderr is not None:
@@ -178,16 +150,16 @@ def compiler_supports_aesni():
     """
 
     if test_compilation(source):
-        return {'extra_cc_options': [], 'extra_macros': []}
+        return {"extra_cc_options": [], "extra_macros": []}
 
-    if test_compilation(source, extra_cc_options=['-maes'], msg='AESNI intrinsics'):
-        return {'extra_cc_options': ['-maes'], 'extra_macros': []}
+    if test_compilation(source, extra_cc_options=["-maes"], msg="AESNI intrinsics"):
+        return {"extra_cc_options": ["-maes"], "extra_macros": []}
 
     return False
 
 
 def compiler_supports_clmul():
-    result = {'extra_cc_options': [], 'extra_macros' : ['HAVE_WMMINTRIN_H', 'HAVE_TMMINTRIN_H']}
+    result = {"extra_cc_options": [], "extra_macros": ["HAVE_WMMINTRIN_H", "HAVE_TMMINTRIN_H"]}
 
     source = """
     #include <wmmintrin.h>
@@ -212,9 +184,105 @@ def compiler_supports_clmul():
     if test_compilation(source):
         return result
 
-    if test_compilation(source, extra_cc_options=['-mpclmul', '-mssse3'], msg='CLMUL intrinsics'):
-        result['extra_cc_options'].extend(['-mpclmul', '-mssse3'])
+    if test_compilation(source, extra_cc_options=["-mpclmul", "-mssse3"], msg="CLMUL intrinsics"):
+        result["extra_cc_options"].extend(["-mpclmul", "-mssse3"])
         return result
+
+    return False
+
+
+def compiler_supports_avx2_bmi2():
+    """Return the compiler options to enable AVX2, BMI1 and BMI2 intrinsics
+    (all together), or False if the compiler cannot emit all of them.
+    Only gcc and clang are supported."""
+
+    source = """
+    #include <immintrin.h>
+    #include <stdint.h>
+    #include <string.h>
+    __m256i f(__m256i x, __m256i y) {
+        __m256i z = _mm256_andnot_si256(x, y);
+        return _mm256_xor_si256(_mm256_slli_epi64(z, 1), _mm256_srli_epi64(z, 63));
+    }
+    uint64_t g(uint64_t x, uint64_t y) {
+        /* BMI1 and BMI2 */
+        return _andn_u64(x, y) ^ _bzhi_u64(x, 7);
+    }
+    int main(void) {
+        int ret;
+        __m256i x;
+        x = _mm256_set1_epi64x(1);
+        x = f(x, x);
+        memcpy(&ret, &x, sizeof(ret));
+        return ret + (int)g(3, 5);
+    }
+    """
+
+    options = ["-mavx2", "-mbmi", "-mbmi2"]
+    if test_compilation(source, extra_cc_options=options, msg="AVX2, BMI1 and BMI2 intrinsics"):
+        return {"extra_cc_options": options, "extra_macros": []}
+
+    return False
+
+
+def compiler_supports_sha_ni():
+    """Return the compiler options to enable the SHA-NI intrinsics
+    (with SSSE3 and SSE4.1), or False if the compiler cannot emit them.
+    MSVC needs no options; gcc and clang need -msha and -msse4.1."""
+
+    source = """
+    #include <immintrin.h>
+    #include <string.h>
+    __m128i f(__m128i a, __m128i b, __m128i k) {
+        __m128i x = _mm_sha256rnds2_epu32(a, b, k);
+        x = _mm_sha256msg2_epu32(_mm_sha256msg1_epu32(x, a), b);
+        return _mm_blend_epi16(_mm_alignr_epi8(x, a, 8), b, 0xF0);
+    }
+    int main(void) {
+        int ret;
+        __m128i x;
+        x = _mm_set1_epi32(1);
+        x = f(x, x, x);
+        memcpy(&ret, &x, sizeof(ret));
+        return ret;
+    }
+    """
+
+    if test_compilation(source, msg="SHA-NI intrinsics"):
+        return {"extra_cc_options": [], "extra_macros": []}
+
+    options = ["-msha", "-msse4.1"]
+    if test_compilation(source, extra_cc_options=options, msg="SHA-NI intrinsics"):
+        return {"extra_cc_options": options, "extra_macros": []}
+
+
+def compiler_supports_bmi2_adx():
+    """Return the compiler options to build the code for x86-64 CPUs with
+    BMI2 and ADX (inline assembly with MULX, ADCX and ADOX), or False if
+    the compiler cannot. Only gcc and clang are supported."""
+
+    source = """
+    #include <stdint.h>
+    #if !defined(__x86_64__)
+    #error Only for x86-64
+    #endif
+    int main(void) {
+        uint64_t lo, hi, x = 3, y = 5;
+        __asm__ volatile (
+            "xor %%r8d, %%r8d\\n\\t"
+            "mulx %[y], %[lo], %[hi]\\n\\t"
+            "adcx %%r8, %[lo]\\n\\t"
+            "adox %%r8, %[hi]\\n\\t"
+            : [lo] "=&r" (lo), [hi] "=&r" (hi)
+            : "d" (x), [y] "r" (y)
+            : "r8", "cc");
+        return (int)(lo + hi) - 15;
+    }
+    """
+
+    options = ["-mbmi2", "-madx"]
+    if test_compilation(source, extra_cc_options=options, msg="BMI2 and ADX inline assembly"):
+        return {"extra_cc_options": options, "extra_macros": []}
 
     return False
 
@@ -257,7 +325,7 @@ def compiler_is_clang():
     return test_compilation(source, msg="clang")
 
 
-def compiler_is_gcc(extra_cc_options=[]):
+def compiler_is_gcc(extra_cc_options=None):
     source = """
     #if defined(__clang__) || !defined(__GNUC__)
     #error Not GCC
@@ -266,9 +334,7 @@ def compiler_is_gcc(extra_cc_options=[]):
     {
         return 0;
     }"""
-    return test_compilation(source,
-                            msg="gcc",
-                            extra_cc_options=extra_cc_options)
+    return test_compilation(source, msg="gcc", extra_cc_options=extra_cc_options)
 
 
 def compiler_supports_sse2():
@@ -292,11 +358,11 @@ def compiler_supports_sse2():
 
     result = None
     if test_compilation(source_intrin_h, msg="SSE2(intrin.h)"):
-        result = {'extra_cc_options': [], 'extra_macros': ['HAVE_INTRIN_H', 'USE_SSE2']}
-    elif test_compilation(source_x86intrin_h, extra_cc_options=['-msse2'], msg="SSE2(x86intrin.h)"):
-        result = {'extra_cc_options': ['-msse2'], 'extra_macros': ['HAVE_X86INTRIN_H', 'USE_SSE2']}
-    elif test_compilation(source_xemmintrin_h, extra_cc_options=['-msse2'], msg="SSE2(emmintrin.h)"):
-        result = {'extra_cc_options': ['-msse2'], 'extra_macros': ['HAVE_EMMINTRIN_H', 'USE_SSE2']}
+        result = {"extra_cc_options": [], "extra_macros": ["HAVE_INTRIN_H", "USE_SSE2"]}
+    elif test_compilation(source_x86intrin_h, extra_cc_options=["-msse2"], msg="SSE2(x86intrin.h)"):
+        result = {"extra_cc_options": ["-msse2"], "extra_macros": ["HAVE_X86INTRIN_H", "USE_SSE2"]}
+    elif test_compilation(source_xemmintrin_h, extra_cc_options=["-msse2"], msg="SSE2(emmintrin.h)"):
+        result = {"extra_cc_options": ["-msse2"], "extra_macros": ["HAVE_EMMINTRIN_H", "USE_SSE2"]}
     else:
         result = False
 
@@ -304,8 +370,8 @@ def compiler_supports_sse2():
     # bytes, but the caller may actually only align it to 4 bytes, which
     # make functions crash if they use SSE2 intrinsics.
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=40838
-    if result and system_bits == 32 and compiler_is_gcc(extra_cc_options=['-mstackrealign']):
-        result['extra_cc_options'].append('-mstackrealign')
+    if result and system_bits == 32 and compiler_is_gcc(extra_cc_options=["-mstackrealign"]):
+        result["extra_cc_options"].append("-mstackrealign")
 
     return result
 
@@ -317,7 +383,7 @@ def remove_extension(extensions, name):
     del extensions[idxs[0]]
 
 
-def set_compiler_options(package_root, extensions):
+def set_compiler_options(extensions):
     """Environment specific settings for extension modules.
 
     This function modifies how each module gets compiled, to
@@ -325,13 +391,11 @@ def set_compiler_options(package_root, extensions):
     Also, it removes existing modules when not supported, such as:
       - AESNI
       - CLMUL
+      - AVX2 and BMI2
     """
 
     extra_cc_options = []
     extra_macros = []
-
-    clang = compiler_is_clang()
-    gcc = compiler_is_gcc()
 
     if has_stdint_h():
         extra_macros.append(("HAVE_STDINT_H", None))
@@ -342,9 +406,6 @@ def set_compiler_options(package_root, extensions):
     # System
     system_bits = 8 * struct.calcsize("P")
     extra_macros.append(("SYS_BITS", str(system_bits)))
-
-    # Disable any assembly in libtomcrypt files
-    extra_macros.append(("LTC_NO_ASM", None))
 
     # Native 128-bit integer
     if compiler_supports_uint128():
@@ -367,21 +428,21 @@ def set_compiler_options(package_root, extensions):
     # SSE2
     sse2_result = compiler_supports_sse2()
     if sse2_result:
-        extra_cc_options.extend(sse2_result['extra_cc_options'])
-        for macro in sse2_result['extra_macros']:
+        extra_cc_options.extend(sse2_result["extra_cc_options"])
+        for macro in sse2_result["extra_macros"]:
             extra_macros.append((macro, None))
 
     # Module-specific options
 
     # AESNI
     aesni_result = (cpuid_h_present or intrin_h_present) and compiler_supports_aesni()
-    aesni_mod_name = package_root + ".Cipher._raw_aesni"
+    aesni_mod_name = "Crypto.Cipher._raw_aesni"
     if aesni_result:
         print("Compiling support for AESNI instructions")
         aes_mods = [x for x in extensions if x.name == aesni_mod_name]
         for x in aes_mods:
-            x.extra_compile_args.extend(aesni_result['extra_cc_options'])
-            for macro in aesni_result['extra_macros']:
+            x.extra_compile_args.extend(aesni_result["extra_cc_options"])
+            for macro in aesni_result["extra_macros"]:
                 x.define_macros.append((macro, None))
     else:
         print("Warning: compiler does not support AESNI instructions")
@@ -389,17 +450,67 @@ def set_compiler_options(package_root, extensions):
 
     # CLMUL
     clmul_result = (cpuid_h_present or intrin_h_present) and compiler_supports_clmul()
-    clmul_mod_name = package_root + ".Hash._ghash_clmul"
+    clmul_mod_name = "Crypto.Hash._ghash_clmul"
     if clmul_result:
         print("Compiling support for CLMUL instructions")
         clmul_mods = [x for x in extensions if x.name == clmul_mod_name]
         for x in clmul_mods:
-            x.extra_compile_args.extend(clmul_result['extra_cc_options'])
-            for macro in clmul_result['extra_macros']:
+            x.extra_compile_args.extend(clmul_result["extra_cc_options"])
+            for macro in clmul_result["extra_macros"]:
                 x.define_macros.append((macro, None))
     else:
         print("Warning: compiler does not support CLMUL instructions")
         remove_extension(extensions, clmul_mod_name)
+
+    # AVX2, BMI1 and BMI2, all together (gcc and clang only)
+    # Detecting them at runtime requires cpuid.h
+    avx2_bmi2_result = cpuid_h_present and compiler_supports_avx2_bmi2()
+    avx2_bmi2_mod_names = [
+        "Crypto.Hash._keccak_avx2_bmi2",
+        "Crypto.Hash._k12_avx2_bmi2",
+        "Crypto.Cipher._Salsa20_avx2_bmi2",
+        "Crypto.Cipher._chacha20_avx2_bmi2",
+    ]
+    if avx2_bmi2_result:
+        print("Compiling support for AVX2 and BMI2 instructions")
+        avx2_bmi2_mods = [x for x in extensions if x.name in avx2_bmi2_mod_names]
+        for x in avx2_bmi2_mods:
+            x.extra_compile_args.extend(avx2_bmi2_result["extra_cc_options"])
+            for macro in avx2_bmi2_result["extra_macros"]:
+                x.define_macros.append((macro, None))
+    else:
+        print("Warning: compiler does not support AVX2 and BMI2 instructions")
+        for mod_name in avx2_bmi2_mod_names:
+            remove_extension(extensions, mod_name)
+
+    # SHA-NI
+    sha_ni_result = (cpuid_h_present or intrin_h_present) and compiler_supports_sha_ni()
+    sha_ni_mod_names = ["Crypto.Hash._SHA224_shani", "Crypto.Hash._SHA256_shani"]
+    if sha_ni_result:
+        print("Compiling support for SHA-NI instructions")
+        sha_ni_mods = [x for x in extensions if x.name in sha_ni_mod_names]
+        for x in sha_ni_mods:
+            x.extra_compile_args.extend(sha_ni_result["extra_cc_options"])
+            for macro in sha_ni_result["extra_macros"]:
+                x.define_macros.append((macro, None))
+    else:
+        print("Warning: compiler does not support SHA-NI instructions")
+        for mod_name in sha_ni_mod_names:
+            remove_extension(extensions, mod_name)
+
+    # BMI2 and ADX, for the big integer code (gcc and clang on x86-64 only)
+    # Detecting them at runtime requires cpuid.h
+    bmi2_adx_result = cpuid_h_present and compiler_supports_bmi2_adx()
+    bmi2_adx_mod_names = ["Crypto.Math._nat_bmi2_adx", "Crypto.PublicKey._ec_nat_bmi2_adx"]
+    if bmi2_adx_result:
+        print("Compiling support for BMI2 and ADX instructions")
+        for x in extensions:
+            if x.name in bmi2_adx_mod_names:
+                x.extra_compile_args.extend(bmi2_adx_result["extra_cc_options"])
+    else:
+        print("Warning: compiler does not support BMI2 and ADX instructions")
+        for mod_name in bmi2_adx_mod_names:
+            remove_extension(extensions, mod_name)
 
     for x in extensions:
         x.extra_compile_args.extend(extra_cc_options)

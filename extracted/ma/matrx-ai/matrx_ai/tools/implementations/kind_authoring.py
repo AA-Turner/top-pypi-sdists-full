@@ -83,6 +83,7 @@ from matrx_ai.tools.implementations.kind_shared import (
     schema_fingerprint,
     system_organization_id,
     update_as_the_person,
+    asset_organization_id,
     validate_against_schema,
     validate_kind_slug_format,
     writing_as_the_person,
@@ -1284,6 +1285,7 @@ async def create_generated_skill(
     body = body_override or render_skill_body(kd, canonical_data, extra_guidance)
     description = skill_description(kd)
     SklDefinition = get_db_model("SklDefinition")
+    asset_org = asset_organization_id(kd, ctx, system_job=system_job)
     async with writing_as_the_person(ctx, system_job=system_job):
         created = await SklDefinition.create_item(
             skill_id=f"kind_{kd.kind}",
@@ -1294,9 +1296,9 @@ async def create_generated_skill(
             icon_name="Shapes",
             category_id=await _render_block_category_id(),
             is_active=True,
-            organization_id=str(kd.organization_id),
+            organization_id=asset_org,
             created_by=created_by,
-            **{k: v for k, v in reach_of(kd, system_organization_id()).items() if v is not None},
+            **{k: v for k, v in reach_of(kd, system_organization_id(), asset_org).items() if v is not None},
             metadata=generated_metadata(
                 kd,
                 body,
@@ -1377,8 +1379,9 @@ async def kind_create_skill(args: dict[str, Any], ctx: ToolContext) -> ToolResul
 
         skill_id = f"kind_{kd.kind}"
         SklDefinition = get_db_model("SklDefinition")
+        homes = {str(kd.organization_id), str(asset_organization_id(kd, ctx))}
         existing = [s for s in await SklDefinition.filter(skill_id=skill_id).all()
-                    if s.deleted_at is None and str(s.organization_id) == str(kd.organization_id)]
+                    if s.deleted_at is None and str(s.organization_id) in homes]
         if existing:
             return err(
                 "validation",
@@ -1455,8 +1458,9 @@ async def kind_create_content_block(args: dict[str, Any], ctx: ToolContext) -> T
 
         block_id = f"kind-{kd.kind.replace('_', '-')}"
         PromptBlock = get_db_model("PromptBlock")
+        homes = {str(kd.organization_id), str(asset_organization_id(kd, ctx))}
         existing = [b for b in await PromptBlock.filter(name=block_id).all()
-                    if b.deleted_at is None and str(b.organization_id) == str(kd.organization_id)]
+                    if b.deleted_at is None and str(b.organization_id) in homes]
         if existing:
             return err(
                 "validation",
@@ -1494,7 +1498,7 @@ async def kind_create_content_block(args: dict[str, Any], ctx: ToolContext) -> T
                     content=template,
                     block_type="render_kind",
                     category_id=await _content_block_category_id(),
-                    organization_id=str(kd.organization_id),
+                    organization_id=asset_organization_id(kd, ctx),
                     created_by=ctx_user_id(ctx),
                     # The block follows its kind's web lane and list filter. Enums are
                     # serialized by VALUE — str(member) on a (str, Enum) mixin yields the
@@ -1649,9 +1653,10 @@ async def kind_activate(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if active:
             try:
                 SklDefinition = get_db_model("SklDefinition")
+                homes = {str(kd.organization_id), str(asset_organization_id(kd, ctx))}
                 skill_exists = any(
                     s.deleted_at is None
-                    and str(s.organization_id) == str(kd.organization_id)
+                    and str(s.organization_id) in homes
                     for s in await SklDefinition.filter(skill_id=f"kind_{kd.kind}").all()
                 )
                 if not skill_exists:
@@ -1665,7 +1670,7 @@ async def kind_activate(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 block_id = f"kind-{kd.kind.replace('_', '-')}"
                 block_exists = any(
                     b.deleted_at is None
-                    and str(b.organization_id) == str(kd.organization_id)
+                    and str(b.organization_id) in homes
                     for b in await PromptBlock.filter(name=block_id).all()
                 )
                 if not block_exists:

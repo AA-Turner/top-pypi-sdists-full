@@ -4,9 +4,13 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .money import Money
 from .trade_failure_code import TradeFailureCode
 from .trade_funds_location import TradeFundsLocation
+from .trade_instrument_type import TradeInstrumentType
 from .trade_object import TradeObject
+from .trade_order_type import TradeOrderType
+from .trade_side import TradeSide
 from .trade_status import TradeStatus
 from .trade_status_detail import TradeStatusDetail
 from .trade_type import TradeType
@@ -20,12 +24,17 @@ class Trade(UniversalBaseModel):
 
     amount: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The USDT0 that a buy sends from the wallet, in native units, as a decimal string. `null` for a close.
+    The USDT0 that a deposit, or an order short of trading balance, sends from the wallet, or the USDC that a withdraw sends back, in native units, as a decimal string. A withdraw of `all` shows what it sent once it finishes. `null` otherwise.
     """
 
     average_price: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The average fill price of the buy, in USD. `null` when it is not known.
+    The average fill price of the order, in USD, as a decimal string. `null` when it is not known.
+    """
+
+    client_order_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The caller's own ID for the trade, unique for the account. `null` when none was sent.
     """
 
     completed_at: typing.Optional[str] = pydantic.Field(default=None)
@@ -45,12 +54,12 @@ class Trade(UniversalBaseModel):
 
     filled_size: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The size that the buy order filled, in units of the market. `null` until the order fills.
+    The size the order filled, in units of the market, as a decimal string. `null` until it fills.
     """
 
     funds_location: typing.Optional[TradeFundsLocation] = pydantic.Field(default=None)
     """
-    Where the money is when the trade did not complete as asked, or after a close: `wallet`, `trading_account`, or `unknown` while a person checks it. `null` otherwise.
+    Where the money is when the trade did not complete as asked: `wallet`, `trading_account`, or `unknown` while a person checks it. `null` otherwise.
     """
 
     id: str = pydantic.Field()
@@ -58,30 +67,65 @@ class Trade(UniversalBaseModel):
     Trade ID, prefixed `tint_`.
     """
 
-    leverage: typing.Optional[int] = pydantic.Field(default=None)
+    instrument_type: typing.Optional[TradeInstrumentType] = pydantic.Field(default=None)
     """
-    The cross leverage of a buy. `null` for a close.
+    `perpetual` or `spot` for an order, `perpetual` for a close. `null` for a deposit or withdraw.
     """
 
-    market: str = pydantic.Field()
+    leverage: typing.Optional[int] = pydantic.Field(default=None)
     """
-    The perpetual market, for example `BTC`.
+    The cross leverage set before an opening perpetual order. `null` for a spot order, close, deposit, withdraw or reduce-only order.
+    """
+
+    market: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The market, for example `BTC` for a perpetual or `HYPE/USDC` for spot. `null` for a deposit or withdraw.
+    """
+
+    metadata: typing.Dict[str, typing.Any] = pydantic.Field()
+    """
+    Free-form string-to-string annotations stored on the trade.
     """
 
     object: TradeObject
+    order_type: typing.Optional[TradeOrderType] = pydantic.Field(default=None)
+    """
+    `market` or `limit` for an order. `null` otherwise.
+    """
+
+    price: typing.Optional[Money] = pydantic.Field(default=None)
+    """
+    The limit price of the order in USD. A market order's price is the mid price moved by `slippage_bps`. `null` for other types.
+    """
+
+    reduce_only: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the order can only reduce a position. `null` for other types.
+    """
+
+    side: typing.Optional[TradeSide] = pydantic.Field(default=None)
+    """
+    `buy` or `sell` for an order. `null` otherwise.
+    """
+
+    size: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The order size in units of the market, as a decimal string. `null` for other types.
+    """
+
     status: TradeStatus = pydantic.Field()
     """
-    `pending` until the trade starts. `processing` while it runs, also while a failed buy sends its money back. `completed` when it did what was asked. `failed` when it did not; `funds_location` says where the money is. `in_review` when the outcome is unknown and a person checks it.
+    `pending` until the trade starts. `processing` while it runs, also while an order that did not fill sends the money it bridged in back to the wallet. `completed` when it did what was asked. `failed` when it did not; `funds_location` says where the money is. `in_review` when the outcome is unknown and a person checks it.
     """
 
     status_detail: typing.Optional[TradeStatusDetail] = pydantic.Field(default=None)
     """
-    More about the outcome: `partial_fill` (the buy filled only part of its size), `no_position` (the close found no position), `partial_close` (part of the position is still open), or `nothing_to_return` (the close had less than 1 USDC to send back). `null` otherwise.
+    `partial_fill` when the order filled only part of its size. `null` otherwise.
     """
 
     type: TradeType = pydantic.Field()
     """
-    `buy` bridges USDT0 to the trading account, sets the leverage and places one market buy. `close` closes the position in one market, if one is open, and sends all withdrawable USDC back to the wallet.
+    `order` places one order from the trading balance. `deposit` bridges USDT0 from the wallet to the trading balance. `withdraw` sends USDC from the trading balance back to the wallet. `close` closes the whole position in one market with a market reduce-only order; when the account is then flat, a `withdraw` trade sends the trading balance back to the wallet.
     """
 
     updated_at: str = pydantic.Field()

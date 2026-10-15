@@ -36,6 +36,18 @@ RESOURCE_NAME = ".browser-resource.json"
 HOST_BRIDGE = "bridge"
 HOST_UI = "ui"
 
+#: Longest crash-replay chain kept per lane. The chain exists so a host whose
+#: scope is stamped with an OLDER generation can still be reconciled
+#: (`previous_generations`). It is trimmed to the NEWEST entries only because a
+#: lane that never acknowledges (an extension that stays unpaired across many
+#: resumes) would otherwise grow the durable record without bound. Overflow fails
+#: CLOSED: a lane unreachable for more resumes than this is refused as stale
+#: through the existing "resume the scope" copy, never silently accepted.
+MAX_REPLAY_GENERATIONS = 16
+
+#: The lanes that can hold a scope for a session; each acknowledges on its own.
+_REPLAY_LANES = (HOST_UI, HOST_BRIDGE)
+
 
 def surface_host(surface_id: str) -> str:
     """The host named by a surface token's prefix, or "" when it names none.
@@ -62,7 +74,7 @@ class OwnershipDiscovery(Protocol):
     every caller must read it that way.
     """
 
-    def peer_identity(self) -> tuple[str, int] | None: ...
+    def peer_identity(self) -> tuple[str, int] | tuple[str, int, str] | None: ...
 
 
 @dataclass(frozen=True)
@@ -85,7 +97,7 @@ class OwnershipHost:
 class _BridgeDiscovery:
     """The extension's peer facts, from the daemon's own published link state."""
 
-    def peer_identity(self) -> tuple[str, int] | None:
+    def peer_identity(self) -> tuple[str, int] | tuple[str, int, str] | None:
         try:
             current = state_store.read()
         except Exception:  # noqa: BLE001 - discovery must never raise at a call site
@@ -104,7 +116,7 @@ class _UiDiscovery:
     this host instead of ``None``, which elsewhere means "must ask".
     """
 
-    def peer_identity(self) -> tuple[str, int] | None:
+    def peer_identity(self) -> tuple[str, int] | tuple[str, int, str] | None:
         try:
             from local_operator.ui_browser import state as ui_state
 
@@ -113,6 +125,11 @@ class _UiDiscovery:
             return None
         if current is None:
             return None
+        # Only invalidates a cached protocol/ownership verdict. Actual rebind still
+        # requires the session's durable proof; a UI restart cannot adopt a tab
+        # from its URL, number or discovery generation.
+        if current.instance_id is not None:
+            return (current.app_version, current.proto, current.instance_id)
         return (current.app_version, current.proto)
 
 
@@ -217,7 +234,13 @@ class BrowserResource:
         self.record: dict[str, Any] = {}
         self.generation = ""
         self.previous_generation = ""
-        self.recovered = False
+        #: Lanes whose peer has been reconciled in THIS run (see `recovered`).
+        #: Reconciliation is per HOST — the app and the extension each keep their
+        #: own scope and fence — so one boolean for the whole resource let the
+        #: app's acknowledgement stand in for the extension's. Initialised
+        #: directly (not through the `recovered` setter) because the setter
+        #: resolves the current lane, which needs `host`, assigned below.
+        self._recovered_lanes: set[str] = set()
         #: WHICH host owns this session's surface: "" (not learned yet), "ui" or
         #: "bridge". Written into the record on the first successful `open`, so a
         #: resumed session selects the lane it opened on. Everything the lane
@@ -246,9 +269,16 @@ class BrowserResource:
         # the daemon reports a different (version, proto), so a user who updates
         # the extension mid-session gets ownership back without restarting.
         self.ownership: bool | None = None
-        # The peer identity `self.ownership` was learned against. See
-        # `_peer_identity` for why the pair, not just the version.
-        self._ownership_peer: tuple[str, int] | None = None
+        # The peer identity `self.ownership` was learned against, AND the lane
+        # it was learned on. See `_peer_identity` for why the pair, not just the
+        # version. The lane name is part of the cache key: two hosts publish
+        # DIFFERENT identity shapes (the extension an extension version, the app
+        # an app version), so comparing a UI identity to a peer learned on the
+        # bridge lane is a category error that reads as an incarnation change and
+        # forces a spurious reconcile. `refresh_identity` re-scopes both on a
+        # lane move without treating it as a peer change.
+        self._ownership_peer: tuple[str, int] | tuple[str, int, str] | None = None
+        self._ownership_peer_lane: str = ""
         self._lease_at_creation = self._lease_generation()
         # Whether the execution lease DEFINES this owner's identity. Only then
         # is a lease change a resume that must fence us; an owner whose identity
@@ -294,6 +324,34 @@ class BrowserResource:
                 return host
         return ""
 
+    @property
+    def recovered(self) -> bool:
+        """Whether the CURRENT lane's peer has been reconciled in this run.
+
+        Why this is per lane and not one flag: an execution-lease change (a resume
+        of the same durable session) leaves every host holding a scope stamped
+        with the OLD generation. Each host must be told, once, via `owner_recover`
+        carrying `previous_generation(s)` — the only verb that advances a scope.
+        The extension fences every other verb with strict generation equality, so
+        a plain `open` against an unreconciled extension is refused as stale. With
+        a single boolean, reconciling the app first marked the extension
+        reconciled too; a later explicit `backend=extension` open then skipped its
+        recovery and was refused on a perfectly legitimate resume.
+
+        Kept as a property so every existing reader and writer (`recover`,
+        `_degraded_recover`, `refresh_identity`, the tool's allocation reset)
+        keeps its spelling and now acts on the lane it is talking to.
+        """
+        return self._lane().name in self._recovered_lanes
+
+    @recovered.setter
+    def recovered(self, value: bool) -> None:
+        lane = self._lane().name
+        if value:
+            self._recovered_lanes.add(lane)
+        else:
+            self._recovered_lanes.discard(lane)
+
     def _retarget_lane(self, host: str) -> None:
         """Move the lane to `host` and drop every verdict cached for the old one.
 
@@ -306,6 +364,7 @@ class BrowserResource:
         if host and host != self.host:
             self.ownership = None
             self._ownership_peer = None
+            self._ownership_peer_lane = ""
             self.host = host
 
     def _lane(self) -> OwnershipHost:
@@ -412,10 +471,103 @@ class BrowserResource:
         host = surface_host(surface)
         if host:
             return host
+        # A denied fresh navigation can owe an approval without a minted tab.
+        # Its saved transport pins only that pending flow; it never grants tab
+        # ownership, origin access, or permission to adopt a foreign capability.
+        pending_host = str(record.get("pending_access_host", ""))
+        if pending_host in (HOST_UI, HOST_BRIDGE):
+            return pending_host
+        return self._obligation_only_host(record)
+
+    @classmethod
+    def _obligation_only_host(cls, record: Mapping[str, Any]) -> str:
+        """The `host` a record names ONLY because it still owes that host a cleanup.
+
+        Neither a held handle nor a pending approval: the record holds no tab on
+        that host and no approval is waiting on it. What remains is the debt itself
+        (a `terminal` intent left by `finish`, a retention, `resumed_scope`,
+        `release_pause`, unevidenced `unresolved_surface_id`), which only that
+        host's `owner_recover` can discharge. It pins the lane so the cleanup
+        reaches its owner, but it must not also decide where a LATER fresh `open`
+        lands: the tool uses this to reconcile the old host first and then
+        re-decide the fresh open from the caller's explicit `backend`.
+        """
         host = str(record.get("host", ""))
-        if host and self._record_owes_reconciliation(record):
+        if host and cls._record_owes_reconciliation(record):
             return host
         return ""
+
+    def pending_access_pin(self) -> str:
+        """The host a no-tab site approval is still waiting on, or "".
+
+        Routing metadata only (see `pinned_host`): it never grants a tab, an origin or
+        permission to adopt anything. Exposed so the dispatcher can refuse an explicit
+        `backend` that contradicts it, instead of opening on the other host while
+        `request_access`/`await_access`/`cancel_access` keep going to this one.
+        Reads the loaded record, or the file when the lane has not run yet.
+        """
+        record = self.record
+        if not record:
+            try:
+                record = self._load()
+            except (BrowserOwnershipError, OSError, ValueError):
+                return ""
+        pending = str(record.get("pending_access_host", ""))
+        return pending if pending in (HOST_UI, HOST_BRIDGE) else ""
+
+    def obligation_pin_host(self) -> str:
+        """The host pinning this session by an obligation alone, or "".
+
+        "" whenever a handle or a pending approval names the host instead, so those
+        pins keep their existing precedence. Reads the loaded record, or the file
+        when the lane has not run yet (the tool asks before `initialize()`).
+        """
+        record = self.record
+        if not record:
+            try:
+                record = self._load()
+            except (BrowserOwnershipError, OSError, ValueError):
+                return ""
+        if surface_host(str(record.get("surface_id", ""))):
+            return ""
+        if str(record.get("pending_access_host", "")) in (HOST_UI, HOST_BRIDGE):
+            return ""
+        return self._obligation_only_host(record)
+
+    async def move_lane_after_obligation(self, host: str) -> bool:
+        """Re-decide a FRESH open's lane once the host that was owed has been reconciled.
+
+        The tool keeps the lane on an obligation-only pin for the first recovery, so
+        the debt (a finished scope's `terminal`, a retention, `release_pause`...)
+        reaches the host that owns it; dropping it, or letting an explicit `backend`
+        win straight away, would strand that host's cleanup. This runs after that
+        recovery, under the caller's lock, and answers whether the open may go on:
+
+        * a LIVE handle (`surface_id`) still names a host -> True without moving: the
+          dispatcher owns that refusal (a hint cannot contradict a held tab), as before;
+        * a debt is STILL owed -> False: the old host did not discharge it, and
+          sending the destination an `open` anyway would dispatch to a host that
+          is mismatched with the session's own record;
+        * otherwise the lane moves to `host` and that peer is reconciled exactly
+          once (`ensure_recovered` is per lane) BEFORE anything allocates there.
+
+        Only `surface_id` counts as "held" here, NOT `_obligation_host()`: that one
+        also answers for `unresolved_surface_id`, which is private EVIDENCE the old
+        host could not prove after an authority loss, never a capability this session
+        holds. The dispatcher only ever sees the live handle, so treating evidence as
+        held made this return True and delegate a refusal the dispatcher cannot make:
+        the explicit open then reached an unreconciled destination (review R1 / QA Q1,
+        written entirely by product paths). The evidence is preserved, not cleared:
+        nothing but the old host's own proof can discharge it, so a hint that needs
+        the other host keeps refusing until `backend` is dropped.
+        """
+        if surface_host(str(self.record.get("surface_id", ""))):
+            return True
+        if self.obligation_pin_host():
+            return False
+        self.select_host(host)
+        await self.ensure_recovered()
+        return True
 
     def client(self) -> Any:
         """A client for this session's host, built fresh per call (as before).
@@ -470,10 +622,18 @@ class BrowserResource:
             self._lease_at_creation or self.previous_generation or secrets.token_urlsafe(24)
         )
         self._identity_from_lease = bool(self._lease_at_creation)
-        generations = list(self.record.get("bridge_generations", []))
-        for candidate in (self.previous_generation, self.generation):
-            if candidate and candidate not in generations:
-                generations.append(candidate)
+        generations = self._extend_chain(
+            self.record.get("bridge_generations", []), (self.previous_generation, self.generation)
+        )
+        # A lane that has acknowledged before keeps its OWN chain, which must hear
+        # of this run's generations too; a lane that never has falls back to the
+        # shared chain above (see `lane_generations`).
+        lanes = {
+            lane: self._extend_chain(chain, (self.previous_generation, self.generation))
+            for lane, chain in dict(self.record.get("lane_generations", {})).items()
+        }
+        if lanes:
+            self.record["lane_generations"] = lanes
         self.record.update(
             bridge_generations=generations,
             session_id=self.session_id,
@@ -565,6 +725,46 @@ class BrowserResource:
             if os.path.exists(name):
                 os.unlink(name)
 
+    @staticmethod
+    def _extend_chain(chain: Any, candidates: tuple[str, ...]) -> list[str]:
+        """`chain` plus any new `candidates`, newest-last, bounded to the newest."""
+        extended = [str(item) for item in chain]
+        for candidate in candidates:
+            if candidate and candidate not in extended:
+                extended.append(candidate)
+        return extended[-MAX_REPLAY_GENERATIONS:]
+
+    def lane_generations(self, lane: str | None = None) -> list[str]:
+        """The crash-replay chain owed to ONE lane's peer.
+
+        Reconciliation is per host, so the generations a host still needs are too:
+        `owner_recover` is the only verb that consults them, and the strict fence
+        accepts a stale scope only if it equals the current generation, the
+        immediate predecessor or a member of this list. A lane that has
+        acknowledged keeps only what it was told; a lane that never has (no entry,
+        or a record written before per-lane chains existed) is owed the full
+        shared chain. Without that split, one host's ACK collapsed the chain and
+        the other host, still stamped with an older generation, was refused as
+        stale on a legitimate resume.
+        """
+        name = lane or self._lane().name
+        per_lane = self.record.get("lane_generations", {})
+        chain = per_lane[name] if name in per_lane else self.record.get("bridge_generations", [])
+        return list(chain)
+
+    def _acknowledge_lane_chain(self) -> None:
+        """Record that the CURRENT lane's peer is now stamped with this generation.
+
+        Trims only this lane's view. The shared chain (what a never-acknowledged
+        lane is owed) collapses only once EVERY lane has acknowledged, which is
+        the point at which nothing older can still be held by any host.
+        """
+        per_lane = dict(self.record.get("lane_generations", {}))
+        per_lane[self._lane().name] = [self.generation]
+        self.record["lane_generations"] = per_lane
+        if all(per_lane.get(lane) == [self.generation] for lane in _REPLAY_LANES):
+            self.record["bridge_generations"] = [self.generation]
+
     def params(self) -> dict[str, Any]:
         self.initialize()
         return {
@@ -572,7 +772,7 @@ class BrowserResource:
             "owner_proof": str(self.record["proof"]),
             "owner_generation": self.generation,
             "previous_generation": self.previous_generation,
-            "previous_generations": self.record["bridge_generations"],
+            "previous_generations": self.lane_generations(),
             "allocation_id": str(self.record["allocation_id"]),
             # This owner is a NEW RUN over a scope that already settled. The
             # generation is reused (B1), so it is the only evidence the
@@ -620,8 +820,8 @@ class BrowserResource:
         """
         return self._record_owes_reconciliation(self.record)
 
-    def _peer_identity(self) -> tuple[str, int] | None:
-        """The peer's (version, proto), or None when it cannot be told.
+    def _peer_identity(self) -> tuple[str, int] | tuple[str, int, str] | None:
+        """The peer's (version, proto[, UI instance]), or None when unknown.
 
         Read from the DISCOVERY FILE rather than a socket: the host publishes
         these from the same live state `/health` serves, and this is consulted on
@@ -639,6 +839,67 @@ class BrowserResource:
         """
         return self._lane().discovery.peer_identity()
 
+    def refresh_identity(self) -> None:
+        """Invalidate the cached verdict when the peer identity actually CHANGED.
+
+        Discovery is never proof, and an unknown discovery is not proof of a
+        changed incarnation either. ``_peer_identity`` returns ``None`` for
+        "cannot tell" (the record is gone or unreadable), so WITHIN ONE LANE a
+        ``None`` result must NOT be compared against a learned peer: a host that
+        flaps A -> None -> A would otherwise invalidate twice and force a needless
+        re-recovery each time. Reset only when a RESOLVED peer differs from the
+        learned one; a transient ``None`` leaves the learned verdict intact.
+
+        That rule is per-lane and deliberately NOT absolute. Two other outcomes
+        are intended and are the opposite of "no churn": this method still CLEARS
+        ``recovered`` (forcing a reconcile) on a resolved same-lane peer change,
+        which is exactly the CR1 defect's cure; and it drops the cached
+        ``ownership`` verdict on a LANE move without touching any lane's
+        reconciliation state (see the lane-scope branch below). "Does not churn
+        on None" governs the same-lane unresolvable case only.
+
+        The cache is LANE-SCOPED. ``_peer_identity`` reads the CURRENT lane's
+        discovery while ``_ownership_peer`` may have been learned on the other
+        lane (a `bridge` peer versus a `ui` peer are different shapes entirely),
+        and `_retarget_lane` can move the lane without clearing the learned flag.
+        Comparing across lanes would misread a lane move as an incarnation change
+        and issue a spurious ``owner_recover`` before an ordinary finish. So when
+        the resolved lane differs from the one the cache was learned on, the
+        verdict is dropped and the peer is RE-SCOPED to the new lane WITHOUT
+        being treated as a change (re-learn lazily). Only a change WITHIN the same
+        lane resets that lane's ``recovered``.
+
+        Whether a lane move owes a recovery is decided by the per-lane
+        ``recovered`` state, not by this branch: a lane already reconciled (or
+        that just served this run's successful allocation, see ``remember``) owes
+        nothing, and a lane never reconciled in this run owes exactly one.
+        """
+        lane = self._lane().name
+        if lane != self._ownership_peer_lane:
+            self._ownership_peer_lane = lane
+            self._ownership_peer = self._peer_identity()
+            self.ownership = None
+            return
+        peer = self._peer_identity()
+        if peer is not None and peer != self._ownership_peer:
+            self._ownership_peer = peer
+            self.ownership = None
+            self.recovered = False
+
+    async def ensure_recovered(self) -> None:
+        """Refresh/recover under the caller's resource lock, without minting proof.
+
+        The refresh runs FIRST, so an incarnation change (which clears
+        ``recovered`` inside ``refresh_identity``) is what decides — never a
+        stale flag consulted before the fingerprint (review R1 CR1). This is the
+        ONE place the ordinary action and the finalizer both go through, so
+        there is no second spelling of "do we owe an automatic recovery".
+        """
+        self.refresh_identity()
+        if self.recovered:
+            return
+        await self.recover()
+
     def ownership_mode(self) -> bool | None:
         """The cached ownership verdict, invalidated when the PEER changed.
 
@@ -653,10 +914,7 @@ class BrowserResource:
         Returns None when it has not been learned for this peer yet — callers
         must treat that as "must ask", never as "unavailable".
         """
-        peer = self._peer_identity()
-        if peer != self._ownership_peer:
-            self._ownership_peer = peer
-            self.ownership = None
+        self.refresh_identity()
         return self.ownership
 
     def _peer_is_pre_ownership(self) -> bool:
@@ -677,7 +935,7 @@ class BrowserResource:
             # extension. A UI host that answers the wire at all ships the whole
             # method set, so it can never be read as old.
             return False
-        version, _proto = peer
+        version = peer[0]
         return extension_older(version, OWNERSHIP_MIN_EXTENSION_VERSION)
 
     async def recover(self) -> dict[str, Any]:
@@ -756,6 +1014,31 @@ class BrowserResource:
                 raise BrowserOwnershipError(
                     _ownership_requires_update_message(self._lane().name)
                 ) from exc
+            if exc.code is ErrorCode.OWNER_REFUSED:
+                # A typed refusal from an ownership-AWARE peer. The peer now also
+                # says WHICH kind via an additive `data.refusal` discriminator, so
+                # the two are told apart without substring-matching the message:
+                #
+                #   * `stale`   — our own generation/predecessor is behind; the
+                #     remedy is a resume, the ordinary same-session case.
+                #   * `foreign` — the proof/session/shape is not ours at all (a
+                #     different owner, a tab that belongs to another allocation).
+                #     Never retried as if it were our own staleness.
+                #
+                # The distinction is CARRIED, not inferred: an older peer that
+                # predates the key omits it, which reads as unknown and keeps the
+                # prior bare-refusal behaviour (the failure still stands).
+                refusal = str(exc.data.get("refusal") or "")
+                if refusal == "stale":
+                    raise BrowserOwnershipError(
+                        "browser owner generation is stale; resume this session's scope "
+                        "before browsing"
+                    ) from exc
+                if refusal == "foreign":
+                    raise BrowserOwnershipError(
+                        "this browser scope belongs to a different owner; no action taken"
+                    ) from exc
+                raise
             if exc.code is ErrorCode.INTERNAL and (
                 "timeout_s" not in exc.data and not exc.data.get("stalled")
             ):
@@ -808,9 +1091,10 @@ class BrowserResource:
             else str(result.get("state", "unresolved"))
         )
         if result.get("state") != "unresolved":
-            # Acknowledged CAS collapses the crash-replay chain. Before this
-            # receipt every attempted generation remains a possible peer state.
-            self.record["bridge_generations"] = [self.generation]
+            # Acknowledged CAS collapses THIS lane's crash-replay chain. Before
+            # this receipt every attempted generation remains a possible peer
+            # state, and the OTHER lane's receipt is still outstanding.
+            self._acknowledge_lane_chain()
         # The extension has now retired its copy, so the obligation is
         # discharged. Held until the ACK rather than cleared when it was
         # written: an unacknowledged resume must be replayed, and leaving it
@@ -875,6 +1159,12 @@ class BrowserResource:
             # a capability held on another host keeps it too (see `select_host`).
             if surface_id:
                 self._retarget_lane(host)
+                # The host that just SERVED an open under this run's generation
+                # holds a scope stamped with it (a strict-fence peer refuses the
+                # open otherwise), so it owes no reconciliation before the
+                # finish. Without this, per-lane state would make the lane move
+                # after a fresh allocation send a spurious `owner_recover`.
+                self.recovered = True
             else:
                 self.select_host(host)
         if self.host:
@@ -917,8 +1207,7 @@ class BrowserResource:
         try:
             async with self.lock:
                 self.assert_current()
-                if not self.recovered:
-                    await self.recover()
+                await self.ensure_recovered()
                 # A link with no ownership lifecycle settles through the plain
                 # `close` verb instead. Without this the fallback that keeps the
                 # tool working would strand the very tab it opened: `owner_finish`

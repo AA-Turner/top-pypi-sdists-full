@@ -13,7 +13,7 @@ from schemathesis.resources import PoolDraw
 from schemathesis.specs.openapi.checks import object_level_authorization
 from schemathesis.specs.openapi.extra_data_source import referenced_by
 from schemathesis.specs.openapi.object_authorization import is_equivalent, listing_case, listings, path_resource
-from test.utils import check_context
+from test.utils import check_context, crash_cache_dir
 
 ORDER_SCHEMA = {
     "type": "object",
@@ -113,6 +113,23 @@ def test_peer_read_is_reported(cli, ctx, tmp_path, snapshot_cli, phases):
     assert _run(cli, api, tmp_path, phases=phases) == snapshot_cli
 
 
+def test_reproduction_names_the_sender(cli, ctx, tmp_path, snapshot_cli):
+    api = ctx.openapi.apps.wfc_owned_orders("vulnerable")
+    assert _run(cli, api, tmp_path) == snapshot_cli
+
+
+def test_stateful_reproduction_names_each_sender(cli, ctx, tmp_path):
+    api = ctx.openapi.apps.wfc_owned_orders("vulnerable")
+    _run(cli, api, tmp_path, phases="stateful")
+    (crash_file,) = crash_cache_dir(tmp_path).glob("*_object_level_authorization_*.json")
+    code_sample = json.loads(crash_file.read_text())["code_sample"]
+    assert [line for line in code_sample.splitlines() if line.startswith("#")] == [
+        "# as alice (owner)",
+        "# as alice (owner)",
+        "# as bob (peer)",
+    ]
+
+
 @pytest.mark.parametrize("phases", ["fuzzing", "stateful"])
 @pytest.mark.parametrize(
     ("app", "reported", "probed"),
@@ -145,9 +162,31 @@ def test_without_peers_no_probe_is_sent(cli, ctx, tmp_path):
     assert _peer_requests(api.requests) == []
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+@pytest.mark.parametrize(
+    "checks", ["--checks=object_level_authorization", "--exclude-checks=ignored_auth"], ids=["selected", "default"]
+)
+def test_without_peers_warns_only_when_selected(cli, ctx, snapshot_cli, checks):
+    api = ctx.openapi.apps.wfc_owned_orders("vulnerable")
+    assert (
+        cli.run(
+            api.schema_url,
+            "--max-examples=10",
+            "--phases=fuzzing",
+            # Negative bodies fail `POST /api/orders` with a platform-dependent minimal example
+            "--mode=positive",
+            checks,
+            "-H",
+            "Authorization: ApiKey alice",
+        )
+        == snapshot_cli
+    )
+
+
 def test_cli_wfc_path_preserves_configured_peers(cli, ctx, tmp_path):
     api = ctx.openapi.apps.wfc_owned_orders("vulnerable")
     auth = _auth_file(tmp_path)
+    path = tmp_path / "report.json"
 
     result = cli.run(
         api.schema_url,
@@ -155,10 +194,91 @@ def test_cli_wfc_path_preserves_configured_peers(cli, ctx, tmp_path):
         "--phases=fuzzing",
         "--checks=object_level_authorization",
         f"--auth-wfc={auth}",
+        f"--report-wfc-path={path}",
         config={"auth": {"wfc": {"path": auth, "peers": ["alice", "bob"]}}},
     )
 
     assert (result.exit_code, bool(_peer_requests(api.requests))) == (1, True), result.stdout
+    report = json.loads(path.read_text(encoding="utf-8"))
+    (fault,) = report["faults"]["foundFaults"]
+    assert (fault["operationId"], [category["code"] for category in fault["faultCategories"]]) == (
+        "GET:/api/orders/{order_id}",
+        [906],
+    )
+    assert fault["testCaseId"] in {test_case["id"] for test_case in report["testCases"]}
+
+
+def _replay(cli, tmp_path, *, users=PEERS_AUTH["auth"], peers=("alice", "bob")):
+    path = tmp_path / "replay-auth.json"
+    path.write_text(json.dumps({"auth": users}))
+    wfc = {"path": str(path)}
+    if peers:
+        wfc["peers"] = list(peers)
+    return cli.main("replay", config={"auth": {"wfc": wfc}})
+
+
+def _senders(api):
+    return [(request.method, request.headers.get("Authorization")) for request in api.requests]
+
+
+def _strip_identities(tmp_path):
+    for path in crash_cache_dir(tmp_path).glob("*.json"):
+        data = json.loads(path.read_text())
+        for step in data.get("sequence", ()):
+            step.pop("auth_identity", None)
+        path.write_text(json.dumps(data))
+
+
+ALICE = "ApiKey alice"
+BOB = "ApiKey bob"
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+@pytest.mark.parametrize(
+    ("phases", "replayed"),
+    [
+        # The owner read, the recorded peer read, then the re-run check's own peer and anonymous probes.
+        ("fuzzing", [("GET", ALICE), ("GET", BOB), ("GET", BOB), ("GET", None)]),
+        ("stateful", [("POST", ALICE), ("GET", ALICE), ("GET", BOB), ("GET", BOB), ("GET", None)]),
+    ],
+)
+def test_replay_sends_each_step_as_its_recorded_identity(cli, ctx, tmp_path, snapshot_cli, phases, replayed):
+    api = ctx.openapi.apps.wfc_owned_orders("vulnerable")
+    _run(cli, api, tmp_path, phases=phases)
+    api.requests.clear()
+
+    assert _replay(cli, tmp_path) == snapshot_cli
+    assert _senders(api) == replayed
+
+
+@pytest.mark.parametrize(
+    ("phases", "replayed"),
+    [
+        ("fuzzing", [("GET", ALICE), ("GET", ALICE), ("GET", BOB), ("GET", None)]),
+        ("stateful", [("POST", ALICE), ("GET", ALICE), ("GET", ALICE)] * 3),
+    ],
+)
+def test_replay_without_recorded_identities_uses_the_current_one(cli, ctx, tmp_path, phases, replayed):
+    api = ctx.openapi.apps.wfc_owned_orders("vulnerable")
+    _run(cli, api, tmp_path, phases=phases)
+    _strip_identities(tmp_path)
+    api.requests.clear()
+
+    _replay(cli, tmp_path)
+
+    assert _senders(api) == replayed
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_replay_with_recorded_identity_not_configured(cli, ctx, tmp_path, snapshot_cli):
+    api = ctx.openapi.apps.wfc_owned_orders("vulnerable")
+    _run(cli, api, tmp_path, phases="stateful")
+    api.requests.clear()
+
+    carol = {"name": "carol", "fixedHeaders": [{"name": "Authorization", "value": "ApiKey carol"}]}
+
+    assert _replay(cli, tmp_path, users=[PEERS_AUTH["auth"][0], carol], peers=()) == snapshot_cli
+    assert api.requests == []
 
 
 @pytest.mark.parametrize(

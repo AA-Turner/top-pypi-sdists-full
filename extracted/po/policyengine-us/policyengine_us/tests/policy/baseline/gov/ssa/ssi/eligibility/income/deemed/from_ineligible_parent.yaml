@@ -1,0 +1,118 @@
+- name: Example 1 from https://www.law.cornell.edu/cfr/text/20/416.1165#h
+  period: 1992
+  absolute_error_margin: 0
+  input:
+    people:
+      henry:
+        age: 12 # Assumed, just needs to be a child
+        is_ssi_disabled: true
+      henrys_brother:
+        age: 12
+      henrys_mother:
+        pension_income: 365 * 12
+        own_children_in_household: 2
+      henrys_father:
+        employment_income: 1_165 * 12
+        own_children_in_household: 2
+    tax_units:
+      tax_unit:
+        members: [henry, henrys_brother, henrys_mother, henrys_father]
+    marital_units:
+      marital_unit:
+        members: [henrys_mother, henrys_father]
+  output:
+    ssi_countable_income: [372, 0, 0, 0] # 31 * 12
+
+- name: Example 2 from https://www.law.cornell.edu/cfr/text/20/416.1165#h
+  period: 1992
+  absolute_error_margin: 0
+  input:
+    people:
+      james:
+        is_ssi_disabled: true
+        age: 12
+      tony:
+        is_ssi_disabled: true
+        age: 12
+      mother:
+        ssi_unearned_income: 542 * 12
+        own_children_in_household: 2
+    tax_units:
+      tax_unit:
+        members: [james, tony, mother]
+    marital_units:
+      marital_unit:
+        members: []
+  output:
+    ssi_countable_income: [360, 360, 0] # 30 * 12
+
+# Skip Example 3 due to sponsored alien dependency
+
+- name: Example 4 from https://www.law.cornell.edu/cfr/text/20/416.1165#h
+  period: 1992
+  absolute_error_margin: 0
+  input:
+    people:
+      jack:
+        is_ssi_disabled: true
+        age: 12
+      jacks_first_brother:
+        age: 12
+      jacks_second_brother:
+        age: 12
+      jacks_mother:
+        pension_income: 350 * 12
+        own_children_in_household: 3
+      jacks_father:
+        employment_income: 1_525 * 12
+        own_children_in_household: 3
+    tax_units:
+      tax_unit:
+        members: [jack, jacks_first_brother, jacks_second_brother, jacks_mother, jacks_father]
+    marital_units:
+      marital_unit:
+        members: [jacks_mother, jacks_father]
+  output:
+    ssi_countable_income: [372, 0, 0, 0, 0] # 31 * 12
+
+- name: Parental deeming excludes parent's and sibling's pretax premiums before allocations.
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    people:
+      recipient:
+        age: 12
+        is_ssi_disabled: true
+      sibling:
+        age: 14
+        employment_income: 2_400
+        pre_tax_health_insurance_premiums: 1_200
+      parent:
+        age: 40
+        is_parent: true
+        employment_income: 36_000
+        pre_tax_health_insurance_premiums: 3_600
+    tax_units:
+      tax_unit:
+        members: [recipient, sibling, parent]
+    # A parent and children are not a married couple. Explicit singleton
+    # units prevent default grouping from also applying spousal deeming.
+    marital_units:
+      recipient_unit:
+        members: [recipient]
+      sibling_unit:
+        members: [sibling]
+      parent_unit:
+        members: [parent]
+  output:
+    # POMS SI 00820.102C.2: parent wages 32,400; sibling wages 1,200.
+    # 20 CFR 416.1165(b): sibling allocation = (1,450 - 967) * 12
+    # - 1,200 = 4,596, leaving parent wages of 27,804.
+    # Under (d), (27,804 - 20 * 12 - 65 * 12) / 2 - 967 * 12 = 1,788.
+    # Under (e)(1), child's countable unearned income = 1,788 - 20 * 12 = 1,548.
+    ssi_earned_income: [0, 1_200, 32_400]
+    ssi_ineligible_child_allocation: [0, 4_596, 0]
+    ssi_unearned_income_deemed_from_ineligible_parent: [1_788, 0, 0]
+    is_ssi_spousal_deeming_applies: [false, false, false]
+    ssi_income_deemed_from_ineligible_spouse: [0, 0, 0]
+    ssi_countable_income: [1_548, 0, 0]

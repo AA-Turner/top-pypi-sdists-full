@@ -30,7 +30,6 @@ from .version import __version__
 # back to a sentinel that no `get_origin` result will ever equal.
 _UNION_ORIGINS = (Union, getattr(types, "UnionType", type(None)))
 
-# Set up logging
 logger = logging.getLogger("kolo.mcp")
 handler = logging.StreamHandler()
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -38,10 +37,8 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
-# Define protocol constants
 PROTOCOL_VERSION = "2024-11-05"
 
-# Type definitions
 T = TypeVar("T")
 ToolFunc = Callable[..., Any]
 
@@ -120,7 +117,6 @@ class MCPServer:
             type_hints = get_type_hints(func)
             description = func.__doc__ or ""
 
-            # Extract parameter information
             sig = inspect.signature(func)
             properties = {}
             required = []
@@ -131,11 +127,8 @@ class MCPServer:
 
                 param_type = type_hints.get(name, Any)
 
-                # Unwrap Optional[T] / Union[T, None] before downstream type
-                # checks: typing aliases like Optional[str] are not runtime
-                # `type` instances, so they would otherwise fall through to
-                # the {"type": "object"} default and produce a schema that
-                # rejects valid string inputs.
+                # Unwrap Optional[T] first: typing aliases aren't `type` instances and would fall
+                # through to the {"type": "object"} default, rejecting valid inputs.
                 is_optional = False
                 if get_origin(param_type) in _UNION_ORIGINS:
                     args = [a for a in get_args(param_type) if a is not type(None)]
@@ -148,18 +141,12 @@ class MCPServer:
                 if is_optional:
                     prop = {"anyOf": [prop, {"type": "null"}]}
 
-                # Check if parameter has default (is optional)
                 if param.default is inspect.Parameter.empty:
                     required.append(name)
                 else:
-                    # Add default value if available
                     if param.default is not None:
-                        # Ensure default values have proper types in schema
                         if isinstance(param.default, bool):
-                            # Make sure boolean defaults are properly typed
                             prop["default"] = param.default
-                            # Force type to boolean for boolean defaults;
-                            # an Optional's anyOf already allows null too.
                             if not is_optional:
                                 prop["type"] = "boolean"
                         else:
@@ -167,7 +154,6 @@ class MCPServer:
 
                 properties[name] = prop
 
-            # Create JSON schema for the tool
             input_schema = {
                 "type": "object",
                 "title": f"{tool_name}Arguments",
@@ -177,7 +163,6 @@ class MCPServer:
             if required:
                 input_schema["required"] = required
 
-            # Register the tool
             self.tools[tool_name] = Tool(
                 name=tool_name,
                 func=func,
@@ -195,14 +180,12 @@ class MCPServer:
         try:
             logger.debug(f"Handling request: {request_data.strip()}")
 
-            # Parse the request data
             try:
                 request = json.loads(request_data)
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON: {e}")
                 return self._error_response(None, -32700, f"Parse error: {str(e)}")
 
-            # Extract JSON-RPC fields
             jsonrpc = request.get("jsonrpc")
             method = request.get("method")
             params = request.get("params", {})
@@ -225,17 +208,13 @@ class MCPServer:
                 logger.debug(f"Tools list response JSON: {response}")
                 return response
             elif method == "roots/list":
-                # Handle roots/list request
                 response = self._roots_list_response(request_id)
                 logger.debug(f"Roots list response JSON: {response}")
                 return response
             elif method == "tools/call":
-                # Handle tools/call method (used by Anthropics MCP tool inspector)
                 logger.info("Processing tools/call method")
                 tool_name = params.get("name")
-                tool_params = params.get(
-                    "arguments", {}
-                )  # Changed from parameters to arguments
+                tool_params = params.get("arguments", {})
 
                 if not tool_name:
                     logger.warning("Tool name not provided in tools/call")
@@ -254,12 +233,9 @@ class MCPServer:
                 logger.debug(f"Tool execution response JSON: {response}")
                 return response
             elif method.startswith("notifications/"):
-                # Handle notifications (like cancelled requests)
                 notification_type = method.split("/")[1]
                 logger.info(f"Received notification: {notification_type}")
 
-                # No response needed for notifications as per JSON-RPC spec
-                # Just acknowledge with an empty success response
                 return json.dumps({"jsonrpc": "2.0", "id": request_id, "result": {}})
             elif method.startswith("tools/execute/"):
                 tool_name = method.split("/")[-1]
@@ -346,21 +322,17 @@ class MCPServer:
             )
 
         try:
-            # Call the tool function with the provided parameters
             logger.info(f"Calling tool function: {tool_name}")
             logger.debug(f"Tool params: {params}")
             result = tool.func(**params)
 
-            # Handle async functions
             if inspect.iscoroutine(result):
                 logger.debug(f"Awaiting coroutine result for tool: {tool_name}")
                 result = await result
 
             logger.info(f"Tool {tool_name} result: {result}")
 
-            # Format the response according to MCP protocol
             if isinstance(result, List):
-                # For lists, we need to format each item as a separate line item
                 content_items = []
                 for item in result:
                     content_items.append({"type": "text", "text": str(item)})
@@ -371,7 +343,6 @@ class MCPServer:
                     "result": {"content": content_items},
                 }
             else:
-                # For non-list results, use the standard format
                 response = {
                     "jsonrpc": "2.0",
                     "id": request_id,
@@ -418,7 +389,6 @@ class MCPServer:
         """Run the server reading from stdin and writing to stdout."""
         logger.info("Starting MCP server on stdio transport")
         try:
-            # Simpler approach based on the FastMCP implementation pattern
             while True:
                 line = await self.read_stdin_line()
                 if not line:
@@ -428,15 +398,11 @@ class MCPServer:
                 if line.strip():
                     try:
                         if line.startswith("{"):
-                            # Direct JSON-RPC request
                             request_data = line
                         else:
-                            # Header-based request
                             if line.startswith("Content-Length:"):
                                 content_length = int(line.strip().split(": ")[1])
-                                # Skip empty line
                                 await self.read_stdin_line()
-                                # Read the content
                                 request_data = (
                                     await asyncio.get_event_loop().run_in_executor(
                                         None,
@@ -449,13 +415,10 @@ class MCPServer:
                                 logger.warning(f"Invalid header: {line.strip()}")
                                 continue
 
-                        # Handle the request
                         response = await self.handle_request(request_data)
 
-                        # Log the response for debugging
                         logger.debug(f"Response: {response}")
 
-                        # Write response - always with newline for MCP tool inspector
                         sys.stdout.write(response)
                         sys.stdout.write("\n")
                         sys.stdout.flush()
@@ -463,7 +426,6 @@ class MCPServer:
                         logger.error(f"Error handling request: {e}")
                         logger.error(traceback.format_exc())
 
-                        # Send error response
                         error_response = json.dumps(
                             {
                                 "jsonrpc": "2.0",

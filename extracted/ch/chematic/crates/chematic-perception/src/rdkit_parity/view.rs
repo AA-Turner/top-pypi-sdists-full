@@ -141,17 +141,40 @@ fn has_aromatic_macrocycle_bridge_donor(mol: &Molecule) -> bool {
         return false;
     }
 
-    // Do not seed the public SSSR cache while computing another derived
-    // cache slot. Besides avoiding unnecessary cache traffic for this rare
-    // input class, this keeps perception's dev-dependency cycle from placing
-    // a RingSet with a different crate-instance TypeId into the same slot.
-    let rings = crate::sssr::find_sssr_uncached(mol);
-    candidates.into_iter().any(|idx| {
-        rings
-            .rings()
-            .iter()
-            .any(|ring| ring.len() >= 9 && ring.contains(&idx))
-    })
+    candidates
+        .into_iter()
+        .any(|idx| shortest_cycle_size_through(mol, idx).is_some_and(|size| size >= 9))
+}
+
+/// Size of the smallest cycle containing `center`.
+///
+/// The bridge-donor rule only reaches degree-two atoms, so the cycle is the
+/// shortest path between their two neighbours with `center` removed, plus
+/// the two incident bonds. A bounded BFS avoids constructing a complete SSSR
+/// family merely to distinguish a five-membered heterocycle from a
+/// macrocycle; this is a hot descriptor/parsing shortcut for ordinary furan
+/// and thiophene inputs.
+fn shortest_cycle_size_through(mol: &Molecule, center: AtomIdx) -> Option<usize> {
+    let neighbors: Vec<_> = mol.neighbors(center).map(|(atom, _)| atom).collect();
+    let [start, goal]: [AtomIdx; 2] = neighbors.try_into().ok()?;
+    let mut distance = vec![usize::MAX; mol.atom_count()];
+    let mut queue = std::collections::VecDeque::new();
+    distance[start.0 as usize] = 0;
+    queue.push_back(start);
+    while let Some(atom) = queue.pop_front() {
+        let next_distance = distance[atom.0 as usize] + 1;
+        for (neighbor, _) in mol.neighbors(atom) {
+            if neighbor == center || distance[neighbor.0 as usize] != usize::MAX {
+                continue;
+            }
+            if neighbor == goal {
+                return Some(next_distance + 2);
+            }
+            distance[neighbor.0 as usize] = next_distance;
+            queue.push_back(neighbor);
+        }
+    }
+    None
 }
 
 fn model_from_explicit_aromaticity(mol: &Molecule) -> AromaticityModel {
@@ -211,6 +234,23 @@ fn parity_shortcut(mol: &Molecule) -> ParityShortcut {
         // so ordinary molecules do not need a second full atom scan.
         if model_may_disagree && crate::rdkit_cleanup::rdkit_sanitize_cleanup_needed(mol) {
             return ParityShortcut::Full;
+        }
+        // The existing complete-preperceived test returns Identity for a
+        // forest with no aromatic flags, and for fully saturated graphs.
+        // Reuse those proofs before building cyclic-component scratch data.
+        // Unusual models retain the full checks and cleanup behavior above.
+        if !model_may_disagree
+            && !mol.atoms().any(|(_, atom)| atom.aromatic)
+            && (mol.bonds().all(|(_, bond)| {
+                matches!(
+                    bond.order,
+                    BondOrder::Single | BondOrder::Up | BondOrder::Down
+                )
+            }) || mol
+                .derived_if_computed::<Vec<bool>>(chematic_core::DerivedSlot::RingBondFlags)
+                .is_some_and(|flags| !flags.iter().any(|&cyclic| cyclic)))
+        {
+            return ParityShortcut::Identity;
         }
         let info = ComponentInfo::new(mol);
         if has_aromatic_macrocycle_bridge_donor(mol) {

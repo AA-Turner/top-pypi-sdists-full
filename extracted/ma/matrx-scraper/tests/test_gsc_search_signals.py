@@ -18,7 +18,7 @@ What these tests pin:
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -28,6 +28,7 @@ from matrx_scraper.web_crawl.analysis import (
     GSC_DECAY_MIN_BASELINE_CLICKS,
     GSC_DECAY_MIN_HISTORY_DAYS,
     GSC_PERIOD_DAYS,
+    GSC_STALE_DAYS,
     CROSS_PAGE_CHECKS,
     GscPeriod,
     PageFacts,
@@ -41,7 +42,9 @@ from matrx_scraper.web_crawl.analysis import (
 )
 
 PAGE_ID = "page-1"
-LATEST = date(2026, 7, 26)
+# Rule: gsc_ctr_opportunity is n_a when the newest GSC date is > GSC_STALE_DAYS (14)
+# old, so the synced day is relative to today (GSC lags ~2 days).
+LATEST = date.today() - timedelta(days=2)
 GSC_CHECKS = (_check_gsc_ctr_opportunity, _check_gsc_performance_decay)
 
 
@@ -154,6 +157,28 @@ def test_ctr_at_the_impression_floor_is_scored():
     assert outcome.score is not None
 
 
+def test_ctr_stale_gsc_data_is_n_a_naming_the_date():
+    """Rule: the newest GSC date older than GSC_STALE_DAYS makes the check n_a."""
+    stale = date.today() - timedelta(days=GSC_STALE_DAYS + 1)
+    aggregates = site(current=GscPeriod(clicks=0, impressions=2_000, position=3.0))
+    aggregates.gsc.latest_date = stale
+    outcome = _check_gsc_ctr_opportunity(facts(), aggregates)
+    assert_db_valid(outcome)
+    assert outcome.status == "n_a"
+    assert f"{stale:%-d %b %Y}" in outcome.reasoning
+    assert outcome.remediation is not None and outcome.remediation.command == "gsc_sync"
+
+
+def test_ctr_below_the_missed_click_gate_is_not_judged():
+    """Rule: under GSC_CTR_MIN_MISSED_CLICKS recoverable clicks, a poor CTR is n_a —
+    never a "pass" (the CTR is not good; it is just not worth a finding)."""
+    outcome = _check_gsc_ctr_opportunity(
+        facts(), site(current=GscPeriod(clicks=0, impressions=194, position=6.7))
+    )
+    assert outcome.status == "n_a"
+    assert outcome.evidence["missed_clicks"] < 10
+
+
 def test_ctr_impressions_without_a_position_cannot_be_judged():
     outcome = _check_gsc_ctr_opportunity(
         facts(), site(current=GscPeriod(clicks=5, impressions=500, position=None))
@@ -223,7 +248,8 @@ def test_ctr_evidence_names_the_clicks_that_went_elsewhere():
     [
         (1, 306, "1 person clicked"),
         (4, 1_324, "4 people clicked"),
-        (0, 194, "0 people clicked"),
+        # 194 impressions now misses only 8 clicks (< 10 missed-clicks gate): scaled to 300.
+        (0, 300, "0 people clicked"),
     ],
 )
 def test_ctr_reasoning_is_written_for_a_person(clicks, impressions, fragment):

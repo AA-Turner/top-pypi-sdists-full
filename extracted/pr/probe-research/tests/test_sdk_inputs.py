@@ -227,7 +227,7 @@ def test_a_file_that_moved_since_the_read_is_unstable(tmp_path) -> None:
     st = os.stat(data)
     ident = inputs._ident(st)
     data.write_bytes(b"b" * 200)
-    assert inputs.hash_file(str(data), ident, cache=None, budget=[1 << 40]) == (None, None)
+    assert inputs.hash_file(str(data), ident, cache=None, budget=[1 << 40]) == (None, None, None)
 
 
 def test_big_files_and_an_exhausted_budget_get_a_fingerprint(tmp_path, monkeypatch) -> None:
@@ -235,14 +235,14 @@ def test_big_files_and_an_exhausted_budget_get_a_fingerprint(tmp_path, monkeypat
     st = os.stat(data)
     ident = inputs._ident(st)
     monkeypatch.setattr(inputs, "FULL_HASH_MAX_BYTES", 1000)
-    sha, fp = inputs.hash_file(str(data), ident, cache=None, budget=[1 << 40])
-    assert sha is None and fp.startswith("3000:")
+    sha, fp, rows = inputs.hash_file(str(data), ident, cache=None, budget=[1 << 40])
+    assert sha is None and fp.startswith("3000:") and rows is None
     monkeypatch.setattr(inputs, "FULL_HASH_MAX_BYTES", 1 << 30)
     # Past the budget a fingerprint is taken only if the budget can pay for
     # the edges it reads (F2c: every byte counts)...
     monkeypatch.setattr(inputs, "EDGE_BYTES", 100)
     budget = [500]
-    sha, fp = inputs.hash_file(str(data), ident, cache=None, budget=budget)
+    sha, fp, _rows = inputs.hash_file(str(data), ident, cache=None, budget=budget)
     assert sha is None and fp is not None and budget == [300]
     # ...and when it cannot, nothing is read at all.
     budget = [10]
@@ -260,7 +260,7 @@ def test_the_machine_cache_hashes_a_file_once(tmp_path, monkeypatch) -> None:
     real_open = open
     monkeypatch.setattr("builtins.open", lambda *a, **k: opened.append(a) or real_open(*a, **k))
     second = inputs.hash_file(str(data), ident, cache=inputs._HashCache(), budget=[1 << 40])
-    assert first == second == (_sha(b"d" * 2000), None)
+    assert first == second == (_sha(b"d" * 2000), None, None)
     assert not any(str(data) in str(a[0]) for a in opened)
 
 
@@ -313,7 +313,7 @@ def test_finishing_never_waits_past_its_budget_on_a_stalled_file(tmp_path, monke
     data.read_bytes()
     time.sleep(0.3)
     inputs._hash_results.clear()
-    monkeypatch.setattr(inputs, "hash_file", lambda *a, **k: time.sleep(2) or ("x", None))
+    monkeypatch.setattr(inputs, "hash_file", lambda *a, **k: time.sleep(2) or ("x", None, None))
     began = time.monotonic()
     rows, coverage = inputs.collect("run-stall", wait_s=0.2)
     assert time.monotonic() - began < 2
@@ -333,10 +333,11 @@ def test_a_budget_fingerprint_is_not_cached_as_the_files_answer(tmp_path, monkey
     data = _data_file(tmp_path, "small.bin", b"q" * 3000)
     ident = inputs._ident(os.stat(data))
     cache = inputs._HashCache()
-    sha, fp = inputs.hash_file(str(data), ident, cache=cache, budget=[500])
+    sha, fp, _rows = inputs.hash_file(str(data), ident, cache=cache, budget=[500])
     assert sha is None and fp is not None
     assert inputs.hash_file(str(data), ident, cache=cache, budget=[1 << 40]) == (
         _sha(b"q" * 3000),
+        None,
         None,
     )
 
@@ -417,9 +418,9 @@ def test_a_system_python_does_not_hide_usr_src(monkeypatch) -> None:
 def test_a_budget_fingerprint_stays_with_its_run() -> None:
     own: dict = {}
     small, big = (1, 2, 100, 3, 4), (1, 3, inputs.FULL_HASH_MAX_BYTES + 1, 3, 4)
-    inputs._keep((None, "fp"), small, own)
-    inputs._keep((None, "fp"), big, own)
-    inputs._keep(("sha", None), (1, 4, 100, 3, 4), own)
+    inputs._keep((None, "fp", None), small, own)
+    inputs._keep((None, "fp", None), big, own)
+    inputs._keep(("sha", None, None), (1, 4, 100, 3, 4), own)
     assert small in own and small not in inputs._hash_results
     assert big in inputs._hash_results and (1, 4, 100, 3, 4) in inputs._hash_results
 
@@ -915,7 +916,7 @@ def test_ten_thousand_reads_collect_and_journal_quickly(tmp_path, monkeypatch, r
         # without paying for 10k files on disk.
         for path, ident in todo:
             digest = hashlib.sha256(path.encode()).hexdigest()
-            own[ident] = (digest, f"{1000 + len(own)}:{1727300000000000000 + len(own)}:{digest}")
+            own[ident] = (digest, f"{1000 + len(own)}:{1727300000000000000 + len(own)}:{digest}", None)
 
     monkeypatch.setattr(inputs, "_hash_within", fake_hash)
     uncached = [0]

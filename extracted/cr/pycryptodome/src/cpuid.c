@@ -35,6 +35,7 @@ FAKE_INIT(cpuid_c)
 
 #if defined HAVE_CPUID_H
 #include <cpuid.h>
+#include <immintrin.h>
 #elif defined HAVE_INTRIN_H
 #include <intrin.h>
 #endif
@@ -73,3 +74,121 @@ EXPORT_SYM int have_clmul(void)
     ecx = leaf1_ecx();
     return (ecx >> 1) & 1;
 }
+
+/** Call X86 CPUID for Leaf 7, Subleaf 0: return BX (0 if the leaf is not available) **/
+static uint32_t leaf7_ebx(void)
+{
+#if defined(HAVE_CPUID_H)
+    uint32_t eax, ebx, ecx, edx;
+
+    if (__get_cpuid_max(0, NULL) < 7)
+        return 0;
+    __cpuid_count(7, 0, eax, ebx, ecx, edx);
+    return ebx;
+#elif defined(HAVE_INTRIN_H)
+    int info[4];
+
+    /* Leaf 0: highest supported leaf in EAX */
+    __cpuid(info, 0);
+    if (info[0] < 7)
+        return 0;
+    __cpuidex(info, 7, 0);
+    return (uint32_t)info[1];
+#else
+    return 0;
+#endif
+}
+
+/** Return non-zero if the CPU supports the SHA extensions (SHA-NI),
+ * together with SSSE3 and SSE4.1 which the SHA-256 code also uses.
+ * They only use the XMM registers, so no OS support needs to be checked. **/
+EXPORT_SYM int have_sha_ni(void)
+{
+    uint32_t ecx;
+
+    /* Leaf 1: SSSE3 (bit 9) and SSE4.1 (bit 19) */
+    ecx = leaf1_ecx();
+    if ((ecx & (1UL<<9)) == 0 || (ecx & (1UL<<19)) == 0)
+        return 0;
+
+    /* Leaf 7: SHA (EBX bit 29) */
+    return (leaf7_ebx() & (1UL<<29)) ? 1 : 0;
+}
+
+#if defined(HAVE_CPUID_H)
+
+/** Read the XCR0 register, which tells which registers the OS saves on
+ * a context switch. The XGETBV instruction is only valid if CPUID reports
+ * OSXSAVE. **/
+__attribute__((target("xsave")))
+static uint64_t read_xcr0(void)
+{
+    return (uint64_t)_xgetbv(0);
+}
+
+/** Return non-zero if the CPU supports AVX2 and the OS saves the 256-bit
+ * YMM registers. **/
+EXPORT_SYM int have_avx2(void)
+{
+    uint32_t ecx;
+    const uint32_t xcr0_sse_avx = (1U<<1) | (1U<<2);
+
+    /* Leaf 1: OSXSAVE (bit 27) and AVX (bit 28) */
+    ecx = leaf1_ecx();
+    if ((ecx & (1UL<<27)) == 0 || (ecx & (1UL<<28)) == 0)
+        return 0;
+
+    /* The OS must save both the XMM and the YMM registers */
+    if ((read_xcr0() & xcr0_sse_avx) != xcr0_sse_avx)
+        return 0;
+
+    /* Leaf 7: AVX2 (EBX bit 5) */
+    return (leaf7_ebx() & (1UL<<5)) ? 1 : 0;
+}
+
+/** Return non-zero if the CPU supports BMI1 (ANDN and other bit
+ * manipulation instructions). **/
+EXPORT_SYM int have_bmi1(void)
+{
+    return (leaf7_ebx() & (1UL<<3)) ? 1 : 0;
+}
+
+/** Return non-zero if the CPU supports BMI2 (RORX and other bit
+ * manipulation instructions). **/
+EXPORT_SYM int have_bmi2(void)
+{
+    return (leaf7_ebx() & (1UL<<8)) ? 1 : 0;
+}
+
+/** Return non-zero if the CPU supports ADX (ADCX and ADOX: additions with
+ * two independent carry flags). **/
+EXPORT_SYM int have_adx(void)
+{
+    return (leaf7_ebx() & (1UL<<19)) ? 1 : 0;
+}
+
+#else
+
+/** AVX2, BMI1, BMI2 and ADX are only detected with gcc and clang for now **/
+
+EXPORT_SYM int have_avx2(void)
+{
+    return 0;
+}
+
+EXPORT_SYM int have_bmi1(void)
+{
+    return 0;
+}
+
+EXPORT_SYM int have_bmi2(void)
+{
+    return 0;
+}
+
+EXPORT_SYM int have_adx(void)
+{
+    return 0;
+}
+
+#endif

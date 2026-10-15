@@ -104,7 +104,7 @@ class Deployments(APIResource):
 
       agent_id: Owning agent; inferred from the checkpoint or serving name when omitted.
 
-      model_endpoint_config: Model Endpoint configuration for the deployment. Defaults to the exact
+      model_endpoint_config: Generation and tokenizer settings for the deployment. Defaults to the
         configuration persisted for the originating Training Service run.
 
       extra_headers: Send extra headers

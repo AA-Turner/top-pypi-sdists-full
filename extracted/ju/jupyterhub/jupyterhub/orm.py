@@ -46,7 +46,15 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.types import LargeBinary, Text, TypeDecorator
 from tornado.log import app_log
 
-from .utils import compare_token, fmt_ip_url, hash_token, new_token, random_port, utcnow
+from .utils import (
+    _TOKEN_MAX_LEN,
+    compare_token,
+    fmt_ip_url,
+    hash_token,
+    new_token,
+    random_port,
+    utcnow,
+)
 
 # top-level variable for easier mocking in tests
 utcnow = partial(utcnow, with_tz=False)
@@ -69,6 +77,15 @@ class JSONDict(TypeDecorator):
         Currently only bytes are supported
 
         """
+        if isinstance(obj, dict) and any(
+            str(key).startswith("__jupyterhub_") for key in obj
+        ):
+            app_log.warning(
+                "Reserved keys in user_options: %r; will persist None.",
+                obj.keys(),
+            )
+            return None
+
         if not isinstance(obj, bytes):
             app_log.warning(
                 "Non-jsonable data in user_options: %r; will persist None.", type(obj)
@@ -80,7 +97,12 @@ class JSONDict(TypeDecorator):
     def _object_hook(self, dct):
         """decode non-json objects packed by _json_default"""
         if dct.get("__jupyterhub_bytes__", False):
-            return decodebytes(dct['data'].encode('ascii'))
+            # don't allow failure to prevent deserialization
+            try:
+                return decodebytes(dct['data'].encode('ascii'))
+            except Exception:
+                app_log.exception("Error decoding json bytes, returning None")
+                return None
         return dct
 
     def process_bind_param(self, value, dialect):
@@ -599,6 +621,7 @@ class Hashed(Expiring):
     rounds = 16384
     salt_bytes = 8
     min_length = 8
+    max_len = _TOKEN_MAX_LEN
 
     # values to use for internally generated tokens,
     # which have good entropy as UUIDs
@@ -613,6 +636,10 @@ class Hashed(Expiring):
     @token.setter
     def token(self, token):
         """Store the hashed value and prefix for a token"""
+        if len(token) > self.max_len:
+            raise ValueError(
+                f"Cannot create tokens larger than {self.max_len} characters"
+            )
         self.prefix = token[: self.prefix_length]
         if self.generated:
             # Generated tokens are UUIDs, which have sufficient entropy on their own
@@ -1245,7 +1272,7 @@ class APIToken(Hashed, Base):
         else:
             assert service.id is not None
             orm_token.service = service
-        if expires_in:
+        if expires_in is not None:
             if not isinstance(expires_in, numbers.Real):
                 raise TypeError(
                     f"expires_in must be a positive integer or null, not {expires_in!r}"

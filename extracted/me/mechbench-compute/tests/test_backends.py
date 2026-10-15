@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import importlib.util
 import sys
 
@@ -362,3 +363,46 @@ class TestImportableWithoutABackend:
 
         with pytest.raises(ImportError, match="no compute backend"):
             _ = mechbench_compute.Model
+
+
+def test_a_job_process_keeps_mlx_and_torch_apart_and_names_both_before_importing(monkeypatch):
+    mlx = backends.Backend(name="mlx", module="json", label="", platform_label="",
+                           accelerators=("metal",), model="json:loads", marker="mlx.core")
+    torch = backends.Backend(name="torch", module="json", label="", platform_label="",
+                             accelerators=("cpu",), model="mechbench_never_imported:Model",
+                             lora="mechbench_never_imported:lora", marker="nnsight")
+    declared = (mlx, torch)
+    monkeypatch.setitem(sys.modules, "mlx.core", object())
+    monkeypatch.delitem(sys.modules, "nnsight", raising=False)
+    monkeypatch.setattr(backends, "_apart", False)
+    with pytest.raises(backends.BackendRefused, match="No module named .mechbench_never_imported"):
+        backends.load_model_class(torch, declared)
+
+    backends.keep_apart()
+    try:
+        for load in (backends.load_model_class, backends.load_lora):
+            with pytest.raises(backends.BackendRefused) as refused:
+                load(torch, declared)
+            assert "torch backend" in str(refused.value)
+            assert "mlx backend (mlx.core)" in str(refused.value)
+        assert "mechbench_never_imported" not in sys.modules
+        assert backends.load_model_class(mlx, declared) is __import__("json").loads
+        monkeypatch.setitem(sys.modules, "nnsight", object())
+        with pytest.raises(backends.BackendRefused, match=r"torch backend \(nnsight\)"):
+            backends.load_model_class(mlx, declared)
+    finally:
+        backends.keep_apart(False)
+
+
+def test_the_declared_backends_name_the_module_that_marks_each_as_loaded():
+    assert backends.find("mlx").marker == "mlx.core"
+    assert backends.find("torch").marker == "nnsight"
+
+
+def test_an_operation_a_backend_does_not_list_is_refused_by_name():
+    narrow = dataclasses.replace(backends.find("torch"), ops=("text/generate",))
+    with pytest.raises(backends.BackendRefused, match=(
+            r"^weights/circuit does not run on the torch backend yet; there it runs "
+            r"text/generate$")):
+        backends.check_op(narrow, "weights/circuit", frozenset({"model.forward"}))
+    backends.check_op(narrow, "records/python", frozenset())

@@ -28,7 +28,8 @@ from tensorfs.derived import Derivation, Part, Target, Tensor  # noqa: E402
 
 from cozy_runtime.author._activity import asides  # noqa: E402
 from cozy_runtime.author._loader import census  # noqa: E402
-from cozy_runtime.internal import accel, image_vae, paging, plane, weight_policy  # noqa: E402
+from cozy_runtime.author.kernels import rms_rope_split_half  # noqa: E402
+from cozy_runtime.internal import accel, paging, plane, weight_policy  # noqa: E402
 from cozy_runtime.internal import weights as weights_module  # noqa: E402
 from cozy_runtime.internal.derive import Observations, serving_substrate  # noqa: E402
 from cozy_runtime.internal.encoding import SPEC_PLAIN  # noqa: E402
@@ -315,15 +316,12 @@ def test_an_unbound_weight_is_parked_as_packages_know_it() -> None:
     streaming (not on the card) and failed. A weight with no plane bytes bound has a zero-byte
     storage, which is how packages already tell a parked weight; its shape, dtype and device
     stay facts."""
-    pytest.importorskip("diffusers")
     from cozy_runtime.internal.weights import unbound
-    from cozy_runtime.models.minimax_h3.official import _inspectable
 
     held = torch.nn.Parameter(torch.empty(4, 8, dtype=torch.bfloat16), requires_grad=False)
     standin = unbound(torch, held, torch.device("cpu"))
     assert standin.untyped_storage().nbytes() == 0 and standin.numel() == 32
     assert (standin.shape, standin.dtype, standin.device.type) == (held.shape, held.dtype, "cpu")
-    assert not _inspectable(standin) and _inspectable(held)
     assert standin.to(torch.float32).untyped_storage().nbytes() == 0
     # Run 2793: inside an out-of-memory retry `Tensor.to` reaches the stand-in whole (not as
     # the copy it decomposes into); the plane retyping one there mapped it, and recursed.
@@ -343,17 +341,19 @@ def test_a_kernel_launch_is_never_handed_a_weight_with_no_bytes() -> None:
     """A Triton kernel reads its operands by pointer. One that is a weight with no plane
     bytes bound, which nothing here can map (no stage owns it), is refused before the launch;
     every other operand passes through untouched."""
-    from cozy_runtime.internal import fusion
+    from cozy_runtime.internal.triton_kernels import _Launcher
     from cozy_runtime.internal.weights import ResidencyRefusal, unbound
 
     launched: list[tuple[Any, ...]] = []
-    kernel: Any = {(4, 1, 1): lambda *args: launched.append(args)}
+    compiled: Any = {"scale[]": {(4, 1, 1): lambda *args: launched.append(args)}}
+    kernel = SimpleNamespace(__name__="scale", arg_names=["x_ptr", "n", "eps"])
+    launch = _Launcher(89, compiled, {"scale": ()})
     scale = torch.ones(8)
-    fusion._Launch(kernel)[(4, 1, 1)](scale, 8, 1e-6)
+    launch(kernel, (4, 1, 1), scale, 8, 1e-6)
     assert len(launched) == 1 and launched[0][0] is scale and launched[0][1:] == (8, 1e-6)
     standin = unbound(torch, torch.nn.Parameter(torch.empty(8)), torch.device("cpu"))
     with pytest.raises(ResidencyRefusal, match="no plane bytes") as refused:
-        fusion._Launch(kernel)[(4, 1, 1)](scale, standin, 8)
+        launch(kernel, (4, 1, 1), scale, standin, 8)
     assert refused.value.code == "weight_unbound" and len(launched) == 1
 
 
@@ -452,8 +452,8 @@ class SiblingBlock(Block):
 
 
 class FusedBlock(torch.nn.Module):  # type: ignore[misc,name-defined]
-    """A Cosmos self-attention as Anima runs it: the Runtime's fused processor, which hands
-    the head norms' scales to our compiled kernel (read by pointer, outside torch)."""
+    """A self-attention whose head norms' scales our compiled RMSNorm + RoPE kernel reads by
+    pointer, outside torch (Anima's fused plan)."""
 
     heads = HEADS
 
@@ -467,12 +467,16 @@ class FusedBlock(torch.nn.Module):  # type: ignore[misc,name-defined]
         self.norm_q, self.norm_k = Scale(HIDDEN // HEADS), Scale(HIDDEN // HEADS)
 
     def forward(self, x: Any) -> Any:
-        from cozy_runtime import _kernels
-        from cozy_runtime.internal.anima_optimization import _FusedSelfAttention, _RopeMatrix
-
-        fused = _FusedSelfAttention(torch, _kernels, _RopeMatrix(torch))
+        q, k, v = (
+            getattr(self, name)(x[None]).unflatten(2, (self.heads, -1)).transpose(1, 2)
+            for name in ("to_q", "to_k", "to_v")
+        )
         turn = torch.eye(2, device=x.device).expand(1, 1, x.shape[0], 64, 2, 2).contiguous()
-        return x + torch.tanh(fused(self, x[None], image_rotary_emb=turn)[0])
+        q, k = rms_rope_split_half(
+            q, k, turn, self.norm_q.weight, self.norm_k.weight, self.norm_q.eps
+        )
+        out = torch.nn.functional.scaled_dot_product_attention(q, k, v)
+        return x + torch.tanh(self.to_out[0](out.transpose(1, 2).flatten(2, 3))[0])
 
 
 def stack_of(
@@ -546,9 +550,8 @@ def test_a_kernel_launched_outside_torch_never_reads_an_unmapped_weight(
     handed its head norms' scales to our compiled kernel while no plane bytes were bound to
     them, and the kernel read a pointer with nothing mapped behind it. The scales stay in
     `common`; and were one its own region after all (the second case), the launch maps it
-    first (`accel.readable`) and never faults the device."""
+    first (`author.kernels.readable`) and never faults the device."""
     pytest.importorskip("cozy_runtime._kernels._C")
-    pytest.importorskip("diffusers")
     own_region = small != paging.SMALL
     monkeypatch.setattr(paging, "SMALL", small)
     weights = Weights(torch, torch.device("cuda", 0), "cuda")
@@ -733,6 +736,36 @@ def test_an_activation_estimate_larger_than_the_card_never_refuses_the_stage(car
     assert same(run(model, x), reference)
 
 
+@on_gpu
+def test_an_earlier_stages_idle_cache_is_neither_kept_nor_counted(card: Any) -> None:
+    """SeedVR2 run 5937: a VAE decode left torch 5.5 GiB of idle cache; the transformer's next
+    stage was planned in what the driver had beside it (a 0.5 GiB budget), and the cache counted
+    as its activations. Before a stage plans, torch's idle cache beyond the stage's activations
+    goes back to the driver; what is still cached at its entry is no activation of its own."""
+    weights = card.weights
+    model = load(weights, card.checkpoint, "cached")
+    x = torch.ones(4, HIDDEN, device="cuda", dtype=torch.float16)
+
+    def stage(method: str, freed: int) -> None:
+        model.residency.admit(method, ("stack",))
+        with torch.inference_mode():
+            model.stack(x)
+            torch.empty(freed, dtype=torch.uint8, device="cuda")  # an activation, freed
+        model.residency.release(method, ("stack",))
+
+    def idle() -> int:
+        return torch.cuda.memory_reserved() - torch.cuda.memory_allocated()
+
+    stage("decode", 512 << 20)
+    weights.seed_activations({"encode": 1 << 30})  # room for its cache: it stays
+    stage("encode", 0)
+    assert idle() >= 512 << 20
+    assert model.residency.peaks["encode"] < weight_policy.MARGIN, "the cache was not its own"
+    model.residency.admit("denoise", ("stack",))
+    assert idle() < 512 << 20, "nothing measured for the stage: its plan has the room"
+    model.residency.release("denoise", ("stack",))
+
+
 @on_card
 def test_a_bind_that_runs_out_of_device_memory_plans_again_in_what_is_left(card: Any) -> None:
     """Run 2932: on a card without fp8, binding a stage's resident set decodes each weight
@@ -806,6 +839,38 @@ def test_a_process_cap_holds_torch_and_the_plane_inside_it(card: Any) -> None:
     assert peak + context <= cap
     assert 0 <= facts.process_bytes <= cap
     assert exact
+
+
+@on_gpu
+def test_an_op_with_no_room_left_moves_the_tensors_the_process_holds_to_host(card: Any) -> None:
+    """Run 5686, qwen-image-2 at 1 MP on an RTX 3070: the VAE decode kept a copy of every
+    convolution's input in its feature cache, 6.6 GiB of torch's own tensors, and a
+    convolution was refused with the plane already down to 6 MB. Tensors an op does not read
+    move to page-locked host memory in place: the stage computes the same bits, and each held
+    tensor is still the same CUDA tensor with the same values, read over the bus."""
+    weights = card.weights
+    model = load(weights, card.checkpoint, "spill")
+    x = torch.randn(1 << 15, HIDDEN, device="cuda", dtype=torch.float16)  # 128 MiB
+    reference = run(model, x, passes=1)
+    model.residency.unpark()
+    weights.set_budget(0)
+    held = [torch.full((32 << 20,), float(i), device="cuda") for i in range(8)]  # 1 GiB
+    torch.cuda.empty_cache()
+    weights.measure_context()
+    # Room for the input, the held tensors and the weights' floor: none for activations.
+    cap = max(weights.context_bytes, 0) + torch.cuda.memory_reserved() + tight(model)
+    moved = weights.facts().spilled_bytes
+    weights.set_cap(cap + weight_policy.MARGIN)
+    try:
+        weights.set_budget(-1)
+        with weights.recovering():  # as the executor runs every call
+            capped = run(model, x, passes=1)
+        facts = weights.facts()
+    finally:
+        weights.set_cap(-1)
+    assert same(reference, capped)
+    assert facts.spilled_bytes - moved >= 128 << 20
+    assert all(t.is_cuda and bool((t == i).all()) for i, t in enumerate(held))
 
 
 def test_decoded_copies_count_in_a_stages_budget(tmp_path: Path) -> None:
@@ -1017,6 +1082,68 @@ def test_the_owner_lowers_a_running_process_cap_at_its_next_block(card: Any) -> 
     assert applied is not None and applied == weights.applied
     assert facts.streamed["stack"].resident_blocks < BLOCKS
     assert context + torch.cuda.memory_reserved() + facts.committed_bytes <= cap
+    assert same(reference, outputs)
+
+
+class Bare(torch.nn.Module):  # type: ignore[misc,name-defined]
+    """Blocks and nothing else: no `common`, so its stage holds no lease between blocks."""
+
+    _no_split_modules = ("Block",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.blocks = torch.nn.ModuleList([Block() for _ in range(BLOCKS)])
+
+    def forward(self, x: Any) -> Any:
+        for block in self.blocks:
+            x = block(x)
+        return x
+
+
+@on_card
+def test_a_block_whose_component_moves_to_the_sub_block_grain_under_it_runs_at_that_grain(
+    tmp_path: Path,
+) -> None:
+    """Run 5894, `tensorfs.plane.Closed`: a stage that held no lease between blocks was placed
+    again from inside a block, at its block floor, and moved the component to the sub-block
+    grain. That closed the weight set the block had chosen, and its acquire read it. The block
+    runs at the grain the component has now instead, with the same bits."""
+    from cozy_runtime.internal import budget_cell
+
+    weights = Weights(torch, torch.device("cuda", 0), "cuda")
+    weights.set_budget(-1, pinned=1 << 30)
+    generator = torch.Generator().manual_seed(11)
+    values: dict[str, Any] = {}
+    for index in range(BLOCKS):
+        for name in ("proj", "out"):
+            values[f"blocks.{index}.{name}.weight"] = (
+                torch.randn(HIDDEN, HIDDEN, generator=generator) / HIDDEN**0.5
+            )
+        values[f"blocks.{index}.norm"] = torch.rand(HIDDEN, generator=generator) + 0.5
+    model = load(weights, store_component(tmp_path, "stack", values), "regrain", factory=Bare)
+    layout: weight_policy.Layout = model.residency.components["stack"].layout
+    assert model.residency.components["stack"].common is None and layout.fine is not None
+    x = torch.randn(64, HIDDEN, device="cuda", dtype=torch.float16)
+    weights.set_budget(1 << 30)
+    reference = run(model, x)
+    cell, fd = budget_cell.Cell.create()
+    worker = budget_cell.Cell(fd)
+    os.close(fd)
+    weights.cell = cell
+    model.residency.admit("run", ("stack",))
+    try:
+        with torch.inference_mode():
+            outputs = [model.stack(x)]
+            # One block at a time: the next block applies it before its acquire, and moves on.
+            ticket = worker.ask(layout.common + layout.largest)
+            outputs += [model.stack(x), model.stack(x)]
+    finally:
+        model.residency.release("run", ("stack",))
+        weights.cell = None
+        worker.answered(ticket)
+        cell.close()
+        worker.close()
+    assert model.residency.components["stack"].fine
     assert same(reference, outputs)
 
 
@@ -1493,31 +1620,39 @@ def test_an_idle_construction_gives_room_and_returns_from_the_pinned_tier(card: 
     assert same(a, again) and same(a, b)
 
 
-# ------------------------------------------------- H3: a DiT, a request LoRA, the turbo overlay
+# --------------------------------------- a DiT, a request LoRA, a model's consumer overlay
 
-H3_HIDDEN, H3_LAYERS, H3_RANK = 512, 16, 8
-H3_TIMES = (0.0, 0.25, 0.75)
-H3_KEYS = [(row, tag) for row in range(3) for tag in range(3)]
+DIT_HIDDEN, DIT_LAYERS, DIT_RANK = 512, 16, 8
+#: The overlay's linears: two under the request LoRA's PEFT layers, one that only it adapts.
+OVERLAY_SITES = {
+    f"transformer_blocks.{block}.{site}": dims
+    for block in range(DIT_LAYERS)
+    for site, dims in (
+        ("attn.to_q", (DIT_HIDDEN, DIT_HIDDEN)),
+        ("attn.to_v", (DIT_HIDDEN, DIT_HIDDEN)),
+        ("ff.net.2", (4 * DIT_HIDDEN, DIT_HIDDEN)),
+    )
+}
 
 
-def h3_dit() -> Any:
-    """MiniMax-H3's real AdaLN-pruned DiT, small, with a request LoRA composed as `--lora`
-    composes it: PEFT layers over its attention and output projections."""
+def lora_dit() -> Any:
+    """Diffusers' MiniMax-H3 DiT, small, with a model's consumer hooks and a request LoRA
+    composed as `--lora` composes it: PEFT layers over its attention and output projections."""
     pytest.importorskip("peft")
+    from diffusers import MiniMaxH3Transformer3DModel
+
     from cozy_runtime.author import AdapterRef
     from cozy_runtime.internal.lora_composition import composer
     from cozy_runtime.internal.lora_contract import FORMAT, Graph, Linear
-    from cozy_runtime.models.minimax_h3.adaln_pruned import AdaLNPrunedMiniMaxH3Transformer
+    from testdata.consumer_lora import install
 
-    dit: Any = AdaLNPrunedMiniMaxH3Transformer(
-        table_timesteps=H3_TIMES,
-        table_block_keys=H3_KEYS,
+    dit: Any = MiniMaxH3Transformer3DModel(
         num_attention_heads=4,
-        attention_head_dim=H3_HIDDEN // 4,
-        hidden_size=H3_HIDDEN,
-        num_layers=H3_LAYERS,
+        attention_head_dim=DIT_HIDDEN // 4,
+        hidden_size=DIT_HIDDEN,
+        num_layers=DIT_LAYERS,
         num_refiner_layers=1,
-        ffn_dim=4 * H3_HIDDEN,
+        ffn_dim=4 * DIT_HIDDEN,
         in_channels=2,
         audio_in_channels=2,
         patch_size=(1, 1, 1),
@@ -1527,48 +1662,29 @@ def h3_dit() -> Any:
         time_embed_dim=8,
         rope_freq_dim=1,
     )
-    dit.eval().install_lora_consumers()
+    install(dit.eval(), OVERLAY_SITES)
     paths = [
         f"transformer_blocks.{block}.{site}"
-        for block in range(H3_LAYERS)
+        for block in range(DIT_LAYERS)
         for site in ("attn.to_q", "attn.to_out.0", "ff.net.2")
     ]
     graph = Graph(
         FORMAT,
-        tuple(Linear("fl2va_dit", path, "wushu", H3_RANK, 8.0, 0.8, "f16") for path in paths),
+        tuple(Linear("fl2va_dit", path, "wushu", DIT_RANK, 8.0, 0.8, "f16") for path in paths),
         (AdapterRef("sha256:" + "12" * 32, 0.8, "lora", "fl2va_dit", "adapter"),),
     )
     composer(graph)(SimpleNamespace(components={"fl2va_dit": dit}))
     return dit.to(torch.float16)
 
 
-def h3_turbo() -> Any:
-    """H3's turbo LoRA: its own model slot, whose factors the DiT's blocks read through hooks."""
-    from cozy_runtime.models.minimax_h3.turbo import TurboOverlay, TurboSchedule
+def consumer_overlay() -> Any:
+    """The model's consumer LoRA: its own model slot, whose factors the DiT's hooks read."""
+    from testdata.consumer_lora import Overlay
 
-    return (
-        TurboOverlay(
-            hidden_size=H3_HIDDEN,
-            inner_dim=H3_HIDDEN,
-            ffn_dim=4 * H3_HIDDEN,
-            num_layers=H3_LAYERS,
-            num_refiner_layers=1,
-            video_out=2,
-            audio_out=2,
-            rank=H3_RANK,
-            alpha=8,
-            schedule=TurboSchedule((0.75, 0.0), (0.25, 0.0)),
-            table_timesteps=H3_TIMES,
-            table_block_keys=H3_KEYS,
-            block_table_dtype=torch.float16,
-            final_table_dtype=torch.float16,
-        )
-        .eval()
-        .to(torch.float16)
-    )
+    return Overlay(OVERLAY_SITES, DIT_RANK, 1.0).eval().to(torch.float16)
 
 
-def h3_inputs(device: str) -> dict[str, Any]:
+def dit_inputs(device: str) -> dict[str, Any]:
     from diffusers.modular_pipelines.minimax_h3.before_denoise import MiniMaxH3PrepareLayoutStep
 
     position, tags, video, audio, text, _, _ = MiniMaxH3PrepareLayoutStep.build_packed_sequence(
@@ -1603,12 +1719,12 @@ def h3_inputs(device: str) -> dict[str, Any]:
     }
 
 
-def h3_models(weights: Weights, root: Path, key: str) -> tuple[Any, Any]:
-    """The DiT with its request LoRA and the turbo LoRA: two model slots on one plane."""
+def lora_models(weights: Weights, root: Path, key: str) -> tuple[Any, Any]:
+    """The DiT with its request LoRA and the consumer overlay: two model slots on one plane."""
     slots = []
     for name, factory, scope in (
-        ("fl2va_dit", h3_dit, "sample_fl2va_turbo"),
-        ("fl2va_turbo", h3_turbo, "sample_fl2va"),
+        ("fl2va_dit", lora_dit, "sample_adapted"),
+        ("fl2va_overlay", consumer_overlay, "sample_fl2va"),
     ):
         torch.manual_seed(292)
         values = {k: torch.randn(v.shape) * 0.05 for k, v in factory().state_dict().items()}
@@ -1620,55 +1736,57 @@ def h3_models(weights: Weights, root: Path, key: str) -> tuple[Any, Any]:
     return slots[0], slots[1]
 
 
-def h3_denoise(weights: Weights, dit: Any, turbo: Any, inputs: dict[str, Any], between: Any) -> Any:
-    """Three evaluations of the DiT under the turbo bank, as H3's `sample_fl2va_turbo` nests
-    its scopes: the base's stage, the turbo LoRA's inside it, package arithmetic between."""
-    from cozy_runtime.models.minimax_h3.turbo import ATTENTION_KWARG, OVERLAY_KWARG, TURBO_BANK
+def lora_denoise(
+    weights: Weights, dit: Any, adapter: Any, inputs: dict[str, Any], between: Any
+) -> Any:
+    """Three evaluations of the DiT with the overlay armed, its scopes nested as a package's
+    adapted sampler nests them: the base's stage, the overlay's inside it, package arithmetic
+    between."""
+    from testdata.consumer_lora import armed
 
-    selector = {ATTENTION_KWARG: TURBO_BANK, OVERLAY_KWARG: turbo.stack}
     video, audio = inputs["hidden_states"], inputs["audio_hidden_states"]
-    dit.residency.admit("sample_fl2va_turbo", ("fl2va_dit",))
+    dit.residency.admit("sample_adapted", ("fl2va_dit",))
     try:
-        turbo.residency.admit("sample_fl2va", ("fl2va_turbo",))
+        adapter.residency.admit("sample_fl2va", ("fl2va_overlay",))
         try:
-            with weights.recovering(), torch.inference_mode():
+            with weights.recovering(), torch.inference_mode(), armed(dit.stack, adapter.stack):
                 for step in range(3):
                     held = between(step)
                     moved = dit.stack(
-                        **{**inputs, "hidden_states": video, "audio_hidden_states": audio},
-                        attention_kwargs=selector,
+                        **{**inputs, "hidden_states": video, "audio_hidden_states": audio}
                     )
                     video, audio = video + moved[0] * 0.25, audio + moved[1] * 0.25
                     del held
                 return video, audio
         finally:
-            turbo.residency.release("sample_fl2va", ("fl2va_turbo",))
+            adapter.residency.release("sample_fl2va", ("fl2va_overlay",))
     finally:
-        dit.residency.release("sample_fl2va_turbo", ("fl2va_dit",))
+        dit.residency.release("sample_adapted", ("fl2va_dit",))
 
 
-def test_h3_with_its_loras_computes_on_the_pinned_tier(tmp_path: Path) -> None:
+def test_a_dit_with_its_loras_computes_on_the_pinned_tier(tmp_path: Path) -> None:
     """The fixture is the real thing: on a CPU executor (weights bound in place) the DiT with
-    a request LoRA under the turbo bank computes what the same modules compute unmanaged."""
+    a request LoRA and the consumer overlay armed computes what the same modules compute
+    unmanaged."""
     weights = Weights(torch, torch.device("cpu"), "cpu")
     weights.set_budget(-1, pinned=1 << 30)
-    dit, turbo = h3_models(weights, tmp_path, "host")
-    inputs = h3_inputs("cpu")
-    got = h3_denoise(weights, dit, turbo, inputs, lambda step: None)
+    dit, adapter = lora_models(weights, tmp_path, "host")
+    inputs = dit_inputs("cpu")
+    got = lora_denoise(weights, dit, adapter, inputs, lambda step: None)
     plain = []
-    for factory in (h3_dit, h3_turbo):
+    for factory in (lora_dit, consumer_overlay):
         torch.manual_seed(292)
         module = factory()
         module.load_state_dict(
             {k: (torch.randn(v.shape) * 0.05).half() for k, v in module.state_dict().items()}
         )
         plain.append(module)
-    plain_dit, plain_turbo = plain
+    plain_dit, plain_overlay = plain
     unmanaged = SimpleNamespace(admit=lambda *_: None, release=lambda *_: None)
-    want = h3_denoise(
+    want = lora_denoise(
         weights,
         SimpleNamespace(stack=plain_dit, residency=unmanaged),
-        SimpleNamespace(stack=plain_turbo, residency=unmanaged),
+        SimpleNamespace(stack=plain_overlay, residency=unmanaged),
         inputs,
         lambda step: None,
     )
@@ -1677,20 +1795,20 @@ def test_h3_with_its_loras_computes_on_the_pinned_tier(tmp_path: Path) -> None:
 
 
 @on_card
-def test_h3_with_its_loras_pages_instead_of_running_out(tmp_path: Path) -> None:
-    """Run 2549: H3's DiT with a request LoRA under the turbo LoRA ran out of device memory.
+def test_a_dit_with_its_loras_pages_instead_of_running_out(tmp_path: Path) -> None:
+    """Run 2549: H3's DiT with a request LoRA under its turbo LoRA ran out of device memory.
     Here its weights get a budget far below their size, and mid-denoise another allocation
     takes the room its activations had. It still computes the fully resident run's bits: the
-    turbo LoRA's stage shares the DiT's budget, blocks stream, and the allocation that fails
+    overlay's stage shares the DiT's budget, blocks stream, and the allocation that fails
     unmaps weights and runs again."""
     weights = Weights(torch, torch.device("cuda", 0), "cuda")
     weights.set_budget(-1, pinned=1 << 30)
-    dit, turbo = h3_models(weights, tmp_path, "h3")
-    inputs = h3_inputs("cuda")
+    dit, adapter = lora_models(weights, tmp_path, "dit")
+    inputs = dit_inputs("cuda")
     layout: weight_policy.Layout = dit.residency.components["fl2va_dit"].layout
-    overlay = turbo.residency.components["fl2va_turbo"].layout.total
+    overlay = adapter.residency.components["fl2va_overlay"].layout.total
     weights.set_budget(1 << 30)
-    resident, peak = h3_reference(weights, dit, turbo, inputs)
+    resident, peak = lora_reference(weights, dit, adapter, inputs)
     assert weights.facts().streamed["fl2va_dit"].resident_blocks == len(layout.blocks)
 
     spare = 6 * layout.largest  # what an out-of-memory retry can still unmap
@@ -1698,7 +1816,7 @@ def test_h3_with_its_loras_pages_instead_of_running_out(tmp_path: Path) -> None:
     assert weights.budget < (layout.total + overlay) // 2
     was = weights.facts()
     try:
-        paged = h3_denoise(weights, dit, turbo, inputs, squeezing(1, peak))
+        paged = lora_denoise(weights, dit, adapter, inputs, squeezing(1, peak))
     finally:
         torch.cuda.empty_cache()
     now = weights.facts()
@@ -1709,35 +1827,35 @@ def test_h3_with_its_loras_pages_instead_of_running_out(tmp_path: Path) -> None:
 
 
 @on_card
-def test_h3_with_its_loras_at_the_sub_block_grain_is_bit_exact(
+def test_a_dit_with_its_loras_at_the_sub_block_grain_is_bit_exact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """H3's DiT (its LoRA consumers, the turbo bank's factors read from its blocks) with its
+    """The DiT (its LoRA consumers, the overlay's factors read from its blocks) with its
     blocks split into their projections computes the resident run's bits."""
     monkeypatch.setattr(weights_module, "REGION_LIMIT", 1 << 20)
     weights = Weights(torch, torch.device("cuda", 0), "cuda")
     weights.set_budget(-1, pinned=1 << 30)
-    dit, turbo = h3_models(weights, tmp_path, "h3-fine")
-    inputs = h3_inputs("cuda")
+    dit, adapter = lora_models(weights, tmp_path, "dit-fine")
+    inputs = dit_inputs("cuda")
     weights.set_budget(1 << 30)
-    resident, _ = h3_reference(weights, dit, turbo, inputs)
-    turbo.residency.unpark()
+    resident, _ = lora_reference(weights, dit, adapter, inputs)
+    adapter.residency.unpark()
     layout = refined(dit, "fl2va_dit")
-    overlay = turbo.residency.components["fl2va_turbo"].layout.total
+    overlay = adapter.residency.components["fl2va_overlay"].layout.total
     weights.set_budget(layout.common + overlay + 3 * layout.largest)
     try:
-        paged = h3_denoise(weights, dit, turbo, inputs, lambda step: None)
+        paged = lora_denoise(weights, dit, adapter, inputs, lambda step: None)
     finally:
         torch.cuda.empty_cache()
     assert weights.facts().streamed["fl2va_dit"].resident_blocks < len(layout.blocks)
     assert same(list(resident), list(paged))
 
 
-def h3_reference(weights: Weights, dit: Any, turbo: Any, inputs: dict[str, Any]) -> Any:
+def lora_reference(weights: Weights, dit: Any, adapter: Any, inputs: dict[str, Any]) -> Any:
     """The fully resident denoise and its activation peak."""
     torch.cuda.reset_peak_memory_stats()
     before = torch.cuda.memory_allocated()
-    resident = h3_denoise(weights, dit, turbo, inputs, lambda step: None)
+    resident = lora_denoise(weights, dit, adapter, inputs, lambda step: None)
     return resident, torch.cuda.max_memory_allocated() - before
 
 
@@ -1762,20 +1880,20 @@ def test_one_gpu_of_a_group_never_runs_a_block_twice(tmp_path: Path) -> None:
     measured; an op that still runs out of memory unmaps idle weights and that op runs again."""
     weights = Weights(torch, torch.device("cuda", 0), "cuda")
     weights.set_budget(-1, pinned=1 << 30)
-    dit, turbo = h3_models(weights, tmp_path, "h3")
+    dit, adapter = lora_models(weights, tmp_path, "dit")
     (tmp_path / "idle").mkdir()
     idle = load(weights, write_checkpoint(tmp_path / "idle")[0], "idle")
-    inputs = h3_inputs("cuda")
+    inputs = dit_inputs("cuda")
     layout: weight_policy.Layout = dit.residency.components["fl2va_dit"].layout
     weights.set_budget(1 << 30)
-    resident, peak = h3_reference(weights, dit, turbo, inputs)
+    resident, peak = lora_reference(weights, dit, adapter, inputs)
     calls = {"block": 0}
     block = dit.stack.transformer_blocks[0].attn
     block.register_forward_hook(lambda *_: calls.__setitem__("block", calls["block"] + 1))
 
     weights.grouped = True
     weights.activation.clear()  # a fresh executor's first request: nothing measured
-    grown = h3_denoise(weights, dit, turbo, inputs, lambda step: None)
+    grown = lora_denoise(weights, dit, adapter, inputs, lambda step: None)
     assert same(list(resident), list(grown)) and calls["block"] == 3
     assert weights.facts().streamed["fl2va_dit"].resident_blocks == len(layout.blocks)
     assert weights.facts().h2d_bytes > 0  # the first pass streamed every block
@@ -1785,7 +1903,7 @@ def test_one_gpu_of_a_group_never_runs_a_block_twice(tmp_path: Path) -> None:
     held = weights.resident_bytes(idle.residency.components["stack"])
     retries = weights.facts().oom_retries
     try:
-        squeezed = h3_denoise(weights, dit, turbo, inputs, squeezing(1, peak))
+        squeezed = lora_denoise(weights, dit, adapter, inputs, squeezing(1, peak))
     finally:
         torch.cuda.empty_cache()
     assert weights.facts().oom_retries > retries
@@ -1877,6 +1995,7 @@ def plane_vae(weights: Weights, root: Path, factory: Any) -> tuple[Any, Any]:
 
 def decode(model: Any, z: Any, cap: int = -1) -> Any:
     weights = model.residency.weights
+    weights.modes.clear()  # as every call starts
     if cap >= 0:
         weights.set_cap(cap)
     model.residency.admit("run", ("vae",))
@@ -1900,58 +2019,31 @@ def room(weights: Weights, nbytes: int) -> int:
 @on_gpu
 def test_an_image_decode_short_of_memory_is_still_the_untiled_image(tmp_path: Path) -> None:
     """Run 4281 (SDXL in 1.5 GiB) fell back to a blended tiled decode 30 dB from its control.
-    The decode is now exact in row bands: with room its maps stay on the card; under a cap too
-    small for them they live in host memory. Either way the image is diffusers' untiled one to
-    fp16 rounding. The cap is the process's own: the card is never filled."""
+    Diffusers' own decode runs as it is: with room, untouched; under a cap too small for its
+    maps, an op that runs out runs in bands of rows with its result in host memory, and the
+    ops after it read those rows over the bus once each. Either way the image is the untiled
+    one to fp16 rounding. The cap is the process's own: the card is never filled."""
     weights = Weights(torch, torch.device("cuda", 0), "cuda")
     weights.set_budget(-1, pinned=1 << 30)
     model, plain = plane_vae(weights, tmp_path / "vae", kl_vae)
     z = torch.randn(1, 4, 256, 256, device="cuda", dtype=torch.float16)  # 512x512 pixels
     with torch.inference_mode():
         reference = plain.decode(z).sample
-        exact = image_vae.Decode(plain, z)
     del plain
     roomy = decode(model, z)
-    assert weights.modes["vae.decode"] == f"chunked {exact.rows}"
-    short = decode(model, z, room(weights, exact.peak(True)))
-    assert weights.modes["vae.decode"] == f"chunked {exact.rows} host"
+    assert "bands" not in weights.modes
+    short = decode(model, z, room(weights, 96 << 20))
+    assert "host memory" in weights.modes["bands"]
     for image in (roomy, short):
         torch.testing.assert_close(image, reference, atol=1e-2, rtol=0)
 
 
 @on_gpu
-def test_a_driver_out_of_memory_in_a_host_map_decode_makes_room_and_runs_again(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Run 4297 (Anima in 1.25 GiB): on a full card the driver could not make the decode's copy
-    streams, an error that is not torch's OutOfMemoryError, and the run failed. Room is made
-    and the decode runs again; the image is still the untiled one."""
-    weights = Weights(torch, torch.device("cuda", 0), "cuda")
-    weights.set_budget(-1, pinned=1 << 30)
-    model, plain = plane_vae(weights, tmp_path / "vae", kl_vae)
-    z = torch.randn(1, 4, 256, 256, device="cuda", dtype=torch.float16)
-    with torch.inference_mode():
-        reference = plain.decode(z).sample
-        exact = image_vae.Decode(plain, z)
-    del plain
-    made, full = image_vae.streams, [torch.AcceleratorError("CUDA error: out of memory")]
-
-    def streams(*args: Any) -> Any:
-        if full:
-            raise full.pop()
-        return made(*args)
-
-    monkeypatch.setattr(image_vae, "streams", streams)
-    image = decode(model, z, room(weights, exact.peak(True)))
-    assert not full and weights.modes["vae.decode"] == f"chunked {exact.rows} host"
-    torch.testing.assert_close(image, reference, atol=1e-2, rtol=0)
-
-
-@on_gpu
 def test_a_qwen_image_vae_decodes_exactly_on_the_plane(tmp_path: Path) -> None:
-    """Anima's VAE (diffusers' AutoencoderKLQwenImage) with tiling on, as the published package
-    constructs it: the plane decodes it in row bands whatever the package asked, on one kernel
-    tap per causal convolution. The image is the stock untiled decode's, to fp16."""
+    """Anima's VAE (diffusers' AutoencoderKLQwenImage) decodes a lone frame through causal 3D
+    convolutions, two of each one's three taps on zero padding: each runs as the 2D
+    convolution of the tap that meets the frame. With room and short of it, the image is the
+    stock decode's to fp16."""
     diffusers = pytest.importorskip("diffusers")
     torch.manual_seed(5)
 
@@ -1962,14 +2054,14 @@ def test_a_qwen_image_vae_decodes_exactly_on_the_plane(tmp_path: Path) -> None:
     weights.set_budget(1 << 30, pinned=1 << 30)
     model, plain = plane_vae(weights, tmp_path / "vae", vae)
     z = torch.randn(1, 16, 1, 64, 64, device="cuda", dtype=torch.float16)
-    model.stack.enable_tiling()
-    image = decode(model, z)
-    assert weights.modes["vae.decode"].startswith("chunked ")
-    assert image.shape == (1, 3, 1, 512, 512)
     with torch.inference_mode():
         reference = plain.decode(z).sample
-    # a 2D kernel and other band shapes: the image moves by a few fp16 ulps
-    torch.testing.assert_close(image, reference, atol=1e-2, rtol=0)
+    del plain
+    images = [decode(model, z), decode(model, z, room(weights, 48 << 20))]
+    assert "host memory" in weights.modes["bands"]
+    for image in images:
+        assert image.shape == (1, 3, 1, 512, 512)
+        torch.testing.assert_close(image, reference, atol=1e-2, rtol=0)
 
 
 @on_card
@@ -2010,11 +2102,11 @@ def test_a_decode_unmaps_idle_weights_only_for_the_room_it_needs(card: Any, tmp_
     was, mapped = weights.facts(), weights.resident_bytes(stack)
     assert mapped > 0
     image = squeezed(latents[0])
-    assert weights.modes["vae.decode"].startswith("chunked ")
     assert weights.facts().evictions == was.evictions and weights.resident_bytes(stack) >= mapped
     torch.testing.assert_close(image, references[0], atol=1e-2, rtol=0)
+    weights.modes.clear()
     image = squeezed(latents[1], left=8 << 20)
-    assert not weights.modes["vae.decode"].endswith(" host")
+    assert "host memory" not in weights.modes.get("bands", "")
     assert weights.resident_bytes(stack) < mapped
     torch.testing.assert_close(image, references[1], atol=1e-2, rtol=0)
 
@@ -2069,5 +2161,4 @@ def test_a_decode_takes_no_room_from_its_stages_floor(card: Any, tmp_path: Path)
     finally:
         denoiser.residency.release("render", ("stack",))
         torch.cuda.empty_cache()
-    assert weights.modes["vae.decode"].startswith("chunked ")
     torch.testing.assert_close(image, reference, atol=1e-2, rtol=0)

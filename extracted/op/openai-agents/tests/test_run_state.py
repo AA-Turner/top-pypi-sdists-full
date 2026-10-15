@@ -6,6 +6,7 @@ import gc
 import importlib
 import json
 import logging
+import threading
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, replace
@@ -613,6 +614,50 @@ class TestRunState:
             state.to_json(strict_context=True)
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("resource", [threading.Lock(), {"not-json"}], ids=["lock", "set"])
+    async def test_dataclass_context_serialization_failure_warns_and_omits(self, resource, caplog):
+        @dataclass
+        class AppContext:
+            tenant_id: str
+            resource: Any
+
+        context = AppContext(tenant_id="synthetic-private-tenant", resource=resource)
+        agent = Agent(name="AgentMapping")
+        state = make_state(
+            agent, context=RunContextWrapper(context), original_input="input", max_turns=1
+        )
+
+        with caplog.at_level(logging.WARNING, logger="openai.agents"):
+            json_data = state.to_json()
+            string_data = json.loads(state.to_string())
+
+        for payload in (json_data, string_data):
+            assert payload["context"]["context"] == {}
+            meta = payload["context"]["context_meta"]
+            assert meta["original_type"] == "dataclass"
+            assert meta["serialized_via"] == "omitted"
+            assert meta["requires_deserializer"] is True
+            assert meta["omitted"] is True
+        assert "not serializable; storing empty context" in caplog.text
+        assert context.tenant_id not in caplog.text
+        assert context.resource is resource
+
+        restored = await RunState.from_json(agent, string_data, context_override=context)
+        assert restored._context is not None
+        assert restored._context.context is context
+        with pytest.raises(UserError, match="context_serializer"):
+            state.to_string(strict_context=True)
+
+        serialized = json.loads(
+            state.to_string(
+                context_serializer=lambda ctx: {"tenant_id": ctx.tenant_id}, strict_context=True
+            )
+        )
+        assert serialized["context"]["context"] == {"tenant_id": context.tenant_id}
+        assert serialized["context"]["context_meta"]["serialized_via"] == "context_serializer"
+        assert serialized["context"]["context_meta"]["omitted"] is False
+
+    @pytest.mark.asyncio
     async def test_from_json_with_context_deserializer(self, caplog):
         """Ensure context_deserializer restores non-mapping contexts."""
 
@@ -629,6 +674,11 @@ class TestRunState:
 
         def deserialize_context(payload: Mapping[str, Any]) -> SampleContext:
             return SampleContext(**payload)
+
+        assert json_data["context"]["context"] == {"value": "hello"}
+        assert json.loads(state.to_string())["context"] == json_data["context"]
+        assert json_data["context"]["context_meta"]["serialized_via"] == "asdict"
+        assert json_data["context"]["context_meta"]["omitted"] is False
 
         new_state = await RunState.from_json(
             agent,
@@ -910,6 +960,117 @@ class TestRunState:
         assert restored_tool_output.guardrail.get_name() == "tool_output_guardrail"
         assert restored_tool_output.output.behavior["type"] == "allow"
         assert restored_tool_output.output.output_info == {"output": "info"}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("old_version", ["1.0", "1.18", "1.19"])
+    async def test_tool_guardrail_boundary_requires_its_schema_version(
+        self, old_version: str
+    ) -> None:
+        agent = Agent(name="ToolGuardrailAgent")
+        state = make_state(agent, context=RunContextWrapper(context={}))
+        state._last_processed_response = make_processed_response()
+        state._last_processed_response.tool_output_guardrail_result_start = 0
+        guardrail: ToolOutputGuardrail[Any] = ToolOutputGuardrail(
+            guardrail_function=lambda data: ToolGuardrailFunctionOutput.allow("checkpoint"),
+            name="test_guardrail",
+        )
+        state._tool_output_guardrail_results = [
+            ToolOutputGuardrailResult(
+                guardrail=guardrail, output=ToolGuardrailFunctionOutput.allow("checkpoint")
+            )
+        ]
+
+        snapshot = json.loads(state.to_string())
+        assert snapshot["$schemaVersion"] == CURRENT_SCHEMA_VERSION
+        restored = await RunState.from_json(agent, snapshot)
+        assert restored._last_processed_response is not None
+        assert restored._last_processed_response.tool_output_guardrail_result_start == 0
+        assert restored._tool_output_guardrail_results[0].output.output_info == "checkpoint"
+
+        snapshot["$schemaVersion"] = old_version
+        with pytest.raises(UserError, match="tool output guardrail.*schema"):
+            await RunState.from_json(agent, snapshot)
+
+        # Older snapshots did not distinguish pending results. They remain readable.
+        del snapshot["last_processed_response"]["tool_output_guardrail_result_start"]
+        restored_legacy = await RunState.from_string(agent, json.dumps(snapshot))
+        assert restored_legacy._last_processed_response is not None
+        assert restored_legacy._last_processed_response.tool_output_guardrail_result_start is None
+        assert restored_legacy._tool_output_guardrail_results[0].output.output_info == "checkpoint"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("boundary", [-1, True, "0", 3])
+    async def test_tool_guardrail_boundary_rejects_invalid_restored_count(
+        self, boundary: object
+    ) -> None:
+        agent = Agent(name="ToolGuardrailAgent")
+        state = make_state(agent, context=RunContextWrapper(context={}))
+        state._last_processed_response = make_processed_response()
+        snapshot = state.to_json()
+        snapshot["last_processed_response"]["tool_output_guardrail_result_start"] = boundary
+        snapshot["tool_output_guardrail_results"] = [
+            {
+                "guardrail": {"type": "tool_output", "name": "prior"},
+                "output": {"behavior": {"type": "allow"}, "outputInfo": "accepted"},
+            },
+            {
+                "guardrail": {"type": "tool_output", "name": "pending"},
+                "output": {"behavior": {"type": "allow"}, "outputInfo": "pending"},
+            },
+        ]
+        with pytest.raises(UserError, match="Invalid tool output guardrail result boundary"):
+            await RunState.from_json(agent, snapshot)
+
+    @pytest.mark.asyncio
+    async def test_tool_guardrail_boundary_cannot_shift_when_results_are_dropped(self) -> None:
+        agent = Agent(name="ToolGuardrailAgent")
+        state = make_state(agent, context=RunContextWrapper(context={}))
+        state._last_processed_response = make_processed_response()
+        snapshot = state.to_json()
+        snapshot["last_processed_response"]["tool_output_guardrail_result_start"] = 1
+        snapshot["tool_output_guardrail_results"] = [
+            {
+                "guardrail": {"type": "tool_input", "name": "wrong_kind"},
+                "output": {"behavior": {"type": "allow"}, "outputInfo": "accepted"},
+            },
+            {
+                "guardrail": {"type": "tool_output", "name": "same_name"},
+                "output": {"behavior": {"type": "allow"}, "outputInfo": "pending-a"},
+            },
+            {
+                "guardrail": {"type": "tool_output", "name": "same_name"},
+                "output": {"behavior": {"type": "allow"}, "outputInfo": "pending-b"},
+            },
+        ]
+        with pytest.raises(UserError, match="Invalid tool output guardrail result boundary"):
+            await RunState.from_string(agent, json.dumps(snapshot))
+
+        del snapshot["last_processed_response"]["tool_output_guardrail_result_start"]
+        snapshot["$schemaVersion"] = "1.19"
+        restored = await RunState.from_json(agent, snapshot)
+        assert [
+            result.output.output_info for result in restored._tool_output_guardrail_results
+        ] == ["pending-a", "pending-b"]
+
+    @pytest.mark.asyncio
+    async def test_tool_guardrail_boundary_accepts_end_of_restored_results(self) -> None:
+        agent = Agent(name="ToolGuardrailAgent")
+        state = make_state(agent, context=RunContextWrapper(context={}))
+        state._last_processed_response = make_processed_response()
+        state._last_processed_response.tool_output_guardrail_result_start = 1
+        guardrail: ToolOutputGuardrail[Any] = ToolOutputGuardrail(
+            guardrail_function=lambda data: ToolGuardrailFunctionOutput.allow("accepted"),
+            name="test_guardrail",
+        )
+        state._tool_output_guardrail_results = [
+            ToolOutputGuardrailResult(
+                guardrail=guardrail, output=ToolGuardrailFunctionOutput.allow("accepted")
+            )
+        ]
+        restored = await roundtrip_state(agent, state)
+        assert restored._last_processed_response is not None
+        assert restored._last_processed_response.tool_output_guardrail_result_start == 1
+        assert restored._tool_output_guardrail_results[0].output.output_info == "accepted"
 
     def test_tool_guardrail_results_to_string_normalizes_non_json_output_info(self):
         """Tool guardrail output_info is JSON-compatible in RunState strings."""
@@ -8842,6 +9003,9 @@ class TestRunStateSerializationEdgeCases:
                 "1.15",
                 "1.16",
                 "1.17",
+                "1.18",
+                "1.19",
+                "1.20",
                 CURRENT_SCHEMA_VERSION,
             }
         )

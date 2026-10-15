@@ -620,15 +620,19 @@ def test_notes_hold_only_what_helps_the_next_agent() -> None:
     """
     tree = _AGENT_TREE / "skills"
     notes = " ".join((tree / "edit-notes" / "SKILL.md").read_text().split())
-    assert "Write only what would help the next agent on this entity or project" in notes
+    assert "Write only what the next person on this work needs, not what happened" in notes
     # Richard, same day: "it should be constantly adjusting and looking at the
-    # notes as a whole" -- appending is fine when useful, in the context of the
-    # whole note. Willow's daemon, already on the line above, still stacked a
-    # section per turn (24,042 -> 34,225 chars in 11 min).
-    assert "Read the whole note before each edit and fit the change into it" in notes
+    # notes as a whole". Willow's daemon still stacked a section per turn
+    # (24,042 -> 34,225 chars in 11 min; 4,217 -> 39,392 by v76 on 10-13), so
+    # 10-14 made each write an in-place update, top-down.
+    assert "Each write updates it in place" in notes
+    assert "Never add a section per event" in notes
+    assert "the most recent or most important thing" in notes
     assert "running commentary" not in notes
+    # 10-14: the writer no longer records every caveat the main agent states --
+    # that line fed most of the hedging into Willow's note.
     header = " ".join((tree / "track-work" / "versions" / "header.writer.md").read_text().split())
-    assert "record the ones the next agent on this project needs" in header
+    assert "caveats" not in header
     assert "record what it states" not in header
     work = " ".join((tree / "track-work" / "SKILL.md").read_text().split())
     assert "prose to its notes" not in work
@@ -673,7 +677,10 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # (`probe feedback send`, Richard 2026-10-13).
     # 44 / cca6cded8753: DAEMON_POINTER_BODY gained the `probe ask --writer` line
     # (the writer channel, Richard 2026-10-13).
-    assert (agent_rules.POINTER_VERSION, digest) == (44, "cca6cded8753"), (
+    # 45 / df3523ea2017: DAEMON_POINTER_BODY shortened; the "say your caveats" line dropped (10-14)
+    # 46 / 03764757f8a3: POINTER_BODY says only what the team recorded is in Probe, and
+    # "Do not call Probe for" names outside facts (cloud quotas, GPU capacity, vendor docs) (10-14)
+    assert (agent_rules.POINTER_VERSION, digest) == (46, "03764757f8a3"), (
         "POINTER_BODY or DAEMON_POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 

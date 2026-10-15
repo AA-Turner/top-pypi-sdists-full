@@ -1,0 +1,5 @@
+data:
+  allowedHosts:
+    hosts:
+      - slack.com
+  dockerRepository: airbyte/source-example

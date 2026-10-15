@@ -65,7 +65,8 @@ class MarketInfoServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def QuoteHistory(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """DEPRECATED: use QuoteHistory.Bars (mt4-term-api-quote-history.proto): paged, bounded, oldest first.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')

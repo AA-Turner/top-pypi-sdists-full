@@ -15,11 +15,32 @@ class DbWriter:
     def _dialect(self):
         return getattr(self.settings, "db_dialect", "postgres")
 
+    def _db_dialect(self):
+        """Prefer the live connection dialect (avoids singleton / settings mismatch)."""
+        conn = getattr(self.db, "_dialect", None)
+        if conn in ("postgres", "mysql", "sqlite"):
+            return conn
+        return self._dialect()
+
     def _is_mysql(self):
-        return self._dialect() == "mysql"
+        return self._db_dialect() == "mysql"
 
     def _is_sqlite(self):
-        return self._dialect() == "sqlite"
+        return self._db_dialect() == "sqlite"
+
+    @staticmethod
+    def _request_success_value(raw, *, sqlite: bool):
+        if raw is None:
+            return None
+        if isinstance(raw, bool):
+            ok = raw
+        elif raw in (0, 1):
+            ok = bool(raw)
+        else:
+            ok = bool(raw)
+        if sqlite:
+            return 1 if ok else 0
+        return ok
 
     def _failed_requests_filter(self):
         if self._is_sqlite():
@@ -253,9 +274,10 @@ class DbWriter:
                 req.get("fingerprint"),
                 req.get("parent_url"),
                 req.get("error"),
-                1 if req.get("success") is True else (0 if req.get("success") is False else None)
-                if self._is_sqlite()
-                else req.get("success"),
+                self._request_success_value(
+                    req.get("success"),
+                    sqlite=self._is_sqlite(),
+                ),
                 created_at,
             )
             for req in requests

@@ -148,12 +148,35 @@ def _call_domain_change(
     return result if isinstance(result, dict) else {"result": result}
 
 
+#: How much of a server error body to show. The message is rendered by
+#: ``agilicus-cli``, so it stays a single bounded line; the tail is elided.
+_DESCRIBE_MAX = 300
+
+
 def _describe(exc: Exception) -> str:
-    status = getattr(exc, "status", None)
-    reason = getattr(exc, "reason", None) or getattr(exc, "body", None)
-    parts = [str(part) for part in (status, reason) if part]
+    """A bounded one-line description of a failed domain-change request.
+
+    The policy layer answers a denied request with a JSON body that names the
+    reason (``roleMatched: false`` plus a status string, e.g. for the
+    creator-only 403). The HTTP reason alone is just "Forbidden" and hides
+    that, so the body is appended when the server sent one. ``reason`` and
+    ``body`` are de-duplicated because the framework sometimes carries the
+    same text in both.
+    """
+    detail = getattr(exc, "body", None)
+    if isinstance(detail, (bytes, bytearray)):
+        detail = detail.decode("utf-8", "replace")
+    if isinstance(detail, (dict, list)):
+        detail = json.dumps(detail, default=str)
+    parts = []
+    for part in (getattr(exc, "status", None), getattr(exc, "reason", None), detail):
+        if not part:
+            continue
+        text = str(part)
+        if text not in parts:
+            parts.append(text)
     text = " ".join(parts) if parts else str(exc)
-    return " ".join(text.split())[:300]
+    return " ".join(text.split())[:_DESCRIBE_MAX]
 
 
 # ---------------------------------------------------------------------------

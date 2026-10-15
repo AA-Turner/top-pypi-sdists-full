@@ -37,13 +37,9 @@ const FOOTER_LEN: u64 = 32;
 pub(crate) const DEFAULT_CHUNK_TARGET: usize = 512 * 1024;
 const WRITER_BUFFER: usize = 64 * 1024;
 const RESIDENT_LIMIT: usize = 16 * 1024 * 1024;
-// Account for the channel node, enum, Arcs, and allocator metadata as well as
-// payload capacity. This makes the resident budget the sole queue bound even
-// when a stalled writer has thousands of tiny value records waiting behind it.
+// Include command and allocator overhead so the resident budget bounds tiny queued records.
 const COMMAND_RESIDENT_OVERHEAD: usize = 256;
 const WRITER_STALL_TIMEOUT: Duration = Duration::from_secs(30);
-// How long a writer thread that has finished its capture waits for the next
-// one before it exits.
 const WRITER_PARK_TIMEOUT: Duration = Duration::from_secs(2);
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 static PROCESS_WRITER_CIRCUIT_OPEN: AtomicBool = AtomicBool::new(false);
@@ -57,9 +53,7 @@ static PROCESS_ATFORK_STATUS: AtomicI32 = AtomicI32::new(-1);
 
 #[cfg(all(unix, not(target_arch = "wasm32"), target_has_atomic = "64"))]
 unsafe extern "C" fn advance_process_fork_generation() {
-    // pthread_atfork's child callback may only perform async-signal-safe work.
-    // The cfg above guarantees that this 64-bit atomic is native and lock-free;
-    // this operation does not allocate or acquire a lock.
+    // The atfork child callback uses only a guaranteed lock-free atomic; it cannot allocate or lock.
     PROCESS_FORK_GENERATION.fetch_add(1, Ordering::Relaxed);
 }
 
@@ -84,14 +78,11 @@ impl ProcessForkGeneration {
         }
         #[cfg(all(unix, not(target_arch = "wasm32"), not(target_has_atomic = "64")))]
         {
-            // Without a guaranteed lock-free 64-bit atomic, a post-fork child
-            // handler could inherit an internal atomic lock held by a vanished
-            // thread. Use the correct but slower live-PID check instead.
+            // Without a lock-free 64-bit atomic, use the slower live-PID fork check.
             false
         }
         #[cfg(any(not(unix), target_arch = "wasm32"))]
         {
-            // These platforms cannot inherit a live capture through fork.
             true
         }
     }
@@ -142,8 +133,6 @@ impl ProcessForkGeneration {
 /// meanwhile. The child inherits that mutex locked by a thread it does not
 /// have and would wait on it forever; give each process its own instead.
 pub(crate) struct ForkAwareMutex {
-    // Only locked briefly by attached threads, and fork runs attached, so a
-    // child never inherits this outer mutex held.
     current: Mutex<(ProcessForkGeneration, Arc<Mutex<()>>)>,
 }
 
@@ -243,9 +232,6 @@ impl SnapshotFile {
     #[cfg(not(windows))]
     fn read_exact_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
         if self.file.get().is_none() {
-            // Unit-created handles may not have a TraceWriter to install the
-            // descriptor. Production writers install it before their worker
-            // starts, so a forked child never races a parent rename here.
             let file = File::open(self.path.as_ref())?;
             let _ = self.file.set(file);
         }
@@ -342,8 +328,6 @@ impl ChunkHandle {
 
     fn fail(&self, error: &io::Error) {
         let _ = self.failure.set(error.to_string());
-        // Publish failure before locking `memory`, so a forked child bypasses
-        // a writer-held transition lock just as it does after commit.
         self.memory.lock().expect("chunk memory poisoned").take();
     }
 
@@ -529,8 +513,6 @@ impl WriterRuntime {
         let mut observed_progress = resident.progress_epoch;
         let mut deadline: Option<Instant> = None;
 
-        // One oversized frame is allowed to exceed the target and global
-        // budget, but only after all ordinary queued commands have drained.
         while resident.bytes != 0 && resident.bytes.saturating_add(bytes) > RESIDENT_LIMIT {
             if self.is_open() {
                 return Err(writer_circuit_error());
@@ -855,17 +837,7 @@ struct ParkedWriter {
     process: ProcessForkGeneration,
 }
 
-// A process that traces many short sessions starts a capture, and with it a
-// writer, per session, and starting a thread costs more than writing a small
-// trace. So a writer thread that has finished its capture parks here for a
-// while, and the next capture hands its job to it instead of spawning.
-// Everything a capture does with its writer is unchanged: the job is the
-// same closure, on a thread with the same name, and a second capture that
-// starts while the first is still writing gets a thread of its own.
-//
-// Capture threads only ever `try_lock` this: a forked child can inherit it
-// locked by a thread it does not have (they may be detached from the
-// interpreter here), and then simply spawns a thread per capture, as before.
+// Capture threads only try_lock this: a forked child can inherit it locked by a thread it lacks.
 static PARKED_WRITER: Mutex<Option<ParkedWriter>> = Mutex::new(None);
 static NEXT_WRITER_THREAD_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -880,12 +852,8 @@ fn run_on_writer_thread(job: WriterJob) -> io::Result<WriterJoin> {
     };
     if let Some(parked) = parked {
         if parked.process.has_changed() {
-            // Inherited over a fork: that thread belongs to the parent. Its
-            // channel is leaked like a live writer's (`detach_after_fork`).
             std::mem::forget(parked);
         } else {
-            // The thread only stops waiting for a task once it has taken its
-            // offer back, so this fails only if it is gone altogether.
             match parked.tasks.send(task) {
                 Ok(()) => return Ok(WriterJoin::Job(outcome)),
                 Err(std::sync::mpsc::SendError(returned)) => task = returned,
@@ -915,15 +883,12 @@ fn writer_thread_main(
         outcome.complete(result);
         drop(outcome);
         if panicked {
-            // As when every capture had its own thread: a panic ends it.
             return;
         }
-        // KOLO_REUSE_SAVE_WORKERS=0: a thread per capture, as before.
         static REUSE: OnceLock<bool> = OnceLock::new();
         if !*REUSE.get_or_init(|| std::env::var("KOLO_REUSE_SAVE_WORKERS").as_deref() != Ok("0")) {
             return;
         }
-        // Offer this thread to the next capture, unless one is parked already.
         match PARKED_WRITER.try_lock() {
             Ok(mut parked) if parked.is_none() => {
                 *parked = Some(ParkedWriter {
@@ -937,8 +902,6 @@ fn writer_thread_main(
         task = match receiver.recv_timeout(WRITER_PARK_TIMEOUT) {
             Ok(task) => task,
             Err(_) => {
-                // Take the offer back. If a capture has taken it up already,
-                // its task is on the way.
                 let withdrawn = {
                     let mut parked = PARKED_WRITER
                         .lock()
@@ -1012,12 +975,7 @@ impl TraceWriter {
             .write(true)
             .create_new(true)
             .open(temporary.as_ref())?;
-        // Keep a readable descriptor open before the worker starts. An open
-        // descriptor survives a parent's later rename/unlink and is inherited
-        // across fork, so committed ChunkHandles never depend on the mutable
-        // temporary pathname in a child. Open it separately as read-only:
-        // unlike a clone of the writer handle, it does not retain write access
-        // across the atomic replacement on Windows.
+        // Open a read-only snapshot descriptor before the writer starts; child reads must not depend on the temporary pathname.
         snapshot.install(OpenOptions::new().read(true).open(temporary.as_ref())?);
         let (sender, receiver) = std::sync::mpsc::channel();
         let thread_temporary = Arc::clone(&temporary);
@@ -1087,9 +1045,6 @@ impl TraceWriter {
         handle: Arc<ChunkHandle>,
         reservation: ResidentReservation,
     ) -> io::Result<()> {
-        // Deliberately leave the handle in ChunkState::Memory while queued.
-        // The command and handle share one allocation, so this adds no payload
-        // residency; it only keeps synchronous range reads off the disk path.
         if self
             .sender
             .as_ref()
@@ -1152,10 +1107,7 @@ impl TraceWriter {
             })
             .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "trace writer failed"))?;
         self.sender.take();
-        // Wait on the runtime condition rather than joining blindly. Writer
-        // exit and circuit-open both notify it, so a process-wide poison that
-        // races finalization can detach this writer instead of hanging Kolo
-        // teardown forever.
+        // Wait on the runtime condition so circuit-open can detach a writer during finalization.
         {
             let mut resident = self
                 .runtime
@@ -1195,18 +1147,9 @@ impl TraceWriter {
     }
 
     fn abandon_for_circuit(&mut self) -> Option<PathBuf> {
-        // The existing temporary artifact is already unique and contains an
-        // immutable verified prefix. Preserve it before disconnecting the
-        // channel so the writer cannot remove it if a blocked syscall later
-        // returns. The detached writer may then append more records, but its
-        // positioned writes never overwrite the published prefix. Readers
-        // therefore validate the live artifact as a provisional recovered
-        // trace. This adds no filesystem operation to the failure path.
+        // Preserve the verified temporary prefix before detaching the stalled writer; later positioned writes cannot overwrite it.
         self.preserve_temporary.store(true, Ordering::Release);
         self.sender.take();
-        // Dropping a JoinHandle detaches the thread. It still owns the file,
-        // receiver, and already-accounted queued commands, but process poison
-        // ensures no callback or later capture can enqueue more work.
         self.join.take();
         if self.recovery_path.is_none() && self.progress.verified_len() != 0 {
             self.recovery_path = Some(self.temporary.as_ref().clone());
@@ -1272,9 +1215,6 @@ fn writer_main(
     progress: &WriterProgress,
     preserve_temporary: &AtomicBool,
 ) -> io::Result<()> {
-    // Keep record headers and sidecars batched, but let a normal 512 KiB chunk
-    // bypass BufWriter rather than copying the whole chunk into a second 1 MiB
-    // resident buffer before it reaches the final artifact.
     let mut writer = BufWriter::with_capacity(WRITER_BUFFER, PositionedWriter::new(file));
     write_header(&mut writer, &header_payload)?;
     let mut offset = HEADER_LEN + header_payload.len() as u64;
@@ -1702,7 +1642,6 @@ fn sync_for_publication(file: &File) -> io::Result<()> {
     #[cfg(target_vendor = "apple")]
     {
         use std::os::fd::AsRawFd;
-        // <sys/fcntl.h>; the libc crate does not export it.
         const F_BARRIER_FSYNC: libc::c_int = 85;
         let fd = file.as_raw_fd();
         barrier_or_full_sync(
@@ -1873,9 +1812,7 @@ impl TraceCapture {
     }
 
     fn submit(&self, chunk: SealedChunk) -> io::Result<Arc<ChunkHandle>> {
-        // A child cannot use the parent's worker or resident-budget progress.
-        // Detect the process boundary before either can block. This runs once
-        // per sealed chunk, not once per captured frame.
+        // Enter post-fork mode before reading resident-budget state or waiting on a parent writer.
         self.enter_post_fork_mode();
         let resident = chunk.resident_len();
         #[cfg(not(target_arch = "wasm32"))]
@@ -1905,10 +1842,7 @@ impl TraceCapture {
         if self.is_in_memory() {
             return Ok(handle);
         }
-        // Pyodide has no native worker threads or durable host filesystem to
-        // stream into. Keep its sealed chunks in the same logical store and
-        // materialize the v3 container once at save time. Native builds take
-        // the bounded background-writer path below.
+        // Pyodide seals chunks in memory and materializes them at save time.
         #[cfg(target_arch = "wasm32")]
         {
             let _ = resident;
@@ -1934,9 +1868,6 @@ impl TraceCapture {
     }
 
     pub(crate) fn publish_value(&self, id: u32, encoded: Arc<[u8]>) -> io::Result<()> {
-        // Value publication is the first operation that can start a writer.
-        // A forked child must switch to synchronous materialization before it
-        // can reuse the inherited sender or wait on inherited progress.
         self.enter_post_fork_mode();
         let index = id as usize;
         if self.is_in_memory() {
@@ -1997,8 +1928,6 @@ impl TraceCapture {
                 Err(error) => return Err(error),
             };
             let mut state = self.state.lock().expect("trace writer mutex poisoned");
-            // Another publisher or finish may have won while this thread was
-            // waiting for resident room. Recheck before sending anything.
             if state.closed {
                 return Err(io::Error::new(
                     io::ErrorKind::BrokenPipe,
@@ -2377,10 +2306,7 @@ impl FrameStore {
         let handle = match submitted {
             Ok(handle) => handle,
             Err(error) => {
-                // The sealed bytes have left the arena but were not accepted
-                // by the writer. Poison this logical store so later subtree or
-                // trace-point operations cannot reinterpret shifted indices
-                // and persist the wrong frames through a fresh capture.
+                // Poison the store so later operations can't reinterpret shifted indices and persist the wrong frames.
                 self.failed = true;
                 return Err(error);
             }
@@ -2476,9 +2402,6 @@ impl FrameStore {
                 "incompatible frame range insertion",
             ));
         }
-        // seal() above makes len() equal sealed_frames. Use the semantic
-        // quantity here so observation reindexing stays obviously coupled to
-        // the number of frames inserted, not the storage representation.
         let inserted_frames = other.len();
         self.trace_name_index
             .shift_for_insert(index, inserted_frames);
@@ -2503,10 +2426,7 @@ impl FrameStore {
         }
         self.append_serialized(&frame)?;
         self.seal()?;
-        // Production callers insert synthetic subtree placeholders. Rather
-        // than teach this generic range primitive about plugin frame types,
-        // conservatively fall back to the exact positional name resolver for
-        // any store whose logical layout gained an explicit frame.
+        // Explicit frame insertion requires positional name resolution until the index is rebuilt.
         self.trace_name_index.mark_incomplete();
         let inserted = self
             .spans
@@ -2679,9 +2599,6 @@ pub(crate) fn build_container_bytes<S: FrameSequence>(
     let mut index = Vec::new();
     let mut layouts = Vec::with_capacity(frames_by_thread.len());
 
-    // Materialized containers publish their complete bounded value table
-    // before chunks. The streaming path does the same lazily per referenced
-    // ID, preserving this recovery invariant without writing unused values.
     for (id, value) in value_table {
         let (written, entry) = write_record(&mut out, offset, 5, 0, u64::from(id), 1, &value)?;
         offset += written;
@@ -2793,8 +2710,6 @@ mod tests {
     #[test]
     fn process_atfork_callback_advances_generation() {
         assert!(ProcessForkGeneration::register());
-        // Mutate the process-global generation only in a child so parallel
-        // capture tests in the parent cannot observe a simulated fork.
         let child = unsafe { libc::fork() };
         assert!(child >= 0, "fork failed");
         if child == 0 {
@@ -2868,8 +2783,6 @@ mod tests {
         let child = unsafe { libc::fork() };
         assert!(child >= 0, "fork failed");
         if child == 0 {
-            // The holder thread does not exist here, so the inherited mutex
-            // would never unlock.
             let acquired = mutex.for_this_process().try_lock().is_ok();
             unsafe { libc::_exit(if acquired { 0 } else { 1 }) };
         }
@@ -2972,10 +2885,6 @@ mod tests {
             )
             .unwrap();
 
-        // Handles committed by the background writer must not depend on its
-        // temporary pathname after finalization renames that file. A forked
-        // child inherits this same open snapshot while the parent may rotate
-        // or save its copy of the capture.
         let mut snapshot = Vec::new();
         handle.read_frame(0, &mut snapshot).unwrap();
         assert_eq!(snapshot, frame);

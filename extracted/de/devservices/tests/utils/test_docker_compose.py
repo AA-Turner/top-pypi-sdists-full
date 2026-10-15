@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
@@ -10,6 +11,7 @@ import pytest
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
@@ -27,10 +29,29 @@ from devservices.utils.services import Service
 from testing.utils import create_mock_git_repo
 
 
+def mock_docker_compose_config_services(
+    services_by_repo_path: dict[str, str],
+) -> Callable[..., subprocess.CompletedProcess[str]]:
+    def _run(
+        cmd: list[str], *args: object, **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        config_path = cmd[cmd.index("-f") + 1]
+        repo_path = os.path.dirname(os.path.dirname(config_path))
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=0, stdout=services_by_repo_path[repo_path]
+        )
+
+    return _run
+
+
 @mock.patch("subprocess.run")
-def test_check_docker_compose_version_success(mock_run: mock.Mock) -> None:
-    mock_run.return_value.stdout = "2.29.7\n"
+@mock.patch("devservices.utils.docker_compose.install_docker_compose")
+def test_check_docker_compose_version_success(
+    mock_install_docker_compose: mock.Mock, mock_run: mock.Mock
+) -> None:
+    mock_run.return_value.stdout = f"{MINIMUM_DOCKER_COMPOSE_VERSION}\n"
     check_docker_compose_version()  # Should not raise any exception
+    mock_install_docker_compose.assert_not_called()
 
 
 @mock.patch("subprocess.run")
@@ -62,7 +83,33 @@ def test_check_docker_compose_version_unsupported(
 ) -> None:
     mock_run.return_value.stdout = "2.20.0-desktop.1\n"
     check_docker_compose_version()
-    assert mock_install_docker_compose.is_called()
+    mock_install_docker_compose.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "installed_version",
+    ["2.29.7", "2.29.7-desktop.1", "2.38.2", "2.40.3-desktop.1", "5.6.0", "6.0.0"],
+)
+@mock.patch("subprocess.run")
+@mock.patch("devservices.utils.docker_compose.install_docker_compose")
+def test_check_docker_compose_version_at_or_above_minimum(
+    mock_install_docker_compose: mock.Mock,
+    mock_run: mock.Mock,
+    installed_version: str,
+) -> None:
+    mock_run.return_value.stdout = f"{installed_version}\n"
+    check_docker_compose_version()
+    mock_install_docker_compose.assert_not_called()
+
+
+@mock.patch("subprocess.run")
+@mock.patch("devservices.utils.docker_compose.install_docker_compose")
+def test_check_docker_compose_version_below_minimum(
+    mock_install_docker_compose: mock.Mock, mock_run: mock.Mock
+) -> None:
+    mock_run.return_value.stdout = "2.29.6\n"
+    check_docker_compose_version()
+    mock_install_docker_compose.assert_called_once()
 
 
 @mock.patch("subprocess.run")
@@ -170,7 +217,7 @@ def test_install_docker_compose_binary_install_error(
 
 @mock.patch("platform.system", return_value="Darwin")
 @mock.patch("platform.machine", return_value="arm64")
-@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch("devservices.utils.install_binary.download_file")
 @mock.patch("devservices.utils.install_binary.os.chmod")
 @mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
@@ -186,7 +233,7 @@ def test_install_docker_compose_compose_verification_error(
     _mock_get_docker_compose_version: mock.Mock,
     _mock_shutil_move: mock.Mock,
     _mock_chmod: mock.Mock,
-    _mock_urlretrieve: mock.Mock,
+    _mock_download_file: mock.Mock,
     _mock_machine: mock.Mock,
     _mock_system: mock.Mock,
 ) -> None:
@@ -200,26 +247,26 @@ def test_install_docker_compose_compose_verification_error(
 @mock.patch("devservices.utils.install_binary.tempfile.TemporaryDirectory")
 @mock.patch("platform.system", return_value="Darwin")
 @mock.patch("platform.machine", return_value="arm64")
-@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch("devservices.utils.install_binary.download_file")
 @mock.patch("devservices.utils.install_binary.os.chmod")
 @mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
     "devservices.utils.docker_compose.get_docker_compose_version",
-    return_value="2.29.7\n",
+    return_value="5.6.0\n",
 )
 def test_install_docker_compose_macos_arm64(
     mock_get_docker_compose_version: mock.Mock,
     mock_shutil_move: mock.Mock,
     mock_chmod: mock.Mock,
-    mock_urlretrieve: mock.Mock,
+    mock_download_file: mock.Mock,
     _mock_machine: mock.Mock,
     _mock_system: mock.Mock,
     mock_tempdir: mock.Mock,
 ) -> None:
     mock_tempdir.return_value.__enter__.return_value = "tempdir"
     install_docker_compose()
-    mock_urlretrieve.assert_called_once_with(
-        "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-darwin-aarch64",
+    mock_download_file.assert_called_once_with(
+        "https://github.com/docker/compose/releases/download/v5.6.0/docker-compose-darwin-aarch64",
         "tempdir/docker-compose",
     )
     mock_chmod.assert_called_once_with("tempdir/docker-compose", 0o755)
@@ -233,26 +280,26 @@ def test_install_docker_compose_macos_arm64(
 @mock.patch("devservices.utils.install_binary.tempfile.TemporaryDirectory")
 @mock.patch("platform.system", return_value="Linux")
 @mock.patch("platform.machine", return_value="x86_64")
-@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch("devservices.utils.install_binary.download_file")
 @mock.patch("devservices.utils.install_binary.os.chmod")
 @mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
     "devservices.utils.docker_compose.get_docker_compose_version",
-    return_value="2.29.7\n",
+    return_value="5.6.0\n",
 )
 def test_install_docker_compose_linux_x86(
     mock_get_docker_compose_version: mock.Mock,
     mock_shutil_move: mock.Mock,
     mock_chmod: mock.Mock,
-    mock_urlretrieve: mock.Mock,
+    mock_download_file: mock.Mock,
     _mock_machine: mock.Mock,
     _mock_system: mock.Mock,
     mock_tempdir: mock.Mock,
 ) -> None:
     mock_tempdir.return_value.__enter__.return_value = "tempdir"
     install_docker_compose()
-    mock_urlretrieve.assert_called_once_with(
-        "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-linux-x86_64",
+    mock_download_file.assert_called_once_with(
+        "https://github.com/docker/compose/releases/download/v5.6.0/docker-compose-linux-x86_64",
         "tempdir/docker-compose",
     )
     mock_chmod.assert_called_once_with("tempdir/docker-compose", 0o755)
@@ -266,18 +313,18 @@ def test_install_docker_compose_linux_x86(
 @mock.patch("devservices.utils.install_binary.tempfile.TemporaryDirectory")
 @mock.patch("platform.system", return_value="Darwin")
 @mock.patch("platform.machine", return_value="arm64")
-@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch("devservices.utils.install_binary.download_file")
 @mock.patch("devservices.utils.install_binary.os.chmod")
 @mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
     "devservices.utils.docker_compose.get_docker_compose_version",
-    return_value="2.29.7\n",
+    return_value="5.6.0\n",
 )
 def test_install_docker_compose_custom_docker_config_dir(
     mock_get_docker_compose_version: mock.Mock,
     mock_shutil_move: mock.Mock,
     mock_chmod: mock.Mock,
-    mock_urlretrieve: mock.Mock,
+    mock_download_file: mock.Mock,
     _mock_machine: mock.Mock,
     _mock_system: mock.Mock,
     mock_tempdir: mock.Mock,
@@ -288,8 +335,8 @@ def test_install_docker_compose_custom_docker_config_dir(
         "tempdir/docker/config/cli-plugins",
     ):
         install_docker_compose()
-    mock_urlretrieve.assert_called_once_with(
-        "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-darwin-aarch64",
+    mock_download_file.assert_called_once_with(
+        "https://github.com/docker/compose/releases/download/v5.6.0/docker-compose-darwin-aarch64",
         "tempdir/docker-compose",
     )
     mock_chmod.assert_called_once_with("tempdir/docker-compose", 0o755)
@@ -452,18 +499,12 @@ def test_get_all_commands_to_run_simple_remote(
         parent_service_repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
     mode_dependencies = service_config.modes["default"]
-    mock_run.side_effect = [
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="child-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="parent-service\n",
-        ),
-    ]
+    mock_run.side_effect = mock_docker_compose_config_services(
+        {
+            child_service_repo_path_str: "child-service\n",
+            parent_service_repo_path_str: "parent-service\n",
+        }
+    )
     commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
@@ -555,23 +596,13 @@ def test_get_all_commands_to_run_complex_remote(
         grandparent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
     mode_dependencies = service_config.modes["default"]
-    mock_run.side_effect = [
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="child-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="parent-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="grandparent-service\n",
-        ),
-    ]
+    mock_run.side_effect = mock_docker_compose_config_services(
+        {
+            child_service_repo_path_str: "child-service\n",
+            parent_service_repo_path_str: "parent-service\n",
+            grandparent_service_repo_path_str: "grandparent-service\n",
+        }
+    )
     commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=list(remote_dependencies),
@@ -685,23 +716,13 @@ def test_get_all_commands_to_run_complex_shared_dependency(
         grandparent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
     mode_dependencies = service_config.modes["default"]
-    mock_run.side_effect = [
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="child-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="parent-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="grandparent-service\n",
-        ),
-    ]
+    mock_run.side_effect = mock_docker_compose_config_services(
+        {
+            child_service_repo_path_str: "child-service\n",
+            parent_service_repo_path_str: "parent-service\n",
+            grandparent_service_repo_path_str: "grandparent-service\n",
+        }
+    )
     commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,

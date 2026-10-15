@@ -3,6 +3,7 @@
 import asyncio
 import contextvars
 import inspect
+import json
 import logging
 import time
 from contextlib import aclosing, contextmanager
@@ -11,11 +12,7 @@ from itertools import chain
 from typing import Any
 
 from braintrust.bt_json import bt_safe_deep_copy
-from braintrust.integrations.utils import (
-    _extract_google_usage_metadata_metrics,
-    _extract_google_usage_metadata_provider_metadata,
-    _materialize_attachment,
-)
+from braintrust.integrations.utils import _materialize_attachment
 from braintrust.logger import start_span as _bt_start_span
 
 
@@ -174,19 +171,6 @@ def _capture_config(config: Any) -> dict[str, Any] | Any:
         captured[field] = value
 
     return captured or config
-
-
-def _extract_metrics(response: Any) -> dict[str, Any] | None:
-    """Extract token usage metrics from Google GenAI response."""
-    if not response:
-        return None
-
-    usage_metadata = getattr(response, "usage_metadata", None)
-    if not usage_metadata:
-        return None
-
-    metrics = _extract_google_usage_metadata_metrics(usage_metadata)
-    return metrics if metrics else None
 
 
 def _extract_model_name(response: Any, llm_request: Any, instance: Any) -> str | None:
@@ -367,6 +351,105 @@ async def _agent_run_async_wrapper(wrapped: Any, instance: Any, args: Any, kwarg
             agent_span.log(output=last_event)
 
 
+async def _workflow_node_run_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any):
+    """Trace ADK 2.x workflow nodes, including the Workflow root node."""
+    if any(
+        cls.__name__ == "BaseAgent" and cls.__module__.startswith("google.adk.agents")
+        for cls in instance.__class__.__mro__
+    ):
+        # Newer ADK agent classes share BaseNode.run; their existing agent span
+        # is the canonical task span and must remain the direct child of Runner.
+        async with aclosing(wrapped(*args, **kwargs)) as agen:
+            async for event in agen:
+                yield event
+        return
+
+    node_name = getattr(instance, "name", instance.__class__.__name__)
+    node_input = kwargs.get("node_input", args[1] if len(args) > 1 else None)
+    is_workflow = any(
+        cls.__name__ == "Workflow" and cls.__module__.startswith("google.adk.workflow")
+        for cls in instance.__class__.__mro__
+    )
+    span_name = f"workflow [{node_name}]" if is_workflow else f"workflow_node [{node_name}]"
+
+    async def _trace():
+        with _start_stream_span(
+            name=span_name,
+            type=SpanTypeAttribute.TASK,
+            input=node_input,
+            metadata={"node_name": node_name, "node_class": instance.__class__.__name__},
+        ) as node_span:
+            last_output = None
+            async with aclosing(wrapped(*args, **kwargs)) as agen:
+                async for event in agen:
+                    event_output = getattr(event, "output", None)
+                    if event_output is not None:
+                        last_output = event_output
+                    yield event
+            if last_output is not None:
+                node_span.log(output=last_output)
+
+    async with aclosing(_trace()) as agen:
+        async for event in agen:
+            yield event
+
+
+async def _workflow_tool_node_run_impl_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any):
+    """Trace tools executed directly by ADK 2.x workflow tool nodes."""
+    tool = getattr(instance, "tool", None)
+    if tool is None:
+        async with aclosing(wrapped(*args, **kwargs)) as agen:
+            async for event in agen:
+                yield event
+        return
+
+    # MCP tools already have their own wrapper around run_async.
+    if getattr(tool.__class__, "__module__", "").startswith("google.adk.tools.mcp_tool"):
+        async with aclosing(wrapped(*args, **kwargs)) as agen:
+            async for event in agen:
+                yield event
+        return
+
+    tool_name = getattr(tool, "name", tool.__class__.__name__)
+    node_input = kwargs.get("node_input", args[1] if len(args) > 1 else None)
+    tool_args = node_input
+    if hasattr(tool_args, "parts"):
+        tool_args = "".join(getattr(part, "text", "") or "" for part in (tool_args.parts or []))
+    if hasattr(tool_args, "model_dump"):
+        tool_args = tool_args.model_dump()
+    if isinstance(tool_args, str):
+        try:
+            tool_args = json.loads(tool_args)
+        except json.JSONDecodeError:
+            pass
+    if not isinstance(tool_args, dict):
+        tool_args = {}
+
+    async def _trace():
+        with _start_stream_span(
+            name=f"tool [{tool_name}]",
+            type=SpanTypeAttribute.TOOL,
+            input={"tool_name": tool_name, "arguments": tool_args},
+            metadata={"tool_class": tool.__class__.__name__},
+        ) as tool_span:
+            last_output = None
+            try:
+                async with aclosing(wrapped(*args, **kwargs)) as agen:
+                    async for event in agen:
+                        if getattr(event, "output", None) is not None:
+                            last_output = event.output
+                        yield event
+            except Exception as error:
+                tool_span.log(error=error)
+                raise
+            if last_output is not None:
+                tool_span.log(output=last_output)
+
+    async with aclosing(_trace()) as agen:
+        async for event in agen:
+            yield event
+
+
 async def _flow_run_async_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any):
     async def _trace():
         with _start_stream_span(
@@ -408,12 +491,14 @@ async def _flow_call_llm_async_wrapper(wrapped: Any, instance: Any, args: Any, k
 
         # Create span BEFORE execution so child spans (like mcp_tool) have proper parent
         # Start with generic name - we'll update it after we see the response
+        # A task, not an llm span: the provider client ADK calls (google-genai,
+        # litellm, ...) owns the llm span and its usage.
         with _start_stream_span(
             name="llm_call",
-            type=SpanTypeAttribute.LLM,
+            type=SpanTypeAttribute.TASK,
             input=captured_request,
             metadata=metadata,
-        ) as llm_span:
+        ) as model_call_span:
             # Execute the LLM call and yield events while span is active
             last_event = None
             event_with_content = None
@@ -436,32 +521,16 @@ async def _flow_call_llm_async_wrapper(wrapped: Any, instance: Any, args: Any, k
                 # We need to check if we should merge content from an earlier event.
                 output = _event_output_with_content(last_event, event_with_content)
 
-                # Extract metrics from response
-                metrics = _extract_metrics(last_event)
-
-                # Add time to first token if we captured it
-                if first_token_time is not None:
-                    if metrics is None:
-                        metrics = {}
-                    metrics["time_to_first_token"] = first_token_time - start_time
-
                 # Determine the actual call type based on the response
                 call_type = _determine_llm_call_type(llm_request, last_event)
 
                 # Update span name with the specific call type now that we know it
-                llm_span.set_attributes(
+                model_call_span.set_attributes(
                     name=f"llm_call [{call_type}]",
                     span_attributes={"llm_call_type": call_type},
                 )
 
-                # Log output, metrics, and provider-specific usage details.
-                llm_span.log(
-                    output=output,
-                    metrics=metrics,
-                    metadata=_extract_google_usage_metadata_provider_metadata(
-                        getattr(last_event, "usage_metadata", None)
-                    ),
-                )
+                model_call_span.log(output=output, metrics={"time_to_first_token": first_token_time - start_time})
 
     async with aclosing(_trace()) as agen:
         async for event in agen:

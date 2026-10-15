@@ -1,6 +1,6 @@
 [project]
 name = "matrx-ai"
-version = "0.5.586"
+version = "0.5.601"
 description = "Unified multi-provider AI client, orchestration, and tool system"
 readme = "README.md"
 license = { text = "MIT" }
@@ -58,6 +58,8 @@ dependencies = [
     "pyyaml",
     "python-dotenv",
     "rich",
+    # desktop_schedule computes a cron schedule's first run (tools/implementations/desktop.py).
+    "croniter>=2.0",
     # --- Data ---
     "numpy>=2.0",
     # Partial-image previews (providers/media_frames.fit_image_preview) —
@@ -72,11 +74,11 @@ dependencies = [
     "matrx-files[all]>=0.2.293",
     # 0.1.26+ exports the Masterwork* event models used here (renamed 2026-08-17;
     # the next matrx-connect release is the first tag that exports the new names).
-    "matrx-connect>=0.1.216",
+    "matrx-connect>=0.1.218",
     # actions.register_node is imported at module scope and first shipped in 0.1.22.
-    "matrx-graph>=0.2.295",
+    "matrx-graph>=0.2.301",
     # tools.implementations imports the browser implementation eagerly.
-    "matrx-scraper[browser,files]>=0.2.380",
+    "matrx-scraper[browser,files]>=0.2.388",
     # matrx-runtime (the Request Management Layer): the conversation executor
     # (orchestrator/conversation_runtime.py) is a CONSUMER of its ExecutionEngine —
     # one conversation = one global_execution. ai → runtime is the acyclic edge.

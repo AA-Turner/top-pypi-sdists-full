@@ -1,0 +1,118 @@
+- name: Alabama
+  period: 2023
+  absolute_error_margin: 0.01
+  input:
+    state_code: AL
+    is_chip_eligible: true
+  output:
+    per_capita_chip: 2_550.51
+
+- name: Ineligible - integration test
+  period: 2023
+  absolute_error_margin: 0.01
+  input:
+    state_code: NY
+    employment_income: 400_000
+  output:
+    per_capita_chip: 0
+
+- name: Alabama - ineligible filer
+  period: 2023
+  absolute_error_margin: 0.01
+  input:
+    state_code: AL
+    is_chip_eligible: false
+  output:
+    per_capita_chip: 0
+
+- name: Case 4, Alabama uses aligned FY2024 separate CHIP spending and enrollment.
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    state_code: AL
+    is_chip_eligible: true
+  output:
+    per_capita_chip: 2_619.02
+
+- name: Case 5, Maryland has no separate CHIP child enrollment denominator.
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    state_code: MD
+    is_chip_eligible: true
+  output:
+    per_capita_chip: 0
+
+- name: Case 6, Kansas uses MACPAC separate CHIP spending and enrollment.
+  period: 2024
+  absolute_error_margin: 0.01
+  input:
+    state_code: KS
+    is_chip_eligible: true
+  output:
+    per_capita_chip: 1_896.49
+
+- name: Case 7, Oklahoma negative 2023 separate CHIP spending does not reduce benefits.
+  period: 2023
+  input:
+    state_code: OK
+    is_chip_eligible: true
+  output:
+    per_capita_chip: 0
+
+- name: Case 8, Oklahoma negative 2024 separate CHIP spending does not reduce benefits.
+  period: 2024
+  input:
+    state_code: OK
+    is_chip_eligible: true
+  output:
+    per_capita_chip: 0
+
+- name: Case 9, California CCHIP retains the pooled amount before the child cost estimates apply.
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    state_code: CA
+    is_chip_eligible: true
+    chip_category: CHILD_CCHIP
+  output:
+    per_capita_chip: 13_119.89
+
+- name: Case 10, California uses the child cost proxy only for the CCHIP category in 2026.
+  period: 2026
+  absolute_error_margin: 0.01
+  input:
+    state_code: [CA, CA, CA, CA, CA]
+    is_chip_eligible: [true, true, true, true, false]
+    chip_category: [CHILD_CCHIP, PREGNANT_FCEP, PREGNANT_STANDARD, CHILD, NONE]
+  output:
+    # FY2025-26 Title 21 child estimate for CCHIP; MACPAC pooled value otherwise.
+    per_capita_chip: [4_128, 13_119.89, 13_119.89, 13_119.89, 0]
+
+- name: Case 11, California CCHIP uses the FY2026-27 child estimate in model year 2027.
+  period: 2027
+  input:
+    state_code: CA
+    is_chip_eligible: true
+    chip_category: CHILD_CCHIP
+  output:
+    per_capita_chip: 4_637
+
+- name: Case 12, the child cost proxy does not pay a CHIP-ineligible person.
+  period: 2026
+  input:
+    state_code: CA
+    is_chip_eligible: false
+    chip_category: CHILD_CCHIP
+  output:
+    per_capita_chip: 0
+
+- name: Case 13, Alabama retains its separate CHIP spending and enrollment calculation in 2026.
+  period: 2026
+  absolute_error_margin: 0.01
+  input:
+    state_code: AL
+    is_chip_eligible: true
+    chip_category: CHILD
+  output:
+    per_capita_chip: 2_619.02

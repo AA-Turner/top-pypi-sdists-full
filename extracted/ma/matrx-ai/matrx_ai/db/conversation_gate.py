@@ -58,7 +58,7 @@ from uuid import UUID
 from matrx_connect.reservations import try_get_tracker
 from matrx_utils import detached_task, vcprint
 
-from matrx_ai.agents.conversation_type import derive_conversation_type
+from matrx_ai.agents.conversation_type import derive_conversation_type, honest_lineage_type
 
 from .ownership_fields import is_organization_system_actor, stamp_org_id, stamp_row_owner
 
@@ -1129,8 +1129,14 @@ async def create_new_conversation(
     forked_at_position: int | None = None,
     title: str | None = None,
     parent_conversation_id: str | None = None,
+    start_claim: bool = True,
 ) -> None:
     """INSERT a cx_conversation row with the given client-generated ID.
+
+    ``start_claim=False`` is for a conversation that is created WITHOUT a run behind it
+    (the coding-session bridge mirroring a Claude Code / Codex session): no request will
+    ever land to resolve a ``pending`` claim, so none is written and the live-status
+    column stays NULL (idle) until a real request records its outcome.
 
     Reads ``initial_variables`` and ``initial_overrides`` from the current
     AppContext (set by agent/chat routes via ctx.extend()) so they are
@@ -1243,6 +1249,11 @@ async def create_new_conversation(
     )
     if verified_parent:
         create_kwargs["parent_conversation_id"] = verified_parent
+    # The parent row may have been dropped (missing / lookup failed): a child with
+    # no verified parent is a root run, never a "subagent".
+    create_kwargs["conversation_type"] = honest_lineage_type(
+        create_kwargs["conversation_type"], verified_parent
+    )
     # THE START CLAIM. Committed with the row itself, so a second request
     # arriving milliseconds later can SEE that a run already owns this id.
     #
@@ -1258,9 +1269,10 @@ async def create_new_conversation(
     # The turn-admission lock cannot cover this: it looks for a live run in
     # runtime.global_execution / chat.request, and neither exists yet during
     # prep. This claim does, because it is written in the same commit as the row.
-    if ctx is not None and getattr(ctx, "request_id", ""):
-        create_kwargs["last_request_id"] = str(ctx.request_id)
-    create_kwargs["last_request_status"] = CONVERSATION_START_CLAIM_STATUS
+    if start_claim:
+        if ctx is not None and getattr(ctx, "request_id", ""):
+            create_kwargs["last_request_id"] = str(ctx.request_id)
+        create_kwargs["last_request_status"] = CONVERSATION_START_CLAIM_STATUS
     _stamp_origin(create_kwargs, ctx, with_witness=False)
     _stamp_attribution(create_kwargs, ctx)
     _stamp_agent_refs(
@@ -1500,6 +1512,11 @@ async def ensure_conversation_exists(
     )
     if verified_parent:
         create_kwargs["parent_conversation_id"] = verified_parent
+    # The parent row may have been dropped (missing / lookup failed): a child with
+    # no verified parent is a root run, never a "subagent".
+    create_kwargs["conversation_type"] = honest_lineage_type(
+        create_kwargs["conversation_type"], verified_parent
+    )
 
     # Route through the WriteCoordinator when a request scope is active
     # (the common path — every streaming request reaches here). The INSERT
@@ -1800,7 +1817,7 @@ async def create_pending_user_request(
         "total_tokens": 0,
         "total_cost": 0,
         "total_tool_calls": 0,
-        "metadata": _lineage_metadata(ctx),
+        "metadata": {**_lineage_metadata(ctx), **_run_identity_metadata(ctx)},
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
     }
@@ -2028,6 +2045,19 @@ def _with_mandate_attribution(metadata: dict[str, Any], ctx: Any) -> dict[str, A
         return metadata
 
 
+_RESERVATION_IDENTITY_KEYS = ("mandate_key", "workflow_node_id")
+
+
+def _run_identity_metadata(ctx: Any) -> dict[str, Any]:
+    """What the run IS, on the row from the moment it is reserved (AI-WATCH.md).
+
+    A live watcher reads a pending row: without these the row said "not a mandate
+    run" until finalize merged the run's metadata in.
+    """
+    meta = (getattr(ctx, "metadata", None) or {}) if ctx is not None else {}
+    return {k: str(meta[k]) for k in _RESERVATION_IDENTITY_KEYS if meta.get(k)}
+
+
 def _lineage_metadata(ctx: Any) -> dict[str, Any]:
     """The request this one ran under, when it is an independent child run."""
     parent = (getattr(ctx, "metadata", None) or {}).get(PARENT_REQUEST_ID_KEY) if ctx is not None else None
@@ -2078,7 +2108,7 @@ async def _create_user_request(
         "total_tokens": 0,
         "total_cost": 0,
         "total_tool_calls": 0,
-        "metadata": _lineage_metadata(ctx),
+        "metadata": {**_lineage_metadata(ctx), **_run_identity_metadata(ctx)},
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
     }

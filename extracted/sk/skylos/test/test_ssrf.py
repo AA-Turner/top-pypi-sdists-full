@@ -1800,3 +1800,309 @@ def test_django_test_case_subclass_and_local_mixin_stay_quiet(tmp_path):
     )
     out = _scan_one(tmp_path, "test_views.py", code)
     assert _ssrf_findings(out) == []
+
+
+_ALLOWLIST_PRELUDE = (
+    "from urllib.parse import urlparse\n"
+    "import requests\n"
+    "from fastapi import FastAPI, HTTPException\n"
+    "app = FastAPI()\n"
+    "LOGO_HOSTS = {'cdn.example.com', 'images.example.com'}\n"
+)
+
+
+@pytest.mark.parametrize(
+    "guard",
+    [
+        # The fix the finding recommends: parse, then reject unlisted hosts.
+        "    parsed = urlparse(url)\n"
+        "    if parsed.scheme != 'https' or parsed.hostname not in LOGO_HOSTS:\n"
+        "        raise HTTPException(status_code=400)\n",
+        "    host = urlparse(url).hostname\n"
+        "    if host not in LOGO_HOSTS:\n"
+        "        raise HTTPException(status_code=400)\n",
+        "    if urlparse(url).netloc not in ('cdn.example.com',):\n"
+        "        return {'error': 'bad host'}\n",
+        "    if not LOGO_HOSTS.__contains__(urlparse(url).hostname):\n"
+        "        raise HTTPException(status_code=400)\n",
+        "    parsed = urlparse(url)\n"
+        "    if not (parsed.scheme == 'https' and parsed.hostname in LOGO_HOSTS):\n"
+        "        raise HTTPException(status_code=400)\n",
+        "    if not url.startswith('https://cdn.example.com/'):\n"
+        "        raise HTTPException(status_code=400)\n",
+    ],
+)
+def test_dominating_host_allowlist_guard_clears_ssrf(tmp_path, guard):
+    code = (
+        _ALLOWLIST_PRELUDE
+        + "@app.post('/logo')\n"
+        + "def set_logo(url: str):\n"
+        + guard
+        + "    resp = requests.get(url, timeout=5)\n"
+        + "    return resp.content\n"
+    )
+    out = _scan_one(tmp_path, "ssrf_allowlisted.py", code)
+    assert _ssrf_findings(out) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # Guard only logs: the request still goes out.
+        "    parsed = urlparse(url)\n"
+        "    if parsed.hostname not in LOGO_HOSTS:\n"
+        "        print('unexpected host')\n"
+        "    return requests.get(url, timeout=5).content\n",
+        # Guard checks a different variable than the one requested.
+        "    parsed = urlparse(fallback)\n"
+        "    if parsed.hostname not in LOGO_HOSTS:\n"
+        "        raise HTTPException(status_code=400)\n"
+        "    return requests.get(url, timeout=5).content\n",
+        # Guard after the sink.
+        "    resp = requests.get(url, timeout=5)\n"
+        "    if urlparse(url).hostname not in LOGO_HOSTS:\n"
+        "        raise HTTPException(status_code=400)\n"
+        "    return resp.content\n",
+        # URL rebound after the check.
+        "    if urlparse(url).hostname not in LOGO_HOSTS:\n"
+        "        raise HTTPException(status_code=400)\n"
+        "    url = fallback\n"
+        "    return requests.get(url, timeout=5).content\n",
+        # A string "allowlist" is a substring test.
+        "    if urlparse(url).hostname not in 'cdn.example.com':\n"
+        "        raise HTTPException(status_code=400)\n"
+        "    return requests.get(url, timeout=5).content\n",
+        # The caller picks the allowlist.
+        "    if urlparse(url).hostname not in fallback:\n"
+        "        raise HTTPException(status_code=400)\n"
+        "    return requests.get(url, timeout=5).content\n",
+        # The exit is swallowed by a handler before the request.
+        "    try:\n"
+        "        if urlparse(url).hostname not in LOGO_HOSTS:\n"
+        "            raise ValueError(url)\n"
+        "    except ValueError:\n"
+        "        pass\n"
+        "    return requests.get(url, timeout=5).content\n",
+        # Only on one branch.
+        "    if fallback:\n"
+        "        if urlparse(url).hostname not in LOGO_HOSTS:\n"
+        "            raise HTTPException(status_code=400)\n"
+        "    return requests.get(url, timeout=5).content\n",
+        # A scheme-only or unterminated host prefix does not pin the host.
+        "    if not url.startswith('https://cdn.example.com'):\n"
+        "        raise HTTPException(status_code=400)\n"
+        "    return requests.get(url, timeout=5).content\n",
+        # An ``and`` guard where only one side checks the host.
+        "    parsed = urlparse(url)\n"
+        "    if parsed.scheme != 'https' and parsed.hostname not in LOGO_HOSTS:\n"
+        "        raise HTTPException(status_code=400)\n"
+        "    return requests.get(url, timeout=5).content\n",
+    ],
+)
+def test_host_guard_that_does_not_dominate_still_flags(tmp_path, body):
+    code = (
+        _ALLOWLIST_PRELUDE
+        + "@app.post('/logo')\n"
+        + "def set_logo(url: str, fallback: str = ''):\n"
+        + body
+    )
+    out = _scan_one(tmp_path, "ssrf_unguarded.py", code)
+    assert len(_ssrf_findings(out)) == 1
+
+
+def test_host_guard_in_another_function_still_flags(tmp_path):
+    code = (
+        _ALLOWLIST_PRELUDE
+        + "def check(url):\n"
+        + "    if urlparse(url).hostname not in LOGO_HOSTS:\n"
+        + "        raise HTTPException(status_code=400)\n"
+        + "@app.post('/logo')\n"
+        + "def set_logo(url: str):\n"
+        + "    return requests.get(url, timeout=5).content\n"
+    )
+    out = _scan_one(tmp_path, "ssrf_other_function.py", code)
+    assert len(_ssrf_findings(out)) == 1
+
+
+# ORM sessions share ``get``/``delete`` with HTTP sessions. A receiver proven
+# to be an SQLAlchemy/SQLModel session is not an HTTP client (W3 R1: CRITICAL
+# SSRF on ``session.delete(item)`` in every FastAPI/SQLModel route).
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param(
+            "import uuid\n"
+            "from fastapi import APIRouter\n"
+            "from app.deps import SessionDep\n"
+            "from app.models import Item\n"
+            "router = APIRouter()\n"
+            "@router.delete('/{id}')\n"
+            "def delete_item(session: SessionDep, id: uuid.UUID):\n"
+            "    item = session.get(Item, id)\n"
+            "    session.delete(item)\n"
+            "    session.commit()\n",
+            id="imported-alias-with-commit",
+        ),
+        pytest.param(
+            "from fastapi import APIRouter\n"
+            "from sqlmodel import Session\n"
+            "router = APIRouter()\n"
+            "@router.delete('/{id}')\n"
+            "def delete_item(session: Session, id: str):\n"
+            "    session.delete(session.get(dict, id))\n",
+            id="sqlmodel-annotation",
+        ),
+        pytest.param(
+            "from typing import Annotated\n"
+            "from fastapi import APIRouter, Depends\n"
+            "from sqlalchemy.orm import Session\n"
+            "SessionDep = Annotated[Session, Depends(lambda: None)]\n"
+            "router = APIRouter()\n"
+            "@router.delete('/{id}')\n"
+            "def delete_item(session: SessionDep, id: str):\n"
+            "    session.delete(session.get(dict, id))\n",
+            id="local-annotated-alias",
+        ),
+        pytest.param(
+            "from fastapi import APIRouter\n"
+            "from app.deps import SessionDep\n"
+            "router = APIRouter()\n"
+            "@router.post('/')\n"
+            "def create(session: SessionDep, obj: dict):\n"
+            "    session.add(obj)\n"
+            "    session.commit()\n"
+            "@router.delete('/{id}')\n"
+            "def delete_item(session: SessionDep, id: str):\n"
+            "    session.delete(id)\n",
+            id="alias-used-as-orm-in-module",
+        ),
+        pytest.param(
+            "from flask import request\n"
+            "from sqlalchemy.orm import Session\n"
+            "from app.db import engine\n"
+            "@app.post('/w')\n"
+            "def w():\n"
+            "    with Session(engine) as session:\n"
+            "        session.delete(request.args['id'])\n",
+            id="with-constructor",
+        ),
+        pytest.param(
+            "from flask import request\n"
+            "from sqlalchemy.orm import sessionmaker\n"
+            "SessionLocal = sessionmaker()\n"
+            "@app.post('/w')\n"
+            "def w():\n"
+            "    db_session = SessionLocal()\n"
+            "    db_session.delete(request.args['id'])\n",
+            id="sessionmaker-factory",
+        ),
+        pytest.param(
+            "from flask import Flask, request\n"
+            "from flask_sqlalchemy import SQLAlchemy\n"
+            "app = Flask(__name__)\n"
+            "db = SQLAlchemy(app)\n"
+            "@app.post('/f')\n"
+            "def f():\n"
+            "    db.session.delete(request.args['id'])\n",
+            id="flask-sqlalchemy",
+        ),
+        pytest.param(
+            "from flask import request\n"
+            "class Repo:\n"
+            "    def save(self, obj):\n"
+            "        self.session.add(obj)\n"
+            "        self.session.commit()\n"
+            "    @app.post('/r')\n"
+            "    def remove(self):\n"
+            "        self.session.delete(request.args['id'])\n",
+            id="self-attribute-unit-of-work",
+        ),
+    ],
+)
+def test_orm_session_methods_are_not_ssrf(tmp_path, code):
+    out = _scan_one(tmp_path, "orm_route.py", code)
+    assert _ssrf_findings(out) == []
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param(
+            "import requests\n"
+            "from flask import request\n"
+            "@app.get('/x')\n"
+            "def f():\n"
+            "    session = requests.Session()\n"
+            "    return session.get(request.args['url'])\n",
+            id="requests-session",
+        ),
+        pytest.param(
+            "import requests\n"
+            "from flask import request\n"
+            "@app.get('/x')\n"
+            "def f():\n"
+            "    session = requests.Session()\n"
+            "    r = session.get(request.args['url'])\n"
+            "    session.close()\n"
+            "    return r\n",
+            id="close-is-not-orm-only",
+        ),
+        pytest.param(
+            "import requests\n"
+            "from flask import request\n"
+            "@app.get('/x')\n"
+            "def f():\n"
+            "    session = requests.Session()\n"
+            "    r = session.get(request.args['url'])\n"
+            "    session.commit()\n"
+            "    return r\n",
+            id="known-http-receiver-wins",
+        ),
+        pytest.param(
+            "from flask import request\n"
+            "def call(session, host):\n"
+            "    return session.get(f'http://{host}/x')\n"
+            "@app.get('/p')\n"
+            "def p():\n"
+            "    return call(None, request.args['host'])\n",
+            id="unproven-session-parameter",
+        ),
+        pytest.param(
+            "from typing import Any\n"
+            "from flask import request\n"
+            "def save(session: Any, obj):\n"
+            "    session.add(obj)\n"
+            "    session.commit()\n"
+            "def fetch(session: Any, url):\n"
+            "    return session.get(url)\n"
+            "@app.get('/a')\n"
+            "def a():\n"
+            "    return fetch(None, request.args['url'])\n",
+            id="generic-annotation-proves-nothing",
+        ),
+        pytest.param(
+            "import requests\n"
+            "from flask import request\n"
+            "from sqlmodel import Session\n"
+            "@app.get('/u')\n"
+            "def u(session: Session | requests.Session):\n"
+            "    return session.get(request.args['url'])\n",
+            id="union-with-http-session",
+        ),
+        pytest.param(
+            "import requests\n"
+            "from flask import request\n"
+            "from sqlalchemy.orm import Session\n"
+            "@app.get('/r')\n"
+            "def r(session: Session):\n"
+            "    session = requests.Session()\n"
+            "    return session.get(request.args['url'])\n",
+            id="orm-parameter-rebound-to-http",
+        ),
+    ],
+)
+def test_http_sessions_stay_ssrf_sinks(tmp_path, code):
+    out = _scan_one(tmp_path, "http_route.py", code)
+    assert len(_ssrf_findings(out)) == 1

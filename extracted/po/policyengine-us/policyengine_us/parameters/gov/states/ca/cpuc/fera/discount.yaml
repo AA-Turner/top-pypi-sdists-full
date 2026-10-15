@@ -1,0 +1,12 @@
+description: California provides this discount rate on electricity bills under the Family Electric Rate Assistance program.
+values:
+  2021-06-01: 0.18
+metadata:
+  reference:
+    - title: California Public Utilities Code 739.12(b)
+      href: https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=PUC&sectionNum=739.12
+    - title: CPUC CARE/FERA Program
+      href: https://www.cpuc.ca.gov/industries-and-topics/electrical-energy/electric-costs/care-fera-program
+  unit: /1
+  period: year
+  label: California FERA discount rate

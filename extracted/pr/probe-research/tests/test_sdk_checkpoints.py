@@ -11,7 +11,9 @@ a hashless path reference whose `meta` is refreshed in place; with
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -394,6 +396,121 @@ def test_files_a_probe_config_excludes_are_neither_uploaded_nor_named(tmp_path, 
     assert "model.safetensors" in meta["members"]
 
 
+# -- a checkpoint under a `.probe.config` `hash` rule (data catalog C9) -------------------
+
+
+def _config_fresh(tmp_path, monkeypatch):
+    from probe.sdk import exclusions, probe_config as pc
+
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    for name in ("CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "PI_SESSION_ID"):
+        monkeypatch.delenv(name, raising=False)
+    pc._CACHE.clear()
+    pc._CHECKED.clear()
+    exclusions._view_at = -1.0e9
+    return pc
+
+
+def _ruled_checkpoints(app, tmp_path, monkeypatch, level: str):
+    """A run, and a checkpoint folder plus a Lightning-style file under a
+    `ckpts/` rule at ``level``."""
+    pc = _config_fresh(tmp_path, monkeypatch)
+    root = tmp_path / "work"
+    folder = root / "ckpts" / "checkpoint-10"
+    folder.mkdir(parents=True)
+    (folder / "model.safetensors").write_bytes(b"w" * 4096)
+    (folder / "trainer_state.json").write_bytes(b'{"global_step": 10, "best_metric": 0.5}' * 4)
+    single = root / "ckpts" / "last.ckpt"
+    single.write_bytes(b"c" * 512)
+    (root / pc.CONFIG_NAME).write_text(f"ckpts/ @probe {level}\n" if level != "off" else "ckpts/\n")
+    run_id = seeded_run(app, tmp_path)
+    run = Run(make_client(app, tmp_spool=tmp_path / "outbox"), {"id": run_id})
+    return run, folder, single
+
+
+def _rows(app, run_id, kind):
+    return [a for a in app.artifacts.get(run_id, []) if a.get("kind") == kind]
+
+
+_SAVE_META = {"step": 10, "monitor": "eval_loss", "score": 0.5, "best": True}
+
+
+def test_a_checkpoint_in_a_hash_folder_is_recorded_by_reference_with_its_identity(app, tmp_path, monkeypatch):
+    """`hash` allows a path's identity, but `log_artifact` refused every
+    excluded path, so a checkpoint saved there (the integrations write a
+    reference row per save) was not recorded at all."""
+    run, folder, single = _ruled_checkpoints(app, tmp_path, monkeypatch, "hash")
+    for path, size in ((folder, 4096 + 160), (single, 512)):
+        run.log_artifact(path.name, path=str(path), kind="checkpoint", reference=True, size_bytes=size,
+                         step_index=10, meta=dict(_SAVE_META))
+    rows = {row["name"]: row for row in _rows(app, run.id, "checkpoint")}
+    assert set(rows) == {"checkpoint-10", "last.ckpt"}
+    for row in rows.values():
+        # Hashless, so a refresh (best moved, deleted) updates it in place.
+        assert row["is_reference"] is True and not row.get("content_hash")
+        assert row["uri"].startswith("file://") and row["meta"]["local_path"]
+        assert {k: row["meta"][k] for k in _SAVE_META} == _SAVE_META
+        assert row["meta"]["identity_only"] is True and row["meta"]["identity"] == "bytes"
+    assert rows["last.ckpt"]["meta"]["fingerprint"] == hashlib.sha256(b"c" * 512).hexdigest()
+    assert rows["last.ckpt"]["size_bytes"] == 512
+    assert len(rows["checkpoint-10"]["meta"]["fingerprint"]) == 64  # the folder's manifest
+    assert not [r for r in app.requests if "/uploads" in r.url.path or "/multipart" in r.url.path]
+
+
+def test_upload_mode_never_uploads_a_hash_checkpoint_and_says_so_once(app, tmp_path, monkeypatch):
+    from probe.integrations import _checkpoints
+
+    run, folder, _single = _ruled_checkpoints(app, tmp_path, monkeypatch, "hash")
+    said: list[str] = []
+    name, meta = _checkpoints.upload_set(run, str(folder), name="checkpoint-10", step=10,
+                                         meta=dict(_SAVE_META), size=4256, strict=None,
+                                         warn=lambda key, msg: said.append(msg))
+    assert not _rows(app, run.id, "file"), "a member was uploaded"
+    assert not [r for r in app.requests if "/uploads" in r.url.path or "/multipart" in r.url.path]
+    (row,) = _rows(app, run.id, "checkpoint")
+    assert row["name"] == name and row["is_reference"] is True
+    assert "members" not in meta and "upload" not in meta
+    assert row["meta"]["identity_only"] is True and row["meta"]["best"] is True
+    assert len(said) == 1 and "`hash`" in said[0] and "never its bytes" in said[0]
+
+
+@pytest.mark.parametrize(("ruled", "upload_named"), [(True, False), (False, True)], ids=["hash", "on"])
+def test_a_throwaway_disk_warning_names_upload_only_where_upload_can_run(tmp_path, monkeypatch, ruled, upload_named):
+    """Reference mode warns that a checkpoint on the job's own disk is gone with
+    it and named `checkpoints="upload"` -- a dead end at `hash`, where nothing
+    is uploaded: there it says the checkpoint is recorded by reference only."""
+    from probe.integrations import _checkpoints
+    from probe.sdk import ephemeral
+
+    pc = _config_fresh(tmp_path, monkeypatch)
+    root = tmp_path / "work"
+    (root / "ckpts").mkdir(parents=True)
+    single = root / "ckpts" / "last.ckpt"
+    single.write_bytes(b"c" * 512)
+    if ruled:
+        (root / pc.CONFIG_NAME).write_text("ckpts/ @probe hash\n")
+    monkeypatch.setattr(ephemeral, "describe", lambda _path: {"durable": False, "fstype": "overlay"})
+    said: list[tuple[str, str]] = []
+    _checkpoints.warn_if_throwaway(str(single), lambda key, msg: said.append((key, msg)))
+    ((key, msg),) = said
+    assert key == "checkpoint_throwaway" and "gone when the job ends" in msg
+    assert ('checkpoints="upload"' in msg) is upload_named
+    assert ("by reference only" in msg) is ruled
+
+
+@pytest.mark.parametrize("level", ["off", "read"])
+def test_an_off_or_read_checkpoint_still_records_nothing(app, tmp_path, monkeypatch, level):
+    from probe.integrations import _checkpoints
+
+    run, folder, single = _ruled_checkpoints(app, tmp_path, monkeypatch, level)
+    assert run.log_artifact(single.name, path=str(single), kind="checkpoint", reference=True,
+                            step_index=10, meta=dict(_SAVE_META)) is None
+    _checkpoints.upload_set(run, str(folder), name="checkpoint-10", step=10, meta=dict(_SAVE_META),
+                            size=4256, strict=None, warn=lambda *a: None)
+    assert not _rows(app, run.id, "checkpoint") and not _rows(app, run.id, "file")
+
+
 def test_two_paths_with_one_basename_at_one_step_get_two_sets(tmp_path):
     """Review: two Lightning callbacks' `last.ckpt` saved at one step shared a
     set name, so their members (found by name) overwrote each other."""
@@ -708,3 +825,50 @@ def test_a_destination_written_to_during_the_download_is_refused(tmp_path):
     with pytest.raises(FileExistsError, match="changed during the download"):
         checkpoints._commit(staging, root)
     assert (root / "theirs.txt").read_bytes() == b"other writer" and not (root / "a.pt").exists()
+
+
+# -- a rewind's abandoned range (data-catalog C7) -------------------------------------
+
+
+def test_a_rewound_save_is_never_latest_or_best():
+    """After "rewind to 4000, retrain": the old step-5000 save is still the
+    highest step, but the server marked it `meta.rewound`; latest and best
+    skip it (released SDKs keep picking it until upgraded, F19)."""
+    rows = [
+        _index("ckpt-4000", 4000, best=True, callback="loss"),
+        _index("ckpt-5000", 5000, rewound={"to_step": 4000, "epoch": 2, "at": "2026-10-13T00:00:00Z"}),
+        _index("ckpt-4500", 4500),
+    ]
+    assert checkpoints.select(rows, "latest")["name"] == "ckpt-4500"
+    assert checkpoints.select(rows, "best")["name"] == "ckpt-4000"
+    rows[0]["meta"]["rewound"] = {"to_step": 3000, "epoch": 1}
+    assert checkpoints.select(rows, "best") is None
+    assert checkpoints.is_rewound(rows[1]) and not checkpoints.is_rewound(rows[2])
+
+
+# -- one selection contract, server and SDK (data-catalog Q10) ------------------------
+
+#: The golden table both sides answer (server PR A, `app/catalog/checkpoints.py`).
+_GOLDEN = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "checkpoint_select_golden.json"
+
+
+def _golden_cases() -> list[dict]:
+    if not _GOLDEN.is_file():
+        return []
+    return json.loads(_GOLDEN.read_text())["cases"]
+
+
+@pytest.mark.skipif(not _GOLDEN.is_file(), reason="the server's golden table lands with server PR A")
+@pytest.mark.parametrize("case", _golden_cases(), ids=[c["name"] for c in _golden_cases()])
+def test_the_sdk_answers_the_servers_golden_table(case):
+    """Every case, the rewound ones included: `client.checkpoint()` and a
+    `checkpoint:<run>@latest|best` ref resolved by the server pick the same row."""
+    rows = [dict(r) for r in case["rows"]]
+    try:
+        found = checkpoints.select(
+            rows, case["which"], callback=case.get("callback"), recoverable_only=case.get("recoverable_only", True)
+        )
+        answer = None if found is None else found["name"]
+    except AmbiguousCheckpoint as exc:
+        answer = {"ambiguous": sorted(exc.callbacks)}
+    assert answer == case["expect"]

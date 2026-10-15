@@ -83,8 +83,18 @@ def test_projected_agent_tool_reaches_the_provider_declarations():
             # … yet it MUST reach the provider declarations via the projection map.
             names = {d.get("name") or (d.get("function") or {}).get("name") for d in decls}
             assert "custom_tool_1" in names, (provider, decls)
-        # A genuinely-unknown name is still dropped (not masked by the new path).
-        assert registry.get_provider_tools(["definitely_not_a_tool_xyz"], "anthropic") == []
+        # A genuinely-unknown name is still dropped (not masked by the new path)
+        # by a READY registry. (An unloaded one refuses the turn instead —
+        # test_tool_system_not_ready_turn.py.)
+        if registry.loaded and registry.count > 0:
+            assert registry.get_provider_tools(["definitely_not_a_tool_xyz"], "anthropic") == []
+        else:
+            import pytest
+
+            from matrx_ai.tools.registry import ToolSystemNotReadyError
+
+            with pytest.raises(ToolSystemNotReadyError):
+                registry.get_provider_tools(["definitely_not_a_tool_xyz"], "anthropic")
     finally:
         clear_app_context(token)
 

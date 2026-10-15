@@ -82,6 +82,8 @@ from flwr.proto.control_pb2 import (  # pylint: disable=E0611
     RemoveNodeFromFederationResponse,
     RevokeInvitationRequest,
     RevokeInvitationResponse,
+    SetFederationIconRequest,
+    SetFederationIconResponse,
     ShowFederationRequest,
     ShowFederationResponse,
     StartAutomationRequest,
@@ -103,6 +105,7 @@ from flwr.proto.control_pb2 import (  # pylint: disable=E0611
 )
 from flwr.server.superlink.linkstate import LinkState
 from flwr.supercore.auth.typing import AccountInfo
+from flwr.supercore.dependencies.version import VersionDependency
 from flwr.supercore.protobuf.routing import ProtobufRoute
 from flwr.supercore.protobuf.streaming import (
     ProtobufStreamContext,
@@ -118,7 +121,22 @@ from flwr.superlink.dependencies.linkstate import get_linkstate
 from flwr.superlink.dependencies.run_source import RunSourceDependency
 from flwr.superlink.servicer.control import control_handlers
 
-router = APIRouter(prefix="/v1/control", tags=["Control"], route_class=ProtobufRoute)
+from .tracing import RunCreationTracingDependency
+
+router = APIRouter(
+    prefix="/v1/control",
+    tags=["Control"],
+    route_class=ProtobufRoute,
+    dependencies=[
+        Depends(
+            VersionDependency(
+                component_name="SuperLink",
+                connection_name="flwr CLI <-> SuperLink Control API",
+                reject_incompatible=False,
+            )
+        )
+    ],
+)
 
 LinkStateDependency = Annotated[LinkState, Depends(get_linkstate)]
 AccountDependency = Annotated[AccountInfo, Depends(get_account)]
@@ -132,21 +150,20 @@ ArtifactProviderDependency = Annotated[
 
 
 @router.post("/start-run")
-def start_run(
+def start_run(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     request: Annotated[StartRunRequest, Depends(get_protobuf_request)],
     linkstate: LinkStateDependency,
     account: AccountDependency,
     fleet_api_type: FleetApiTypeDependency,
     run_source: RunSourceDependency,
+    tracing: RunCreationTracingDependency,
 ) -> StartRunResponse:
     """Start a run."""
-    return control_handlers.start_run(
-        request,
-        account,
-        linkstate,
-        fleet_api_type,
-        source=run_source,
+    response = control_handlers.start_run(
+        request, account, linkstate, fleet_api_type, source=run_source
     )
+    tracing.set_attribute("flwr.run_id", str(response.run_id))
+    return response
 
 
 @router.post("/list-runs")
@@ -445,6 +462,16 @@ def show_federation(
 ) -> ShowFederationResponse:
     """Show a federation."""
     return control_handlers.show_federation(request, account, linkstate)
+
+
+@router.post("/set-federation-icon")
+def set_federation_icon(
+    request: Annotated[SetFederationIconRequest, Depends(get_protobuf_request)],
+    linkstate: LinkStateDependency,
+    account: AccountDependency,
+) -> SetFederationIconResponse:
+    """Set or clear a federation icon."""
+    return control_handlers.set_federation_icon(request, account, linkstate)
 
 
 @router.post("/create-federation")

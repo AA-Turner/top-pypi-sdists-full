@@ -38,6 +38,8 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
+from contextlib import suppress
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -82,6 +84,7 @@ from airbyte_ops_mcp.constants import (
     ENV_GCP_PROD_DB_ACCESS_CREDENTIALS,
 )
 from airbyte_ops_mcp.gcp_logs import GCPSeverity, fetch_error_logs
+from airbyte_ops_mcp.github_api import resolve_default_github_token
 from airbyte_ops_mcp.prod_db_access.queries import (
     query_workspace_info,
     query_workspaces_by_email_domain,
@@ -92,6 +95,21 @@ from airbyte_ops_mcp.prod_db_access.queries import (
 from airbyte_ops_mcp.prod_db_access.queries import (
     search_workspaces as _search_workspaces,
 )
+from airbyte_ops_mcp.regression_tests.case_gate import (
+    NAME_PATTERN,
+    SANDBOX_PIN_FILE,
+    gate_step_outputs,
+    read_sandbox_pin,
+    run_case_dir_gate,
+    run_case_gate,
+)
+from airbyte_ops_mcp.regression_tests.case_validate import (
+    decide_validation,
+    gh_merge,
+    gh_read_pr,
+    runs_from_needs,
+    wait_and_merge,
+)
 from airbyte_ops_mcp.regression_tests.cdk_secrets import get_first_config_from_secrets
 from airbyte_ops_mcp.regression_tests.ci_output import (
     ComparisonOutcome,
@@ -99,6 +117,7 @@ from airbyte_ops_mcp.regression_tests.ci_output import (
     evaluate_comparison_outcome,
     generate_regression_report,
     generate_single_version_report,
+    is_github_actions,
     write_github_output,
     write_github_outputs,
     write_github_summary,
@@ -164,6 +183,25 @@ from airbyte_ops_mcp.regression_tests.report import (
     failed_checks,
     render_inline_summary,
     write_html_report,
+)
+from airbyte_ops_mcp.regression_tests.repro_case import (
+    CASE_RESULT_FILE,
+    SHA_PATTERN,
+    ReproCase,
+    ReproductionVerdict,
+    ReproGoal,
+    SandboxCli,
+    SandboxError,
+    SandboxSide,
+    case_result,
+    check_twin_gaps,
+    evaluate_reproduction,
+    evaluate_side,
+    restore_side,
+    set_up_scenario,
+)
+from airbyte_ops_mcp.regression_tests.sandbox_support import (
+    run_sandbox_support_check,
 )
 from airbyte_ops_mcp.telemetry import track_regression_test
 from airbyte_ops_mcp.tier_cache import resolve_workspace
@@ -1440,6 +1478,8 @@ def _build_connector_image_from_source(
     connector_name: str,
     repo_root: Path | None = None,
     tag: str = "dev",
+    *,
+    prefer_repo_root: bool = False,
 ) -> str | None:
     """Build a connector image from source code.
 
@@ -1448,6 +1488,10 @@ def _build_connector_image_from_source(
         repo_root: Optional path to the airbyte repo root. If not provided,
             will attempt to auto-detect from current directory.
         tag: Tag to apply to the built image (default: 'dev').
+        prefer_repo_root: Use `repo_root` even when auto-discovery would find
+            a connector directory. Reproduction cases set it: auto-discovery
+            searches from the working directory and can pick up a different
+            airbyte checkout on the machine, silently building the wrong source.
 
     Returns:
         The full image name with tag if successful, None if build fails.
@@ -1456,9 +1500,11 @@ def _build_connector_image_from_source(
         print_error("Docker is not installed or not running")
         return None
 
-    try:
-        connector_directory = find_connector_root_from_name(connector_name)
-    except FileNotFoundError:
+    connector_directory: Path | None = None
+    if not (prefer_repo_root and repo_root):
+        with suppress(FileNotFoundError):
+            connector_directory = find_connector_root_from_name(connector_name)
+    if connector_directory is None:
         if repo_root:
             connector_directory = repo_root / CONNECTORS_SUBDIR / connector_name
             if not connector_directory.exists():
@@ -1470,7 +1516,6 @@ def _build_connector_image_from_source(
                 "Try providing --repo-root to specify the airbyte repo location."
             )
             return None
-
     metadata_file_path = connector_directory / "metadata.yaml"
     if not metadata_file_path.exists():
         print_error(f"metadata.yaml not found at {metadata_file_path}")
@@ -2050,6 +2095,36 @@ def regression_test(
             "the command is `read`. Ignored when `--state-path` is explicitly provided.",
         ),
     ] = None,
+    repro_case_dir: Annotated[
+        str | None,
+        Parameter(
+            help="Reproduction case directory (see `regression-case-setup`). Its "
+            "catalog.json, state.json and expectations.json replace --catalog-path "
+            "and --state-path, HTTP replay is turned off, and a read passes only "
+            "when the control violates the case's expectations and the target "
+            "satisfies them (see --repro-goal). Writes the verdict to "
+            "`result.json` in the output directory. Requires `--command read`, "
+            "--config-path, --sandbox-scenario and comparison mode; run the "
+            "command under `sandbox exec`."
+        ),
+    ] = None,
+    repro_goal: Annotated[
+        Literal["fixed", "reproduced"] | None,
+        Parameter(
+            help="What a case read must show. `fixed` (default): the control "
+            "violates the case and the target satisfies it. `reproduced`: both "
+            "violate it -- the case gate's check, with the unmodified source of "
+            "the affected release as the target. Requires --repro-case-dir."
+        ),
+    ] = None,
+    sandbox_scenario: Annotated[
+        str | None,
+        Parameter(
+            help="SaaS Sandbox scenario UUID the case was set up in. For a read, "
+            "its baseline snapshot is restored immediately before each side runs, "
+            "so control and target start from identical data and failure rules."
+        ),
+    ] = None,
 ) -> None:
     """Run regression tests on connectors.
 
@@ -2087,6 +2162,40 @@ def regression_test(
     output_path.mkdir(parents=True, exist_ok=True)
 
     cmd = Command(command)
+
+    repro_case: ReproCase | None = None
+    sandbox: SandboxCli | None = None
+    if repro_case_dir or sandbox_scenario or repro_goal:
+        case_error = _repro_case_argument_error(
+            command=cmd,
+            repro_case_dir=repro_case_dir,
+            sandbox_scenario=sandbox_scenario,
+            skip_compare=skip_compare,
+            connection_id=connection_id,
+            config_path=config_path,
+            catalog_path=catalog_path,
+            state_path=state_path,
+            selected_streams=selected_streams,
+        )
+        if case_error is None and repro_case_dir:
+            try:
+                repro_case = ReproCase.load(Path(repro_case_dir))
+                sandbox = SandboxCli()
+            except (OSError, ValueError, SandboxError) as exc:
+                case_error = f"Invalid reproduction case: {exc}"
+        if case_error is not None:
+            write_github_output("success", False)
+            write_github_output("error", case_error)
+            exit_with_error(case_error)
+        assert repro_case is not None
+        catalog_path = str(repro_case.catalog_path)
+        state_path = str(repro_case.state_path) if repro_case.state_path else None
+        # The sandbox is the controlled upstream; replaying one side's traffic
+        # to the other would bypass the per-side baseline restore.
+        if enable_http_replay or enable_http_metrics:
+            print_warning("HTTP replay and metrics are off for reproduction cases")
+        enable_http_replay = False
+        enable_http_metrics = False
 
     # On by default, but only where it can work: single-version mode has no
     # control run to replay from. Asking for it there explicitly is a mistake
@@ -2166,6 +2275,7 @@ def regression_test(
             connector_name=connector_name,
             repo_root=repo_root_path,
             tag="dev",
+            prefer_repo_root=repro_case is not None,
         )
         if not built_image:
             write_github_output("success", False)
@@ -2551,6 +2661,7 @@ def regression_test(
         target_output = output_path / "target"
         control_output = output_path / "control"
 
+        control_sandbox = _restore_sandbox_baseline(sandbox, sandbox_scenario)
         control_result, control_outputs = _run_with_optional_http_metrics(
             connector_image=resolved_control_image,  # type: ignore[arg-type]
             command=cmd,
@@ -2563,6 +2674,9 @@ def regression_test(
             enable_debug_logs=enable_debug_logs,
             stream_large_bodies=http_replay_max_body,
         )
+        control_sandbox = _check_sandbox_twin_gaps(
+            sandbox, sandbox_scenario, control_sandbox
+        )
 
         replay_from: Path | None = None
         if replay_enabled:
@@ -2574,6 +2688,7 @@ def regression_test(
                     "Control run recorded no HTTP dump; the target will run live"
                 )
 
+        target_sandbox = _restore_sandbox_baseline(sandbox, sandbox_scenario)
         target_result, target_outputs = _run_with_optional_http_metrics(
             connector_image=resolved_test_image,
             command=cmd,
@@ -2589,6 +2704,9 @@ def regression_test(
             replay_options=replay_options,
             stream_large_bodies=http_replay_max_body,
         )
+        target_sandbox = _check_sandbox_twin_gaps(
+            sandbox, sandbox_scenario, target_sandbox
+        )
 
         # Both dumps have served their purpose by now -- metrics parsed, replay
         # corpus built -- so anything too large to be a usable artifact goes,
@@ -2600,6 +2718,27 @@ def regression_test(
         )
 
         outcome = evaluate_comparison_outcome(command, target_result, control_result)
+
+        # A reproduction case replaces the record and final-state comparisons
+        # for a read: each side is held to the case's expectations instead of
+        # to the other side.
+        reproduction: ReproductionVerdict | None = None
+        if repro_case is not None and sandbox is not None:
+            reproduction = evaluate_reproduction(
+                evaluate_side(
+                    control_result,
+                    repro_case,
+                    sandbox_side=control_sandbox,
+                    final_states=control_outputs.final_states,
+                ),
+                evaluate_side(
+                    target_result,
+                    repro_case,
+                    sandbox_side=target_sandbox,
+                    final_states=target_outputs.final_states,
+                ),
+                ReproGoal(repro_goal or ReproGoal.FIXED.value),
+            )
 
         # Record-level comparison for READ commands (counts, PK presence,
         # PK integrity, field values). Only meaningful when both runs
@@ -2616,6 +2755,7 @@ def regression_test(
             cmd in (Command.READ, Command.READ_WITH_STATE)
             and outcome.both_succeeded
             and not skip_record_comparison
+            and reproduction is None
         ):
             record_comparison, skip_reason = _compare_read_records(
                 target_result=target_result,
@@ -2629,7 +2769,11 @@ def regression_test(
                     severity="diagnostic",
                     summary=f"Skipped — {skip_reason}; records were not compared",
                 )
-        elif skip_record_comparison and cmd in (Command.READ, Command.READ_WITH_STATE):
+        elif (
+            skip_record_comparison
+            and cmd in (Command.READ, Command.READ_WITH_STATE)
+            and reproduction is None
+        ):
             print_warning(
                 "Record-level comparison skipped (--skip-record-comparison); "
                 "the verdict gates on command outcomes only."
@@ -2651,16 +2795,20 @@ def regression_test(
         # Spec/catalog-schema comparison of what the two versions declared
         # about themselves; a failed check here is a regression as much as
         # a dropped record.
-        (
-            comparison_checks,
-            comparison_diff_blocks,
-            comparison_detail,
-        ) = _compare_outputs(
-            command=command,
-            outcome=outcome,
-            control_outputs=control_outputs,
-            target_outputs=target_outputs,
-        )
+        comparison_checks: tuple[CheckResult, ...] = ()
+        comparison_diff_blocks: tuple[DiffBlock, ...] = ()
+        comparison_detail: dict[str, Any] = {}
+        if reproduction is None:
+            (
+                comparison_checks,
+                comparison_diff_blocks,
+                comparison_detail,
+            ) = _compare_outputs(
+                command=command,
+                outcome=outcome,
+                control_outputs=control_outputs,
+                target_outputs=target_outputs,
+            )
         failed_comparisons = failed_checks(comparison_checks)
 
         success = (
@@ -2671,6 +2819,12 @@ def regression_test(
             or (record_comparison_failed and not comparison_errored)
             or bool(failed_comparisons)
         )
+        if reproduction is not None:
+            success = reproduction.success
+            regression_detected = reproduction.regression_detected
+        # In case mode a failing control is the evidence sought, so "both
+        # failed" would misread a "not fixed" verdict as inconclusive.
+        both_failed = outcome.both_failed and reproduction is None
 
         # Annotate copies of each side, never the originals: `generate_regression_report`
         # below reads `result["success"]` as the exit status, so handing it a dict whose
@@ -2684,12 +2838,14 @@ def regression_test(
             # the `regression_report` output) never have to re-derive it from
             # `regression_detected` -- which is false for an inconclusive run.
             "success": success,
-            "both_failed": outcome.both_failed,
+            "both_failed": both_failed,
         }
         if record_comparison is not None:
             combined_result["record_comparison"] = record_comparison.to_dict()
         if comparison_detail:
             combined_result["comparison"] = comparison_detail
+        if reproduction is not None:
+            combined_result["reproduction"] = reproduction.to_dict()
 
         print_json(combined_result)
 
@@ -2701,7 +2857,7 @@ def regression_test(
             "target_exit_code": target_result["exit_code"],
             "control_exit_code": control_result["exit_code"],
             "regression_detected": regression_detected,
-            "both_failed": outcome.both_failed,
+            "both_failed": both_failed,
         }
 
         if command == "check":
@@ -2715,9 +2871,28 @@ def regression_test(
         if record_comparison is not None:
             gh_outputs["record_comparison_passed"] = record_comparison.passed
 
+        if reproduction is not None:
+            gh_outputs["reproduction_verdict"] = reproduction.label
+
         write_github_outputs(gh_outputs)
 
         write_json_output("regression_report", combined_result)
+
+        if reproduction is not None and repro_case is not None:
+            result_path = output_path / CASE_RESULT_FILE
+            result_path.write_text(
+                json.dumps(
+                    case_result(
+                        reproduction,
+                        repro_case,
+                        control_image=resolved_control_image or "",
+                        target_image=resolved_test_image,
+                    ),
+                    indent=2,
+                )
+                + "\n"
+            )
+            print_success(f"Wrote reproduction result: {result_path}")
 
         report_path = generate_regression_report(
             target_image=resolved_test_image,
@@ -2738,6 +2913,7 @@ def regression_test(
                 for check in comparison_checks
                 if check.status in {"fail", "warn"}
             ],
+            reproduction=reproduction,
         )
         print_success(f"Generated regression report: {report_path}")
 
@@ -2762,6 +2938,7 @@ def regression_test(
             connection_objects=_collect_connection_objects(
                 catalog_file, state_file, target_output / "airbyte_messages"
             ),
+            reproduction=reproduction,
         )
         html_report_path = write_html_report(report_model, output_path)
         print_success(f"Generated regression HTML report: {html_report_path}")
@@ -2769,7 +2946,18 @@ def regression_test(
         # Write the concise summary to GITHUB_STEP_SUMMARY (if env var exists)
         write_github_summary(render_inline_summary(report_model))
 
-        if failed_comparisons:
+        if reproduction is not None:
+            report_line = (
+                f"Reproduction case {repro_case.name if repro_case else ''}: "
+                f"{reproduction.label} -- {reproduction.detail}"
+            )
+            if reproduction.success:
+                print_success(report_line)
+            else:
+                print_error(report_line)
+                for finding in reproduction.details:
+                    print_error(f"  - {finding}")
+        elif failed_comparisons:
             # Only reachable when both commands ran cleanly -- a comparison is
             # skipped otherwise -- so this says what the exit codes could not.
             print_error(
@@ -2817,6 +3005,411 @@ def regression_test(
                 f"{resolved_test_image} succeeded. Test failed/inconclusive; "
                 "nothing to compare the target against."
             )
+
+
+def _repro_case_argument_error(
+    *,
+    command: Command,
+    repro_case_dir: str | None,
+    sandbox_scenario: str | None,
+    skip_compare: bool,
+    connection_id: str | None,
+    config_path: str | None,
+    catalog_path: str | None,
+    state_path: str | None,
+    selected_streams: str | None,
+) -> str | None:
+    """Why the reproduction-case options cannot be used as given, if they cannot."""
+    if not (repro_case_dir and sandbox_scenario):
+        return (
+            "--repro-case-dir and --sandbox-scenario must be given together, "
+            "and --repro-goal needs them"
+        )
+    if command not in (Command.READ, Command.READ_WITH_STATE):
+        # Only a read is judged against the case.
+        return "Reproduction cases run only `--command read`"
+    if skip_compare:
+        return "Reproduction cases need comparison mode; drop --skip-compare"
+    if connection_id:
+        return "Reproduction cases cannot use --connection-id"
+    if not config_path:
+        return "Reproduction cases need --config-path (from regression-case-setup)"
+    if catalog_path or state_path:
+        return "The reproduction case supplies the catalog and state"
+    if selected_streams:
+        # The filter rewrites the catalog file in place, i.e. the committed case.
+        return "The reproduction case's catalog selects its own streams"
+    return None
+
+
+def _restore_sandbox_baseline(
+    sandbox: SandboxCli | None, scenario_id: str | None
+) -> SandboxSide:
+    """Restore the case's baseline before one side of a case read, else a no-op."""
+    if sandbox is None or not scenario_id:
+        return SandboxSide()
+    side = restore_side(sandbox, scenario_id)
+    if side.restore_error:
+        print_error(f"Could not restore the sandbox baseline: {side.restore_error}")
+    return side
+
+
+def _check_sandbox_twin_gaps(
+    sandbox: SandboxCli | None, scenario_id: str | None, side: SandboxSide
+) -> SandboxSide:
+    """Gate one side on the twin supporting every request it made."""
+    if sandbox is None or not scenario_id:
+        return side
+    side = check_twin_gaps(sandbox, scenario_id, side)
+    for gap in side.twin_gaps:
+        print_error(f"Twin gap: {gap}")
+    if side.gap_check_error:
+        print_error(f"Twin-gap check failed: {side.gap_check_error}")
+    return side
+
+
+@connector_app.command(name="regression-case-setup")
+def regression_case_setup(
+    case_dir: Annotated[
+        str,
+        Parameter(help="Reproduction case directory to set up."),
+    ],
+    config_output: Annotated[
+        str | None,
+        Parameter(
+            help="Where to write the rendered connector config. Defaults to a "
+            "private temporary directory outside the artifacts tree."
+        ),
+    ] = None,
+) -> None:
+    """Set up a reproduction case in the SaaS Sandbox.
+
+    Applies the case's sandbox/dataset.json together with its optional
+    sandbox/behavior.json (failure rules), snapshots the result as the
+    `baseline` that `regression-test --repro-case-dir` restores before each side
+    of a read, and renders config.template.json with the scenario's
+    synthetic credential. The sandbox connection comes from `SAAS_API_URL`,
+    `SAAS_API_KEY`, `SAAS_WORKSPACE_ID` and `XDG_STATE_HOME`.
+
+    Writes `scenario_id`, `config_path` and the resolved `case_dir` to the
+    GitHub step outputs.
+    """
+    try:
+        case = ReproCase.load(Path(case_dir))
+        sandbox = SandboxCli()
+        name = f"{case.name}-{os.getenv('GITHUB_RUN_ID') or uuid.uuid4().hex[:8]}"
+        destination = (
+            Path(config_output)
+            if config_output
+            else Path(tempfile.mkdtemp(prefix=f"repro-case-{case.name}-"))
+            / "config.json"
+        )
+        scenario_id, config_file, credential = set_up_scenario(
+            case, sandbox, scenario_name=name, config_destination=destination
+        )
+    except (OSError, ValueError, SandboxError) as exc:
+        exit_with_error(f"Could not set up reproduction case {case_dir}: {exc}")
+
+    if is_github_actions():
+        # The workflow log must never show the credential, even a synthetic one.
+        print(f"::add-mask::{credential}")
+    outputs = {
+        "scenario_id": scenario_id,
+        "config_path": str(config_file),
+        "case_dir": str(case.directory),
+    }
+    write_github_outputs(outputs)
+    print_json(outputs)
+
+
+@connector_app.command(name="sandbox-support")
+def sandbox_support(
+    connector_name: Annotated[
+        str,
+        Parameter(help="Connector to check (e.g. 'source-slack')."),
+    ],
+    streams: Annotated[
+        str | None,
+        Parameter(
+            help="Comma-separated streams the fix touches; their parent streams "
+            "are included. Defaults to every stream in the manifest."
+        ),
+    ] = None,
+    dataset_needs: Annotated[
+        str | None,
+        Parameter(
+            help="Comma-separated `entity` or `entity.field` the reproduction "
+            "needs in the twin's dataset (e.g. 'messages.thread_ts')."
+        ),
+    ] = None,
+    connector_dir: Annotated[
+        str | None,
+        Parameter(
+            help="Local connector directory. Without it, the files are read from "
+            "airbytehq/airbyte at --ref."
+        ),
+    ] = None,
+    ref: Annotated[
+        str,
+        Parameter(help="airbytehq/airbyte ref to read the connector from."),
+    ] = "master",
+) -> None:
+    """Check statically whether a SaaS Sandbox twin covers a connector's needs.
+
+    The first gate before a reproduction case: provider host match, the HTTP
+    operations, query parameters and page sizes the streams use, and optional
+    dataset needs, against the sandbox's offline discovery data (`sandbox ...
+    --offline`; needs the `sandbox` CLI, but no server). Prints a JSON report
+    whose `result` is `supported`, `unsupported` or `unknown`. `unknown` means
+    the requests could not be read statically; the case lane's twin-gap gate
+    still decides during the run.
+    """
+    print_json(
+        run_sandbox_support_check(
+            connector_name=connector_name,
+            streams=_split_csv(streams),
+            dataset_needs=_split_csv(dataset_needs),
+            connector_dir=Path(connector_dir) if connector_dir else None,
+            ref=ref,
+        )
+    )
+
+
+@connector_app.command(name="regression-case-gate")
+def regression_case_gate(
+    base_ref: Annotated[
+        str | None,
+        Parameter(
+            help="The branch the PR merges into, e.g. `origin/main`. Required "
+            "unless --case-dir is given."
+        ),
+    ] = None,
+    head_ref: Annotated[
+        str,
+        Parameter(help="The PR's head commit; the case is read at this commit."),
+    ] = "HEAD",
+    repo_dir: Annotated[
+        str,
+        Parameter(
+            help="airbyte-ops-mcp clone holding both --base-ref and --head-ref. "
+            "Its working tree is not read."
+        ),
+    ] = ".",
+    case_dir: Annotated[
+        str | None,
+        Parameter(
+            help="Check this case directory on disk instead of a PR: no scope "
+            "check, and the connector is the name of its parent directory."
+        ),
+    ] = None,
+    require_case: Annotated[
+        bool,
+        Parameter(help="Fail, instead of answering `n/a`, when the PR adds no case."),
+    ] = False,
+    connector_dir: Annotated[
+        str | None,
+        Parameter(
+            help="Local connector directory at the case's `affected_ref`. Without "
+            "it, the files are read from airbytehq/airbyte at `affected_ref`."
+        ),
+    ] = None,
+    json_out: Annotated[
+        str | None,
+        Parameter(help="Also write the JSON report to this file."),
+    ] = None,
+    sandbox_ref: Annotated[
+        str | None,
+        Parameter(
+            help="The saas-sandbox commit the case runs use. Defaults to the pin "
+            "in `.github/saas-sandbox-ref` of the current directory (the code "
+            "checkout); the case's `origin.json` `sandbox_ref` must equal it."
+        ),
+    ] = None,
+) -> None:
+    """Check whether a reproduction-case PR may merge without human review.
+
+    Prints a JSON report whose `status` is `n/a` (the PR touches no case),
+    `pass` or `fail`, and exits nonzero on `fail`. Checks that the PR only adds
+    one new case under `regression_cases/<connector>/<case>/`, as regular files
+    with known names; that the case loads with an `origin.json` naming a
+    published airbytehq/airbyte release whose source is at `affected_ref`, a
+    commit on `master`; that the sandbox validates `sandbox/` offline; and that
+    the static support check says `supported`. The reproduction itself is a
+    case run with goal `reproduced`. Writes `connector`, `case`,
+    `affected_image`, `affected_ref`, `problems` (a JSON list) and `status` to
+    the GitHub step outputs.
+    """
+    if sandbox_ref is None:
+        try:
+            sandbox_ref = read_sandbox_pin(Path(SANDBOX_PIN_FILE))
+        except ValueError as exc:
+            exit_with_error(f"{exc}; run from the code checkout or pass --sandbox-ref")
+    elif not SHA_PATTERN.fullmatch(sandbox_ref):
+        exit_with_error("--sandbox-ref must be a full 40-character commit SHA")
+    token = resolve_default_github_token(allow_none=True)
+    connector_path = Path(connector_dir) if connector_dir else None
+    if case_dir is not None:
+        report = run_case_dir_gate(
+            Path(case_dir),
+            sandbox_ref=sandbox_ref,
+            github_token=token,
+            connector_dir=connector_path,
+        )
+    elif base_ref is None:
+        exit_with_error("Pass --base-ref, or --case-dir to check a case directory.")
+    else:
+        try:
+            report = run_case_gate(
+                Path(repo_dir),
+                base_ref,
+                head_ref,
+                sandbox_ref=sandbox_ref,
+                require_case=require_case,
+                github_token=token,
+                connector_dir=connector_path,
+            )
+        except subprocess.CalledProcessError as exc:
+            exit_with_error(
+                f"Could not compare {base_ref}...{head_ref}: {exc.stderr.strip()}"
+            )
+    if json_out:
+        Path(json_out).write_text(json.dumps(report.to_dict(), indent=2))
+    write_github_outputs(gate_step_outputs(report))
+    print_json(report.to_dict())
+    if report.status == "fail":
+        exit_with_error("Case gate failed: " + "; ".join(report.problems))
+
+
+@connector_app.command(name="regression-case-validate-decide")
+def regression_case_validate_decide(
+    pr: Annotated[int, Parameter(help="The case PR's number.")],
+    needs: Annotated[
+        str,
+        Parameter(help="File holding the workflow's `toJSON(needs)`."),
+    ],
+    gate_report: Annotated[
+        str,
+        Parameter(help="The gate's `--json-out` report; may be missing."),
+    ],
+    merge_enabled: Annotated[
+        bool,
+        Parameter(help="The merge switch (`SANDBOX_CASE_AUTOMERGE_ENABLED`)."),
+    ] = False,
+    run_url: Annotated[str, Parameter(help="This run's URL, for the comment.")] = "",
+    repo: Annotated[
+        str | None,
+        Parameter(help="`owner/name` of the repository; defaults to `GH_REPO`."),
+    ] = None,
+    comment_out: Annotated[
+        str,
+        Parameter(help="Where to write the failure comment, when there is one."),
+    ] = "comment.md",
+) -> None:
+    """Decide what `sandbox-case-validate.yml` does after the gate and the runs.
+
+    Re-reads the PR through `gh` (set `GH_REPO` and `GH_TOKEN`) and prints a
+    JSON decision: `action` (`fail`, `report` or `merge`), the commit status
+    `state` and `description`, and on `fail` the PR comment, also written to
+    --comment-out. Writes `action`, `state`, `description` and `validated_sha`
+    to the GitHub step outputs.
+    """
+    needs_data = json.loads(Path(needs).read_text())
+    gate_outputs = (needs_data.get("gate") or {}).get("outputs") or {}
+    validated_sha = str(gate_outputs.get("head_sha") or "")
+    # It is written back to the step outputs, so it must be a plain SHA.
+    if not SHA_PATTERN.fullmatch(validated_sha):
+        validated_sha = ""
+    report_path = Path(gate_report)
+    gate = json.loads(report_path.read_text()) if report_path.is_file() else None
+    try:
+        pr_now = gh_read_pr(repo or os.environ.get("GH_REPO", ""), pr)
+    except (RuntimeError, ValueError, subprocess.SubprocessError):
+        pr_now = None
+    decision = decide_validation(
+        gate=gate,
+        gate_refusal=gate_outputs.get("refusal") or None,
+        runs=runs_from_needs(needs_data),
+        pr=pr_now,
+        validated_sha=validated_sha,
+        merge_enabled=merge_enabled,
+        run_url=run_url,
+    )
+    if decision.comment is not None:
+        Path(comment_out).write_text(decision.comment)
+    write_github_outputs(
+        {
+            "action": decision.action,
+            "state": decision.state,
+            "description": decision.description,
+            "validated_sha": validated_sha,
+        }
+    )
+    print_json(decision.to_dict())
+
+
+@connector_app.command(name="regression-case-merge")
+def regression_case_merge(
+    pr: Annotated[int, Parameter(help="The case PR's number.")],
+    sha: Annotated[str, Parameter(help="The validated head commit.")],
+    connector: Annotated[str, Parameter(help="The case's connector, for the title.")],
+    case: Annotated[str, Parameter(help="The case's name, for the title.")],
+    repo: Annotated[
+        str | None,
+        Parameter(help="`owner/name` of the repository; defaults to `GH_REPO`."),
+    ] = None,
+    run_url: Annotated[
+        str, Parameter(help="The validating run, for the commit message.")
+    ] = "",
+    timeout_minutes: Annotated[
+        float,
+        Parameter(help="How long to wait for GitHub to report the PR mergeable."),
+    ] = 10,
+) -> None:
+    """Merge a validated case PR at its validated head, waiting a bounded time.
+
+    Polls the PR through `gh` (set `GH_TOKEN` to a token that may merge) until
+    GitHub reports it mergeable, then squash-merges it through the REST merge
+    endpoint pinned to `sha`, with a fixed commit title. Never enables
+    auto-merge. Prints the outcome and writes `outcome`, `merge_state`, `state`
+    and `description` (the final commit status) to the GitHub step outputs.
+    Exits nonzero unless the PR merged at `sha` or simply did not become
+    mergeable in time.
+    """
+    repo = repo or os.environ.get("GH_REPO")
+    if not repo:
+        exit_with_error("Pass --repo or set GH_REPO.")
+    if not (
+        SHA_PATTERN.fullmatch(sha)
+        and NAME_PATTERN.fullmatch(connector)
+        and NAME_PATTERN.fullmatch(case)
+    ):
+        exit_with_error("--sha must be a full SHA; --connector and --case plain names.")
+    title = f"test(regression-cases): add {connector} {case} reproduction case (#{pr})"
+    message = (
+        f"Validated by {run_url}" if run_url else "Validated by sandbox-case-validate"
+    )
+    outcome = wait_and_merge(
+        sha,
+        timeout_seconds=timeout_minutes * 60,
+        read_pr=lambda: gh_read_pr(repo, pr),
+        merge=lambda: gh_merge(repo, pr, sha, title, message),
+    )
+    result = outcome.to_dict()
+    write_github_outputs(
+        {
+            "outcome": outcome.result,
+            "merge_state": outcome.merge_state or "",
+            "state": result["state"],
+            "description": result["description"],
+        }
+    )
+    print_json(result)
+    if not outcome.succeeded:
+        exit_with_error(f"Case PR #{pr} was not merged: {outcome.result}")
+
+
+def _split_csv(value: str | None) -> list[str]:
+    return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
 def _configured_stream_names(

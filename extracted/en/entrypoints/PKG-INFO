@@ -1,15 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: entrypoints
-Version: 0.4
+Version: 0.4.1
 Summary: Discover and load entry points from installed packages.
-Home-page: https://github.com/takluyver/entrypoints
-Author: Thomas Kluyver
-Author-email: thomas@kluyver.me.uk
+Author-email: Thomas Kluyver <thomas@kluyver.me.uk>
 Requires-Python: >=3.6
 Description-Content-Type: text/x-rst
-Classifier: License :: OSI Approved :: MIT License
+License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
+License-File: LICENSE
 Project-URL: Documentation, https://entrypoints.readthedocs.io/en/latest/
+Project-URL: Homepage, https://github.com/takluyver/entrypoints
+Import-Name: entrypoints
 
 **This package is in maintenance-only mode.** New code should use the
 `importlib.metadata module <https://docs.python.org/3/library/importlib.metadata.html>`_

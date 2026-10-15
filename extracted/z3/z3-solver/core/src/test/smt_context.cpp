@@ -9,16 +9,137 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/arith_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
+#include "ast/rewriter/distribute_forall.h"
+#include "ast/simplifiers/distribute_forall.h"
+#include "solver/solver.h"
+#include "tactic/goal.h"
+#include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/bv/bit_blaster_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/fpa/fpa2bv_tactic.h"
+#include "tactic/smtlogics/quant_tactics.h"
+#include "tactic/smtlogics/smt_tactic.h"
+#include <cstring>
 #include <sstream>
+
+static void check_sat_smt_recfun(char const* input)
+{
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("smt", true);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    VERIFY(l_true == slv->check_sat(0, nullptr));
+}
+
+static void check_sat_smt_model(char const* input)
+{
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("smt", true);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    VERIFY(l_true == slv->check_sat(0, nullptr));
+    model_ref model;
+    slv->get_model(model);
+    VERIFY(model);
+}
+
+static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
+    for (unsigned i = 0; i < st.size(); ++i)
+        if (st.is_uint(i) && !strcmp(st.get_key(i), key)) {
+            value = st.get_uint_value(i);
+            return true;
+        }
+    return false;
+}
+
+static void check_array_domain(char const* input, lbool expected) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    ref<solver> slv = mk_smt2_solver(m, params_ref(), symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    VERIFY(expected == slv->check_sat(0, nullptr));
+}
+
+static void check_symbolic_regex_substring() {
+    for (unsigned relevancy : {0u, 2u}) {
+        for (char const* word : {"x", "xy"}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(
+                std::string("(set-logic QF_SLIA)\n")
+                + "(declare-const t String)\n"
+                + "(declare-const i Int)\n"
+                + "(assert (distinct (str.substr t i 2) \"\"))\n"
+                + "(assert (str.in_re \"" + word
+                + "\" (re.++ (str.to_re (str.substr t i 2)) re.allchar)))\n");
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_uint("relevancy", relevancy);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (expr* assertion : cmd.assertions())
+                slv->assert_expr(assertion);
+            lbool expected = !strcmp(word, "x") ? l_false : l_true;
+            VERIFY(expected == slv->check_sat(0, nullptr));
+
+            slv->push();
+            slv->assert_expr(m.mk_not(cmd.assertions()[0]));
+            VERIFY(l_false == slv->check_sat(0, nullptr));
+            slv->pop(1);
+            VERIFY(expected == slv->check_sat(0, nullptr));
+        }
+    }
+}
 
 void tst_smt_context()
 {
+    check_symbolic_regex_substring();
+
     smt_params params;
 
     ast_manager m;
     reg_decl_plugins(m);
 
     smt::context ctx(m, params);
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const a (Array Int Int))\n"
+            "(declare-const b (Array Int Int))\n"
+            "(declare-const i Int)\n"
+            "(assert (distinct a b))\n"
+            "(assert (= (select a i) 0))\n"
+            "(assert (= (select b i) 1))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        smt::context qctx(m, params);
+        for (expr* assertion : cmd.assertions())
+            qctx.assert_expr(assertion);
+        VERIFY(l_true == qctx.check());
+        statistics st;
+        qctx.collect_statistics(st);
+        char const* array_ext_axiom_stat = "array ext ax";
+        unsigned num_array_ext_axioms = 0;
+        VERIFY(get_uint_stat(st, array_ext_axiom_stat, num_array_ext_axioms));
+        VERIFY(num_array_ext_axioms > 0);
+    }
 
     app_ref a1(m.mk_const(symbol("a"), m.mk_bool_sort()), m);
     app_ref b1(m.mk_const(symbol("b"), m.mk_bool_sort()), m);
@@ -77,6 +198,337 @@ void tst_smt_context()
             "  (forall ((other Node))\n"
             "    (= (measure base 0)\n"
             "       (measure other 0))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        smt::context qctx(m, params);
+        for (expr* a : cmd.assertions())
+            qctx.assert_expr(a);
+        VERIFY(l_false == qctx.check());
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-sort Element)\n"
+            "(declare-sort Index)\n"
+            "(declare-fun e6 () Element)\n"
+            "(declare-fun i6 () Index)\n"
+            "(declare-fun i2 () Index)\n"
+            "(declare-fun i4 () Index)\n"
+            "(declare-fun e9 () Element)\n"
+            "(declare-fun i8 () Index)\n"
+            "(declare-fun i10 () Index)\n"
+            "(declare-fun a1 () (Array Index Element))\n"
+            "(assert (exists ((i3 Index)) (and (= i3 i8) (= i6 i10) "
+            "(not (= (store (store (store a1 i4 e9) i2 e6) i10 e6) "
+            "(store (store (store a1 i6 e9) i8 e6) i10 e9))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("rewriter.expand_nested_stores", true);
+        tactic_ref t = mk_lira_tactic(m, p);
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(l_true == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(set-logic ALL)\n"
+            "(declare-const y (_ BitVec 1))\n"
+            "(assert\n"
+            "  (exists ((V (_ BitVec 8)))\n"
+            "    (= (_ bv1 8)\n"
+            "       ((_ extract 7 0)\n"
+            "         (bvlshr\n"
+            "           (concat V (_ bv0 8))\n"
+            "           ((_ zero_extend 15) y))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("smt", true);
+        p.set_uint("bv.solver", 2);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        VERIFY(l_false == slv->check_sat(0, nullptr));
+    }
+
+    {
+        ast_manager m2;
+        reg_decl_plugins(m2);
+        cmd_context cmd(false, &m2);
+        std::istringstream is(
+            "(set-logic ALL)\n"
+            "(assert\n"
+            "  (exists ((V (_ BitVec 1)))\n"
+            "    (= (_ bv0 1) (bvashr (_ bv1 1) V))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("smt", true);
+        p.set_uint("bv.solver", 2);
+        ref<solver> slv = mk_smt2_solver(m2, p, symbol::null);
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        VERIFY(l_false == slv->check_sat(0, nullptr));
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const x (_ FloatingPoint 5 11))\n"
+            "(declare-const y (_ FloatingPoint 5 11))\n"
+            "(declare-const xb (_ BitVec 16))\n"
+            "(declare-const yb (_ BitVec 16))\n"
+            "(assert (= x ((_ to_fp 5 11) xb)))\n"
+            "(assert (= y ((_ to_fp 5 11) yb)))\n"
+            "(assert (= xb #b1000001111000111))\n"
+            "(assert (= yb #b0011110111000000))\n"
+            "(assert (not (= ((_ fp.to_ieee_bv 16) (fp.fma RNE x y x)) #x889b)))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = and_then(mk_fpa2bv_tactic(m), mk_simplify_tactic(m), mk_bit_blaster_tactic(m), mk_smt_tactic(m));
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(l_false == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-fun length ((Array Int Int)) Int)\n"
+            "(declare-const lindx2 (Array Int Int))\n"
+            "(declare-const indx1 (Array Int Int))\n"
+            "(declare-const orig_findx1 (Array Int Int))\n"
+            "(assert (and\n"
+            "  (forall ((i Int) (j Int))\n"
+            "    (let ((a!1 (and (<= 0 i)\n"
+            "                    (<= i (- (length indx1) 1))\n"
+            "                    (<= 0 j)\n"
+            "                    (<= j (- (length orig_findx1) 1))\n"
+            "                    (= i j))))\n"
+            "      (=> a!1 (= (select indx1 i) (select orig_findx1 j)))))\n"
+            "  (= (length lindx2) 11)\n"
+            "  (forall ((i Int)) (=> (and (<= 3 i) (<= i 25)) (= (select indx1 i) (- 1))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        cmd.check_sat(0, nullptr);
+        VERIFY(cmd.cs_state() == cmd_context::css_sat);
+    }
+
+    check_sat_smt_recfun(
+        "(declare-sort I 0)\n"
+        "(declare-fun isI (I) Bool)\n"
+        "(declare-datatype L1 ((n1) (c1 (h1 I) (t1 L1))))\n"
+        "(declare-datatype L2 ((n2) (c2 (h2 L1) (t2 L2))))\n"
+        "(define-fun-rec isL1 ((x L1)) Bool (ite (is-c1 x) (and (isI (h1 x)) (isL1 (t1 x))) true))\n"
+        "(declare-fun isL2 (L2) Bool)\n"
+        "(define-fun-rec isL2_rec ((x L2)) Bool (ite (is-c2 x) (and (isL1 (h2 x)) (isL2_rec (t2 x))) true))\n"
+        "(assert (forall ((x L2)) (! (= (isL2_rec x) (isL2 x)) :pattern ((isL2 x)))))\n");
+
+    // Regression: a non-Boolean (Int) recursive function whose recursive step contains a
+    // real quantifier nested inside an `ite` used to be misreified as a Boolean fresh
+    // constant (mk_bool_sort() instead of rhs->get_sort()), producing an ill-typed
+    // definitional axiom and a spurious `unsat`. t(1) = -1 is satisfiable: pick s == 0.
+    check_sat_smt_recfun(
+        "(declare-fun s (Int) Int)\n"
+        "(define-fun-rec t ((p Int)) Int\n"
+        "  (ite (<= p 0) 0 (+ (t (- p 1)) (ite (exists ((y Int)) (= (s y) (- p 1))) (- 1) 0))))\n"
+        "(assert (= (t 1) (- 1)))\n");
+
+    check_sat_smt_model(
+        "(declare-sort H 0)\n"
+        "(declare-const h H)\n"
+        "(assert (partial-order h h))\n");
+
+    {
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        cmd.params().set_rlimit(1000000);
+        std::istringstream is(
+            "(set-option :smt.distribute_forall true)\n"
+            "(declare-fun a () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun b () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun c () (Array (_ BitVec 11) (_ BitVec 16)))\n"
+            "(declare-fun d () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun e () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun f () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun g () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun h () (Array (_ BitVec 11) (_ BitVec 16)))\n"
+            "(declare-fun k () (Array (_ BitVec 11) (_ BitVec 16)))\n"
+            "(assert (forall ((i (_ BitVec 11)))\n"
+            "  (and (= (select e i) (select b #b00000000000))\n"
+            "       (= (select f i) (select a i))\n"
+            "       (= (select g i) (select d i))\n"
+            "       (= (select h i) (select c #b00000000000))\n"
+            "       (= (select k i) (select h i)))))\n"
+            "(assert (= (select d #b00000000000) #x00))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.check_sat(0, nullptr);
+        VERIFY(cmd.cs_state() == cmd_context::css_sat);
+    }
+
+    {
+        arith_util a(m);
+        sort* s = a.mk_int();
+        symbol name("x");
+        expr_ref x(m.mk_var(0, s), m);
+        expr_ref first(m.mk_eq(x, a.mk_int(0)), m);
+        expr_ref second(m.mk_eq(x, a.mk_int(1)), m);
+        expr_ref lhs(m.mk_not(first), m);
+        expr_ref rhs1(m.mk_not(second), m);
+        expr_ref body(m.mk_not(m.mk_or(lhs, rhs1)), m);
+        quantifier_ref q(m.mk_forall(1, &s, &name, body), m);
+        distribute_forall distribute(m);
+        expr_ref result(m);
+        distribute(q, result);
+        VERIFY(result != q && !is_quantifier(result));
+
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, q, nullptr, nullptr));
+        distribute_forall_simplifier simplifier(m, params_ref(), state);
+        simplifier.reduce();
+        VERIFY(state[0].fml() != q);
+
+        func_decl_ref f(m.mk_fresh_func_decl("f", 1, &s, s), m);
+        app_ref term(m.mk_app(f.get(), x.get()), m);
+        app_ref pattern(m.mk_pattern(term), m);
+        expr* pat = pattern;
+        quantifier_ref patterned(m.mk_forall(1, &s, &name, body, 0, symbol::null,
+                                            symbol::null, 1, &pat), m);
+        distribute(patterned, result);
+        VERIFY(result == patterned);
+        state.add(dependent_expr(m, patterned, nullptr, nullptr));
+        simplifier.reduce();
+        VERIFY(state[1].fml() == patterned);
+
+        expr* no_pat = term;
+        quantifier_ref no_pattern(m.mk_forall(1, &s, &name, body, 0, symbol::null,
+                                             symbol::null, 0, nullptr, 1, &no_pat), m);
+        distribute(no_pattern, result);
+        VERIFY(result == no_pattern);
+        state.add(dependent_expr(m, no_pattern, nullptr, nullptr));
+        simplifier.reduce();
+        VERIFY(state[2].fml() == no_pattern);
+    }
+    // Regression (issue #10981): two extensionally equal arrays over a Bit-Vector 1
+    // (2-element) domain, built as stores over `const` arrays with different default
+    // values, used to be reported unsat due to a reversed default/select pairing (and
+    // a missing diagonal axiom) in the small-domain default-store axiom.
+    check_sat_smt_model(
+        "(assert (= (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b0) #b0 #b1)\n"
+        "           (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b1) #b1 #b0)))\n");
+
+    // Regression (issue #11069): an uninterpreted array domain may be a singleton.
+    char const* const_array =
+        "(declare-sort S 0)\n"
+        "(declare-const s S)\n"
+        "(assert (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)\n"
+        "           ((as const (Array S (_ BitVec 8))) #x01)))\n";
+    check_array_domain(const_array, l_true);
+    std::string two_elements = std::string(const_array) +
+        "(declare-const t S)\n(assert (distinct s t))\n";
+    check_array_domain(two_elements.c_str(), l_false);
+
+    char const* quantified_arrays =
+        "(declare-sort S 0)\n"
+        "(declare-const s S)\n"
+        "(declare-const a (Array S (_ BitVec 2)))\n"
+        "(declare-const b (Array S (_ BitVec 2)))\n"
+        "(assert (forall ((x S)) (= (select a x) #b00)))\n"
+        "(assert (forall ((x S)) (= (select b x) #b01)))\n"
+        "(assert (= (store a s #b01) (store b s #b01)))\n";
+    check_array_domain(quantified_arrays, l_true);
+    two_elements = std::string(quantified_arrays) +
+        "(declare-const t S)\n(assert (distinct s t))\n";
+    check_array_domain(two_elements.c_str(), l_false);
+
+    check_array_domain(
+        "(declare-datatype S ((s)))\n"
+        "(assert (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)\n"
+        "           ((as const (Array S (_ BitVec 8))) #x01)))\n", l_true);
+    check_array_domain(
+        "(declare-const s Int)\n"
+        "(assert (= (store ((as const (Array Int (_ BitVec 8))) #x00) s #x01)\n"
+        "           ((as const (Array Int (_ BitVec 8))) #x01)))\n", l_false);
+    check_array_domain(
+        "(declare-sort S 0)\n"
+        "(declare-const s S)\n"
+        "(assert (= (store (store ((as const (Array S Bool (_ BitVec 8))) #x00)\n"
+        "                         s false #x01) s true #x01)\n"
+        "           ((as const (Array S Bool (_ BitVec 8))) #x01)))\n", l_true);
+    check_array_domain(
+        "(declare-sort S 0)\n"
+        "(declare-const s S)\n"
+        "(assert (= (store ((as const (Array S Int (_ BitVec 8))) #x00) s 0 #x01)\n"
+        "           ((as const (Array S Int (_ BitVec 8))) #x01)))\n", l_false);
+    check_array_domain(
+        "(declare-sort S 0)\n"
+        "(assert (forall ((s S))\n"
+        "  (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)\n"
+        "     ((as const (Array S (_ BitVec 8))) #x01))))\n", l_true);
+
+    // Regression (issue #11156): MBQI must not give up on array model values over uninterpreted sorts.
+    check_array_domain(
+        "(declare-datatypes ((x5 0)) (((x3) (x4))))\n"
+        "(declare-sort x31)\n"
+        "(declare-datatypes ((x36 0)) (((x35))))\n"
+        "(declare-sort x6)\n"
+        "(declare-datatypes ((x29 0)) (((x28 (x23 x5)))))\n"
+        "(declare-sort x30)\n"
+        "(declare-datatypes ((x45 0)) (((x44 (x38 x5) (x39 x6) (x40 x6) (x41 x6) (x42 x36) (x43 x31)))))\n"
+        "(declare-fun x63 () x30)\n"
+        "(declare-fun x70 () (Array x30 x45))\n"
+        "(declare-fun x68 () (Array x30 x45))\n"
+        "(declare-fun z3name!0 (x30) x29)\n"
+        "(declare-fun l51 () Bool)\n"
+        "(assert (= l51 (forall ((x73 x30)) (or (= x3 (x23 (z3name!0 x73))) (= x3 (x38 (select x70 x73)))))))\n"
+        "(assert (not (= x70 (store x70 x63 (x44 x4 (x39 (select x70 x63)) (x40 (select x70 x63)) (x41 (select x70 x63)) (x42 (select x70 x63)) (x43 (select x70 x63)))))))\n"
+        "(assert (not (= x70 x68)))\n"
+        "(assert l51)\n", l_true);
+
+    // Regression (issue #10996, bug A): the equality atom (= x (ite p x y)) is first
+    // internalized in a gate context by the ite-term axioms, and must still be merged
+    // with true/false when it occurs as an argument of an uninterpreted function.
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-sort U 0)\n"
+            "(declare-const x U)\n"
+            "(declare-const y U)\n"
+            "(declare-const p Bool)\n"
+            "(declare-fun g (Bool) Bool)\n"
+            "(assert (distinct (g (= x (ite p x y))) (g true)))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        smt::context qctx(m, params);
+        for (expr* a : cmd.assertions())
+            qctx.assert_expr(a);
+        expr_ref p(m.mk_const(symbol("p"), m.mk_bool_sort()), m);
+        expr* assumption = p;
+        VERIFY(l_false == qctx.check(1, &assumption));
+    }
+
+    // Regression (issue #10996, bug B): an n-ary distinct assigned while it is
+    // internalized must propagate its value to the e-graph.
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-sort U 0)\n"
+            "(declare-const x U)\n"
+            "(declare-const c U)\n"
+            "(declare-fun h (U) U)\n"
+            "(declare-fun g (Bool) Bool)\n"
+            "(assert (= (h x) x))\n"
+            "(assert (distinct (g (distinct (h (h x)) c x)) (g false)))\n");
         VERIFY(parse_smt2_commands(cmd, is));
         smt::context qctx(m, params);
         for (expr* a : cmd.assertions())

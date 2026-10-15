@@ -105,16 +105,21 @@ _console.print(
 )
 
 
-def _load_shapefiles(parser):
+def _load_shapefiles(parser, countries=None):
     """Load and concatenate shapefiles for all countries.
 
     Reuses the shapefile loading pattern from analysis.py Geoanalysis.setup().
+
+    Args:
+        countries: config country slugs to load; default every country in
+            ``[DEFAULT] countries`` (a caller mapping one table need not
+            dissolve the other thirty).
 
     Returns:
         dg: Combined GeoDataFrame with 'Country Region' merge column.
         dict_config: Per country_crop config dict with method, crops, models, etc.
     """
-    countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
+    countries = countries or ast.literal_eval(parser.get("DEFAULT", "countries"))
     dir_boundary_files = Path(parser.get("PATHS", "dir_boundary_files"))
     pool_countries = parser.getboolean("ML", "pool_countries", fallback=False)
 
@@ -452,10 +457,8 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
     # Create merge column (same pattern as analysis.py:1410-1414). Region-only
     # (NOT season-scoped): shapefile geometry is per region, and both seasons
     # of a region share the same polygon.
-    df_outlook["Country Region"] = (
-        df_outlook["Country"].str.lower().str.replace("_", " ")
-        + " "
-        + df_outlook["Region"].str.lower()
+    df_outlook["Country Region"] = ut.country_region_key(
+        df_outlook["Country"], df_outlook["Region"]
     )
 
     return df_outlook
@@ -1123,9 +1126,7 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
         )
         df_mape = df_mape_raw.groupby("Region", as_index=False)["MAPE"].mean()
 
-    df_mape["Country Region"] = (
-        country.lower().replace("_", " ") + " " + df_mape["Region"].str.lower()
-    )
+    df_mape["Country Region"] = ut.country_region_key(country, df_mape["Region"])
     df_mape = df_mape.rename(columns={"MAPE": "Mean Absolute Percentage Error"})
     # Case-INSENSITIVE country filter. ``countries_display`` is built with
     # ``str.title()`` ("United States Of America"), but the shapefile stores
@@ -1163,9 +1164,8 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
         _metric_rows.append({"Region": _region, "RMSE": _rmse, "R2": _r2})
     if _metric_rows:
         df_metrics = pd.DataFrame(_metric_rows)
-        df_metrics["Country Region"] = (
-            country.lower().replace("_", " ") + " " + df_metrics["Region"].str.lower()
-        )
+        df_metrics["Country Region"] = ut.country_region_key(
+            country, df_metrics["Region"])
         df_metrics.to_csv(
             dir_csvs / f"metric_map_{country}_{crop}_{model}{stage_suffix}.csv",
             index=False,
@@ -1233,9 +1233,7 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
     if df_latest.empty or pred_col not in df_latest.columns:
         return
 
-    df_latest["Country Region"] = (
-        country.lower().replace("_", " ") + " " + df_latest["Region"].str.lower()
-    )
+    df_latest["Country Region"] = ut.country_region_key(country, df_latest["Region"])
     df_pred_region = df_latest.groupby(["Region", "Country Region"])[pred_col].mean().reset_index()
 
     # Per-(Region, Harvest Year) MAPE for the right-panel box distribution.
@@ -4132,9 +4130,8 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
             .drop_duplicates(subset=["Region"], keep="first")
             [["Region", "Model"]].copy()
         )
-        best_model["Country Region"] = (
-            country.lower().replace("_", " ") + " " + best_model["Region"].str.lower()
-        )
+        best_model["Country Region"] = ut.country_region_key(
+            country, best_model["Region"])
         # Encode model as integer for qualitative map, using consistent colors
         model_to_id = {m: i + 1 for i, m in enumerate(all_models_sorted)}
         best_model["Best Model"] = best_model["Model"].map(model_to_id)
@@ -5722,10 +5719,8 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                      for r, v in area_pct.items()]
                 )
                 df_area_pct["Country"] = country
-                df_area_pct["Country Region"] = (
-                    df_area_pct["Country"].str.lower().str.replace("_", " ")
-                    + " " + df_area_pct["Region"].str.lower()
-                )
+                df_area_pct["Country Region"] = ut.country_region_key(
+                    df_area_pct["Country"], df_area_pct["Region"])
                 area_map_dir = dir_outlook / "maps" / model / country_lower / crop
                 plot.plot_map(
                     dg,

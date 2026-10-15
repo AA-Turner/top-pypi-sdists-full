@@ -65,7 +65,8 @@ pub use rdkit::{
     RdkitMolBlockBond, RdkitMolView, RdkitPdbMolecule, RdkitSanitizedModel, RdkitSmilesError,
     RdkitSmilesParams, RdkitTautomerEnumeration, RdkitTautomerStatus, RdkitViewAtom, RdkitViewBond,
     Transform3D, rdkit_2d_coords, rdkit_added_hs_molecule, rdkit_addhs_first_pattern,
-    rdkit_align_mol, rdkit_align_points, rdkit_atom_stereocenter_counts, rdkit_best_rms,
+    rdkit_align_mol, rdkit_align_points, rdkit_all_conformer_best_rms,
+    rdkit_all_conformer_best_rms_to_ref, rdkit_atom_stereocenter_counts, rdkit_best_rms,
     rdkit_calc_rms, rdkit_canonical_smiles, rdkit_canonical_tautomer, rdkit_chiral_centers,
     rdkit_cleanup_edits, rdkit_crippen_contribs, rdkit_crippen_contribs_no_hs,
     rdkit_crippen_logp_mr, rdkit_cx_smarts, rdkit_cx_smiles, rdkit_detect_chemistry_problems,
@@ -79,6 +80,7 @@ pub use rdkit::{
     rdkit_random_smiles_with, rdkit_reaction_to_smarts, rdkit_sanitized_model, rdkit_smarts,
     rdkit_smarts_to_smarts, rdkit_smiles, rdkit_stereoisomer_count, rdkit_stereoisomer_smiles,
     rdkit_tautomer_score, register_rdkit_model_hook, with_rdkit_model_molecule,
+    with_rdkit_model_scalar,
 };
 pub use smi_file::{
     SmiFileParseLimits, parse_smi_file, parse_smi_file_with_limits, write_smi_file,

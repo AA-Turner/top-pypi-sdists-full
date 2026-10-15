@@ -618,9 +618,12 @@ def test_budget_the_snapshot_total_holds(tmp_path, monkeypatch):
         _tokens_log(root / f"run{i}.log", 6)
     (root / "small.txt").write_text("tokens/s 1\n" * 100)
     (root / "train.py").write_text("print('train')\n")
-    started = _time.monotonic()
+    # CPU time, not wall time: under `-n 2` a CPU-heavy neighbour (the `probe
+    # exec` tests) stretched the wall clock 5x on agent-ci, and the scanner's
+    # own wall-clock budget already bounds what it reads either way.
+    started = _time.process_time()
     m = snapshot.capture_manifest(str(root))
-    elapsed = _time.monotonic() - started
+    elapsed = _time.process_time() - started
     by_path = {e["path"]: e for e in m["entries"]}
     assert {p for p, e in by_path.items() if e.get("reason") == "scan_budget"} == {
         f"run{i}.log" for i in range(4)
@@ -630,13 +633,14 @@ def test_budget_the_snapshot_total_holds(tmp_path, monkeypatch):
     assert elapsed < 3.0, f"{elapsed:.1f}s"
 
 
-@pytest.mark.parametrize("budget", ["0.05", None], ids=["tiny-budget", "default-budget"])
+@pytest.mark.parametrize("budget", ["0.05", None], ids=["tiny-budget", "ample-budget"])
 def test_budget_holds_for_a_small_file_too(client, app, tmp_path, monkeypatch, budget):
     """A file up to FULL_SCAN_MAX_BYTES used to be scanned with no clock at all
     (#2034 re-review). Past its budget it is withheld, never uploaded unscanned;
-    with the default budget the same clean file goes up (the control)."""
-    if budget is not None:
-        monkeypatch.setenv("PROBE_SNAPSHOT_FILE_SCAN_BUDGET_SEC", budget)
+    with room to finish the same clean file goes up (the control). The control
+    gives the scan 30 s, 10x the default: the default 3 s ran out on a loaded agent-ci
+    runner (a CPU-heavy neighbour under `-n 2`), which is the budget working."""
+    monkeypatch.setenv("PROBE_SNAPSHOT_FILE_SCAN_BUDGET_SEC", budget or "30")
     root = tmp_path / "plain"
     root.mkdir()
     (root / "train.py").write_text("print('train')\n")

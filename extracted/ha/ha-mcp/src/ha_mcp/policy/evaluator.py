@@ -6,7 +6,7 @@ from collections.abc import Iterable, Iterator
 from enum import StrEnum
 from typing import Any
 
-from ..tools.util_helpers import loads_if_json_container_str
+from ..tools.coercion import loads_if_json_container_str
 from .model import Policy, Predicate, Rule
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def normalize_stringified_containers(value: Any) -> Any:
     """Recursively parse JSON-encoded object/array strings into real containers.
 
     Some MCP client stacks (Claude Desktop stdio among them — see
-    ``tools/util_helpers.py``'s ``JSON_STRING_COERCION``) pass model-emitted
+    ``tools/coercion.py``'s ``JSON_STRING_COERCION``) pass model-emitted
     stringified objects through unrepaired, e.g. sending
     ``{"selector": "{\\"domain\\": \\"light\\"}"}`` instead of a nested
     object. Pydantic's ``JSON_STRING_COERCION`` ``BeforeValidator`` repairs
@@ -93,6 +93,9 @@ def has_dynamic_selector_targets(name: str, args: dict[str, Any]) -> bool:
     return name == "ha_bulk_control" and args.get("selector") is not None
 
 
+KEYS_SEGMENT = "*~"
+"""Path segment that fans out over a dict's keys (see ``iter_path_values``)."""
+
 MISSING = object()
 """What ``iter_path_values(..., report_missing=True)`` yields for a dead end."""
 
@@ -105,14 +108,20 @@ def iter_path_values(
     The leading ``args`` segment is implicit and stripped. A ``*`` segment
     fans out across the current node — across dict values for dicts,
     across items for lists — so ``args.*`` yields every top-level
-    argument, ``args.config.*`` yields every leaf of the ``config``
-    sub-dict, and so on. Empty iterator = no match.
+    argument, ``args.config.*`` yields each immediate value of ``config``,
+    and so on. A ``*~`` segment (JSONPath-Plus syntax) fans out across a
+    dict's KEYS instead, for arguments keyed by what they act on:
+    ``args.config.entities.*~`` yields every entity ID in a scene, where
+    ``*`` would yield only their target states. ``*~`` yields strings, so it
+    is only valid as the last segment (``Predicate`` rejects it elsewhere).
+    Empty iterator = no match.
 
     A branch that cannot continue (a missing key, a named segment on a value
-    that is not a dict, or a ``*`` on a scalar) is skipped, unless
-    ``report_missing``, which yields ``MISSING`` for it instead and also for a
-    ``*`` over an empty container. Allow mode needs that: an operation without
-    the constrained field is a value the predicate never saw.
+    that is not a dict, a ``*`` on a scalar, or a ``*~`` on a list or a
+    scalar) is skipped, unless ``report_missing``, which yields ``MISSING``
+    for it instead and also for a ``*`` or ``*~`` over an empty container.
+    Allow mode needs that: an operation without the constrained field is a
+    value the predicate never saw.
     """
     parts = path.split(".")
     if parts[0] == "args":
@@ -123,8 +132,8 @@ def iter_path_values(
             yield cur
             return
         head, tail = rest[0], rest[1:]
-        if head == "*":
-            children = _children(cur)
+        if head in ("*", KEYS_SEGMENT):
+            children = _children(cur, keys=head == KEYS_SEGMENT)
             if report_missing and not children:
                 # An empty container is a dead end too: the branch holds no
                 # value the predicate could examine.
@@ -143,11 +152,14 @@ def iter_path_values(
     yield from walk(args, parts)
 
 
-def _children(node: Any) -> Iterable[Any] | None:
-    """What a ``*`` segment fans out over; None for a scalar."""
+def _children(node: Any, *, keys: bool = False) -> Iterable[Any] | None:
+    """What a ``*`` (or, with ``keys``, ``*~``) segment fans out over.
+
+    None for a scalar, and for a list under ``keys``: a list has no keys.
+    """
     if isinstance(node, dict):
-        return node.values()
-    if isinstance(node, (list, tuple)):
+        return list(node) if keys else node.values()
+    if isinstance(node, (list, tuple)) and not keys:
         return node
     return None
 
@@ -230,8 +242,10 @@ def match_predicate(
 ) -> bool:
     """Whether ``predicate`` holds for ``args``.
 
-    Outside allow mode a wildcard path matches when ANY value at the wildcard
-    satisfies the op; for a non-wildcard path there is at most one value.
+    Outside allow mode the predicate matches when ANY value at the path
+    satisfies the op: each value at a wildcard, and for a list or a
+    comma-separated or whitespace-padded string also each item Home
+    Assistant reads out of it (``_with_parts``).
 
     ``strict`` is allow mode, where a match APPROVES the call, so every
     ambiguity must resolve towards "no match":
@@ -265,7 +279,9 @@ def match_predicate(
     if predicate.op == "exists":
         return True
     if not strict:
-        return any(_op_matches(v, predicate.op, predicate.value) for v in values)
+        return any(
+            _op_matches(v, predicate.op, predicate.value) for v in _with_parts(values)
+        )
     values = list(_flatten_lists(values))
     if not values:
         return False
@@ -276,6 +292,25 @@ def match_predicate(
         and _op_matches(v, predicate.op, predicate.value)
         for v in values
     )
+
+
+def _with_parts(values: Iterable[Any]) -> Iterator[Any]:
+    """Each value, then the values Home Assistant reads out of it.
+
+    A list stands for its items, and a string with a comma or surrounding
+    whitespace for its comma-split, stripped parts, so ``eq "sun.sun"`` must
+    also gate ``["sun.sun"]`` and ``"sun.sun, zone.home"``. The value itself
+    is still tried as well, so a match it gave before is never lost: a
+    negated op (``neq``, ``not_in``) that held for the whole list still
+    holds. Free text is split too and can gate a call it did not before;
+    without the argument's type that is the safe direction.
+    """
+    for value in values:
+        yield value
+        if isinstance(value, (list, tuple)):
+            yield from _with_parts(value)
+        elif _splits_into_other_values(value):
+            yield from (part.strip() for part in value.split(",") if part.strip())
 
 
 def _splits_into_other_values(value: Any) -> bool:

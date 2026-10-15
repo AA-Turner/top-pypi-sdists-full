@@ -90,6 +90,30 @@ def get_post_finalize_hook() -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Request-settled hook (a stored turn reached its FINAL persist)
+# ---------------------------------------------------------------------------
+#
+# The host injects a callable that ``persist_completed_request`` invokes once per
+# final persist of a stored turn, with the terminal status. The host uses it to
+# return a finished user-visible session's result to its parent conversation.
+#
+# Contract:
+#   * OPTIONAL. Unconfigured -> None and nothing happens.
+#   * SYNC and non-blocking: the host schedules its own detached work and
+#     returns at once. matrx-ai calls it best-effort and never awaits real work.
+#   * Signature (keyword-only, forward-compatible):
+#         hook(*, conversation_id: str, request_id: str, user_id: str | None,
+#              organization_id: str | None, status: str, final_text: str) -> None
+
+_REQUEST_SETTLED_HOOK_KEY = "request_settled_hook"
+
+
+def get_request_settled_hook() -> Any:
+    """Return the host-injected request-settled hook, or None when unset."""
+    return _registry.get(_REQUEST_SETTLED_HOOK_KEY)
+
+
+# ---------------------------------------------------------------------------
 # Output-apply dispatcher (structured-output → durable side-effect seam)
 # ---------------------------------------------------------------------------
 #

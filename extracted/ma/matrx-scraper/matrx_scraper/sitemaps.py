@@ -124,6 +124,47 @@ def _parse_priority(raw: str | None) -> float | None:
     return min(1.0, max(0.0, value))
 
 
+def _feed_entries(root: ET.Element, kind: str) -> list[SitemapUrlEntry]:
+    """Page URLs (and dates) from an RSS 2.0 or Atom document."""
+
+    entries: list[SitemapUrlEntry] = []
+    for element in root.iter():
+        if _local_name(element.tag) not in {"item", "entry"}:
+            continue
+        loc: str | None = None
+        lastmod: str | None = None
+        for child in element:
+            name = _local_name(child.tag)
+            if name == "link":
+                href = (child.get("href") or "").strip()
+                text = (child.text or "").strip()
+                # Atom: <link href=...> (prefer rel=alternate); RSS: <link>text</link>
+                if href and (child.get("rel") in (None, "alternate")):
+                    loc = loc or href
+                elif text:
+                    loc = loc or text
+            elif name == "id" and kind == "feed" and loc is None:
+                text = (child.text or "").strip()
+                if text.startswith(("http://", "https://")):
+                    loc = text
+            elif name in {"updated", "lastmod"}:
+                lastmod = (child.text or "").strip()
+        if loc:
+            entries.append(SitemapUrlEntry(loc=loc, lastmod=_parse_lastmod(lastmod)))
+    return entries
+
+
+def looks_like_html(content: bytes, content_type: str | None = None) -> bool:
+    """True when a response body is a web page, not XML (a CMS soft-404)."""
+
+    if content_type and "html" in content_type.lower():
+        return True
+    head = content[:2_000].lstrip().lower()
+    return head.startswith((b"<!doctype html", b"<html")) or (
+        head.startswith(b"<") and b"<html" in head
+    )
+
+
 def parse_sitemap_document(content: bytes) -> ParsedSitemap:
     """Parse one sitemap XML document into typed entries.
 
@@ -139,6 +180,10 @@ def parse_sitemap_document(content: bytes) -> ParsedSitemap:
     except ET.ParseError as exc:
         raise ValueError(f"malformed sitemap XML: {exc}") from exc
     kind = _local_name(root.tag)
+    if kind in {"rss", "feed"}:
+        # RSS 2.0 / Atom sitemaps (AIOSEO's sitemap.rss, feed-style sitemaps) are
+        # formats Google accepts: every <item>/<entry> link is a page URL.
+        return ParsedSitemap(kind="urlset", entries=_feed_entries(root, kind))
     if kind not in {"sitemapindex", "urlset"}:
         raise ValueError(f"unsupported sitemap root element: {kind}")
 
@@ -218,6 +263,7 @@ async def crawl_sitemap_documents(
         raise ValueError("base_url must be an absolute HTTP(S) URL")
     origin = f"{parsed.scheme}://{parsed.netloc}"
     candidates = [f"{origin}/sitemap.xml", f"{origin}/sitemap_index.xml"]
+    guessed = set(candidates)
     crawl = SitemapCrawl()
     urls_remaining = max_urls
 
@@ -239,7 +285,9 @@ async def crawl_sitemap_documents(
                     if directive.lower().startswith("sitemap:"):
                         candidate = directive.split(":", 1)[1].strip()
                         if candidate:
-                            candidates.append(urljoin(origin, candidate))
+                            declared_url = urljoin(origin, candidate)
+                            candidates.append(declared_url)
+                            guessed.discard(declared_url)
         except Exception as exc:
             crawl.errors.append(f"robots.txt: {type(exc).__name__}: {exc}")
 
@@ -284,6 +332,15 @@ async def crawl_sitemap_documents(
                     final_url, response = result
                     status_code = response.status_code
                     if response.status_code in {404, 410}:
+                        continue
+                    if (
+                        url in guessed
+                        and 200 <= response.status_code < 300
+                        and looks_like_html(response.content, response.headers.get("content-type"))
+                    ):
+                        # A conventional path nobody declared, answered with a web
+                        # page (a CMS soft-404): the site has no sitemap THERE. It
+                        # is absent, exactly like a 404 — never an unreadable file.
                         continue
                     fetched_docs += 1
                     if not (200 <= response.status_code < 300):
@@ -340,5 +397,6 @@ __all__ = [
     "SitemapKind",
     "SitemapUrlEntry",
     "crawl_sitemap_documents",
+    "looks_like_html",
     "parse_sitemap_document",
 ]

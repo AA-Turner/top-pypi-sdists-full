@@ -30,7 +30,6 @@ class ResourceType(str, Enum):
     ARTIFACT = 'artifact'
     COMMENT = 'comment'
     JOB = 'job'
-    DOCUMENT = 'document'
     RESOURCE = 'resource'
 
     @classmethod

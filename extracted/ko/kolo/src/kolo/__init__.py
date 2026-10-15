@@ -2,11 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-# Lazy imports for faster subprocess startup (python -m kolo._emit_auto)
-# The actual imports only happen when enable/enabled/etc are accessed.
-# Uses PEP 562 module-level __getattr__ (Python 3.7+).
+# Lazy imports (PEP 562 __getattr__) keep subprocess startup fast (python -m kolo._emit_auto).
 
-# TYPE_CHECKING block ensures IDEs and mypy know these attributes exist
 if TYPE_CHECKING:
     from .core import enable, enabled
 

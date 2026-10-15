@@ -47,7 +47,6 @@ def get_webapp_settings() -> WebappSettings:
         return default_webapp_settings
     if not isinstance(saved_settings, dict):
         return default_webapp_settings
-    # Ignore anything a bad write left behind instead of failing every page load.
     valid_settings = {
         key: setting
         for key, setting in saved_settings.items()

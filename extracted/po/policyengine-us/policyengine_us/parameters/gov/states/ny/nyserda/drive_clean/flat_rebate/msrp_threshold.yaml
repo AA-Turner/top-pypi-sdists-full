@@ -1,0 +1,13 @@
+description: New York provides a flat Drive Clean point-of-sale rebate for vehicles with base MSRP over this amount.
+metadata:
+  unit: miles
+  period: year
+  label: New York Drive Clean point-of-sale flat rebate MSRP threshold
+  reference:
+    - title: NYSERDA Drive Clean Implementation Manual
+      href: https://www.nyserda.ny.gov/-/media/Project/Nyserda/Files/Programs/Drive-Clean-NY/implementation-manual.pdf#page=8
+
+values:
+  2017-03-21: 60_000
+  # Vehicles purchased after June 30, 2021.
+  2021-07-01: 42_000

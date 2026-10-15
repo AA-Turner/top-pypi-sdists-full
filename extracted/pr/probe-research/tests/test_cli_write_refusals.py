@@ -25,6 +25,14 @@ from probe.sdk.journal import Journal
 from probe.sdk.transport import Transport
 from probe.sdk.write_outcome import NOT_QUEUED_PREFIX, QUEUED_PREFIX
 from tests.conftest import FakeApp
+from tests.conftest import _WS_MINE
+
+@pytest.fixture(autouse=True)
+def _set_up_computer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A computer whose setup picked its workspace (the fake seeds two, and an
+    unaddressed create in a team with several is refused)."""
+    monkeypatch.setenv("PROBE_WORKSPACE", _WS_MINE)
+
 
 cli_main = importlib.import_module("probe.cli.main")
 
@@ -57,7 +65,7 @@ class Wired:
 
     def client(self, **_kw) -> Client:
         settings = Settings(base_url="http://test", token="ros_pat_deadbeef", ingest_token="ros_ing_cafef00d",
-                            hmac_secret="s3cr3t")
+                            hmac_secret="s3cr3t", workspace=_WS_MINE)
         # max_retries=0: a connect failure is answered at once, not after the
         # transport's own backoff (what is under test is what happens after).
         transport = Transport(settings, client=httpx.Client(base_url="http://test",

@@ -10,8 +10,10 @@ import httpx2
 from trajectory._base_client import make_request_options, path_template
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
-from trajectory._types import Headers, NotGiven, not_given
-from trajectory.types.benchmark_images_response import BenchmarkImagesResponse
+from trajectory._types import Headers, NotGiven, Omit, not_given, omit
+from trajectory._utils import maybe_transform
+from trajectory.types.benchmark_image_build_response import BenchmarkImageBuildResponse
+from trajectory.types.benchmark_images_page import BenchmarkImagesPage
 
 
 class Images(APIResource):
@@ -23,13 +25,16 @@ class Images(APIResource):
     self,
     bench_id: str,
     *,
+    limit: int | Omit = omit,
+    cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> BenchmarkImagesResponse:
-    """List the bench's task images with build status, refreshing in-flight provider builds
-    (building -> ready/failed) as a side effect.
+  ) -> BenchmarkImagesPage:
+    """List the bench's task images with build status in ascending task-ID order, refreshing
+    in-flight provider builds on the returned page (building -> ready/failed) as a side
+    effect.
 
     Args:
       extra_headers: Send extra headers
@@ -47,8 +52,14 @@ class Images(APIResource):
         "/api/v1/benchmarks/{bench_id}/images",
         bench_id=bench_id,
       ),
-      cast_to=BenchmarkImagesResponse,
+      cast_to=BenchmarkImagesPage,
       options=make_request_options(
+        params=maybe_transform(
+          {
+            "limit": limit,
+            "cursor": cursor,
+          }
+        ),
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,
@@ -64,10 +75,10 @@ class Images(APIResource):
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> BenchmarkImagesResponse:
-    """Trigger provider image builds for every unbuilt task image of the bench. Build
-    completion is asynchronous; poll listBenchmarkImages until every row reports
-    build_status=ready.
+  ) -> BenchmarkImageBuildResponse:
+    """Trigger provider image builds for every unbuilt task image of the bench and acknowledge
+    the request. Build completion is asynchronous; poll listBenchmarkImages, reading every
+    page through next_cursor, until no image reports build_status=building.
 
     Args:
       extra_headers: Send extra headers
@@ -85,7 +96,7 @@ class Images(APIResource):
         "/api/v1/benchmarks/{bench_id}/images/build",
         bench_id=bench_id,
       ),
-      cast_to=BenchmarkImagesResponse,
+      cast_to=BenchmarkImageBuildResponse,
       options=make_request_options(
         extra_headers=extra_headers,
         extra_query=extra_query,

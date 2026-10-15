@@ -500,14 +500,17 @@ class HexString(Expression, Condition):
 class ByteString(Expression, Condition):
     arg_types = {"this": True, "is_bytes": False}
     is_primitive = True
+    _hash_raw_args = True
 
 
 class RawString(Expression, Condition):
     is_primitive = True
+    _hash_raw_args = True
 
 
 class UnicodeString(Expression, Condition):
     arg_types = {"this": True, "escape": False}
+    _hash_raw_args = True
 
 
 class ColumnPosition(Expression):
@@ -599,6 +602,7 @@ class Introducer(Expression):
 
 class National(Expression):
     is_primitive = True
+    _hash_raw_args = True
 
 
 class Partition(Expression):
@@ -2047,14 +2051,17 @@ class JSONPathPart(Expression):
 
 class JSONPathFilter(JSONPathPart):
     arg_types = {"this": True}
+    _hash_raw_args = True
 
 
 class JSONPathKey(JSONPathPart):
     arg_types = {"this": True, "quoted": False}
+    _hash_raw_args = True
 
 
 class JSONPathRecursive(JSONPathPart):
     arg_types = {"this": False}
+    _hash_raw_args = True
 
 
 class JSONPathRoot(JSONPathPart):
@@ -2063,6 +2070,7 @@ class JSONPathRoot(JSONPathPart):
 
 class JSONPathScript(JSONPathPart):
     arg_types = {"this": True}
+    _hash_raw_args = True
 
 
 class JSONPathSlice(JSONPathPart):
@@ -2079,6 +2087,7 @@ class JSONPathSubscript(JSONPathPart):
 
 class JSONPathUnion(JSONPathPart):
     arg_types = {"expressions": True}
+    _hash_raw_args = True
 
 
 class JSONPathWildcard(JSONPathPart):

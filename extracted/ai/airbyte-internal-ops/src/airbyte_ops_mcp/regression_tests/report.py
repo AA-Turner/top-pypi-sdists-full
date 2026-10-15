@@ -70,6 +70,7 @@ from airbyte_ops_mcp.regression_tests.regression.comparators import (
     StreamComparisonResult,
     json_safe,
 )
+from airbyte_ops_mcp.regression_tests.repro_case import ReproductionVerdict
 
 TEMPLATE_NAME = "report.html.j2"
 CONSOLIDATED_TEMPLATE_NAME = "consolidated.html.j2"
@@ -1707,6 +1708,7 @@ def build_comparison_report_model(
     extra_diff_blocks: tuple[DiffBlock, ...] = (),
     configured_streams: tuple[str, ...] = (),
     connection_objects: tuple[DiffBlock, ...] = (),
+    reproduction: ReproductionVerdict | None = None,
 ) -> RegressionReportModel:
     """Build the report model for a target-versus-control run.
 
@@ -1735,6 +1737,10 @@ def build_comparison_report_model(
         extra_diff_blocks: What a failing check found, shown above the failure
             output. A check row has one line to say "this stream's schema
             changed"; the reviewer's next question is always which field.
+        reproduction: The reproduction-case verdict, when the run used one. It
+            replaces the command-execution check and the verdict: in case mode a
+            control that fails with the expected error is the evidence sought,
+            not an inconclusive run.
 
     Returns:
         The model to render as `report.html` and as the inline summary.
@@ -1819,6 +1825,22 @@ def build_comparison_report_model(
         # The claim belongs to the folded verdict, not the command outcome:
         # every comparison check passed, so "no regression" is now earned.
         verdict_detail += " (no regression)"
+
+    if reproduction is not None:
+        checks = (
+            CheckResult(
+                name="Reproduction case",
+                passed=reproduction.success,
+                summary=reproduction.detail,
+                details=reproduction.details,
+            ),
+            *(check for check in checks if check.name != _RUN_CHECK),
+        )
+        passed, verdict_label, verdict_detail = (
+            reproduction.success,
+            reproduction.label,
+            reproduction.detail,
+        )
 
     return RegressionReportModel(
         mode="comparison",

@@ -22,6 +22,10 @@ ws_member/org_id,ws_id:
     - r:workspace_management/org_id,ws_id,{env=*,type=event}
     - r:workspace_management/org_id,ws_id,{env=*,type=feature}
     - r:outcome_type_management/org_id,ws_id
+    # case template definitions that flows reference; cases stay behind workspace_case
+    - r:workspace_case_template/org_id,ws_id
+    # queue setup that Create Case nodes pick from
+    - r:workspace_case_queue/org_id,ws_id
 ws_viewer/org_id,ws_id:
     - agent_viewer/org_id,ws_id
     - connection_viewer/org_id,ws_id

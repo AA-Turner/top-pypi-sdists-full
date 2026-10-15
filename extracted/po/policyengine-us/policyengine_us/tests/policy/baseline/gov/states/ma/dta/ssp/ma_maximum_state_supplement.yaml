@@ -1,0 +1,256 @@
+# Tests for ma_maximum_state_supplement across different living arrangements,
+# categories, and historical periods.
+
+- name: Case 1, single disabled, FULL_COST, 2022.
+  period: 2022
+  absolute_error_margin: 1
+  input:
+    people:
+      person_disabled:
+        age: 30
+        is_disabled: true
+        meets_ssi_disability_criteria: true
+        is_tax_unit_spouse: false
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+    households:
+      household:
+        members: [person_disabled]
+        state_code: MA
+        ma_state_living_arrangement: FULL_COST
+    marital_units:
+      unit:
+        members: [person_disabled]
+  output:
+    ma_maximum_state_supplement: 1_373
+
+- name: Case 2, couple both aged, FULL_COST, 2022.
+  period: 2022
+  absolute_error_margin: 1
+  input:
+    people:
+      spouse1:
+        age: 67
+        is_tax_unit_spouse: true
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+        is_ssi_aged: true
+      spouse2:
+        age: 70
+        is_tax_unit_spouse: true
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+        is_ssi_aged: true
+    households:
+      household:
+        members: [spouse1, spouse2]
+        state_code: MA
+        ma_state_living_arrangement: FULL_COST
+    marital_units:
+      unit:
+        members: [spouse1, spouse2]
+  output:
+    ma_maximum_state_supplement: [1_210, 1_210]
+
+- name: Case 3, one aged one blind, FULL_COST, 2022.
+  period: 2022
+  absolute_error_margin: 1
+  input:
+    people:
+      person_1:
+        age: 67
+        is_tax_unit_spouse: true
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+        is_ssi_aged: true
+      person_2:
+        age: 40
+        is_blind: true
+        is_tax_unit_spouse: true
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+    households:
+      household:
+        members: [person_1, person_2]
+        state_code: MA
+        ma_state_living_arrangement: FULL_COST
+    marital_units:
+      unit:
+        members: [person_1, person_2]
+  output:
+    ma_maximum_state_supplement: [2_766, 2_766]
+
+- name: Case 4, single blind, FULL_COST, 2005.
+  period: 2005
+  absolute_error_margin: 1
+  input:
+    people:
+      person_blind:
+        age: 35
+        is_blind: true
+        is_tax_unit_spouse: false
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+    households:
+      household:
+        members: [person_blind]
+        state_code: MA
+        ma_state_living_arrangement: FULL_COST
+    marital_units:
+      unit:
+        members: [person_blind]
+  output:
+    # 149.74 * 12 = 1796.88
+    ma_maximum_state_supplement: 1_797
+
+- name: Case 5, single aged, HOUSEHOLD_OF_ANOTHER, 2002.
+  period: 2002
+  absolute_error_margin: 1
+  input:
+    people:
+      person_aged:
+        age: 70
+        is_tax_unit_spouse: false
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+        is_ssi_aged: true
+    households:
+      household:
+        members: [person_aged]
+        state_code: MA
+        ma_state_living_arrangement: HOUSEHOLD_OF_ANOTHER
+    marital_units:
+      unit:
+        members: [person_aged]
+  output:
+    # 104.36 * 12 = 1252.32
+    ma_maximum_state_supplement: 1_252
+
+- name: Case 6, single disabled, REST_HOME, 2009.
+  period: 2009
+  absolute_error_margin: 1
+  input:
+    people:
+      person_disabled:
+        age: 45
+        is_disabled: true
+        meets_ssi_disability_criteria: true
+        is_tax_unit_spouse: false
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+    households:
+      household:
+        members: [person_disabled]
+        state_code: MA
+        ma_state_living_arrangement: REST_HOME
+    marital_units:
+      unit:
+        members: [person_disabled]
+  output:
+    # 293 * 12 = 3516
+    ma_maximum_state_supplement: 3_516
+
+- name: Case 7, single aged, MEDICAID_FACILITY, 2005.
+  period: 2005
+  absolute_error_margin: 1
+  input:
+    people:
+      person_aged:
+        age: 72
+        is_tax_unit_spouse: false
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+        is_ssi_aged: true
+    households:
+      household:
+        members: [person_aged]
+        state_code: MA
+        ma_state_living_arrangement: MEDICAID_FACILITY
+    marital_units:
+      unit:
+        members: [person_aged]
+  output:
+    # 35.00 * 12 = 420
+    ma_maximum_state_supplement: 420
+
+- name: Case 8, single aged, MEDICAID_FACILITY, 2009.
+  period: 2009
+  absolute_error_margin: 1
+  input:
+    people:
+      person_aged:
+        age: 72
+        is_tax_unit_spouse: false
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+        is_ssi_aged: true
+    households:
+      household:
+        members: [person_aged]
+        state_code: MA
+        ma_state_living_arrangement: MEDICAID_FACILITY
+    marital_units:
+      unit:
+        members: [person_aged]
+  output:
+    # 42.80 * 12 = 513.60
+    ma_maximum_state_supplement: 514
+
+- name: Case 9, single disabled, ASSISTED_LIVING, 2002.
+  period: 2002
+  absolute_error_margin: 1
+  input:
+    people:
+      person_disabled:
+        age: 50
+        is_disabled: true
+        meets_ssi_disability_criteria: true
+        is_tax_unit_spouse: false
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+    households:
+      household:
+        members: [person_disabled]
+        state_code: MA
+        ma_state_living_arrangement: ASSISTED_LIVING
+    marital_units:
+      unit:
+        members: [person_disabled]
+  output:
+    # 454 * 12 = 5448
+    ma_maximum_state_supplement: 5_448
+
+- name: Case 10, single blind, HOUSEHOLD_OF_ANOTHER, 2011.
+  period: 2011
+  absolute_error_margin: 1
+  input:
+    people:
+      person_blind:
+        age: 40
+        is_blind: true
+        is_tax_unit_spouse: false
+        meets_ssi_resource_test: true
+        is_ssi_eligible: true
+        is_ssi_aged_blind_disabled: true
+    households:
+      household:
+        members: [person_blind]
+        state_code: MA
+        ma_state_living_arrangement: HOUSEHOLD_OF_ANOTHER
+    marital_units:
+      unit:
+        members: [person_blind]
+  output:
+    # 374.40 * 12 = 4492.80
+    ma_maximum_state_supplement: 4_493

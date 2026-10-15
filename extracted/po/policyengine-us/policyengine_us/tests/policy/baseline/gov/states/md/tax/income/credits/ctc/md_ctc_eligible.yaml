@@ -1,0 +1,191 @@
+- name: 2021 ineligible 
+  period: 2021
+  input:
+    adjusted_gross_income: 6_001
+    state_code: MD
+  output:
+    md_ctc_eligible: false
+
+- name: 2021 eligible 
+  period: 2021
+  input:
+    adjusted_gross_income: 6_000
+    state_code: MD
+  output:
+    md_ctc_eligible: true
+
+- name: 2023 ineligible 
+  period: 2023
+  input:
+    adjusted_gross_income: 15_001
+    state_code: MD
+  output:
+    md_ctc_eligible: false
+
+- name: 2023 eligible 
+  period: 2023
+  input:
+    adjusted_gross_income: 15_000
+    state_code: MD
+  output:
+    md_ctc_eligible: true
+
+- name: 2025 eligible with qualifying child under 6 and AGI below cap
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 35
+      person2:
+        age: 4
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 23_000
+    households:
+      household:
+        members: [person1, person2]
+        state_code: MD
+  output:
+    md_ctc_eligible: true
+
+- name: 2025 eligible with disabled dependent under 17 and AGI below cap
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 35
+      person2:
+        age: 15
+        is_tax_unit_dependent: true
+        is_disabled: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 23_000
+    households:
+      household:
+        members: [person1, person2]
+        state_code: MD
+  output:
+    md_ctc_eligible: true
+
+- name: 2025 eligible with qualifying child and AGI at cap boundary
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 35
+      person2:
+        age: 4
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 24_000
+    households:
+      household:
+        members: [person1, person2]
+        state_code: MD
+  output:
+    md_ctc_eligible: true
+
+- name: 2025 ineligible with qualifying child and AGI just above cap
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 35
+      person2:
+        age: 4
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 24_001
+    households:
+      household:
+        members: [person1, person2]
+        state_code: MD
+  output:
+    md_ctc_eligible: false
+
+- name: 2025 ineligible with qualifying child and AGI well above cap
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 35
+      person2:
+        age: 4
+        is_tax_unit_dependent: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 50_000
+    households:
+      household:
+        members: [person1, person2]
+        state_code: MD
+  output:
+    md_ctc_eligible: false
+
+- name: 2025 ineligible with child over 6 not disabled
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 35
+      person2:
+        age: 8
+        is_tax_unit_dependent: true
+        is_disabled: false
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 50_000
+    households:
+      household:
+        members: [person1, person2]
+        state_code: MD
+  output:
+    md_ctc_eligible: false
+
+- name: 2025 ineligible with disabled dependent over 17
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 35
+      person2:
+        age: 18
+        is_tax_unit_dependent: true
+        is_disabled: true
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        adjusted_gross_income: 50_000
+    households:
+      household:
+        members: [person1, person2]
+        state_code: MD
+  output:
+    md_ctc_eligible: false
+
+- name: 2025 ineligible with no qualifying children
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 35
+    tax_units:
+      tax_unit:
+        members: [person1]
+        adjusted_gross_income: 50_000
+    households:
+      household:
+        members: [person1]
+        state_code: MD
+  output:
+    md_ctc_eligible: false

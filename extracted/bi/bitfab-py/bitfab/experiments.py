@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Literal, TypedDict, cast
 from urllib.parse import quote, urlencode
 
-from bitfab.assertion_categories import AssertionCategorySummary
+from bitfab.categories import CategorySummary
 from bitfab.http import HttpClient
 
 EXPERIMENTS_PATH = "/api/sdk/experiments"
@@ -97,7 +97,7 @@ class ExperimentTally(TypedDict):
 class ExperimentCategoryTally(TypedDict):
     """The assertions in one category, tallied the same way as ``labels``."""
 
-    category: AssertionCategorySummary
+    category: CategorySummary
     labels: ExperimentTally
 
 

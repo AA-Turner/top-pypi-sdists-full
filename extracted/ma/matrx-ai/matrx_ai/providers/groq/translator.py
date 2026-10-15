@@ -124,6 +124,12 @@ class GroqTranslator(BaseTranslator):
         # clear_thinking is a Cerebras-only concept — not forwarded to Groq.
         # disable_reasoning has no equivalent on Groq (no reasoning support) — dropped.
 
+        # TAIL CHANNEL (config/live_plan.py): one message after the newest tool
+        # results, the same follow-up shape image-bearing results use above.
+        tail_text = self.get_tail_context_text(config)
+        if tail_text:
+            messages.append({"role": "user", "content": tail_text})
+
         # Build request
         groq_request = {
             "model": config.model,

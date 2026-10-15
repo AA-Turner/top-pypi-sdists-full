@@ -52,7 +52,7 @@ class PaymentMethodDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[PaymentMethodDomain, ListPaymentMethodDomainsResponse]:
         """
-        Lists payment method domains. Without `account_id`, returns the caller's own domains and those of every connected account.
+        Lists the payment method domains registered for your account and its connected accounts.
 
         Parameters
         ----------
@@ -105,7 +105,7 @@ class PaymentMethodDomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -140,12 +140,12 @@ class PaymentMethodDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaymentMethodDomain:
         """
-        Registers a hostname with the wallet provider and attempts verification inline. Returns `verified` when the provider fetched the domain-association file (for Apple Pay, `/.well-known/apple-developer-merchantid-domain-association`), or `pending` when it could not — host the file, then retry with the verify endpoint.
+        Registers a hostname with the wallet provider and attempts verification inline. Returns `verified` when the provider fetched the domain-association file (for Apple Pay, `/.well-known/apple-developer-merchantid-domain-association`), or `pending` when it could not: host the file, then retry with `POST /payment_method_domains/:id/verify`.
 
         Parameters
         ----------
         hostname : str
-            Hostname to register (e.g. `checkout.shinetime.example`).
+            Hostname to register (e.g. `checkout.shinetime.com`).
 
         account_id : typing.Optional[str]
             Account to register the domain for (`biz_` tag). Required when authenticating as a user; an account API key supplies its own account.
@@ -163,12 +163,12 @@ class PaymentMethodDomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.payment_method_domains.create(
-            hostname="pending.shinetime.example",
+            hostname="pending.shinetime.com",
         )
         """
         _response = self._raw_client.create(hostname=hostname, account_id=account_id, request_options=request_options)
@@ -181,7 +181,7 @@ class PaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -196,7 +196,7 @@ class PaymentMethodDomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -216,7 +216,7 @@ class PaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -231,7 +231,7 @@ class PaymentMethodDomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -249,7 +249,7 @@ class PaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -264,7 +264,7 @@ class PaymentMethodDomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -309,7 +309,7 @@ class AsyncPaymentMethodDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[PaymentMethodDomain, ListPaymentMethodDomainsResponse]:
         """
-        Lists payment method domains. Without `account_id`, returns the caller's own domains and those of every connected account.
+        Lists the payment method domains registered for your account and its connected accounts.
 
         Parameters
         ----------
@@ -364,7 +364,7 @@ class AsyncPaymentMethodDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -406,12 +406,12 @@ class AsyncPaymentMethodDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaymentMethodDomain:
         """
-        Registers a hostname with the wallet provider and attempts verification inline. Returns `verified` when the provider fetched the domain-association file (for Apple Pay, `/.well-known/apple-developer-merchantid-domain-association`), or `pending` when it could not — host the file, then retry with the verify endpoint.
+        Registers a hostname with the wallet provider and attempts verification inline. Returns `verified` when the provider fetched the domain-association file (for Apple Pay, `/.well-known/apple-developer-merchantid-domain-association`), or `pending` when it could not: host the file, then retry with `POST /payment_method_domains/:id/verify`.
 
         Parameters
         ----------
         hostname : str
-            Hostname to register (e.g. `checkout.shinetime.example`).
+            Hostname to register (e.g. `checkout.shinetime.com`).
 
         account_id : typing.Optional[str]
             Account to register the domain for (`biz_` tag). Required when authenticating as a user; an account API key supplies its own account.
@@ -431,7 +431,7 @@ class AsyncPaymentMethodDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -439,7 +439,7 @@ class AsyncPaymentMethodDomainsClient:
 
         async def main() -> None:
             await client.payment_method_domains.create(
-                hostname="pending.shinetime.example",
+                hostname="pending.shinetime.com",
             )
 
 
@@ -459,7 +459,7 @@ class AsyncPaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -476,7 +476,7 @@ class AsyncPaymentMethodDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -502,7 +502,7 @@ class AsyncPaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -519,7 +519,7 @@ class AsyncPaymentMethodDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -543,7 +543,7 @@ class AsyncPaymentMethodDomainsClient:
         Parameters
         ----------
         id : str
-            The unique identifier of the payment method domain, prefixed `pmd_`.
+            The unique identifier of the payment method domain, prefixed `pmd_` or `dom_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -560,7 +560,7 @@ class AsyncPaymentMethodDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

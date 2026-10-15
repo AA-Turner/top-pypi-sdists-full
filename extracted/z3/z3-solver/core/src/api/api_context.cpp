@@ -21,16 +21,13 @@ Revision History:
 #include "util/debug.h"
 #include "util/z3_version.h"
 #include "api/api_context.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "api/api_log_macros.h"
 #include "api/api_util.h"
 #include "ast/reg_decl_plugins.h"
 #include "math/realclosure/realclosure.h"
-
-
-// The install_tactics procedure is automatically generated
-void install_tactics(tactic_manager & ctx);
 
 namespace api {
 
@@ -54,13 +51,11 @@ namespace api {
     void context::del_object(api::object* o) {
         if (!o)
             return;
-#ifndef SINGLE_THREAD
         if (m_concurrent_dec_ref) {
-            lock_guard lock(m_mux);
+            std::lock_guard<std::mutex> lock(m_dec_ref_mux);
             m_objects_to_flush.push_back(o);
         }
         else
-#endif
         {
             m_free_object_ids.push_back(o->id());
             m_allocated_objects.remove(o->id());
@@ -69,44 +64,46 @@ namespace api {
     }
 
     void context::dec_ref(ast* a) {
-#ifndef SINGLE_THREAD
         if (m_concurrent_dec_ref) {
-            lock_guard lock(m_mux);
+            std::lock_guard<std::mutex> lock(m_dec_ref_mux);
             m_asts_to_flush.push_back(a);
         }
         else
-#endif
             m().dec_ref(a);
     }
 
-    // flush_objects can only be called in the main thread.
-    // This ensures that the calls to m().dec_ref() and dealloc(o)
-    // only happens in the main thread.
+    // flush_objects can only be called when the context has exclusive API access.
+    // This ensures that the calls to m().dec_ref() and dealloc(o) do not race
+    // with other API operations.
     // Calls to dec_ref are allowed in other threads when m_concurrent_dec_ref is
     // set to true.
     void context::flush_objects() {
-#ifndef SINGLE_THREAD
         if (!m_concurrent_dec_ref)
-            return;        
+            return;
+        std::vector<ast*> asts;
+        std::vector<api::object*> objects;
         {
-            lock_guard lock(m_mux);
+            std::lock_guard<std::mutex> lock(m_dec_ref_mux);
             if (m_asts_to_flush.empty() && m_objects_to_flush.empty())
                 return;
-            m_asts_to_flush2.swap(m_asts_to_flush);
-            m_objects_to_flush2.swap(m_objects_to_flush);
+            asts.swap(m_asts_to_flush);
+            objects.swap(m_objects_to_flush);
         }
-        for (ast* a : m_asts_to_flush2)
+        for (ast* a : asts)
             m().dec_ref(a);
-        for (auto* o : m_objects_to_flush2) {
+        for (auto* o : objects) {
             m_free_object_ids.push_back(o->id());
             m_allocated_objects.remove(o->id());
             dealloc(o);
         }
-        m_objects_to_flush2.reset();
-        m_asts_to_flush2.reset();
-#endif
     }
 
+    // Note: default_error_handler prints to stdout and calls exit(1).
+    // In managed runtime environments (e.g. JVM, Android ART, CLR) or embedded
+    // multi-threaded contexts, calling raw exit() is unsafe because it races with
+    // runtime background threads (e.g. JIT/GC threads) during teardown, causing
+    // SIGSEGV in unrelated threads. Embedders and language bindings should install
+    // custom error handlers or set the handler to NULL and inspect Z3_get_error_code().
     static void default_error_handler(Z3_context ctx, Z3_error_code c) {
         printf("Error: %s\n", Z3_get_error_msg(ctx, c));
         exit(1);
@@ -151,6 +148,7 @@ namespace api {
         m_seq_fid   = m().mk_family_id("seq");
 	    m_char_fid   = m().mk_family_id("char");
         m_special_relations_fid   = m().mk_family_id("specrels");
+        m_ff_fid    = m().mk_family_id("ff");
         m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
     
         install_tactics(*this);
@@ -164,9 +162,6 @@ namespace api {
         flush_objects();
         for (auto& kv : m_allocated_objects) {
             api::object* val = kv.m_value;
-#ifdef SINGLE_THREAD
-# define m_concurrent_dec_ref false
-#endif
             DEBUG_CODE(if (!m_concurrent_dec_ref) warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
             dealloc(val);
         }
@@ -221,6 +216,10 @@ namespace api {
         family_id fid  = s->get_family_id();
         if (fid == arith_family_id) {
             e = m_arith_util.mk_numeral(n, s);
+        }
+        else if (ff_util(m()).is_ff(s)) {
+            if (!n.is_int()) m().raise_exception("finite-field numeral must be an integer");
+            e = ff_util(m()).mk_numeral(n, s);
         }
         else if (fid == m_bv_fid) {
             e = m_bv_util.mk_numeral(n, s);
@@ -428,7 +427,7 @@ extern "C" {
     void Z3_API Z3_dec_ref(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_dec_ref(c, a);
-        if (a && to_ast(a)->get_ref_count() == 0) {
+        if (a && mk_c(c)->should_check_dec_ref_count() && to_ast(a)->get_ref_count() == 0) {
             // the error is unchecked (but should not happen) in GC'ed wrappers
             RESET_ERROR_CODE();
             SET_ERROR_CODE(Z3_DEC_REF_ERROR, nullptr);

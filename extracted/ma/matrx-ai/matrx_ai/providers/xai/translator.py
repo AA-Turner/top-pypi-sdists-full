@@ -236,6 +236,11 @@ class XAITranslator(BaseTranslator):
             else:
                 messages.append(user(*parts))
 
+        # TAIL CHANNEL (config/live_plan.py): after the newest tool results.
+        tail_text = self.get_tail_context_text(config)
+        if tail_text:
+            messages.append(user(text(tail_text)))
+
         return messages
 
     @staticmethod

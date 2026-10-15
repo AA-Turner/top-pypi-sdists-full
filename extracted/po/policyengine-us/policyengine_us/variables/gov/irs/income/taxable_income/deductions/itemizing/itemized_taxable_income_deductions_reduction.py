@@ -1,0 +1,58 @@
+from policyengine_us.model_api import *
+
+
+class itemized_taxable_income_deductions_reduction(Variable):
+    value_type = float
+    entity = TaxUnit
+    label = "Itemized taxable income deductions reduction"
+    unit = USD
+    definition_period = YEAR
+    reference = [
+        # Section 68 before P.L. 119-21, including subsection (c).
+        "https://www.govinfo.gov/content/pkg/USCODE-2016-title26/html/USCODE-2016-title26-subtitleA-chap1-subchapB-partI-sec68.htm",
+        "https://www.irs.gov/pub/irs-prior/i1040sca--2016.pdf#page=13",
+        # Section 68 as amended by P.L. 119-21, sec. 70111, from 2026.
+        "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section68&num=0&edition=prelim",
+    ]
+
+    def formula(tax_unit, period, parameters):
+        p = parameters(period).gov.irs.deductions.itemized.limitation
+        if p.applies:
+            agi = tax_unit("adjusted_gross_income", period)
+
+            filing_status = tax_unit("filing_status", period)
+            agi_threshold = p.applicable_amount[filing_status]
+            agi_excess = max_(0, agi - agi_threshold)
+            agi_excess_reduction = agi_excess * p.agi_rate
+            maximum_deductions = tax_unit(
+                "total_itemized_taxable_income_deductions", period
+            )
+            if p.obbb.applies:
+                top_rate_threshold = parameters(
+                    period
+                ).gov.irs.income.bracket.thresholds["6"][filing_status]
+                # Section 68(a)(2): taxable income determined without regard
+                # to section 68 and increased by the itemized deductions, that
+                # is, net of every other deduction, such as the qualified
+                # business income deduction.
+                taxable_income = tax_unit(
+                    "taxable_income_before_itemized_deductions", period
+                )
+                taxable_income_excess = max_(0, taxable_income - top_rate_threshold)
+                total_itemized_deductions = tax_unit(
+                    "total_itemized_taxable_income_deductions", period
+                )
+                lesser_of_deductions_or_excess = min_(
+                    total_itemized_deductions, taxable_income_excess
+                )
+                return p.obbb.rate * lesser_of_deductions_or_excess
+            # Section 68(c) excludes medical expenses, investment interest,
+            # and casualty, theft and wagering losses from the itemized
+            # deductions the 80 percent ceiling applies to.
+            excluded_deductions = add(tax_unit, period, p.excluded_deductions)
+            limited_deductions = max_(0, maximum_deductions - excluded_deductions)
+            maximum_deductions_reduction = (
+                limited_deductions * p.itemized_deduction_rate
+            )
+            return min_(agi_excess_reduction, maximum_deductions_reduction)
+        return 0

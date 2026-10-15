@@ -120,6 +120,24 @@ def take(uri, name, pw, timeout=_TIMEOUT):
     return (False, None)
 
 
+def wipe(uri, name, pw, timeout=_TIMEOUT):
+    """Erase this account's cloud save and free its cartridge (OPTIONS ->
+    Erase all data).  True only on the server's confirmation. Never raises."""
+    try:
+        with _connect(uri, timeout) as ws:
+            ws.send(json.dumps(_login_msg(name, pw)))
+            ws.send(json.dumps({"t": "wipe"}))
+            for _ in range(8):
+                m = json.loads(ws.recv(timeout=timeout))
+                if m.get("t") == "wiped":
+                    return bool(m.get("ok"))
+                if m.get("t") == "login_failed":
+                    return False
+    except Exception:
+        return False
+    return False
+
+
 def push_save(uri, name, pw, save, timeout=_TIMEOUT):
     """Upload one save dict, blocking. Returns True on a clean send. Never raises.
 
@@ -138,7 +156,11 @@ def push_save(uri, name, pw, save, timeout=_TIMEOUT):
     st, cloud = probe(uri, name, pw, timeout)
     if st != "ok":
         return False                                 # unreadable cloud: no blind writes
-    if cloud and float(cloud.get("_saved_at") or 0) > float(save.get("_saved_at") or 0):
+    # sync audit 2026-10-14: malformed stamps cannot authorize a blind quit write.
+    try:
+        if cloud and float(cloud.get("_saved_at") or 0) > float(save.get("_saved_at") or 0):
+            return False
+    except (TypeError, ValueError, AttributeError):
         return False                                 # the cloud moved on without us
     try:
         with _connect(uri, timeout) as ws:

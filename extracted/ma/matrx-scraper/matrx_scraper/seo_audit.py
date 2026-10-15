@@ -57,10 +57,6 @@ from selectolax.parser import HTMLParser
 from matrx_scraper.audit_metrics import evaluate_indexability
 from matrx_scraper.media_embed import video_embed_provider
 from matrx_scraper.meta_metrics import (
-    DESCRIPTION_SEO_MAX_CHARS,
-    DESCRIPTION_SEO_MIN_CHARS,
-    TITLE_SEO_MAX_CHARS,
-    TITLE_SEO_MIN_CHARS,
     calculate_meta_description_metrics,
     calculate_meta_title_metrics,
 )
@@ -241,14 +237,61 @@ def _empty_result(url: str) -> SeoAuditResult:
     )
 
 
+#: `<link rel>` tokens whose href a browser actually downloads. Everything else
+#: (profile, author, canonical, alternate, next, prev, dns-prefetch, ...) is a
+#: pointer or a name, not a resource — `http://gmpg.org/xfn/11` is an XFN
+#: profile URI that is never fetched, so it is never mixed content.
+_LOADED_LINK_REL_TOKENS = frozenset(
+    {"stylesheet", "icon", "preload", "modulepreload", "manifest", "prefetch"}
+)
+
+
+def _link_is_loaded_resource(node: Any) -> bool:
+    tokens = set((node.attributes.get("rel") or "").lower().split())
+    return bool(tokens & _LOADED_LINK_REL_TOKENS) or any(t.endswith("-icon") for t in tokens)
+
+
+def _inside_noscript(node: Any) -> bool:
+    """True for markup that only exists when JavaScript is off (tracking pixels,
+    lazy-loader fallbacks): a script-running visitor never loads it."""
+    parent = node.parent
+    while parent is not None:
+        if parent.tag == "noscript":
+            return True
+        parent = parent.parent
+    return False
+
+
+#: Where an image sits on the page chrome-wise. Header/nav images (logos, badges)
+#: are above the fold by construction; footer images are never hero or content.
+_IMAGE_REGION_TAGS = {"header": "header", "nav": "header", "footer": "footer"}
+
+
+def _image_region(node: Any) -> str:
+    parent = node.parent
+    while parent is not None:
+        region = _IMAGE_REGION_TAGS.get(parent.tag or "")
+        if region:
+            return region
+        role = (parent.attributes.get("role") or "").lower() if parent.attributes else ""
+        if role == "banner" or role == "navigation":
+            return "header"
+        if role == "contentinfo":
+            return "footer"
+        parent = parent.parent
+    return "content"
+
+
 def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
     body = tree.body
 
     # Title — both <title> text and <html lang>
+    # <head> only: an inline <svg><title> in the body is an icon label, never the
+    # page's title (vasaro.com read "icon-X" as its title with no head title at all).
     title = ""
-    title_node = tree.css_first("title")
+    title_node = tree.css_first("head title")
     if title_node and title_node.text():
-        title = title_node.text(deep=True, separator="").strip()
+        title = re.sub(r"\s+", " ", title_node.text(deep=True, separator="")).strip()
 
     html_node = tree.css_first("html")
     lang = html_node.attributes.get("lang") if html_node else None
@@ -401,6 +444,10 @@ def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
             "source[src]",
         ):
             for el in tree.css(sel):
+                if _inside_noscript(el):
+                    continue
+                if sel == "link[href]" and not _link_is_loaded_resource(el):
+                    continue
                 attr = "src" if sel != "link[href]" else "href"
                 v = el.attributes.get(attr)
                 if v and v.startswith("http://"):
@@ -412,9 +459,10 @@ def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
 
     image_inventory, resources = _extract_page_resources(tree, base_url)
     _append_structured_resources(resources, structured.to_dict(), base_url)
-    images_total = len(tree.css("img"))
+    visible_imgs = [img for img in tree.css("img") if not _inside_noscript(img)]
+    images_total = len(visible_imgs)
     images_missing_alt = sum(
-        1 for img in tree.css("img") if not (img.attributes.get("alt") or "").strip()
+        1 for img in visible_imgs if not (img.attributes.get("alt") or "").strip()
     )
     page_identity = _extract_page_identity(
         tree,
@@ -426,7 +474,9 @@ def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
     featured_url = page_identity.get("featured_image")
     if isinstance(featured_url, str):
         for item in image_inventory:
-            if item.get("src") == featured_url or featured_url in item.get("srcset", []):
+            # Match on `src` only: the featured URL also appears in the srcset list of
+            # a different, smaller copy of the same picture, and that copy is not the hero.
+            if item.get("src") == featured_url:
                 item["featured"] = True
 
     # Word/sentence counts on visible text
@@ -733,6 +783,8 @@ def _extract_page_resources(
         items.append(item)
 
     for img in tree.css("img"):
+        if _inside_noscript(img):
+            continue
         attrs = img.attributes
         src = next(
             (
@@ -770,6 +822,7 @@ def _extract_page_resources(
             "decoding": attrs.get("decoding"),
             "fetchpriority": attrs.get("fetchpriority"),
             "title": attrs.get("title"),
+            "region": _image_region(img),
         }
         if len(images) < IMAGE_INVENTORY_LIMIT:
             images.append(image)
@@ -1356,6 +1409,9 @@ LARGE_PAGE_BYTES = 5_000_000
 # scored as slow, and the reverse is worse.
 TTFB_GOOD_MS = 800
 TTFB_POOR_MS = 1800
+#: A TTFB sample is one moment's reading of a server; past this age it is
+#: stale evidence and answers `n_a` with a re-capture, never a verdict.
+TTFB_MAX_AGE_DAYS = 30
 
 # --- Mobile rendering, language, social ------------------------------------
 # Every band below maps to a rule in the matching `web.analysis_item` row's
@@ -1582,6 +1638,61 @@ class LabPerformance:
     #: flagged as under-cached. Empty with a non-None `cache_static_bytes`
     #: means every static asset is cached well.
     cache_short_ttl_resources: list[dict[str, Any]] = field(default_factory=list)
+    #: `{host: transferred_bytes}` of the static assets, when the provider
+    #: recorded it — lets the caching check judge first-party files only.
+    cache_static_bytes_by_host: dict[str, float] = field(default_factory=dict)
+    #: True when the provider cut its under-cached file list short, so the
+    #: listed count is a floor ("at least N"), not a total.
+    cache_list_truncated: bool = False
+    #: Real-visitor (CrUX) field data: `{metric_key: {"value", "category",
+    #: "level"}}` with `level` "page" or "origin"; keys "lcp_ms", "inp_ms", "cls".
+    field_metrics: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+#: Provider cap on the under-cached file list (`matrx_seo.providers.pagespeed.
+#: _CACHE_OFFENDER_LIMIT`). A list this long may have been cut short.
+CACHE_PROVIDER_LIST_CAP = 50
+
+#: CrUX metric names (current and legacy) → our metric key.
+_FIELD_METRIC_NAMES: dict[str, tuple[str, ...]] = {
+    "lcp_ms": ("LARGEST_CONTENTFUL_PAINT_MS", "largest_contentful_paint"),
+    "inp_ms": ("INTERACTION_TO_NEXT_PAINT", "interaction_to_next_paint"),
+    "cls": ("CUMULATIVE_LAYOUT_SHIFT_SCORE", "cumulative_layout_shift"),
+}
+
+
+def _field_metrics_from_crux(crux: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """Reduce a stored `seo.page_performance.crux` to the metrics we grade.
+
+    Page-level data wins over origin-level. PageSpeed reports the CLS percentile multiplied by 100 (5 = 0.05).
+    """
+    out: dict[str, dict[str, Any]] = {}
+    if not isinstance(crux, dict):
+        return out
+    for level in ("page", "origin"):
+        block = crux.get(level)
+        metrics = block.get("metrics") if isinstance(block, dict) else None
+        if not isinstance(metrics, dict):
+            continue
+        for key, names in _FIELD_METRIC_NAMES.items():
+            if key in out:
+                continue
+            for name in names:
+                entry = metrics.get(name)
+                if not isinstance(entry, dict):
+                    continue
+                value = _lab_number(entry.get("percentile"))
+                if value is None:
+                    continue
+                if key == "cls" and name == "CUMULATIVE_LAYOUT_SHIFT_SCORE":
+                    value = value / 100  # PageSpeed reports this percentile x100
+                out[key] = {
+                    "value": value,
+                    "category": str(entry.get("category") or "").upper() or None,
+                    "level": level,
+                }
+                break
+    return out
 
 
 def _lab_number(value: Any) -> float | None:
@@ -1600,6 +1711,7 @@ def lab_performance_from_lighthouse(
     *,
     strategy: str,
     observed_at: datetime | None = None,
+    crux: dict[str, Any] | None = None,
 ) -> LabPerformance:
     """The ONE deserializer for a persisted `seo.page_performance.lighthouse`.
 
@@ -1620,6 +1732,7 @@ def lab_performance_from_lighthouse(
         if savings is not None:
             delivery_audits[str(name)] = savings
     short_ttl = cache.get("short_ttl_resources")
+    by_host = cache.get("static_bytes_by_host")
     return LabPerformance(
         strategy=strategy,
         observed_at=observed_at,
@@ -1636,6 +1749,14 @@ def lab_performance_from_lighthouse(
         cache_short_ttl_resources=[r for r in short_ttl if isinstance(r, dict)]
         if isinstance(short_ttl, list)
         else [],
+        cache_static_bytes_by_host={
+            str(h).lower(): float(b)
+            for h, b in (by_host.items() if isinstance(by_host, dict) else [])
+            if _lab_number(b) is not None
+        },
+        cache_list_truncated=bool(cache.get("short_ttl_truncated"))
+        or (isinstance(short_ttl, list) and len(short_ttl) >= CACHE_PROVIDER_LIST_CAP),
+        field_metrics=_field_metrics_from_crux(crux),
     )
 
 
@@ -1711,6 +1832,9 @@ class PageEvidence:
     # answers `n_a` for those; it must NEVER fall back to `response_time_ms`,
     # which measures a different thing.
     ttfb_ms: int | None = None
+    # When `ttfb_ms` was measured (the capture time). Named in the reasoning;
+    # a sample older than `TTFB_MAX_AGE_DAYS` is not graded. `None` = unknown.
+    ttfb_measured_at: datetime | None = None
     # {"prev": url, "next": url} from rel=prev/next link tags. Empty = the page
     # declares no pagination, which is NOT a defect (see check_pagination_markup).
     pagination: dict[str, Any] = field(default_factory=dict)
@@ -1884,6 +2008,21 @@ def registrable_host(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
+_SECOND_LEVEL_LABELS = frozenset({"co", "com", "org", "net", "gov", "ac", "edu"})
+
+
+def _site_key(host: str) -> str:
+    """Registrable domain of a host (`cdn.example.co.uk` -> `example.co.uk`).
+
+    Heuristic, no public-suffix list: good enough to separate the page owner's
+    own hosts (incl. its CDN subdomain) from other companies' hosts.
+    """
+    labels = [p for p in host.lower().split(":")[0].split(".") if p]
+    if len(labels) >= 3 and len(labels[-1]) == 2 and labels[-2] in _SECOND_LEVEL_LABELS:
+        return ".".join(labels[-3:])
+    return ".".join(labels[-2:])
+
+
 def evidence_from_audit(
     audit: SeoAuditResult,
     *,
@@ -2000,10 +2139,26 @@ def check_url_design_quality(ev: PageEvidence) -> CheckOutcome:
             "This URL is short, readable, and free of tracking-state clutter.",
             evidence=evidence,
         )
+    length_only = penalty == URL_DESIGN_LONG_PENALTY and len(problems) == 1
+    if length_only:
+        # A long slug is not a defect worth a person's time (changing a live URL
+        # means redirects and risk). It lowers the score the catalogue formula
+        # gives it, but never opens a finding.
+        return CheckOutcome(
+            "pass",
+            score,
+            f"This URL is longer than {URL_DESIGN_MAX_LENGTH} characters, but nothing else "
+            "about it is a problem; a long slug alone is not worth changing.",
+            evidence=evidence,
+        )
+    sentence = "; ".join(
+        problem if problem.startswith(("has ", "contains ")) else f"is {problem}"
+        for problem in problems
+    )
     return CheckOutcome(
         "warn",
         score,
-        f"This URL {'; '.join(problems)} — simpler, stable URLs are easier for people "
+        f"This URL {sentence} — simpler, stable URLs are easier for people "
         "and search engines to understand.",
         issue_count=len(problems),
         evidence=evidence,
@@ -2039,44 +2194,67 @@ def check_title_presence(ev: PageEvidence) -> CheckOutcome:
     )
 
 
+#: Character bands from the catalogue's own `score_contract` for `title_length`
+#: (optimal 30-60; 61-70 and 15-29 borderline; over 70 truncates; under 15 too short).
+TITLE_BAND_OPTIMAL = (30, 60)
+TITLE_BAND_BORDERLINE_MAX = 70
+TITLE_BAND_TOO_SHORT = 15
+#: `meta_description_length` contract: optimal 70-155, over 165 truncates, under 50 thin.
+DESCRIPTION_BAND_OPTIMAL = (70, 155)
+DESCRIPTION_BAND_TRUNCATES = 165
+DESCRIPTION_BAND_TOO_SHORT = 50
+
+
+def _pixel_note(text: str, metrics_fn: Any) -> str:
+    """Pixel width of THIS text, measured now — never a stored flag from an older capture."""
+    try:
+        pixels = metrics_fn(text).get("pixel_width")
+    except Exception:  # noqa: BLE001 — a note is optional; the character verdict stands
+        return ""
+    return f", about {pixels}px wide" if isinstance(pixels, (int, float)) else ""
+
+
 def check_title_length(ev: PageEvidence) -> CheckOutcome:
-    metrics = ev.title_metrics
+    """Scored by the contract's character bands, from the title text itself.
+
+    Pixel width is shown as a measurement of THIS title, never as a verdict: a
+    stored `mobile_ok` / `desktop_ok` flag from whatever code captured the page
+    must not turn a contract-optimal length into a finding.
+    """
     if not ev.title:
         return CheckOutcome(
             "n_a", None, "This page has no title yet, so there is nothing to measure."
         )
-    if not metrics:
+    chars = len(" ".join(ev.title.split()))
+    detail = f"{chars} chars{_pixel_note(ev.title, calculate_meta_title_metrics)}"
+    low, high = TITLE_BAND_OPTIMAL
+    if chars > TITLE_BAND_BORDERLINE_MAX:
         return CheckOutcome(
-            "n_a",
-            None,
-            "We haven't measured this page's title yet.",
-            remediation=RECAPTURE_PAGE,
+            "warn",
+            55,
+            f"The title is {detail} — over {TITLE_BAND_BORDERLINE_MAX} characters Google "
+            f"almost always cuts it off in results. Aim for {low}-{high}.",
+            issue_count=1,
         )
-    issues = [str(i) for i in metrics.get("issues") or []]
-    chars = metrics.get("character_count")
-    pixels = metrics.get("pixel_width")
-    detail = f"{chars} chars, {pixels}px" if chars is not None else "measured at capture"
-    if metrics.get("ok") or metrics.get("title_ok"):
-        return CheckOutcome("pass", 100, f"Title length is within limits ({detail}).")
-    flags_bad = sum(
-        1
-        for ok in (
-            metrics.get("seo_length_ok"),
-            metrics.get("desktop_ok"),
-            metrics.get("mobile_ok"),
+    if chars < TITLE_BAND_TOO_SHORT:
+        return CheckOutcome(
+            "warn",
+            50,
+            f"The title is only {detail} — too short to say what the page is about. "
+            f"Aim for {low}-{high}.",
+            issue_count=1,
         )
-        if ok is False
+    if low <= chars <= high:
+        return CheckOutcome(
+            "pass", 100, f"Title length is in the optimal window ({detail})."
+        )
+    return CheckOutcome(
+        "pass",
+        75,
+        f"Title is {detail} — a little outside the {low}-{high} sweet spot, but "
+        "not enough to matter.",
+        issue_count=1,
     )
-    score = 60 if flags_bad <= 1 else 35
-    reason = (
-        f"Title length problem ({detail}): " + "; ".join(issues)
-        if issues
-        else (
-            f"Title is outside the recommended window ({detail}; aim for "
-            f"{TITLE_SEO_MIN_CHARS}-{TITLE_SEO_MAX_CHARS} chars) and may truncate in SERPs."
-        )
-    )
-    return CheckOutcome("warn", score, reason, issue_count=max(1, len(issues)))
 
 
 # --- Meta description ------------------------------------------------------
@@ -2097,45 +2275,46 @@ def check_meta_description_presence(ev: PageEvidence) -> CheckOutcome:
 
 
 def check_meta_description_length(ev: PageEvidence) -> CheckOutcome:
-    metrics = ev.description_metrics
+    """Scored by the contract's character bands, from the description text itself."""
     if not ev.description:
         return CheckOutcome(
             "n_a",
             None,
             "This page has no meta description yet, so there is nothing to measure.",
         )
-    if not metrics:
+    chars = len(" ".join(ev.description.split()))
+    detail = (
+        f"{chars} chars"
+        f"{_pixel_note(ev.description, calculate_meta_description_metrics)}"
+    )
+    low, high = DESCRIPTION_BAND_OPTIMAL
+    if chars > DESCRIPTION_BAND_TRUNCATES:
         return CheckOutcome(
-            "n_a",
-            None,
-            "We haven't measured this page's meta description yet.",
-            remediation=RECAPTURE_PAGE,
+            "warn",
+            65,
+            f"The meta description is {detail} — over {DESCRIPTION_BAND_TRUNCATES} "
+            f"characters Google cuts it off. Aim for {low}-{high}.",
+            issue_count=1,
         )
-    issues = [str(i) for i in metrics.get("issues") or []]
-    chars = metrics.get("character_count")
-    pixels = metrics.get("pixel_width")
-    detail = f"{chars} chars, {pixels}px" if chars is not None else "measured at capture"
-    if metrics.get("ok") or metrics.get("description_ok"):
-        return CheckOutcome("pass", 100, f"Meta description length is within limits ({detail}).")
-    flags_bad = sum(
-        1
-        for ok in (
-            metrics.get("seo_length_ok"),
-            metrics.get("desktop_ok"),
-            metrics.get("mobile_ok"),
+    if chars < DESCRIPTION_BAND_TOO_SHORT:
+        return CheckOutcome(
+            "warn",
+            60,
+            f"The meta description is only {detail} — too short to earn the click. "
+            f"Aim for {low}-{high}.",
+            issue_count=1,
         )
-        if ok is False
+    if low <= chars <= high:
+        return CheckOutcome(
+            "pass", 100, f"Meta description length is in the optimal window ({detail}).",
+        )
+    return CheckOutcome(
+        "pass",
+        80,
+        f"Meta description is {detail} — slightly outside the {low}-{high} window, "
+        "which is not a problem.",
+        issue_count=1,
     )
-    score = 60 if flags_bad <= 1 else 40
-    reason = (
-        f"Meta description length problem ({detail}): " + "; ".join(issues)
-        if issues
-        else (
-            f"Meta description is outside the recommended window ({detail}; aim for "
-            f"{DESCRIPTION_SEO_MIN_CHARS}-{DESCRIPTION_SEO_MAX_CHARS} chars)."
-        )
-    )
-    return CheckOutcome("warn", score, reason, issue_count=max(1, len(issues)))
 
 
 # --- Structure -------------------------------------------------------------
@@ -2154,14 +2333,15 @@ def check_h1_presence(ev: PageEvidence) -> CheckOutcome:
     if ev.h1_count == 0:
         return CheckOutcome(
             "fail",
-            20,
+            30,
             "No H1 on the page — the primary on-page topic signal is missing.",
             issue_count=1,
         )
     return CheckOutcome(
         "warn",
-        50,
-        f"{ev.h1_count} H1 tags — multiple H1s dilute the primary topic signal; keep one.",
+        55,
+        f"{ev.h1_count} H1 tags — search engines accept several, but one clear H1 keeps "
+        "the page's topic unambiguous.",
         issue_count=ev.h1_count - 1,
     )
 
@@ -2254,6 +2434,42 @@ def check_heading_hierarchy(ev: PageEvidence) -> CheckOutcome:
     return CheckOutcome("pass", 100, f"Clean heading outline across {len(levels)} headings.")
 
 
+#: URL path segments of pages that exist to DO something (contact, say thanks,
+#: take an application) rather than to be read. Length is not their job, so the
+#: content-volume checks exempt them (the `thin_content` contract: "utility/gateway
+#: page types are exempted").
+UTILITY_PATH_PATTERN = re.compile(
+    r"(?:^|/)(?:contact(?:-us)?|thank-?you[\w-]*|thanks|confirmation|confirmed|"
+    r"application[\w-]*|apply[\w-]*|job-application[\w-]*|[\w-]*-form|forms?|"
+    r"login|log-in|signin|sign-in|register|signup|sign-up|cart|checkout|account|"
+    r"unsubscribe|search|privacy[\w-]*|terms[\w-]*)(?:/|$)",
+    re.IGNORECASE,
+)
+
+#: Path segments that mark a page as an article/post by where it lives.
+ARTICLE_PATH_PATTERN = re.compile(
+    r"(?:^|/)(?:blog|news|articles?|posts?|insights|stories|resources|guides?|learn|"
+    r"press|magazine)(?:/|$)|/20\d\d/\d\d?/",
+    re.IGNORECASE,
+)
+
+
+def _is_utility_url(url: str) -> bool:
+    return bool(UTILITY_PATH_PATTERN.search(urlsplit(url).path or "/"))
+
+
+def _noindex_not_applicable(ev: PageEvidence, what: str) -> CheckOutcome | None:
+    """A page that asks not to be indexed is not held to a ranking-content bar."""
+    if ev.noindex:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"This page is noindexed, so {what} does not apply to it — it is not "
+            "meant to rank.",
+        )
+    return None
+
+
 def check_thin_content(ev: PageEvidence) -> CheckOutcome:
     words = ev.word_count
     if words is None:
@@ -2262,6 +2478,16 @@ def check_thin_content(ev: PageEvidence) -> CheckOutcome:
             None,
             "We haven't counted the words on this page yet.",
             remediation=RECAPTURE_PAGE,
+        )
+    skip = _noindex_not_applicable(ev, "word count")
+    if skip:
+        return skip
+    if _is_utility_url(ev.url):
+        return CheckOutcome(
+            "n_a",
+            None,
+            "This is a utility page (contact, thank-you, form, login), where length is not "
+            "what makes it good.",
         )
     if words >= CONTENT_OK_WORDS:
         return CheckOutcome("pass", 100, f"{words} words of visible text.")
@@ -2313,6 +2539,21 @@ def declared_page_type(ev: PageEvidence) -> str | None:
     return None
 
 
+def _is_real_article(ev: PageEvidence) -> bool:
+    """An article by what the page IS, not by a label a theme stamps on every page.
+
+    WordPress themes emit `og:type=article` on contact forms and thank-you pages.
+    A page counts as a real article when it is not a utility page AND either
+    declares an Article schema.org type or lives in a blog/news style section.
+    """
+    if _is_utility_url(ev.url):
+        return False
+    schema = {t.lower().strip() for t in (ev.schema_types or []) if isinstance(t, str)}
+    if schema & CONTENT_DEPTH_ARTICLE_SCHEMA_TYPES:
+        return True
+    return bool(ARTICLE_PATH_PATTERN.search(urlsplit(ev.url).path or "/"))
+
+
 def check_content_depth(ev: PageEvidence) -> CheckOutcome:
     """Content volume measured against the page's OWN declared type.
 
@@ -2339,7 +2580,18 @@ def check_content_depth(ev: PageEvidence) -> CheckOutcome:
             "expectation to measure its length against.",
             remediation=RECAPTURE_PAGE,
         )
+    skip = _noindex_not_applicable(ev, "content depth")
+    if skip:
+        return skip
     page_type = declared_page_type(ev)
+    if page_type == "article" and not _is_real_article(ev):
+        return CheckOutcome(
+            "n_a",
+            None,
+            "This page only carries an article label (a theme default such as og:type "
+            "article), and it is a utility page or not in a blog/news section — it is "
+            "not judged as an article.",
+        )
     if page_type is None:
         return CheckOutcome(
             "n_a",
@@ -2409,6 +2661,16 @@ def check_text_html_ratio(ev: PageEvidence) -> CheckOutcome:
             "We haven't measured this page's text against its page size yet.",
             remediation=RECAPTURE_PAGE,
         )
+    skip = _noindex_not_applicable(ev, "the text-to-markup ratio")
+    if skip:
+        return skip
+    if ev.word_count is not None and ev.word_count < CONTENT_OK_WORDS:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"This page has only {ev.word_count} words, which the thin-content check "
+            "already reports — a low text share is the same fact, not a second defect.",
+        )
     ratio = text_bytes / html_bytes
     evidence = {
         "text_bytes": text_bytes,
@@ -2442,14 +2704,7 @@ def check_text_html_ratio(ev: PageEvidence) -> CheckOutcome:
 
 def check_image_alt_presence(ev: PageEvidence) -> CheckOutcome:
     count = ev.image_count
-    missing = ev.images_missing_alt
-    items = [item for item in ev.image_items if isinstance(item, dict)]
-    if count and len(items) == count:
-        # The inventory is complete, so recompute from it: snapshots stored before
-        # the capture learned that `alt=""` is a valid decorative marker counted
-        # those images as missing (9 of 10 on a real author page).
-        missing = sum(1 for item in items if item.get("alt") is None)
-    if count is None or missing is None:
+    if count is None:
         return CheckOutcome(
             "n_a",
             None,
@@ -2458,8 +2713,33 @@ def check_image_alt_presence(ev: PageEvidence) -> CheckOutcome:
         )
     if count == 0:
         return CheckOutcome("n_a", None, "No images on this page.")
+    all_items = [item for item in ev.image_items if isinstance(item, dict)]
+    if not all_items:
+        # Snapshots from before the per-image inventory hold only {count, missing_alt},
+        # and that missing_alt counted `alt=""` — a valid decorative marker — as
+        # missing. Trusting it files false findings (6 of 20 "missing" on a page
+        # whose live markup had none), so an incomplete inventory is not judged.
+        return CheckOutcome(
+            "n_a",
+            None,
+            "This page was captured before its images were listed one by one, so "
+            "decorative images (empty alt) cannot be told from missing alt text.",
+            remediation=RECAPTURE_PAGE,
+        )
+    items = _content_images(all_items)
+    if not items:
+        return CheckOutcome("n_a", None, _NO_CONTENT_IMAGES)
+    # Explicit alt="" marks a decorative image: valid, and out of the denominator.
+    meaningful = [item for item in items if item.get("alt") != ""]
+    if not meaningful:
+        return CheckOutcome(
+            "pass", 100, f"All {len(items)} images are marked decorative (empty alt)."
+        )
+    missing_items = [item for item in meaningful if item.get("alt") is None]
+    missing = len(missing_items)
+    count = len(meaningful)
     if missing == 0:
-        return CheckOutcome("pass", 100, f"All {count} images carry alt text.")
+        return CheckOutcome("pass", 100, f"All {count} meaningful images carry alt text.")
     ratio = missing / count
     score = clamp_score(round(95 * (1 - ratio)))
     status = (
@@ -2497,6 +2777,52 @@ def _inventory_or_reason(ev: PageEvidence) -> tuple[list[dict[str, Any]], CheckO
     return items, None
 
 
+#: Hosts/paths that serve measurement pixels, not pictures. A visitor never sees
+#: them, so a missing alt, width or status on one is not a defect of the page.
+_TRACKER_IMAGE_PATTERN = re.compile(
+    r"(?:facebook\.com/tr[/?]|connect\.facebook\.net|px\.ads\.linkedin\.com|"
+    r"linkedin\.com/px|snap\.licdn\.com|google-analytics\.com|googletagmanager\.com|"
+    r"doubleclick\.net|googleadservices\.com|google\.com/(?:pagead|ads)/|bat\.bing\.com|"
+    r"analytics\.twitter\.com|t\.co/i/adsct|ads-twitter\.com|px\.ads\.|"
+    r"pixel\.wp\.com|stats\.wp\.com|pixel\.quantserve\.com|ct\.pinterest\.com|"
+    r"analytics\.tiktok\.com|clarity\.ms|hotjar\.com|(?:^|/)(?:1x1|pixel|spacer|blank)\.(?:gif|png)(?:\?|$))",
+    re.IGNORECASE,
+)
+
+
+def _is_pixel_or_tracker_image(item: dict[str, Any]) -> bool:
+    if item.get("width") == 1 and item.get("height") == 1:
+        return True
+    if item.get("natural_width") == 1 and item.get("natural_height") == 1:
+        return True
+    return bool(_TRACKER_IMAGE_PATTERN.search(str(item.get("src") or "")))
+
+
+def _content_images(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The images a visitor can see: not a script placeholder (no src), not a
+    1x1/tracking pixel, not markup that only exists with JavaScript off."""
+    return [
+        item
+        for item in items
+        if item.get("src") and not item.get("in_noscript") and not _is_pixel_or_tracker_image(item)
+    ]
+
+
+_NO_CONTENT_IMAGES = (
+    "This page has no content images to judge (only script placeholders, tracking pixels "
+    "or no-script fallbacks)."
+)
+
+
+def _image_region_of(item: dict[str, Any]) -> str:
+    """header / footer / content — from the capture, else from a logo-looking name."""
+    region = item.get("region")
+    if region in ("header", "footer", "content"):
+        return region
+    name = f"{item.get('src') or ''} {item.get('alt') or ''}".lower()
+    return "header" if "logo" in name else "content"
+
+
 def _inventory_note(ev: PageEvidence, items: list[dict[str, Any]]) -> str:
     """Names the inventory cap when the page carried more images than we kept."""
     total = ev.image_count
@@ -2515,8 +2841,11 @@ def check_image_dimension_attrs(ev: PageEvidence) -> CheckOutcome:
     items, unavailable = _inventory_or_reason(ev)
     if unavailable:
         return unavailable
+    items = _content_images(items)
+    if not items:
+        return CheckOutcome("n_a", None, _NO_CONTENT_IMAGES)
     missing = [
-        item.get("src") or "(no src)"
+        item["src"]
         for item in items
         if item.get("width") is None or item.get("height") is None
     ]
@@ -2562,20 +2891,34 @@ def check_image_lazy_loading(ev: PageEvidence) -> CheckOutcome:
     # arrives from a lazy-loader attribute we did not capture, e.g. nitro-lazy-src
     # or a data: URI). Its loading behaviour is unknowable here, so it is neither
     # eager nor lazy — 383 findings said "loads eagerly" about exactly these.
-    items = [item for item in items if item.get("src")]
+    items = _content_images(items)
     if not items:
         return CheckOutcome(
             "n_a",
             None,
-            "This page's images are placed by a lazy-loading script, so their loading policy "
-            "cannot be judged from the page source.",
+            "This page's images are placed by a lazy-loading script, are tracking pixels, or "
+            "sit in no-script fallbacks, so their loading policy cannot be judged from the "
+            "page source.",
         )
-
-    above_fold_indexes = {
-        index
-        for index, item in enumerate(items)
-        if index < IMAGE_ABOVE_FOLD_DOM_COUNT or item.get("featured") is True
-    }
+    # Footer images (social icons, badges) are never the hero and never worth
+    # lazy-loading advice; header/nav images (logo, badges) are above the fold by
+    # construction and must not use up the "first N content images" slots.
+    regions = [_image_region_of(item) for item in items]
+    items = [item for item, region in zip(items, regions) if region != "footer"]
+    regions = [region for region in regions if region != "footer"]
+    if not items:
+        return CheckOutcome(
+            "n_a", None, "This page's only images sit in its footer, which is not judged."
+        )
+    content_seen = 0
+    above_fold_indexes: set[int] = set()
+    for index, (item, region) in enumerate(zip(items, regions)):
+        if region == "header":
+            above_fold_indexes.add(index)
+            continue
+        if content_seen < IMAGE_ABOVE_FOLD_DOM_COUNT or item.get("featured") is True:
+            above_fold_indexes.add(index)
+        content_seen += 1
     above_fold = [item for index, item in enumerate(items) if index in above_fold_indexes]
     below_fold = [item for index, item in enumerate(items) if index not in above_fold_indexes]
     note = _inventory_note(ev, items)
@@ -2611,6 +2954,41 @@ def check_image_lazy_loading(ev: PageEvidence) -> CheckOutcome:
     )
 
 
+#: Below this many legacy-format image bytes a page has no "significant raster
+#: images" (the catalogue row scores 100) — WebP would save a few KB.
+IMAGE_MODERN_FORMAT_MIN_LEGACY_BYTES = 50_000
+_TRACKER_HOST_MARKERS = (
+    "px.ads.",
+    "pixel.",
+    "doubleclick.",
+    "googleadservices.",
+    "google-analytics.",
+    "googletagmanager.",
+    "facebook.com/tr",
+    "facebook.net",
+    "bat.bing.",
+    "adsystem.",
+    "scorecardresearch.",
+    "hotjar.",
+    "clarity.ms",
+)
+_TRACKER_PATH_MARKERS = ("/collect", "/pixel", "/beacon", "/track", "/impression", "/tr?")
+
+
+def _is_tracking_image(item: dict[str, Any]) -> bool:
+    """A tracking pixel or beacon is not content; it never counts as an image."""
+    for key in ("final_url", "src"):
+        url = str(item.get(key) or "").lower()
+        if not url:
+            continue
+        stripped = url.split("://", 1)[-1]
+        if any(m in stripped for m in _TRACKER_HOST_MARKERS):
+            return True
+        if any(m in stripped for m in _TRACKER_PATH_MARKERS):
+            return True
+    return False
+
+
 def check_image_modern_format(ev: PageEvidence) -> CheckOutcome:
     """Share of raster images served as WebP/AVIF instead of JPEG/PNG/GIF.
 
@@ -2627,6 +3005,7 @@ def check_image_modern_format(ev: PageEvidence) -> CheckOutcome:
         if isinstance(item.get("bytes"), int)
         and item["bytes"] >= 0
         and item.get("capture_status") in {"complete", "http_error", "too_large"}
+        and not _is_tracking_image(item)
     ]
     if not measured:
         return CheckOutcome(
@@ -2669,6 +3048,14 @@ def check_image_modern_format(ev: PageEvidence) -> CheckOutcome:
             "pass",
             score,
             f"{modern_bytes} of {classified} measured raster bytes are WebP/AVIF{note}.",
+            issue_count=len(legacy),
+        )
+    if legacy_bytes < IMAGE_MODERN_FORMAT_MIN_LEGACY_BYTES:
+        return CheckOutcome(
+            "pass",
+            100,
+            f"Only {legacy_bytes} bytes of this page's images are JPEG/PNG/GIF{note} — "
+            "too little for WebP or AVIF to be worth chasing.",
             issue_count=len(legacy),
         )
     status = "fail" if coverage < IMAGE_MODERN_FORMAT_FAIL_COVERAGE else "warn"
@@ -2771,6 +3158,11 @@ def check_broken_images(ev: PageEvidence) -> CheckOutcome:
     items, unavailable = _inventory_or_reason(ev)
     if unavailable:
         return unavailable
+    # A tracking pixel in a <noscript> (Facebook Pixel) is not content: it answers
+    # with a 1x1 gif or nothing, and no visitor sees it.
+    items = _content_images(items)
+    if not items:
+        return CheckOutcome("n_a", None, _NO_CONTENT_IMAGES)
     statuses = [
         (item.get("src") or "(no src)", item["http_status"], item.get("content_type"))
         for item in items
@@ -2862,9 +3254,16 @@ def check_canonical_presence(ev: PageEvidence) -> CheckOutcome:
         return _head_not_captured()
     canonical = ev.canonical_url
     if not canonical:
+        if ev.noindex:
+            return CheckOutcome(
+                "n_a",
+                None,
+                "This page is noindexed, so a missing canonical does not matter — it "
+                "is not competing in the index.",
+            )
         return CheckOutcome(
             "warn",
-            50,
+            65,
             "No rel=canonical — parameter/scheme/host variants of this URL can "
             "compete with it in the index.",
             issue_count=1,
@@ -2950,10 +3349,16 @@ _BLOCKED_FETCH_WORDS = {
 }
 
 
+#: Statuses that ARE a wall whatever reason code the crawl stored: the server
+#: answered, but about us, not about the page. On 2026-10-14, 84 of 115 open
+#: "broken page" findings were a 429 from one rate-limiting host, all Critical.
+_WALL_STATUS_REASONS = {401: "blocked", 403: "blocked", 429: "RateLimited"}
+
+
 def _blocked_fetch_outcome(ev: PageEvidence) -> CheckOutcome | None:
     """n_a, naming the wall, when we were kept out instead of seeing a failure."""
 
-    reason = ev.fetch_blocked_reason
+    reason = ev.fetch_blocked_reason or _WALL_STATUS_REASONS.get(ev.http_status or -1)
     if not reason:
         return None
     words = _BLOCKED_FETCH_WORDS.get(reason, f"our crawler was blocked ({reason})")
@@ -3196,12 +3601,16 @@ def check_soft_404_detection(ev: PageEvidence) -> CheckOutcome:
             issue_count=1,
             evidence=evidence,
         )
-    if words < SOFT_404_EMPTY_MAX_WORDS:
+    # Word count alone is the thin-content check's finding. A soft 404 needs an
+    # error-page signal (not-found phrasing, above) or a page with no extracted
+    # content at all: nothing counted AND no heading anywhere.
+    blank = words < SOFT_404_EMPTY_MAX_WORDS and not ev.headings and not ev.h1_count
+    if blank and ev.headings is not None:
         return CheckOutcome(
             "warn",
             40,
-            f"This page answers HTTP 200 with only {words} words — there is nothing "
-            "here, which is what a broken or removed page usually looks like.",
+            f"This page answers HTTP 200 with only {words} words and no heading — there "
+            "is nothing here, which is what a broken or removed page usually looks like.",
             issue_count=1,
             evidence=evidence,
         )
@@ -3216,11 +3625,11 @@ def check_soft_404_detection(ev: PageEvidence) -> CheckOutcome:
         )
     if nearly_empty:
         return CheckOutcome(
-            "warn",
-            70,
-            f"This page answers HTTP 200 with only {words} words — thin enough that a "
-            "search engine may treat it as an error page rather than content.",
-            issue_count=1,
+            "pass",
+            100,
+            f"This page answers HTTP 200 with {words} words but shows no error-page "
+            "signal (no not-found title, headings present) — short, not broken; the "
+            "thin-content check covers its length.",
             evidence=evidence,
         )
     return CheckOutcome("pass", 100, "This page answers HTTP 200 and serves real content.")
@@ -3412,6 +3821,19 @@ def check_ttfb_server_response(ev: PageEvidence) -> CheckOutcome:
             "We haven't measured this page's server response time yet.",
             remediation=RECAPTURE_PAGE,
         )
+    measured = ""
+    if ev.ttfb_measured_at is not None:
+        age_days = (datetime.now(ev.ttfb_measured_at.tzinfo) - ev.ttfb_measured_at).days
+        if age_days > TTFB_MAX_AGE_DAYS:
+            return CheckOutcome(
+                "n_a",
+                None,
+                f"The last server response time for this page was measured "
+                f"{age_days} days ago ({ev.ttfb_measured_at.date().isoformat()}) — "
+                "too old to describe the server as it is today.",
+                remediation=RECAPTURE_PAGE,
+            )
+        measured = f" (measured {ev.ttfb_measured_at.date().isoformat()})"
     # Floor division, not round(), in all three bands: Python rounds halves to
     # even and JavaScript rounds them up, so a `round()` here would hand the
     # TypeScript mirror a different score on exact midpoints and break parity
@@ -3421,7 +3843,7 @@ def check_ttfb_server_response(ev: PageEvidence) -> CheckOutcome:
         return CheckOutcome(
             "pass",
             clamp_score(100 - (10 * ttfb) // TTFB_GOOD_MS),
-            f"The server sent the first byte in {ttfb} ms — comfortably inside "
+            f"The server sent the first byte in {ttfb} ms{measured} — comfortably inside "
             f"the {TTFB_GOOD_MS} ms bar for a good server response.",
             evidence={"ttfb_ms": ttfb},
         )
@@ -3431,7 +3853,7 @@ def check_ttfb_server_response(ev: PageEvidence) -> CheckOutcome:
         return CheckOutcome(
             "warn",
             clamp_score(89 - (39 * (ttfb - TTFB_GOOD_MS)) // span),
-            f"The server took {ttfb} ms to send the first byte (over "
+            f"The server took {ttfb} ms{measured} to send the first byte (over "
             f"{TTFB_GOOD_MS} ms) — every other speed metric starts late, and "
             "visitors feel the delay before anything appears.",
             issue_count=1,
@@ -3440,7 +3862,7 @@ def check_ttfb_server_response(ev: PageEvidence) -> CheckOutcome:
     return CheckOutcome(
         "fail",
         clamp_score(49 - (ttfb - TTFB_POOR_MS) // 100),
-        f"The server took {ttfb} ms to send the first byte (over "
+        f"The server took {ttfb} ms{measured} to send the first byte (over "
         f"{TTFB_POOR_MS} ms) — slow server response suppresses both rankings "
         "and conversions.",
         issue_count=1,
@@ -3615,8 +4037,13 @@ def check_og_image_validity(ev: PageEvidence) -> CheckOutcome:
         return CheckOutcome(
             "fail",
             45,
-            "No share image (og:image) — links to this page post as a bare grey "
-            "rectangle everywhere, which collapses how often anyone clicks them.",
+            "No share image (og:image) — links to this page may share without a "
+            "picture on networks that read Open Graph tags."
+            + (
+                " X can still show the twitter:image."
+                if str(ev.twitter.get("twitter:image") or "").strip()
+                else ""
+            ),
             issue_count=1,
         )
     if not image.startswith(("http://", "https://")):
@@ -3655,10 +4082,13 @@ def check_social_meta_completeness(ev: PageEvidence) -> CheckOutcome:
             "We haven't read this page's markup yet, so its share tags are unknown.",
             remediation=RECAPTURE_PAGE,
         )
+    # og:image is judged — and reported — by `check_og_image_validity`. Counting it
+    # here too filed the same missing picture twice with two remedies, so it is
+    # treated as satisfied for this check's tag-coverage score.
     missing = [
         tag
         for tag in SOCIAL_REQUIRED_OG_TAGS
-        if not (isinstance(ev.og.get(tag), str) and ev.og[tag].strip())
+        if tag != "og:image" and not (isinstance(ev.og.get(tag), str) and ev.og[tag].strip())
     ]
     present = len(SOCIAL_REQUIRED_OG_TAGS) - len(missing)
     twitter_card = ev.twitter.get("twitter:card")
@@ -3701,8 +4131,9 @@ def check_social_meta_completeness(ev: PageEvidence) -> CheckOutcome:
         return CheckOutcome(
             "pass",
             score,
-            "Share preview is complete: all five Open Graph tags plus a Twitter "
-            f'card ("{twitter_card}"), and og:url agrees with the canonical URL.',
+            "Share tags are complete: Open Graph title, description, url and type plus "
+            f'a Twitter card ("{twitter_card}"), and og:url agrees with the canonical URL '
+            "(the share image is judged separately).",
             evidence=evidence,
         )
     status = (
@@ -3803,7 +4234,6 @@ RICH_RESULT_REQUIRED_PROPERTIES: dict[str, tuple[str, ...]] = {
     "HowTo": ("name", "step"),
     "JobPosting": ("title", "datePosted", "hiringOrganization", "jobLocation"),
     "LocalBusiness": ("name", "address"),
-    "Organization": ("name",),
     "Product": ("name", "offers"),
     "QAPage": ("mainEntity",),
     "Recipe": ("name", "image"),
@@ -3835,7 +4265,9 @@ RICH_RESULT_RECOMMENDED_PROPERTIES: dict[str, tuple[str, ...]] = {
     ),
     "Review": ("datePublished",),
     "SoftwareApplication": ("aggregateRating", "applicationCategory", "operatingSystem"),
-    "VideoObject": ("description", "duration", "contentUrl", "embedUrl"),
+    # Google accepts embedUrl OR contentUrl; `contentUrl` stands for either
+    # (see SCHEMA_PROPERTY_ALIASES), so it is listed once.
+    "VideoObject": ("description", "duration", "contentUrl"),
 }
 
 #: Spellings schema.org accepts for the SAME fact. A page that declares
@@ -3843,6 +4275,7 @@ RICH_RESULT_RECOMMENDED_PROPERTIES: dict[str, tuple[str, ...]] = {
 #: "missing" is the check being wrong, not the page.
 SCHEMA_PROPERTY_ALIASES: dict[str, tuple[str, ...]] = {
     "address": ("address", "location"),
+    "contentUrl": ("contentUrl", "embedUrl"),
     "author": ("author", "creator"),
     "image": ("image", "thumbnailUrl", "photo"),
     "openingHours": ("openingHours", "openingHoursSpecification"),
@@ -4000,6 +4433,11 @@ def rich_result_type_of(types: list[str]) -> str | None:
         if declared in RICH_RESULT_REQUIRED_PROPERTIES:
             return declared
     for declared in types:
+        # Google publishes recommended-only properties for some types (Organization)
+        # and NO required ones; such a type is still validated, just never "required".
+        if declared in RICH_RESULT_RECOMMENDED_PROPERTIES:
+            return declared
+    for declared in types:
         if declared in LOCAL_BUSINESS_SUBTYPES:
             return "LocalBusiness"
     return None
@@ -4087,6 +4525,20 @@ def legacy_business_types_in(structured_data: dict[str, Any]) -> list[str]:
     return [name for name in names if name in BUSINESS_ENTITY_TYPES]
 
 
+#: Keys a microdata/RDFa extraction adds around a scope's content. A block whose
+#: data holds nothing else is an `itemscope` with no `itemprop` inside — a theme
+#: wrapper (`<header itemscope itemtype=".../Organization">`) whose "value" is just
+#: the element's text. It states no facts, so it cannot be missing any.
+_SCOPE_WRAPPER_KEYS = frozenset({"type", "types", "value", "@type", "@context", "@id", "id"})
+
+
+def _is_propertyless_scope(block: dict[str, Any], data: dict[str, Any]) -> bool:
+    source = str(block.get("source") or "").lower()
+    if source in ("json-ld", "jsonld", ""):
+        return False
+    return not (set(data) - _SCOPE_WRAPPER_KEYS)
+
+
 def check_structured_data_validity(ev: PageEvidence) -> CheckOutcome:
     """Parse errors and rich-result completeness, from the stored capture.
 
@@ -4146,11 +4598,13 @@ def check_structured_data_validity(ev: PageEvidence) -> CheckOutcome:
         data = block.get("data")
         if not isinstance(data, dict):
             continue
+        if _is_propertyless_scope(block, data):
+            continue
         rich_type = rich_result_type_of(_block_types(block))
         if rich_type is None:
             continue
         validated.append(rich_type)
-        required = _missing_properties(data, RICH_RESULT_REQUIRED_PROPERTIES[rich_type])
+        required = _missing_properties(data, RICH_RESULT_REQUIRED_PROPERTIES.get(rich_type, ()))
         if required:
             missing_required.append({"type": rich_type, "missing": required})
             continue
@@ -4365,6 +4819,11 @@ TBT_GOOD_MS = 200
 TBT_POOR_MS = 600
 TBT_POOR_MS_PER_POINT = 50
 
+# Interaction to Next Paint (real-visitor field data), Google's thresholds.
+INP_GOOD_MS = 200
+INP_POOR_MS = 500
+INP_POOR_MS_PER_POINT = 50
+
 # cwv_cls — unitless layout-shift score.
 CLS_GOOD = 0.1
 CLS_POOR = 0.25
@@ -4392,7 +4851,7 @@ CACHE_NEGLIGIBLE_STATIC_BYTES = 10_000
 
 #: A measurement older than this is stale evidence, not today's truth: answer
 #: `n_a` with the one-click re-measure rather than scoring a year-old render.
-LAB_PERFORMANCE_MAX_AGE_DAYS = 90
+LAB_PERFORMANCE_MAX_AGE_DAYS = 30
 
 #: Status bands shared by the performance checks, applied to the final score.
 PERFORMANCE_PASS_SCORE = 90
@@ -4443,10 +4902,32 @@ def _lab(ev: PageEvidence) -> tuple[LabPerformance | None, CheckOutcome | None]:
     return lab, None
 
 
+def _lab_estimate_phrase(lab: LabPerformance) -> str:
+    """"in a simulated phone test on <date>" — a lab number is an estimate."""
+    device = "phone" if lab.strategy == "mobile" else lab.strategy
+    when = f" on {lab.observed_at.date().isoformat()}" if lab.observed_at else ""
+    return f"in a simulated {device} test{when}"
+
+
+def _field_phrase(field_entry: dict[str, Any]) -> str:
+    scope = "this page" if field_entry.get("level") == "page" else "this site's pages"
+    return f"real visitors to {scope} (Google's 28-day field data)"
+
+
 def _measured_on(lab: LabPerformance) -> str:
     where = "on a phone" if lab.strategy == "mobile" else f"on {lab.strategy}"
     when = f" on {lab.observed_at.date().isoformat()}" if lab.observed_at else ""
     return f"{where}{when}"
+
+
+def _cwv_value(
+    lab: LabPerformance, field_key: str, lab_value: float | None
+) -> tuple[float | None, dict[str, Any] | None]:
+    """The number to grade: real-visitor field data first, lab estimate second."""
+    entry = lab.field_metrics.get(field_key)
+    if entry is not None:
+        return float(entry["value"]), entry
+    return lab_value, None
 
 
 def check_cwv_lcp(ev: PageEvidence) -> CheckOutcome:
@@ -4454,7 +4935,8 @@ def check_cwv_lcp(ev: PageEvidence) -> CheckOutcome:
     if blocked is not None:
         return blocked
     assert lab is not None
-    if lab.lcp_ms is None:
+    lcp, field_entry = _cwv_value(lab, "lcp_ms", lab.lcp_ms)
+    if lcp is None:
         return CheckOutcome(
             "n_a",
             None,
@@ -4462,7 +4944,6 @@ def check_cwv_lcp(ev: PageEvidence) -> CheckOutcome:
             "content finished drawing.",
             remediation=COLLECT_PAGESPEED,
         )
-    lcp = lab.lcp_ms
     seconds = f"{lcp / 1000:.1f}s"
     if lcp <= LCP_GOOD_MS:
         score = _linear_band(lcp, 0, LCP_GOOD_MS, CWV_GOOD_BAND)
@@ -4470,32 +4951,76 @@ def check_cwv_lcp(ev: PageEvidence) -> CheckOutcome:
         score = _linear_band(lcp, LCP_GOOD_MS, LCP_POOR_MS, CWV_MID_BAND)
     else:
         score = clamp_score(round(CWV_POOR_CEILING - (lcp - LCP_POOR_MS) / LCP_POOR_MS_PER_POINT))
-    evidence = {"lcp_ms": lcp, "strategy": lab.strategy}
+    source = "field" if field_entry else "lab"
+    evidence = {"lcp_ms": lcp, "strategy": lab.strategy, "source": source}
+    who = _field_phrase(field_entry) if field_entry else _lab_estimate_phrase(lab)
     if score >= PERFORMANCE_PASS_SCORE:
         return CheckOutcome(
             "pass",
             score,
-            f"The main content of this page appears in {seconds} "
-            f"({_measured_on(lab)}) — inside Google's 2.5 second target.",
+            (
+                f"For {who}, the main content appears in {seconds} (75th percentile)"
+                if field_entry
+                else f"{who.capitalize()}, the main content appeared in {seconds} (a lab estimate)"
+            )
+            + " — inside Google's 2.5 second target.",
             evidence=evidence,
         )
+    lead = (
+        f"For {who}, the main content takes {seconds} to appear (75th percentile)."
+        if field_entry
+        else f"{who.capitalize()}, the main content took {seconds} to appear. That is "
+        "a lab estimate, not a measurement of your real visitors."
+    )
     return CheckOutcome(
         _performance_status(score),
         score,
-        f"The main content of this page takes {seconds} to appear "
-        f"({_measured_on(lab)}). Google's target is 2.5 seconds and it treats "
-        "anything over 4 as poor; visitors leave before a slow page finishes, "
-        "so this costs both rankings and the visits you already earned.",
+        f"{lead} Google's target is 2.5 seconds and it treats anything over 4 as "
+        "poor; visitors leave before a slow page finishes, so this costs both "
+        "rankings and the visits you already earned.",
         issue_count=1,
         evidence=evidence,
     )
 
 
 def check_cwv_inp_tbt(ev: PageEvidence) -> CheckOutcome:
+    """Responsiveness: real-visitor INP when Google has it, else lab TBT.
+
+    INP is the Core Web Vital Google ranks on. TBT is a lab stand-in for it and
+    is NOT a ranking signal, so it is only ever described as an estimate.
+    """
     lab, blocked = _lab(ev)
     if blocked is not None:
         return blocked
     assert lab is not None
+    inp = lab.field_metrics.get("inp_ms")
+    if inp is not None:
+        value = float(inp["value"])
+        if value <= INP_GOOD_MS:
+            score = _linear_band(value, 0, INP_GOOD_MS, CWV_GOOD_BAND)
+        elif value <= INP_POOR_MS:
+            score = _linear_band(value, INP_GOOD_MS, INP_POOR_MS, CWV_MID_BAND)
+        else:
+            score = clamp_score(round(CWV_POOR_CEILING - (value - INP_POOR_MS) / INP_POOR_MS_PER_POINT))
+        evidence = {"inp_ms": value, "strategy": lab.strategy, "source": "field"}
+        who = _field_phrase(inp)
+        if score >= PERFORMANCE_PASS_SCORE:
+            return CheckOutcome(
+                "pass",
+                score,
+                f"For {who}, the page reacts to taps and clicks within {round(value)}ms "
+                "(INP, 75th percentile) — inside Google's 200ms target.",
+                evidence=evidence,
+            )
+        return CheckOutcome(
+            _performance_status(score),
+            score,
+            f"For {who}, the page takes {round(value)}ms to react to taps and clicks "
+            "(INP, 75th percentile; Google's target is 200ms, and INP is a "
+            "ranking signal). The usual cause is too much JavaScript running.",
+            issue_count=1,
+            evidence=evidence,
+        )
     if lab.tbt_ms is None:
         return CheckOutcome(
             "n_a",
@@ -4511,23 +5036,24 @@ def check_cwv_inp_tbt(ev: PageEvidence) -> CheckOutcome:
         score = _linear_band(tbt, TBT_GOOD_MS, TBT_POOR_MS, CWV_MID_BAND)
     else:
         score = clamp_score(round(CWV_POOR_CEILING - (tbt - TBT_POOR_MS) / TBT_POOR_MS_PER_POINT))
-    evidence = {"tbt_ms": tbt, "strategy": lab.strategy}
+    evidence = {"tbt_ms": tbt, "strategy": lab.strategy, "source": "lab"}
+    when = _lab_estimate_phrase(lab)
     if score >= PERFORMANCE_PASS_SCORE:
         return CheckOutcome(
             "pass",
             score,
-            f"While loading, this page ignores taps and clicks for only "
-            f"{round(tbt)}ms ({_measured_on(lab)}) — comfortably responsive.",
+            f"{when.capitalize()}, this page ignored taps and clicks for only "
+            f"{round(tbt)}ms while loading (a lab estimate) — comfortably responsive.",
             evidence=evidence,
         )
     return CheckOutcome(
         _performance_status(score),
         score,
-        f"While loading, this page is busy running scripts for {round(tbt)}ms "
-        f"({_measured_on(lab)}) and cannot react to taps or clicks during that "
-        "time. Visitors read that as broken and tap again, and Google measures "
-        "it directly as a ranking signal. The usual cause is too much JavaScript "
-        "running before the page is usable.",
+        f"{when.capitalize()}, this page was busy running scripts for {round(tbt)}ms "
+        "while loading and could not react to taps or clicks during that time. "
+        "This is a lab estimate of responsiveness (Total Blocking Time), not a "
+        "measurement of your real visitors and not itself a ranking signal. The "
+        "usual cause is too much JavaScript running before the page is usable.",
         issue_count=1,
         evidence=evidence,
     )
@@ -4538,7 +5064,8 @@ def check_cwv_cls(ev: PageEvidence) -> CheckOutcome:
     if blocked is not None:
         return blocked
     assert lab is not None
-    if lab.cls is None:
+    cls, field_entry = _cwv_value(lab, "cls", lab.cls)
+    if cls is None:
         return CheckOutcome(
             "n_a",
             None,
@@ -4546,30 +5073,36 @@ def check_cwv_cls(ev: PageEvidence) -> CheckOutcome:
             "layout moved while loading.",
             remediation=COLLECT_PAGESPEED,
         )
-    cls = lab.cls
     if cls <= CLS_GOOD:
         score = _linear_band(cls, 0, CLS_GOOD, CWV_GOOD_BAND)
     elif cls <= CLS_POOR:
         score = _linear_band(cls, CLS_GOOD, CLS_POOR, CWV_MID_BAND)
     else:
         score = clamp_score(round(CWV_POOR_CEILING - (cls - CLS_POOR) * CLS_POOR_PENALTY_PER_UNIT))
-    evidence = {"cls": cls, "strategy": lab.strategy}
+    evidence = {
+        "cls": cls,
+        "strategy": lab.strategy,
+        "source": "field" if field_entry else "lab",
+    }
+    who = _field_phrase(field_entry) if field_entry else _lab_estimate_phrase(lab)
     if score >= PERFORMANCE_PASS_SCORE:
+        subject = f"For {who}" if field_entry else who.capitalize()
         return CheckOutcome(
             "pass",
             score,
-            f"This page holds still as it loads (layout shift {cls:.3f}, "
-            f"{_measured_on(lab)}) — under Google's 0.1 limit.",
+            f"{subject}, this page holds still as it loads (layout shift "
+            f"{cls:.3f}) — under Google's 0.1 limit.",
             evidence=evidence,
         )
+    subject = f"For {who}" if field_entry else f"{who.capitalize()} (a lab estimate)"
     return CheckOutcome(
         _performance_status(score),
         score,
-        f"Content on this page jumps around while it loads (layout shift "
-        f"{cls:.3f}, {_measured_on(lab)}; Google's limit is 0.1). That is the "
-        "effect where someone goes to tap one thing and hits another because an "
-        "image or advert pushed the page down. It is usually fixed by giving "
-        "images and embeds a declared width and height.",
+        f"{subject}, content on this page jumps around while it loads (layout "
+        f"shift {cls:.3f}; Google's limit is 0.1). That is the effect where "
+        "someone goes to tap one thing and hits another because an image or "
+        "advert pushed the page down. It is usually fixed by giving images and "
+        "embeds a declared width and height.",
         issue_count=1,
         evidence=evidence,
     )
@@ -4588,7 +5121,15 @@ def check_asset_delivery(ev: PageEvidence) -> CheckOutcome:
             "breakdown, so there is nothing to add up yet.",
             remediation=COLLECT_PAGESPEED,
         )
-    savings = lab.delivery_savings_ms
+    # Lighthouse's per-audit savings overlap (the same slow first byte feeds
+    # several of them), so their SUM overstates what one fix would win. Grade
+    # and headline the single largest measured saving; the rest are secondary.
+    offenders = sorted(
+        ((name, ms) for name, ms in lab.delivery_audits.items() if ms > 0),
+        key=lambda pair: pair[1],
+        reverse=True,
+    )
+    savings = offenders[0][1] if offenders else 0.0
     if savings <= DELIVERY_SAVINGS_GOOD_MS:
         score = _linear_band(savings, 0, DELIVERY_SAVINGS_GOOD_MS, CWV_GOOD_BAND)
     elif savings <= DELIVERY_SAVINGS_POOR_MS:
@@ -4605,13 +5146,9 @@ def check_asset_delivery(ev: PageEvidence) -> CheckOutcome:
                 )
             ),
         )
-    offenders = sorted(
-        ((name, ms) for name, ms in lab.delivery_audits.items() if ms > 0),
-        key=lambda pair: pair[1],
-        reverse=True,
-    )
     evidence = {
-        "total_savings_ms": savings,
+        "largest_saving_ms": savings,
+        "largest_saving_audit": offenders[0][0] if offenders else None,
         "audits": dict(offenders[:CHECK_EVIDENCE_SAMPLE_LIMIT]),
         "strategy": lab.strategy,
     }
@@ -4619,18 +5156,24 @@ def check_asset_delivery(ev: PageEvidence) -> CheckOutcome:
         return CheckOutcome(
             "pass",
             score,
-            f"How this page's files are delivered costs it about {round(savings)}ms "
+            f"The biggest delivery cost on this page is about {round(savings)}ms "
             f"({_measured_on(lab)}) — nothing worth chasing.",
             evidence=evidence,
         )
-    names = ", ".join(_DELIVERY_AUDIT_LABELS.get(name, name) for name, _ in offenders[:4])
+    top_name, top_ms = offenders[0]
+    top_label = _DELIVERY_AUDIT_LABELS.get(top_name, top_name)
+    others = ", ".join(_DELIVERY_AUDIT_LABELS.get(name, name) for name, _ in offenders[1:4])
+    secondary = (
+        f" Smaller, overlapping causes (their savings are not additive): {others}."
+        if others
+        else ""
+    )
     return CheckOutcome(
         _performance_status(score),
         score,
-        f"About {round(savings) / 1000:.1f}s of this page's load is spent on how "
-        f"its files are delivered rather than on the page itself "
-        f"({_measured_on(lab)}). The measured causes: {names}. These are the "
-        "standard build-and-hosting fixes — nothing about your content has to change.",
+        f"The biggest delivery cost on this page is {top_label}: about "
+        f"{round(top_ms) / 1000:.1f}s of its load ({_measured_on(lab)}).{secondary} "
+        "This is a build-and-hosting fix — nothing about your content has to change.",
         issue_count=len(offenders),
         evidence=evidence,
     )
@@ -4664,50 +5207,93 @@ def check_caching_policy(ev: PageEvidence) -> CheckOutcome:
             "breakdown, so its cache lifetimes are unknown.",
             remediation=COLLECT_PAGESPEED,
         )
-    static_bytes = lab.cache_static_bytes
-    if static_bytes < CACHE_NEGLIGIBLE_STATIC_BYTES:
-        return CheckOutcome(
-            "pass",
-            100,
-            "This page loads almost no images, styling or code files of its own, "
-            "so how long they are cached makes no practical difference.",
-            evidence={"static_bytes": static_bytes},
-        )
-    short_ttl = [
+    page_site = _site_key(urlsplit(ev.url).netloc)
+    by_host = lab.cache_static_bytes_by_host
+    if by_host:
+        static_bytes = sum(b for h, b in by_host.items() if _site_key(h) == page_site)
+    else:
+        static_bytes = lab.cache_static_bytes
+
+    def _first_party(resource: dict[str, Any]) -> bool:
+        return _site_key(urlsplit(str(resource.get("url") or "")).netloc) == page_site
+
+    all_short = [
         resource
         for resource in lab.cache_short_ttl_resources
         if _lab_number(resource.get("cache_lifetime_ms")) is not None
         and float(resource["cache_lifetime_ms"]) < CACHE_WELL_CACHED_MIN_MS
     ]
+    short_ttl = [r for r in all_short if _first_party(r)]
+    third_party = [r for r in all_short if not _first_party(r)]
+    third_party_hosts = sorted(
+        {urlsplit(str(r.get("url") or "")).netloc for r in third_party} - {""}
+    )
+    if not by_host:
+        # Without a per-host breakdown the denominator still contains third
+        # parties; remove the ones we can see so they never count against it.
+        static_bytes = max(
+            0.0,
+            static_bytes
+            - sum(float(_lab_number(r.get("total_bytes")) or 0.0) for r in third_party),
+        )
+    evidence: dict[str, Any] = {
+        "static_bytes": static_bytes,
+        "strategy": lab.strategy,
+        "third_party_not_yours": sample_urls([str(r.get("url") or "") for r in third_party]),
+        "third_party_hosts": third_party_hosts[:CHECK_EVIDENCE_SAMPLE_LIMIT],
+    }
+    third_note = (
+        f" {len(third_party)} more file(s) from other companies "
+        f"({', '.join(third_party_hosts[:3])}) also expire early, but they are "
+        "not yours to change and are not counted."
+        if third_party
+        else ""
+    )
+    if static_bytes < CACHE_NEGLIGIBLE_STATIC_BYTES:
+        return CheckOutcome(
+            "pass",
+            100,
+            "This page loads almost no images, styling or code files of its own, "
+            "so how long they are cached makes no practical difference."
+            + third_note,
+            evidence=evidence,
+        )
     poorly_cached_bytes = min(
         static_bytes,
         sum(float(_lab_number(r.get("total_bytes")) or 0.0) for r in short_ttl),
     )
     well_cached_bytes = max(0.0, static_bytes - poorly_cached_bytes)
     score = clamp_score(round(100 * well_cached_bytes / static_bytes))
-    evidence = {
-        "static_bytes": static_bytes,
-        "well_cached_bytes": well_cached_bytes,
-        "short_ttl_urls": sample_urls([str(r.get("url") or "") for r in short_ttl]),
-        "strategy": lab.strategy,
-    }
+    evidence.update(
+        {
+            "well_cached_bytes": well_cached_bytes,
+            "short_ttl_urls": sample_urls([str(r.get("url") or "") for r in short_ttl]),
+            "list_truncated": lab.cache_list_truncated,
+        }
+    )
     if score >= PERFORMANCE_PASS_SCORE:
         return CheckOutcome(
             "pass",
             score,
-            "Visitors' browsers keep this page's images, styling and code for a "
-            "month or more, so returning visits reuse them instead of "
-            "re-downloading them.",
+            "Visitors' browsers keep this page's own images, styling and code for "
+            "a month or more, so returning visits reuse them instead of "
+            "re-downloading them." + third_note,
             evidence=evidence,
         )
     share = round(100 * poorly_cached_bytes / static_bytes)
+    count = f"at least {len(short_ttl)}" if lab.cache_list_truncated else str(len(short_ttl))
+    if lab.cache_list_truncated:
+        share_text = f"At least {share}%"
+    else:
+        share_text = f"{share}%"
     return CheckOutcome(
         _performance_status(score),
         score,
-        f"{share}% of this page's images, styling and code are told to expire in "
-        f"under a month ({len(short_ttl)} files, {_measured_on(lab)}), so people "
+        f"{share_text} of this page's own images, styling and code are told to "
+        f"expire in under a month ({count} files, {_measured_on(lab)}), so people "
         "who come back download them all over again — a slower repeat visit for "
-        "no benefit. It is a one-line hosting setting, not a content change.",
+        "no benefit. It is a one-line hosting setting, not a content change."
+        + third_note,
         issue_count=len(short_ttl),
         evidence=evidence,
     )

@@ -142,8 +142,8 @@ BestPracticeKeyParam = Annotated[
 #   ha_config_set_dashboard  → _DASHBOARD_SKILL_FILES[0]
 #   ha_config_set_yaml       → _YAML_SKILL_FILES[0]
 STRICT_BPS_GATED_TOOLS: dict[str, str] = {
-    "ha_config_set_automation": "references/automation-patterns.md",
-    "ha_config_set_script": "references/automation-patterns.md",
+    "ha_config_set_automation": "references/triggers-and-conditions.md",
+    "ha_config_set_script": "references/automation-actions.md",
     "ha_config_set_scene": "SKILL.md",
     "ha_config_set_helper": "references/helper-selection.md",
     "ha_config_set_dashboard": "references/dashboard-guide.md",
@@ -164,7 +164,7 @@ def strict_bps_effective() -> bool:
 
     * A ``ValidationError`` from the settings load — a corrupt settings env
       must not brick every gated write. Mirrors the narrow degrade in
-      ``build_skill_content`` (util_helpers.py).
+      ``build_skill_content`` (config_write_helpers.py).
     * No best-practices skill the guide can serve (skills-vendor
       submodule absent, skill folder missing or symlinked, or SKILL.md
       frontmatter unparseable). The key is then unobtainable, so the gate

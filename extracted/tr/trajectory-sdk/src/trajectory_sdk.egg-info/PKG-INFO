@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.9.17
+Version: 0.9.18
 Summary: Generated Trajectory API client and high-level workflows
 Project-URL: Documentation, https://docs.trajectory.ai
 Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
@@ -137,9 +137,10 @@ a `BenchmarkOperation`, while server processing continues. Call `operation.resul
 or save `operation.id` and reconnect later with `get_operation(client, operation.id)`.
 It is a regular Python function; it does not require `await`.
 
-`wait_for_benchmark_images()` first calls `client.benchmarks.images.build(bench_id)` and then
-polls for completion. `client.benchmarks.images.list(bench_id)` only reads status. Once the
-runtime is ready, follow the GSM8K walkthrough's validation and evaluation steps; uploading
+`wait_for_benchmark_images()` first calls `client.benchmarks.images.build(bench_id)`, which only
+acknowledges the request, and then polls `client.benchmarks.images.list(bench_id)`, reading
+every page, until no image is building. It raises `BenchmarkImageBuildError` if any image on any
+page failed, and otherwise returns the list of all images. Once the runtime is ready, follow the GSM8K walkthrough's validation and evaluation steps; uploading
 does not execute the tasks. Start evaluation or training with `agent_name` and `benchmark_name`
 to select the latest version, or `bench_id` to select a specific version.
 Run this registration code with your organization's API key.

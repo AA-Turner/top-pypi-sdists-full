@@ -1294,6 +1294,7 @@ class NodeConversationNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -1302,6 +1303,13 @@ class NodeConversationNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeConversationNodeSkipResponseEdgeTransitionConditionPromptCondition(BaseModel):
@@ -2019,6 +2027,7 @@ class NodeSubagentNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -2027,6 +2036,13 @@ class NodeSubagentNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeSubagentNodeSkipResponseEdgeTransitionConditionPromptCondition(BaseModel):
@@ -3702,6 +3718,7 @@ class NodeEndNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -3710,6 +3727,13 @@ class NodeEndNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeEndNode(BaseModel):
@@ -4183,6 +4207,7 @@ class NodeFunctionNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -4191,6 +4216,13 @@ class NodeFunctionNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeFunctionNode(BaseModel):
@@ -4680,6 +4712,7 @@ class NodeCodeNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -4688,6 +4721,13 @@ class NodeCodeNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeCodeNode(BaseModel):
@@ -5401,6 +5441,7 @@ class NodeTransferCallNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -5409,6 +5450,13 @@ class NodeTransferCallNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeTransferCallNode(BaseModel):
@@ -5886,6 +5934,7 @@ class NodePressDigitNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -5894,6 +5943,13 @@ class NodePressDigitNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodePressDigitNode(BaseModel):
@@ -6350,6 +6406,7 @@ class NodeBranchNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -6358,6 +6415,13 @@ class NodeBranchNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeBranchNode(BaseModel):
@@ -6811,6 +6875,7 @@ class NodeSMSNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -6819,6 +6884,13 @@ class NodeSMSNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeSMSNode(BaseModel):
@@ -7391,6 +7463,7 @@ class NodeExtractDynamicVariablesNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -7399,6 +7472,13 @@ class NodeExtractDynamicVariablesNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeExtractDynamicVariablesNode(BaseModel):
@@ -7785,6 +7865,7 @@ class NodeAgentSwapNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -7793,6 +7874,13 @@ class NodeAgentSwapNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeAgentSwapNode(BaseModel):
@@ -8296,6 +8384,7 @@ class NodeMcpNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -8304,6 +8393,13 @@ class NodeMcpNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeMcpNode(BaseModel):
@@ -9070,6 +9166,7 @@ class NodeBridgeTransferNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -9078,6 +9175,13 @@ class NodeBridgeTransferNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeBridgeTransferNode(BaseModel):
@@ -9399,6 +9503,7 @@ class NodeCancelTransferNodeModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-argon",
     ]
     """The LLM model to use"""
 
@@ -9407,6 +9512,13 @@ class NodeCancelTransferNodeModelChoice(BaseModel):
 
     high_priority: Optional[bool] = None
     """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: Optional[bool] = None
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
 
 
 class NodeCancelTransferNode(BaseModel):

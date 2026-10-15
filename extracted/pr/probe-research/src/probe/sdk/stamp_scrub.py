@@ -124,9 +124,13 @@ def _scrub_step_body(body: dict) -> dict | None:
 
 
 #: A read row as ``inputs._typed_row`` builds it, keys in its order -- with
-#: the read's ``observation_id`` last when it carries one (F7).
+#: its ``rows`` count (data catalog C9) when one was counted, then the read's
+#: ``observation_id`` last when it carries one (F7).
 _READ_ROW_KEYS = ("path", "content_hash", "fingerprint", "size_bytes", "host", "stable", "first_seen_at")
 _READ_ROW_KEYS_OBSERVED = (*_READ_ROW_KEYS, "observation_id")
+_READ_ROW_SHAPES = frozenset({
+    _READ_ROW_KEYS, _READ_ROW_KEYS_OBSERVED, (*_READ_ROW_KEYS, "rows"), (*_READ_ROW_KEYS, "rows", "observation_id"),
+})
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 _HEX32 = re.compile(r"[0-9a-f]{32}")
 _FINGERPRINT = re.compile(r"[0-9]+:-?[0-9]+:[0-9a-f]{64}")
@@ -138,11 +142,14 @@ def _checked_fields(row: Any) -> tuple | None:
     if not isinstance(row, dict):
         return None
     keys = tuple(row)
-    if keys != _READ_ROW_KEYS and keys != _READ_ROW_KEYS_OBSERVED:
+    if keys not in _READ_ROW_SHAPES:
         return None
     sha, fp, size = row["content_hash"], row["fingerprint"], row["size_bytes"]
     stable, seen = row["stable"], row["first_seen_at"]
     observation = row.get("observation_id")
+    count = row.get("rows")
+    if "rows" in row and not (type(count) is int and count >= 0):
+        return None
     if not (sha is None or (isinstance(sha, str) and _HEX64.fullmatch(sha))):
         return None
     if not (fp is None or (isinstance(fp, str) and _FINGERPRINT.fullmatch(fp))):
@@ -151,11 +158,11 @@ def _checked_fields(row: Any) -> tuple | None:
         return None
     if type(stable) is not bool or not (isinstance(seen, str) and _ISO_STAMP.fullmatch(seen)):
         return None
-    if keys == _READ_ROW_KEYS_OBSERVED and not (
+    if "observation_id" in row and not (
         isinstance(observation, str) and _HEX32.fullmatch(observation)
     ):
         return None
-    return sha, fp, size, stable, seen, observation
+    return sha, fp, size, stable, seen, count, observation
 
 
 def _lift_reads(rows: Any) -> tuple[list, list] | None:
@@ -183,11 +190,13 @@ def _restore_reads(rows: Any, kept: list) -> list | None:
             continue
         if not isinstance(row, dict) or tuple(row) != ("path", "host"):
             return None
-        sha, fp, size, stable, seen, observation = fields
+        sha, fp, size, stable, seen, count, observation = fields
         restored = {
             "path": row["path"], "content_hash": sha, "fingerprint": fp, "size_bytes": size,
             "host": row["host"], "stable": stable, "first_seen_at": seen,
         }
+        if count is not None:
+            restored["rows"] = count
         if observation is not None:
             restored["observation_id"] = observation
         out.append(restored)
@@ -195,17 +204,21 @@ def _restore_reads(rows: Any, kept: list) -> list | None:
 
 
 #: A write row as ``inputs._typed_output_row`` builds it (the ``/outputs``
-#: contract), keys in its order.
+#: contract), keys in its order; ``rows`` last when one was counted (C9).
 _WRITE_ROW_KEYS = (
     "path", "host", "content_hash", "fingerprint", "size_bytes",
     "first_written_at", "last_modified_at", "observation_id",
 )
+_WRITE_ROW_SHAPES = frozenset({_WRITE_ROW_KEYS, (*_WRITE_ROW_KEYS, "rows")})
 
 
 def _checked_write_fields(row: Any) -> tuple | None:
     """A write row's shape-checked fields, or None if the row is not exactly
     what ``_typed_output_row`` builds (then it is scrubbed whole)."""
-    if not isinstance(row, dict) or tuple(row) != _WRITE_ROW_KEYS:
+    if not isinstance(row, dict) or tuple(row) not in _WRITE_ROW_SHAPES:
+        return None
+    count = row.get("rows")
+    if "rows" in row and not (type(count) is int and count >= 0):
         return None
     sha, fp, size = row["content_hash"], row["fingerprint"], row["size_bytes"]
     written, modified, observation = row["first_written_at"], row["last_modified_at"], row["observation_id"]
@@ -220,7 +233,7 @@ def _checked_write_fields(row: Any) -> tuple | None:
             return None
     if not (isinstance(observation, str) and _HEX32.fullmatch(observation)):
         return None
-    return sha, fp, size, written, modified, observation
+    return sha, fp, size, written, modified, count, observation
 
 
 def _lift_writes(rows: Any) -> tuple[list, list] | None:
@@ -246,12 +259,15 @@ def _restore_writes(rows: Any, kept: list) -> list | None:
             continue
         if not isinstance(row, dict) or tuple(row) != ("path", "host"):
             return None
-        sha, fp, size, written, modified, observation = fields
-        out.append({
+        sha, fp, size, written, modified, count, observation = fields
+        restored = {
             "path": row["path"], "host": row["host"], "content_hash": sha, "fingerprint": fp,
             "size_bytes": size, "first_written_at": written, "last_modified_at": modified,
             "observation_id": observation,
-        })
+        }
+        if count is not None:
+            restored["rows"] = count
+        out.append(restored)
     return out
 
 

@@ -197,6 +197,7 @@ class LlmCreateParams(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-argon",
         ]
     ]
     """Select the underlying text LLM. If not set, would default to gpt-5.6-terra."""
@@ -214,6 +215,14 @@ class LlmCreateParams(TypedDict, total=False):
     Value ranging from [0,1]. Lower value means more deterministic, while higher
     value means more random. If unset, default value 0 will apply. Note that for
     tool calling, a lower value is recommended.
+    """
+
+    model_ultrafast: Optional[bool]
+    """
+    If set to true, will use the ultrafast tier for much faster response generation,
+    default to false. Only supported by gpt-6.1-sol on voice agents; ignored
+    otherwise. Takes precedence over model_high_priority. This feature comes with a
+    higher cost.
     """
 
     s2s_model: Optional[

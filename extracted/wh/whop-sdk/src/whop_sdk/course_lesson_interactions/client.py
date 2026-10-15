@@ -40,7 +40,7 @@ class CourseLessonInteractionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[CourseLessonInteractionListItem, ListCourseLessonInteractionsResponse]:
         """
-        Returns a paginated list of lesson interactions, filtered by lesson, course, user, or completion status.
+        Returns a paginated list of lesson interactions for a lesson or course. Callers without admin access to the course's experience see only their own interactions.
 
         Required permissions:
          - `courses:read`
@@ -85,7 +85,7 @@ class CourseLessonInteractionsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -140,7 +140,7 @@ class CourseLessonInteractionsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -181,7 +181,7 @@ class AsyncCourseLessonInteractionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[CourseLessonInteractionListItem, ListCourseLessonInteractionsResponse]:
         """
-        Returns a paginated list of lesson interactions, filtered by lesson, course, user, or completion status.
+        Returns a paginated list of lesson interactions for a lesson or course. Callers without admin access to the course's experience see only their own interactions.
 
         Required permissions:
          - `courses:read`
@@ -228,7 +228,7 @@ class AsyncCourseLessonInteractionsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -294,7 +294,7 @@ class AsyncCourseLessonInteractionsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

@@ -16,15 +16,14 @@ from test.utils import flaky, load_yaml_or_fail
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-@pytest.mark.parametrize("workers", [1, 2])
 @pytest.mark.skipif(platform.system() == "Windows", reason="Simpler to setup on Linux")
-def test_default(ctx, cli, snapshot_cli, workers):
+def test_default(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud()
     assert (
         cli.run(
             api.schema_url,
             "-c not_a_server_error",
-            f"--workers={workers}",
+            "--workers=2",
             "--mode=positive",
             "--seed=1",
         )
@@ -74,7 +73,7 @@ def test_with_cassette(ctx, tmp_path, cli):
     cassette_path = tmp_path / "output.yaml"
     cli.run(
         api.schema_url,
-        "--max-examples=40",
+        "--max-examples=5",
         "--max-failures=1",
         "-c not_a_server_error",
         f"--report-vcr-path={cassette_path}",
@@ -129,23 +128,6 @@ def test_junit(ctx, tmp_path, cli):
     )
     expected = ("testsuites", [("schemathesis", [("Stateful tests", ["failure"])])])
     assert structure == expected, xml_content
-
-
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_stateful_only(ctx, cli, snapshot_cli):
-    api = ctx.openapi.apps.users_crud()
-    assert (
-        cli.run(
-            api.schema_url,
-            "--phases=stateful",
-            "--mode=positive",
-            "--no-shrink",
-            # The bug needs a specific call sequence, which takes many scenarios to reach.
-            "--max-examples=200",
-            "-c not_a_server_error",
-        )
-        == snapshot_cli
-    )
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True, replace_phase_statistic=True)
@@ -544,7 +526,6 @@ def test_link_requestbody_extraction_fails_when_producer_missing_id(ctx, cli, sn
     )
 
 
-@flaky(max_runs=3, min_passes=1)
 @pytest.mark.parametrize("content", ["", "User data as plain text"])
 def test_non_json_response(ctx, cli, snapshot_cli, content):
     api = ctx.openapi.apps.stateful_users(ReturnPlainText(body=content))

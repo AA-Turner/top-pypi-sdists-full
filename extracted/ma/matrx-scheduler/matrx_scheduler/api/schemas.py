@@ -113,6 +113,10 @@ class TaskResponse(BaseModel):
     last_run_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    #: The computer a device task runs on, and its metadata (metadata.device_op is its work), so a
+    #: just-created computer schedule shows what it does without a second read.
+    target_device_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentTaskResponse(BaseModel):

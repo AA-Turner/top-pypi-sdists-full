@@ -198,7 +198,7 @@ def test_lazy_loading_accepts_an_explicitly_eager_hero():
 
 
 def test_modern_format_fires_on_a_page_of_jpegs():
-    items = [img(src=f"https://example.com/{i}.jpg", actual_format="jpg") for i in range(5)]
+    items = [img(src=f"https://example.com/{i}.jpg", actual_format="jpg", bytes=20_000) for i in range(5)]
     outcome = check_image_modern_format(page(items))
     assert_db_valid(outcome)
     assert outcome.status == "fail"

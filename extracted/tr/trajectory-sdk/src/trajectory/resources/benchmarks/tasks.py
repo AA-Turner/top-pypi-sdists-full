@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Literal, Mapping
 
 import httpx2
 
-from trajectory._base_client import make_request_options, path_template, serialize_header
+from trajectory._base_client import SyncPage, make_request_options, path_template, serialize_header
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
 from trajectory._types import Headers, NotGiven, Omit, not_given, omit
@@ -18,6 +18,7 @@ from trajectory.types.benchmark_task_diff_response import BenchmarkTaskDiffRespo
 from trajectory.types.benchmarks.benchmark_spec import BenchmarkSpec
 from trajectory.types.benchmarks.benchmark_spec_params import BenchmarkSpecParams
 from trajectory.types.benchmarks.benchmark_upload_file_param import BenchmarkUploadFileParam
+from trajectory.types.benchmarks.tasks.benchmark_spec_task import BenchmarkSpecTask
 from trajectory.types.benchmarks.tasks.tasks_append_params import TasksAppendParams
 from trajectory.types.benchmarks.tasks.tasks_diff_params import TasksDiffParams
 from trajectory.types.create_benchmark_task_append_response import CreateBenchmarkTaskAppendResponse
@@ -28,6 +29,56 @@ class Tasks(APIResource):
   @cached_property
   def with_raw_response(self) -> TasksWithRawResponse:
     return TasksWithRawResponse(self)
+
+  def list(
+    self,
+    bench_id: str,
+    *,
+    cursor: str | None | Omit = omit,
+    limit: int | Omit = omit,
+    sort: str | None | Omit = omit,
+    order: Literal["asc", "desc"] | Omit = omit,
+    search: str | None | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> SyncPage[BenchmarkSpecTask]:
+    """List Benchmark Spec Tasks
+
+    Args:
+      extra_headers: Send extra headers
+
+      extra_query: Add additional query parameters to the request
+
+      extra_body: Add additional JSON properties to the request
+
+      timeout: Override the client-level default timeout for this request, in seconds
+    """
+    if isinstance(bench_id, str) and not bench_id:
+      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    return self._get(
+      path_template(
+        "/api/v1/benchmarks/{bench_id}/tasks",
+        bench_id=bench_id,
+      ),
+      cast_to=SyncPage[BenchmarkSpecTask],
+      options=make_request_options(
+        params=maybe_transform(
+          {
+            "cursor": cursor,
+            "limit": limit,
+            "sort": sort,
+            "order": order,
+            "search": search,
+          }
+        ),
+        extra_headers=extra_headers,
+        extra_query=extra_query,
+        extra_body=extra_body,
+        timeout=timeout,
+      ),
+    )
 
   def count(
     self,
@@ -252,6 +303,7 @@ class Tasks(APIResource):
 class TasksWithRawResponse:
   def __init__(self, resource: Tasks) -> None:
     self._resource = resource
+    self.list = to_raw_response_wrapper(resource.list)
     self.count = to_raw_response_wrapper(resource.count)
     self.diff = to_raw_response_wrapper(resource.diff)
     self.append = to_raw_response_wrapper(resource.append)

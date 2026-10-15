@@ -15,7 +15,7 @@ import cxxheaderparser.errors
 import cxxheaderparser.simple
 import cxxheaderparser.types
 import pycparser
-from archinfo import Arch, Endness
+from archinfo import Arch, ArchARM, ArchS390X, Endness
 from pycparser import c_ast
 
 import angr
@@ -290,6 +290,7 @@ class SimType:
             obj.members = _decode(members_json)
             return obj
 
+        late = {field: kwargs.pop(field) for field in cls._late_json_args(kwargs) if field in kwargs}
         for field, value in kwargs.items():
             kwargs[field] = _decode(value)
         obj = cls(**kwargs)
@@ -299,7 +300,22 @@ class SimType:
             isinstance(obj, SimUnion) and obj.name not in (None, _UNION_ANON_NAME)
         ):
             decoded[obj.name] = obj
+        if late:
+            obj._set_late_json_args({field: _decode(value) for field, value in late.items()})
         return obj
+
+    @classmethod
+    def _late_json_args(cls, kwargs: dict[str, Any]) -> tuple[str, ...]:  # pylint:disable=unused-argument
+        """
+        Constructor arguments (of the undecoded ``kwargs``) that from_json decodes only after it has created and
+        registered the instance, so that references back to the type from inside them resolve to the instance. They
+        are applied with _set_late_json_args().
+        """
+        return ()
+
+    def _set_late_json_args(self, args: dict[str, Any]) -> None:
+        for field, value in args.items():
+            setattr(self, field, value)
 
 
 class TypeRef(SimType):
@@ -4733,6 +4749,23 @@ def parse_cpp_file(cpp_decl, with_param_names: bool = False):  # pylint: disable
             func_decls[func_name] = proto
 
     return func_decls, {}
+
+
+def mangled_long_double_as_double(proto: SimTypeFunction, arch: Arch) -> SimTypeFunction:
+    """
+    Make each `long double` in a prototype parsed from an Itanium-mangled name a `double` where the mangling "e" means
+    a plain double: on ARM, whose AAPCS long double is a double, and on s390x, where GCC mangles the 128-bit long double
+    as "g" (__float128) and emits "e" only for -mlong-double-64 code (e.g., libstdc++'s compat symbols).
+    """
+    if not isinstance(arch, (ArchARM, ArchS390X)):
+        return proto
+    proto = proto.copy()
+    proto.args = tuple(
+        SimTypeDouble(label=arg.label) if isinstance(arg, SimTypeLongDouble) else arg for arg in proto.args
+    )
+    if isinstance(proto.returnty, SimTypeLongDouble):
+        proto.returnty = SimTypeDouble(label=proto.returnty.label)
+    return proto
 
 
 if pycparser is not None:

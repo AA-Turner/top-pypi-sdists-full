@@ -232,6 +232,54 @@ class WorkflowService:
             json_data=request.model_dump(exclude_none=True),
         )
 
+    def publish(self, workflow_id: str, categories: list[str] | None = None) -> dict:
+        """Publish a workflow to the marketplace, setting ``is_global=True``.
+
+        Args:
+            workflow_id: ID of the workflow to publish
+            categories: Optional list of category IDs for marketplace classification
+
+        Returns:
+            Publication confirmation
+        """
+        body = {}
+        if categories:
+            body["categories"] = categories
+        return self._api.post(
+            f"/v1/workflows/{workflow_id}/marketplace/publish",
+            dict,
+            json_data=body if body else None,
+        )
+
+    def marketplace_validate(self, workflow_id: str) -> dict:
+        """Validate a workflow before publishing to the marketplace.
+
+        Surfaces the credential/warning review for the pending publish without
+        changing ``is_global``.
+
+        Args:
+            workflow_id: ID of the workflow to validate
+
+        Returns:
+            Validation result, including any credential warnings
+        """
+        return self._api.post(
+            f"/v1/workflows/{workflow_id}/marketplace/publish/validate", dict
+        )
+
+    def unpublish(self, workflow_id: str) -> dict:
+        """Unpublish a workflow from the marketplace, setting ``is_global=False``.
+
+        Args:
+            workflow_id: ID of the workflow to unpublish
+
+        Returns:
+            Unpublication confirmation
+        """
+        return self._api.post(
+            f"/v1/workflows/{workflow_id}/marketplace/unpublish", dict
+        )
+
     def executions(self, workflow_id: str) -> WorkflowExecutionService:
         """Get workflow execution service for the specified workflow.
 

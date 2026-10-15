@@ -313,7 +313,6 @@ fn initial_stack_growth_limit(
     reported_lowest: usize,
 ) -> Option<usize> {
     let mut mapping_below_ends = 0;
-    // The mapping `sp` is in, once its first line has been read.
     let mut stack = None;
     for line in smaps.lines() {
         let mapping = line.split_whitespace().next().and_then(|range| {
@@ -463,9 +462,6 @@ pub(crate) fn check_stack_with(
 ) -> (StackDecision, StackEvent, Option<OmittingValues>) {
     STACK_GUARD.with(|guard| {
         let remaining = guard.remaining();
-        // With plenty of room, nothing remembered and no outer event
-        // omitting values, every event is recorded in full: the common case,
-        // decided without the bookkeeping.
         if remaining >= NEAR_STACK_END_BYTES + ENTRY_DEPTH_SLACK_BYTES
             && !guard.omitting.get()
             && guard.frames.borrow().entries.is_empty()
@@ -519,10 +515,6 @@ fn identifies_frames(remaining: usize) -> bool {
 
 #[inline]
 fn decide(frames: &mut NearEndFrames, event: StackEvent, remaining: usize) -> StackDecision {
-    // Frames exit innermost first, so with this much more room any
-    // remembered frame missed its exit. (Greenlets, which swap frames on
-    // the same stack, also get here: that costs pairing within a switched
-    // greenlet, not safety.)
     if frames.entries.last().is_some_and(|&(_, entered_at)| {
         entered_at.saturating_add(ENTRY_DEPTH_SLACK_BYTES) < remaining
     }) {
@@ -543,14 +535,11 @@ fn decide(frames: &mut NearEndFrames, event: StackEvent, remaining: usize) -> St
             match frames.find(id) {
                 Some(index) => {
                     let skipped = index >= frames.recorded;
-                    // Anything entered after this frame has exited too, so a
-                    // frame still listed above it missed its exit.
                     frames.truncate(index);
                     if skipped {
                         return StackDecision::Skip;
                     }
                 }
-                // Inside a skipped frame.
                 None if frames.skipping() => return StackDecision::Skip,
                 None => {}
             }
@@ -651,9 +640,7 @@ impl StackSkips {
             self.remaining.load(Ordering::Relaxed) / 1024,
             STACK_RESERVE_BYTES / 1024,
         );
-        // Logging runs Python code, and plenty of it. Short of stack (a
-        // session saved from where its events were skipped), write to fd 2
-        // without touching the interpreter.
+        // Near the stack limit, write to fd 2 because logging runs Python code.
         if STACK_GUARD.with(StackGuard::remaining) >= STACK_RESERVE_BYTES {
             if let Ok(args) = PyTuple::new(py, [message.as_str()]) {
                 log_warning(py, args, None);
@@ -711,15 +698,11 @@ pub(crate) fn log_warning(py: Python, args: Bound<'_, PyTuple>, exc_info: Option
     })();
     if let Err(logging_error) = logged {
         if logging_error.is_instance_of::<PyRecursionError>(py) {
-            // Out of stack: any further Python call, the unraisable hook
-            // included, would fail the same way. Write straight to fd 2.
             if !RECURSION_REPORTED.swap(true, Ordering::Relaxed) {
                 let _ = std::io::stderr().write_all(RECURSION_MESSAGE);
             }
             return;
         }
-        // `write_unraisable` reports "Exception ignored in: <context>", so
-        // the warning text itself survives a broken logging setup.
         let context = PyString::new(py, &format!("Kolo: {summary}"));
         if let Some(original) = original {
             original.write_unraisable(py, Some(context.as_any()));
@@ -827,18 +810,15 @@ mod tests {
             grows_to(2 << 20),
             Some(STACK_END - (2 << 20) + INITIAL_STACK_MARGIN_BYTES)
         );
-        // No further than CPython takes it to go, whatever is allowed.
         let capped = Some(RANDOM - (4 << 20));
         assert_eq!(grows_to(64 << 20), capped);
         assert_eq!(grows_to(usize::MAX), capped);
-        // A limit smaller than what is mapped doesn't take mapped stack away.
         assert_eq!(grows_to(64 * 1024), Some(STACK_START));
         assert_eq!(grows_to(0), Some(STACK_START));
     }
 
     #[test]
     fn a_mapping_under_the_initial_stack_stops_its_growth() {
-        // 2 MiB under the stack's start.
         let below = "7f4e8000-7f4e9000 rw-p 00000000 00:00 0\nVmFlags: rd wr mr mw me ac\n";
         let smaps = smaps_with(below, STACK_FLAGS);
         let neighbour_end = 0x7f4e_9000;
@@ -849,12 +829,9 @@ mod tests {
             grows_to(GAP),
             Some(neighbour_end + GAP + INITIAL_STACK_MARGIN_BYTES)
         );
-        // A larger gap (64 KiB pages, or `stack_guard_gap=` on the kernel's
-        // command line): nothing to grow into.
         assert_eq!(grows_to(256 * 65536), Some(STACK_START));
         assert_eq!(grows_to(1024 * 4096), Some(STACK_START));
         assert_eq!(grows_to(usize::MAX), Some(STACK_START));
-        // Right under the stack.
         let below = "7f6e0000-7f6e9000 rw-p 00000000 00:00 0\nVmFlags: rd wr mr mw me ac\n";
         let smaps = smaps_with(below, STACK_FLAGS);
         assert_eq!(
@@ -868,27 +845,19 @@ mod tests {
         let grows_to = |smaps: &str, sp, random| {
             initial_stack_growth_limit(smaps, sp, random, 8 << 20, GAP, 4 << 20, STACK_START)
         };
-        // A stack an application mapped right above the initial one and
-        // gave to a thread: near the kernel's random bytes, but a mapping
-        // of its own.
         let smaps = "7f6e9000-7f70a000 rw-p 00000000 00:00 0 [stack]\n\
                      VmFlags: rd wr mr mw me gd ac\n\
                      7f70a000-7f71a000 rw-p 00000000 00:00 0\n\
                      VmFlags: rd wr mr mw me ac\n";
         assert_eq!(grows_to(smaps, STACK_END + 0x8000, RANDOM), None);
-        // The random bytes are elsewhere: not the stack the kernel set up.
         let smaps = smaps_with(FAR_BELOW, STACK_FLAGS);
         assert_eq!(grows_to(&smaps, SP, STACK_END + 0x10_0000), None);
-        // Not called `[stack]`.
         let unnamed = smaps.replace("[stack]", "");
         assert_eq!(grows_to(&unnamed, SP, RANDOM), None);
         // A fixed mapping put where the initial stack was: it keeps the
         // name, but doesn't grow down.
         let fixed = smaps_with(FAR_BELOW, "rd wr mr mw me ac");
         assert_eq!(grows_to(&fixed, SP, RANDOM), None);
-        // A buffer inside the initial stack, used as a thread's stack (and
-        // then forked from, which makes that thread the main one): musl has
-        // it begin above the mapping's start.
         assert_eq!(
             initial_stack_growth_limit(
                 &smaps,
@@ -901,16 +870,13 @@ mod tests {
             ),
             None
         );
-        // No flags to tell (`gd` in another mapping's doesn't count).
         let flagless = smaps.replace("VmFlags: rd wr mr mw me gd ac\n", "");
         assert_eq!(grows_to(&flagless, SP, RANDOM), None);
         let truncated = smaps.split("Rss:").next().expect("the stack's first lines");
         assert_eq!(grows_to(truncated, SP, RANDOM), None);
-        // A stack pointer in no mapping, and nothing readable.
         assert_eq!(grows_to(&smaps, 0x1000, RANDOM), None);
         assert_eq!(grows_to("", SP, RANDOM), None);
         assert_eq!(grows_to("not a mapping\n", SP, RANDOM), None);
-        // With all of that in order, it grows.
         assert!(grows_to(&smaps, SP, RANDOM).is_some());
     }
 
@@ -921,7 +887,6 @@ mod tests {
             stack_guard_gap_pages("BOOT_IMAGE=/vmlinuz ro quiet\n"),
             Some(256)
         );
-        // Set at boot, in any of the ways the kernel reads: not guessed at.
         for command_line in [
             "ro stack_guard_gap=1024 quiet\n",
             "stack_guard_gap=\"1024\"",
@@ -945,7 +910,6 @@ mod tests {
             // SAFETY: `on_stack` points to the `&mut dyn FnMut()` below,
             // which outlives this thread: its creator joins it.
             let on_stack = unsafe { &mut *on_stack.cast::<&mut (dyn FnMut() + Send)>() };
-            // A panic here would abort the tests: assert after the join.
             on_stack();
             std::ptr::null_mut()
         }
@@ -990,7 +954,6 @@ mod tests {
     #[test]
     fn a_thread_is_never_credited_with_more_stack_than_it_has() {
         for bytes in [192 << 10, 512 << 10, 1 << 20, 4 << 20, 16 << 20] {
-            // Twice: a stale answer from the thread before would show.
             for _ in 0..2 {
                 let mut measured = (0, 0);
                 let lowest = on_stack_of_known_bounds(bytes, &mut || {
@@ -998,14 +961,11 @@ mod tests {
                 });
                 let (sp, remaining) = measured;
                 assert!((lowest..lowest + bytes).contains(&sp), "{sp:#x}");
-                // No more than lies below the stack pointer (sampled in the
-                // same frame as the measurement, or the one above it).
                 assert!(
                     remaining <= sp - lowest + 1024,
                     "{remaining} left with {} below the stack pointer of a {bytes} byte stack",
                     sp - lowest
                 );
-                // And it is this stack that was measured, from near its top.
                 assert!(remaining >= bytes / 2, "{remaining} of {bytes}");
             }
         }
@@ -1052,20 +1012,13 @@ mod tests {
 
     fn assert_measured_within_the_stack(asked_for: usize, measured: (usize, Option<usize>)) {
         let (remaining, mapped) = measured;
-        // The OS said where the stack ends, and the thread is near its top.
         assert!(remaining >= asked_for / 4 * 3, "{remaining} of {asked_for}");
         match mapped {
-            // Linux: no more than is mapped there. Not "no more than was
-            // asked for": glibc gives a new thread the cached stack of one
-            // that exited, when that is up to four times the size
-            // requested. The thread then has that much stack, and the stack
-            // check is right to say so. (The exact check is
-            // `a_thread_is_never_credited_with_more_stack_than_it_has`.)
+            // Bound remaining stack by the mapped size; glibc may reuse a stack up to four times the requested size.
             Some(mapped) => assert!(
                 remaining <= mapped + ROUNDING_BYTES,
                 "{remaining} left of {mapped} mapped, having asked for {asked_for}"
             ),
-            // Elsewhere a thread gets the stack it asked for.
             None => assert!(
                 remaining <= asked_for + ROUNDING_BYTES,
                 "{remaining} of {asked_for}"
@@ -1080,7 +1033,6 @@ mod tests {
 
     #[test]
     fn threads_coming_and_going_are_never_credited_with_more_stack_than_they_have() {
-        // KOLO_STACK_STRESS_ROUNDS: more rounds, for a stress run.
         let rounds = std::env::var("KOLO_STACK_STRESS_ROUNDS")
             .ok()
             .and_then(|rounds| rounds.parse().ok())
@@ -1096,7 +1048,6 @@ mod tests {
         ];
         let mut on_larger_stacks = 0;
         for round in 0..rounds {
-            // Up to three threads parked on stacks of their own meanwhile.
             let parked: Vec<_> = (0..round % 4)
                 .map(|index| {
                     let (wake, parked) = std::sync::mpsc::channel::<()>();
@@ -1120,7 +1071,6 @@ mod tests {
                 thread.join().expect("parked thread");
             }
         }
-        // About half of them on glibc, which reuses stacks; none elsewhere.
         eprintln!("{on_larger_stacks} of {rounds} threads ran on a larger stack than requested");
     }
 
@@ -1136,8 +1086,6 @@ mod tests {
                 decision(StackEvent::Exit(1)),
             ));
         };
-        // On Linux a stack made here: glibc may give a thread that asks for
-        // 192 KiB the larger stack of one that exited.
         #[cfg(target_os = "linux")]
         on_stack_of_known_bounds(192 * 1024, &mut on_small_stack);
         #[cfg(not(target_os = "linux"))]
@@ -1158,8 +1106,6 @@ mod tests {
             assert_eq!(decision(StackEvent::Enter(1)), Record);
             assert_eq!(decision(StackEvent::Exit(1)), Record);
             STACK_GUARD.with(|guard| {
-                // As when running on another stack than the thread's own,
-                // lower in memory: not known to have room.
                 let limit = guard.limit.replace(usize::MAX - 1);
                 assert_eq!(guard.remaining(), 0);
                 assert_eq!(check_stack(StackEvent::Enter(1)).0, Skip);
@@ -1174,23 +1120,16 @@ mod tests {
         on_small_thread(|| {
             assert_eq!(decision(StackEvent::Enter(1)), Record);
             near_stack_end(&mut || {
-                // A frame entered with too little stack is skipped up to and
-                // including its exit, with everything inside it.
                 assert_eq!(decision(StackEvent::Enter(2)), Skip);
                 assert_eq!(decision(StackEvent::Enter(3)), Skip);
                 assert_eq!(decision(StackEvent::Within), Skip);
-                // An exit without an entry (an undisableable unwind) doesn't
-                // end frame 3.
                 assert_eq!(decision(StackEvent::Exit(9)), Skip);
                 assert_eq!(decision(StackEvent::Exit(3)), Skip);
                 assert_eq!(decision(StackEvent::Within), Skip);
                 assert_eq!(decision(StackEvent::Exit(2)), Skip);
-                // The exit of a frame whose entry was traced is traced.
                 assert_eq!(decision(StackEvent::Exit(1)), Record);
-                // Leave a skipped frame without its exit.
                 assert_eq!(decision(StackEvent::Enter(4)), Skip);
             });
-            // With room again, a missed exit doesn't stop tracing.
             assert_eq!(decision(StackEvent::Within), Record);
             assert_eq!(decision(StackEvent::Exit(5)), Record);
         });
@@ -1200,17 +1139,12 @@ mod tests {
     fn recorded_entry_near_the_end_keeps_its_exit() {
         on_small_thread(|| {
             with_stack_below(NEAR_STACK_END_BYTES, &mut || {
-                // Recursion: every level reports the same code object.
                 assert_eq!(decision(StackEvent::Enter(1)), Record);
                 near_stack_end(&mut || {
                     assert_eq!(decision(StackEvent::Enter(2)), Skip);
                     assert_eq!(decision(StackEvent::Enter(1)), Skip);
                     assert_eq!(decision(StackEvent::Exit(1)), Skip);
-                    // Frame 2 never reports its exit.
                     with_stack_below(EXIT_STACK_RESERVE_BYTES, &mut || {
-                        // E.g. `PY_UNWIND` while a `RecursionError`
-                        // propagates, deeper than its entry: recorded,
-                        // without the values, and frame 2 is over.
                         assert_eq!(decision(StackEvent::Exit(1)), RecordWithoutValues);
                     });
                 });
@@ -1227,12 +1161,7 @@ mod tests {
             with_stack_below(NEAR_STACK_END_BYTES, &mut || {
                 assert_eq!(decision(StackEvent::Enter(1)), Record);
                 with_stack_below(EXIT_STACK_RESERVE_BYTES, &mut || {
-                    // The return matches frame 1, but Kolo raises an
-                    // interrupt into the program before recording it...
                     assert_eq!(decision(StackEvent::Exit(1)), RecordWithoutValues);
-                    // ...so CPython reports frame 1's exit again, now with
-                    // no entry left to match. Kolo's callback records it,
-                    // as the exit it still owes frame 1.
                     assert_eq!(decision(StackEvent::Exit(1)), RecordWithoutValues);
                 });
             });
@@ -1241,18 +1170,14 @@ mod tests {
 
     #[test]
     fn an_exit_ends_the_frames_entered_after_it() {
-        // Decisions at given stack depths (KiB left), without a real stack.
         let mut frames = NearEndFrames {
             entries: Vec::new(),
             recorded: 0,
         };
         let mut at = |event, kib: usize| decide(&mut frames, event, kib * 1024);
         assert_eq!(at(StackEvent::Enter(1), 300), Record);
-        // Frame 2 is skipped, and CPython never reports its exit.
         assert_eq!(at(StackEvent::Enter(2), 250), Skip);
-        // Frame 1 exits close to frame 2's depth: frame 2 is over too...
         assert_eq!(at(StackEvent::Exit(1), 270), Record);
-        // ...so its sibling, entered with room again, is recorded.
         assert_eq!(at(StackEvent::Enter(3), 265), Record);
         assert_eq!(at(StackEvent::Within, 265), Record);
         assert_eq!(at(StackEvent::Exit(3), 265), Record);
@@ -1263,14 +1188,11 @@ mod tests {
         on_small_thread(|| {
             with_stack_below(NEAR_STACK_END_BYTES, &mut || {
                 assert_eq!(decision(StackEvent::Enter(1)), Record);
-                // Kolo filtered frame 2 out; its exits skip the check.
                 assert_eq!(decision(StackEvent::Enter(2)), Record);
                 forget_entry(2);
                 assert_eq!(decision(StackEvent::Enter(3)), Record);
                 near_stack_end(&mut || {
                     assert_eq!(decision(StackEvent::Enter(4)), Skip);
-                    // A frame at frame 2's old address exits: it must not
-                    // end frame 4's skipping (or frame 3).
                     assert_eq!(decision(StackEvent::Exit(2)), Skip);
                     assert_eq!(decision(StackEvent::Within), Skip);
                     assert_eq!(decision(StackEvent::Exit(4)), Skip);
@@ -1291,8 +1213,6 @@ mod tests {
                 outer.expect("marked").restore();
             });
             assert!(!values_omitted());
-            // A callback nested in a values-free one, with room, records
-            // its own event in full.
             let outer = OmittingValues::start();
             let (decision, nested) = check_stack(StackEvent::Exit(2));
             assert_eq!(decision, Record);
@@ -1334,13 +1254,9 @@ mod tests {
     fn exit_of_a_frame_that_never_started_leaves_the_entries_alone() {
         on_small_thread(|| {
             with_stack_below(NEAR_STACK_END_BYTES, &mut || {
-                // Direct recursion: the caller's frame is remembered.
                 assert_eq!(decision(StackEvent::Enter(1)), Record);
                 near_stack_end(&mut || {
                     assert_eq!(decision(StackEvent::Enter(2)), Skip);
-                    // An unwind from a call that failed before RESUME, which
-                    // the frame lookup would attribute to its caller: dropped
-                    // without ending frame 1 (and frame 2 above it).
                     let (stack, _, omitting) = check_stack_with(StackEvent::Exit(1), |_| None);
                     assert_eq!(stack, Skip);
                     assert!(omitting.is_none());
@@ -1359,7 +1275,6 @@ mod tests {
                 with_stack_below(MINIMAL_EXIT_STACK_RESERVE_BYTES, &mut || {
                     assert_eq!(decision(StackEvent::Exit(1)), Skip);
                 });
-                // Its entry is gone, so a later exit isn't taken for it.
                 assert_eq!(decision(StackEvent::Within), Record);
             });
         });
@@ -1369,11 +1284,8 @@ mod tests {
     fn unmatched_exit_deep_in_the_stack_is_handled_without_values() {
         on_small_thread(|| {
             with_stack_below(EXIT_STACK_RESERVE_BYTES, &mut || {
-                // E.g. `PY_UNWIND` from excluded code whose `PY_START` was
-                // disabled: nothing was entered on the way down. Handled
-                // like any exit this deep, without its values.
+                // An excluded PY_START may be disabled while its PY_UNWIND still arrives.
                 assert_eq!(decision(StackEvent::Exit(7)), RecordWithoutValues);
-                // It doesn't start skipping anything else.
                 assert_eq!(decision(StackEvent::Exit(7)), RecordWithoutValues);
                 with_stack_below(MINIMAL_EXIT_STACK_RESERVE_BYTES, &mut || {
                     assert_eq!(decision(StackEvent::Exit(7)), Skip);

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from trajectory._exceptions import TrajectoryError
 from trajectory._models import BaseModel
 from trajectory.types.batch_item_failure import BatchItemFailure
@@ -13,7 +15,7 @@ class WorkflowError(TrajectoryError):
     message: str,
     *,
     failures: list[BatchItemFailure],
-    partial_result: BaseModel | None = None,
+    partial_result: BaseModel | Sequence[BaseModel] | None = None,
   ) -> None:
     super().__init__(message)
     self.message = message

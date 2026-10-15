@@ -40,6 +40,9 @@ class SeoPagePerformance(Model):
     strategy = TextField(null=False)
     performance_score = DecimalField()
     lighthouse = JSONBField(null=False, default={})
+    # Google's real-visitor (CrUX) data captured with the same run; the CWV
+    # checks grade it ahead of the lab number when present.
+    crux = JSONBField()
     observed_at = DateTimeField(null=False)
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"

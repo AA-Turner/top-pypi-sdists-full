@@ -348,7 +348,7 @@ def test_a_size_of_zero_or_below_is_refused_so_the_worker_runs_as_bites(monkeypa
 
 
 
-def test_the_writer_compacts_at_250k_and_the_reader_at_120k_by_default():
+def test_the_writer_compacts_at_250k_and_the_reader_starts_fresh_at_120k_by_default():
     """The writer's size is 250K (Richard, 2026-10-07; it was 950K): every round
     re-reads the whole context. Read in a fresh interpreter with the overrides
     unset, so a test that patched the module cannot pass it."""

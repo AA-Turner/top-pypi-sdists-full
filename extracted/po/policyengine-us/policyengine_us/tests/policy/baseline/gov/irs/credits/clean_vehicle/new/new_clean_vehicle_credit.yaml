@@ -1,0 +1,8 @@
+- name: Potential under limit
+  period: 2021
+  input:
+    new_clean_vehicle_credit_eligible: true
+    new_clean_vehicle_credit_credit_limit: 300
+    new_clean_vehicle_credit_potential: 100
+  output:
+    new_clean_vehicle_credit: 100

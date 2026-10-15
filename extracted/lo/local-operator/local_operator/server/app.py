@@ -57,9 +57,11 @@ from local_operator.server.routes import (
     desktop_quota,
     desktop_radient,
     desktop_runtimes,
+    desktop_session_files,
     desktop_sessions,
     desktop_team_bridge,
     desktop_tunnel,
+    desktop_tunnel_setup,
     desktop_wakes,
     health,
     i18n,
@@ -325,6 +327,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # "this daemon is going away" and two tasks that must observe it.
     reload_task: asyncio.Task[None] | None = None
     reload_stop: asyncio.Event | None = None
+    # The reload watch itself: ``install`` answers None on every boot that cannot
+    # be armed, and it is read BELOW this block (the heartbeat that publishes the
+    # rolling contract) as well as inside it. Declaring it here keeps the
+    # outside-block read bound on a boot that published no record at all.
+    reload_watch: serve_reload.ReloadWatch | None = None
     if announced is not None:
         # THE NAMESPACE'S OWN REAPER, ON THE ONE MOMENT A NEW WRITER JOINS IT.
         # ``run/serve`` had no production reaper at all until this call, and
@@ -382,6 +389,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             # signal handlers all answer None, and all three would be lying if
             # this read `listener_fd is not None` instead.
             reloadable=reload_watch is not None,
+            rolling_reload_contract=serve_reload.rolling_contract(app),
             access_token=surface_keys.access_token,
             boot_generation=surface_keys.generation,
         )
@@ -484,6 +492,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.warning("hub update runner could not start", exc_info=True)
         app.state.hub_sync = None
 
+    # The record was created before the autonomous hub producer. Publish safety
+    # only AFTER every real hook exists; absent/failed hub startup stays unknown.
+    if serve_publisher is not None and reload_watch is not None:
+        try:
+            serve_publisher.heartbeat(rolling_reload_contract=serve_reload.rolling_contract(app))
+        except Exception:  # noqa: BLE001 — failed publication never authorizes reload
+            logger.warning("rolling reload capability could not be published", exc_info=True)
+
     yield
     try:
         if hub_sync_task is not None:
@@ -492,6 +508,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             hub_sync_task.cancel()
             await asyncio.gather(hub_sync_task, return_exceptions=True)
         app.state.hub_sync = None
+        # Setup owns blocking service work; join it before closing auth or
+        # allowing event-loop teardown to cancel the worker under its lease.
+        try:
+            await desktop_tunnel_setup.drain(app)
+        except (ValueError, OSError, KeyError, TypeError):
+            logger.warning(
+                "Desktop tunnel setup finished with an unavailable response during shutdown"
+            )
         # Clean up on shutdown
         desktop_auth = getattr(app.state, "desktop_auth", None)
         if desktop_auth is not None:
@@ -830,6 +854,7 @@ app.include_router(desktop_radient.router)
 # whatever the order: no sibling declares a single-segment `/v1/desktop/{...}`
 # template that could swallow it.
 app.include_router(desktop_tunnel.router)
+app.include_router(desktop_tunnel_setup.router)
 # Agent messages (Team Bridge, capability `features.team_bridge`):
 # `/v1/desktop/team-bridge/{status,settings,allowlist}`. Registered after the
 # tunnel block for the reason every block here gives -- FastAPI matches in
@@ -890,6 +915,18 @@ app.include_router(desktop_approvals.router)
 # `/code-requests` child of a session, and the two-segment `/refresh` path is declared
 # after its own parent here, so the literal suffix cannot be swallowed.
 app.include_router(desktop_code_requests.router)
+# The SESSION-FILE index (`features.session_files`): the per-session list of files the
+# conversation and its subagents produced, and the materialise child that copies a digest-only
+# artifact out to a real file. Registered after the code-request block for the same
+# declaration-order reason; its templates (`/v1/desktop/sessions/{id}/files` and
+# `/files/{file_id}/materialise`) match no sessions-router route (no `/files` child of a
+# session is declared there) and the POST's literal suffix cannot be swallowed by a parent.
+app.include_router(desktop_session_files.router)
+
+# Install the loop-local work fence before lifespan publishes its reload
+# capability. It drains real request bodies, not just endpoint construction;
+# established replayable desktop feeds retain their independent runtime owners.
+app.add_middleware(serve_reload.ReloadAdmissionMiddleware, owner=app)
 
 # Add CORS middleware
 app.add_middleware(

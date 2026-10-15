@@ -39,7 +39,10 @@ use squawk_parser::SyntaxKind;
 pub use self::node_ext::{LanguageName, is_quoted_name_node, normalize_name_node};
 pub use self::{
     generated::tokens::*,
-    node_ext::{BinOp, CastKind, IntegerRadix, LitKind, PostfixOp, PrefixOp},
+    node_ext::{
+        BinOp, CastKind, IntegerRadix, LitKind, OpSigOperand, PartitionStrategyKind, PostfixOp,
+        PrefixOp, RangeBoundKeyword, RoleKind, RuleEventKind, SqlValueFunction, VertexOrEdgeKind,
+    },
     nodes::*,
     traits::{HasCreateTable, HasPathRef, HasSelectTail, HasWithClause, NameLike},
 };
@@ -58,12 +61,14 @@ pub trait AstNode {
         Self: Sized;
 
     fn syntax(&self) -> &SyntaxNode;
+    #[must_use]
     fn clone_for_update(&self) -> Self
     where
         Self: Sized,
     {
         Self::cast(self.syntax().clone_for_update()).unwrap()
     }
+    #[must_use]
     fn clone_subtree(&self) -> Self
     where
         Self: Sized,

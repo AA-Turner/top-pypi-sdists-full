@@ -162,8 +162,11 @@ namespace bv {
 
             if (lo == hi + 1)
                 return expr_ref(m.mk_true(), m);
-            else 
-                return expr_ref(m_bv.mk_ule(m_bv.mk_bv_add(t, m_bv.mk_numeral(-lo, s)), m_bv.mk_numeral(hi - lo, s)), m);
+            else {
+                expr_ref lhs(m_bv.mk_bv_add(t, m_bv.mk_numeral(-lo, s)), m);
+                expr_ref rhs(m_bv.mk_numeral(hi - lo, s), m);
+                return expr_ref(m_bv.mk_ule(lhs, rhs), m);
+            }
         }
 
         // 
@@ -189,8 +192,9 @@ namespace bv {
                     unsigned num_bits = b.hi().get_num_bits();
                     unsigned bv_size = m_bv.get_bv_size(arg);
                     if (0 < num_bits && num_bits < bv_size) {
-                        m_args.push_back(m_bv.mk_concat(m_bv.mk_zero(bv_size - num_bits), 
-                                                        m_bv.mk_extract(num_bits - 1, 0, arg)));                        
+                        expr_ref zero(m_bv.mk_zero(bv_size - num_bits), m);
+                        expr_ref low(m_bv.mk_extract(num_bits - 1, 0, arg), m);
+                        m_args.push_back(m_bv.mk_concat(zero, low));
                         simplified = true;
                     }
                     else 
@@ -209,6 +213,14 @@ namespace bv {
             return false;
         }
 
+        bool is_nonnegative(expr* t) const {
+            interval b;
+            unsigned sz = m_bv.get_bv_size(t);
+            return m_bound.find(t, b) &&
+                b.lo() <= b.hi() &&
+                b.hi() < rational::power_of_two(sz - 1);
+        }
+
         bool simplify_core(expr* t, expr_ref& result) {
             expr* t1;
             interval b;
@@ -216,6 +228,14 @@ namespace bv {
             if (m_bound.find(t, b) && b.is_singleton()) {
                 result = m_bv.mk_numeral(b.lo(), m_bv.get_bv_size(t));
                 return true;
+            }
+
+            if (m_bv.is_sign_ext(t, t1)) {
+                if (is_nonnegative(t1)) {
+                    unsigned n = m_bv.get_bv_size(t) - m_bv.get_bv_size(t1);
+                    result = m_bv.mk_zero_extend(n, t1);
+                    return true;
+                }
             }
 
             if (zero_patch(t, result))

@@ -13,7 +13,8 @@ use crate::generated::types::CodeUnit;
 use super::graph::RegistryGraph;
 use super::loader::RegistryLoader;
 use super::query::RegistryQuery;
-use super::{project_fields, CodeUnitRegistry};
+use super::storage::index::{IndexValue, IndexedField, Prefilter};
+use super::{project_unit, CodeUnitRegistry};
 
 /// Per-call in-memory registry state for query operations.
 ///
@@ -32,6 +33,68 @@ impl InMemoryRegistry {
     /// Malformed JSON or ID/filename mismatches surface as errors here.
     pub(super) fn build(registry: &CodeUnitRegistry) -> Result<Self> {
         Ok(Self::new(RegistryLoader::new(registry).read_all_units()?))
+    }
+
+    /// Build state from only the units that may satisfy `prefilter`, or
+    /// `None` when the backend can't push it down. Same strict loading as
+    /// [`Self::build`]; the units are a superset of the matches.
+    pub(super) fn build_candidates(
+        registry: &CodeUnitRegistry,
+        prefilter: &Prefilter,
+    ) -> Result<Option<Self>> {
+        Ok(RegistryLoader::new(registry)
+            .read_candidate_units(prefilter)?
+            .map(Self::new))
+    }
+
+    /// Like [`Self::build_candidates`], plus the transitive closure of the
+    /// candidates' dependencies, fetched level by level by ID.
+    ///
+    /// Follows the same edges as
+    /// [`RegistryQuery::include_transitive_dependencies`]
+    /// (`dependencies.dependsOn[*].id`), so expanding a match set over this
+    /// state gives the same result as over a full load. Returns `None` if
+    /// any level can't be pushed down.
+    pub(super) fn build_candidates_with_dependencies(
+        registry: &CodeUnitRegistry,
+        prefilter: &Prefilter,
+    ) -> Result<Option<Self>> {
+        let loader = RegistryLoader::new(registry);
+        let Some(mut units) = loader.read_candidate_units(prefilter)? else {
+            return Ok(None);
+        };
+        // IDs loaded or already requested; dangling dependency IDs are
+        // requested once and never again.
+        let mut seen: HashSet<String> = units.iter().filter_map(|u| u.id.clone()).collect();
+        let mut frontier = 0;
+        loop {
+            let wanted: Vec<String> = units[frontier..]
+                .iter()
+                .filter_map(|u| u.dependencies.as_ref())
+                .flat_map(|d| d.depends_on.iter().filter_map(|dep| dep.id.clone()))
+                .filter(|id| seen.insert(id.clone()))
+                .collect();
+            if wanted.is_empty() {
+                break;
+            }
+            frontier = units.len();
+            let level = Prefilter::In(
+                IndexedField::Id,
+                wanted.into_iter().map(IndexValue::Text).collect(),
+            );
+            let Some(fetched) = loader.read_candidate_units(&level)? else {
+                return Ok(None);
+            };
+            // Candidates repeat irregular documents on every level; keep
+            // each ID once.
+            let mut loaded: HashSet<String> = units.iter().filter_map(|u| u.id.clone()).collect();
+            units.extend(
+                fetched
+                    .into_iter()
+                    .filter(|u| u.id.as_ref().is_some_and(|id| loaded.insert(id.clone()))),
+            );
+        }
+        Ok(Some(Self::new(units)))
     }
 
     /// Construct state from already loaded units.
@@ -130,11 +193,7 @@ impl InMemoryRegistry {
             None => Ok(units),
             Some(fields) => units
                 .into_par_iter()
-                .map(|unit| {
-                    let json_value = serde_json::to_value(&unit)?;
-                    let projected = project_fields(&json_value, fields)?;
-                    serde_json::from_value(projected).map_err(Error::from)
-                })
+                .map(|unit| project_unit(&unit, fields))
                 .collect(),
         }
     }

@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: GitPython
-Version: 3.2.0
+Version: 3.2.1
 Summary: GitPython is a Python library used to interact with Git repositories
 Author-email: Sebastian Thiel <byronimo@gmail.com>, Michael Trier <mtrier@gmail.com>
 License: BSD-3-Clause
 Project-URL: Source code, https://github.com/gitpython-developers/GitPython
 Project-URL: Documentation, https://gitpython.readthedocs.io/en/stable/
+Project-URL: Changelog, https://github.com/gitpython-developers/GitPython/blob/main/doc/source/changes.rst
 Keywords: git
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console

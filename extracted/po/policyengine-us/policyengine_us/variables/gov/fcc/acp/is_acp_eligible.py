@@ -1,0 +1,46 @@
+from policyengine_us.model_api import *
+
+
+class is_acp_eligible(Variable):
+    value_type = bool
+    entity = SPMUnit
+    label = "Eligible for Affordable Connectivity Program"
+    documentation = "Eligible for Affordable Connectivity Program"
+    definition_period = YEAR
+    reference = [
+        # 47 U.S.C. 1752(a)(6): ACP qualification, including any Lifeline route.
+        "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title47-section1752&edition=prelim",
+        # 47 CFR 54.409(b): Tribal-specific programs add to the standard Lifeline routes.
+        "https://www.law.cornell.edu/cfr/text/47/54.409#b",
+    ]
+
+    def formula(spm_unit, period, parameters):
+        fcc = parameters(period).gov.fcc
+        categorically_eligible = np.any(
+            [
+                add(spm_unit, period, [program])
+                for program in fcc.acp.categorical_eligibility
+            ],
+            axis=0,
+        )
+        # ACP categorical eligibility points includes Lifeline categorical eligibility.
+        household = spm_unit.household
+        is_on_tribal_land = household("is_on_tribal_land", period)
+        non_tribal_lifeline_programs = add(
+            spm_unit, period, fcc.lifeline.categorical_eligibility
+        )
+        tribal_lifeline_programs = add(
+            spm_unit, period, fcc.lifeline.tribal_categorical_eligibility
+        )
+        # 47 CFR 54.409(b): the Tribal list adds to, not replaces, the
+        # standard Lifeline programs.
+        lifeline_categorically_eligible = (non_tribal_lifeline_programs > 0) | (
+            is_on_tribal_land & (tribal_lifeline_programs > 0)
+        )
+
+        fpg_eligible = spm_unit("fcc_fpg_ratio", period) <= fcc.acp.fpg_limit
+        # Cannot be simultaneously enrolled in Emergency Broadband Benefit.
+        ebb_enrolled = spm_unit("ebb", period) > 0
+        return (
+            categorically_eligible | fpg_eligible | lifeline_categorically_eligible
+        ) & ~ebb_enrolled

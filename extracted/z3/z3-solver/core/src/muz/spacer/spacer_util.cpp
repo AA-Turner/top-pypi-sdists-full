@@ -359,8 +359,9 @@ void expand_literals(ast_manager &m, expr_ref_vector &conjs) {
             rational two(2);
             for (unsigned j = 0; j < bv_size; ++j) {
                 parameter p(j);
-                expr *e = m.mk_eq(m.mk_app(bv.get_family_id(), OP_BIT1),
-                                  bv.mk_extract(j, j, c));
+                expr_ref one(m.mk_app(bv.get_family_id(), OP_BIT1), m);
+                expr_ref bit(bv.mk_extract(j, j, c), m);
+                expr *e = m.mk_eq(one, bit);
                 if ((r % two).is_zero()) { e = m.mk_not(e); }
                 r = div(r, two);
                 if (j == 0) 
@@ -798,12 +799,19 @@ struct adhoc_rewriter_rpp : public default_rewriter_cfg {
     }
 };
 
+static params_ref const& epp_params() {
+    static params_ref const p = [] {
+        params_ref result;
+        result.set_uint("min_alias_size", UINT_MAX);
+        result.set_uint("max_depth", UINT_MAX);
+        return result;
+    }();
+    return p;
+}
+
 mk_epp::mk_epp(ast *t, ast_manager &m, unsigned indent, unsigned num_vars,
                char const *var_prefix)
-    : mk_pp(t, m, m_epp_params, indent, num_vars, var_prefix), m_epp_expr(m) {
-    m_epp_params.set_uint("min_alias_size", UINT_MAX);
-    m_epp_params.set_uint("max_depth", UINT_MAX);
-
+    : mk_pp(t, m, epp_params(), indent, num_vars, var_prefix), m_epp_expr(m) {
     if (is_expr(m_ast)) {
         rw(to_expr(m_ast), m_epp_expr);
         m_ast = m_epp_expr;

@@ -27,6 +27,7 @@ from __future__ import annotations
 import random          # (hashlib left with the commit -- lobbybout owns it now)
 
 from rich.text import Text
+from rich.cells import cell_len, set_cell_size
 
 from . import data
 from . import grid
@@ -39,7 +40,7 @@ from .net import CHAT_CAP
 from .render import render_scene
 from .theme import INK, INK_B, DIM, LCD_BG  # noqa: F401  (theme.apply propagation)
 
-PODIUM_T = 120          # the season-podium ceremony hold (~12s), raid-reveal length
+PODIUM_T = 121          # the season-podium ceremony hold (~12s) -- ORIGINAL SPEED (Joel 2026-10-14: "i never told you to speed up animations"); skips stay
 # How long a duel waits for a rival's REVEAL before calling the bout off (0.1s
 # ticks -> 45 real seconds).  It must comfortably outlast the peer's own
 # DUEL_AUTOLOCK_T (300 ticks / 30s): a rival still staring at their bar is
@@ -352,7 +353,7 @@ class LobbyPanel(BoutMixin, ChatMixin):
             self.jshow.anim()                   # converge -> flash -> fused bounce
         if self.pshow is not None:
             self.pshow["t"] += 1
-            if self.pshow["t"] > PODIUM_T:
+            if self.pshow["t"] >= PODIUM_T:
                 self.pshow = None
         lad = getattr(self.client, "ladder", None) if self.client else None
         if lad and lad.get("award"):
@@ -740,7 +741,12 @@ class LobbyPanel(BoutMixin, ChatMixin):
             # the server logs you in under the CANONICAL capitalisation; a
             # typed-case name missed its own row on an exact compare
             mine = bool(me) and str(who).lower() == me
-            t.append(f"  {'▸' if mine else ' '}{i:>2}. {str(who)[:16]:<16} {int(wins):>3}W\n",
+            # menus audit 2026-10-14: preserve the name column in terminal cells.
+            prefix = f"  {'▸' if mine else ' '}{i:>2}. "
+            tail = f" {int(wins):>3}W"
+            budget = max(0, min(16, COLS - cell_len(prefix + tail)))
+            name = set_cell_size(menu._clip(str(who), budget), budget)
+            t.append(prefix + name + tail + "\n",
                      style=INK_B if mine else INK)
         if you_rank:
             t.append(f"  you: rank {you_rank} · {you_wins} win{'s' if you_wins != 1 else ''}\n",
@@ -945,7 +951,7 @@ class LobbyPanel(BoutMixin, ChatMixin):
         else:
             w = "misbehaving!"
         return (f"[{theme.NEG}]⚠ {(p.name or '?')[:10]} {w}[/] [dim]·[/] "
-                + menu.hints(("ESC", "home")))
+                + menu.hints(("ESC", "leave")))
     def strip(self):
         """The message box under the LCD = the lobby's CONTEXT layer (hint
         overhaul 2026-07-10): session scenes keep their prompts, every other
@@ -971,7 +977,7 @@ class LobbyPanel(BoutMixin, ChatMixin):
         if self.phase == "login":
             # ESC at login leaves the lobby entirely -> "out", the app's
             # leave-to-home word (grammar sweep 2026-07-18)
-            return menu.hints(("TAB", "field"), ("ENTER", "go"), ("ESC", "out"))
+            return menu.hints(("TAB", "field"), ("ENTER", "sign in"), ("ESC", "leave"))
         if self.phase == "ladder":
             return menu.hints(("TAB", "lobby"), ("ESC", "back"))
         if self.phase == "dm":
@@ -1007,7 +1013,7 @@ class LobbyPanel(BoutMixin, ChatMixin):
                 # V reads the thread, M quick-sends -- both are PM doors, so
                 # they share the label.  The merged token keeps M advertised
                 # (round 30's ruling) and stays under the 40-col budget.
-                return menu.hints(("B", "battle"), ("J", "jog"),
+                return menu.hints(("B", "battle"), ("J", "jogress"),
                                   ("V/M", "PM"), ("X", "block"))
             if pid == OFFLINE_ID:      # no app to nudge: the thread is the point
                 return menu.hints(("V/M", "PM"), ("X", "block"), *clear)

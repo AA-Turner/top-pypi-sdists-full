@@ -185,6 +185,19 @@ ENTRY_PRUNE = "prune"
 #: turn the user would recognise — and it is reachable only for a runtime that
 #: ended a turn without persisting a message, since every ordinary turn writes
 #: its own message rows in the same pass.
+#: The busy-turn checkpoint record (see `service_handoff` / the checkpoint
+#: contract). It is BOOKKEEPING, not a conversation row: a checkpoint is a
+#: record ABOUT the session and must not advance the activity clock, or a
+#: mid-turn rollover would re-rank the session as freshly worked. Declared here,
+#: above the bookkeeping set that lists it, so the set can name it.
+CHECKPOINT_CUSTOM_TYPE = "busy_turn_checkpoint_v1"
+
+#: The phase vocabulary for a checkpoint record. ``resume`` means the successor
+#: may carry the turn forward from the committed batch; ``deferred`` means the
+#: work could not be checkpointed and the successor must NOT claim to continue
+#: it (provider streams, PTY, native children, non-idempotent effects).
+CHECKPOINT_PHASES = ("resume", "deferred")
+
 BOOKKEEPING_CUSTOM_TYPES: frozenset[str] = frozenset(
     {
         SESSION_INCIDENT_MESSAGE_TYPE,
@@ -207,6 +220,10 @@ BOOKKEEPING_CUSTOM_TYPES: frozenset[str] = frozenset(
         # ``video.records.VIDEO_JOB_CUSTOM_TYPE`` by a unit test (the
         # ``stt.sidecar`` drift rule: this module does not import the writer).
         "video_job_v1",
+        # A busy-turn handoff checkpoint is a record ABOUT the session (see
+        # ``CHECKPOINT_CUSTOM_TYPE``): its write must not read as operator
+        # activity, or a mid-turn rollover would keep the session ranked fresh.
+        CHECKPOINT_CUSTOM_TYPE,
     }
 )
 
@@ -1550,6 +1567,79 @@ def read_latest_custom_entry(directory: str | Path, custom_type: str) -> Transcr
     return None
 
 
+def read_entry_by_id(directory: str | Path, entry_id: str) -> TranscriptEntry | None:
+    """The NEWEST row carrying ``entry_id`` as its transcript entry id, or ``None``.
+
+    The by-ID sibling of :func:`read_latest_custom_entry`, with the same two
+    guarantees: it NEVER creates the directory (a pure read of another
+    session's journal leaves nothing behind), and it answers with the same
+    parse semantics the walk uses — a malformed line is skipped individually
+    and an absent journal answers ``None``.
+
+    WHY SCANNING BYTES IS SOUND HERE: a message's OWN id IS its entry id
+    (``append_message`` persists it rather than minting one — the compaction
+    contract depends on that), and ``TranscriptEntry.to_json`` has written the
+    id first with compact separators since the format existed, so every row
+    opens ``{"id":"<id>"``. The byte scan is the fast path — the same
+    needle / line-start / parse-verify shape the cursor locator already uses
+    for row ids; a candidate is believed only after :func:`_row_at_offset`
+    re-reads the row and the parsed id matches. The parse walk below stays the
+    authority for a journal re-serialized by something other than this writer,
+    exactly as :func:`read_latest_custom_entry` documents for its own fast
+    path. Scanning backward makes the newest occurrence win, matching the
+    resolution rule the cursor locator keeps.
+    """
+
+    encoded = json.dumps(entry_id)
+    if encoded != f'"{entry_id}"':
+        # An escaped spelling cannot be searched for by bytes; the walk answers.
+        return _walk_entry_by_id(directory, entry_id)
+    needle = b'{"id":' + encoded.encode("utf-8")
+    path = Path(directory) / TRANSCRIPT_FILENAME
+    try:
+        handle = path.open("rb")
+    except OSError:
+        return None
+    with handle:
+        handle.seek(0, os.SEEK_END)
+        end_of_file = handle.tell()
+        overlap = len(needle) - 1
+        position = end_of_file
+        while position > 0:
+            start = max(0, position - _CUSTOM_NEEDLE_CHUNK_BYTES)
+            read_start = max(0, start - overlap)
+            handle.seek(read_start)
+            buf = handle.read(position - read_start)
+            index = buf.rfind(needle)
+            while index != -1:
+                offset = read_start + index
+                if _byte_before(handle, offset) in (b"", b"\n"):
+                    located = _row_at_offset(handle, offset)
+                    if located is not None and located[1].id == entry_id:
+                        return located[1]
+                index = buf.rfind(needle, 0, index)
+            position = start
+    return _walk_entry_by_id(directory, entry_id)
+
+
+def _walk_entry_by_id(directory: str | Path, entry_id: str) -> TranscriptEntry | None:
+    """Parse-walk fallback for :func:`read_entry_by_id` (re-serialized rows)."""
+
+    path = Path(directory) / TRANSCRIPT_FILENAME
+    if not path.exists():
+        return None
+    with path.open("rb") as handle:
+        handle.seek(0, os.SEEK_END)
+        for _chunk_start, lines in _iter_complete_lines_backward(handle, handle.tell()):
+            for raw in lines:
+                if not raw.strip():
+                    continue
+                entry = TranscriptEntry.from_json(raw.decode("utf-8", errors="replace"))
+                if entry is not None and entry.id == entry_id:
+                    return entry
+    return None
+
+
 def read_latest_custom(directory: str | Path, custom_type: str) -> dict[str, Any] | None:
     """Details mapping of the newest ``custom_type`` row — the single-scan twin.
 
@@ -1932,6 +2022,7 @@ class Transcript:
         *,
         producer_command_id: str | None = None,
         preserve_mtime: bool = False,
+        checkpoint: dict[str, Any] | None = None,
     ) -> list[TranscriptEntry]:
         """Durably commit an ordered message batch with one fsync.
 
@@ -1943,10 +2034,17 @@ class Transcript:
         ``preserve_mtime`` is forwarded to :meth:`_write_entries`, which holds
         the rule; it is opt-in so every existing call site keeps moving the
         activity clock exactly as it did.
+
+        ``checkpoint`` rides the SAME atomic write as the pair it describes (see
+        :data:`CHECKPOINT_CUSTOM_TYPE`): a busy-turn handoff must never expose a
+        checkpoint whose committed batch is not yet durable, or one whose durable
+        batch has no checkpoint — both are the split this argument exists to
+        prevent. It is written AFTER the message rows in the batch, so a reader
+        that scans backward for the newest checkpoint sees it.
         """
         if producer_command_id is not None and len(messages) != 1:
             raise ValueError("producer admission requires exactly one message")
-        if not messages:
+        if not messages and checkpoint is None:
             return []
 
         def build() -> list[TranscriptEntry]:
@@ -1957,6 +2055,15 @@ class Transcript:
                 if producer_command_id is not None:
                     payload["producer_command_id"] = producer_command_id
                 rows.append(TranscriptEntry(message.id, time.time(), ENTRY_MESSAGE, payload))
+            if checkpoint is not None:
+                rows.append(
+                    TranscriptEntry(
+                        uuid.uuid4().hex,
+                        time.time(),
+                        ENTRY_CUSTOM,
+                        {"custom_type": CHECKPOINT_CUSTOM_TYPE, "details": checkpoint},
+                    )
+                )
             return rows
 
         return await self._commit(build, preserve_mtime=preserve_mtime)
@@ -3905,11 +4012,14 @@ def replay_entries(
         if entries[i].type == ENTRY_COMPACTION:
             compaction_index = i
             break
+    # Bound on ALL paths, not inside a later gate: the replay block below
+    # re-reads the record, and a loop-bound-only binding is both a type
+    # checker complaint and a real foot-gun if the gates ever diverge.
+    compaction = entries[compaction_index] if compaction_index is not None else None
 
     start = 0
     prefix: list[AgentMessage] = []
-    if compaction_index is not None:
-        compaction = entries[compaction_index]
+    if compaction is not None:
         prefix.append(_compaction_marker(compaction))
         # User-authored turns that fell into the summarized partition are
         # re-injected VERBATIM right after the marker, so the user's own
@@ -3974,7 +4084,7 @@ def replay_entries(
         start = context_cut_index(entries)
 
     prunes = collect_prunes(entries)
-    out: list[AgentMessage] = list(prefix)
+    kept: list[AgentMessage] = []
     for entry in entries[start:]:
         if entry.type != ENTRY_MESSAGE:
             continue
@@ -3984,8 +4094,36 @@ def replay_entries(
         notice = prunes.get(entry.id)
         if notice is not None and isinstance(message, Message):
             _apply_prune(message, notice)
-        out.append(message)
-    return out
+        kept.append(message)
+    if compaction is not None:
+        # Reapply the epoch's capture-elision record to the KEPT window. The
+        # live pass elided superseded captures from the projection it sent
+        # and recorded their stable addresses (producer scope, stream,
+        # revision) on the compaction payload; source rows and attachment
+        # blobs stayed untouched, so replay elides EXACTLY those blocks.
+        # Deliberately NOT a count re-derived here: a later turn can
+        # retro-supersede a capture the pass protected, so re-deriving a
+        # first-N over the resumed segment would drop a block the live
+        # session kept and resurrect one it elided (reviewer round 1, C1).
+        # A record without identities (every pre-elision record) changes
+        # nothing here, and a malformed one degrades to no elision rather
+        # than a guess.
+        from local_operator.compaction.marker import capture_elision_identities
+
+        identities = capture_elision_identities(compaction.payload)
+        if identities:
+            from local_operator.compaction.pruning import apply_capture_elisions
+
+            projected, _elided = apply_capture_elisions(
+                [message for message in kept if isinstance(message, Message)],
+                identities=identities,
+            )
+            projected_iter = iter(projected)
+            kept = [
+                next(projected_iter) if isinstance(message, Message) else message
+                for message in kept
+            ]
+    return list(prefix) + kept
 
 
 def _admitted_command_id(entry: TranscriptEntry) -> str | None:

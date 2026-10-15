@@ -1,0 +1,29 @@
+description: Iowa allows this standard deduction amount.
+metadata:
+  propagate_metadata_to_children: true
+  label: Iowa standard deduction amount
+  period: year
+  unit: currency-USD
+  breakdown:
+  - filing_status
+  reference:
+  - title: 2021 IA1040 Income Tax Return instructions
+    href: https://revenue.iowa.gov/media/2650/download?inline#page=46
+  - title: 2022 IA1040 Income Tax Return instructions
+    href: https://revenue.iowa.gov/media/2721/download?inline#page=46
+
+JOINT:
+  2021-01-01: 5_240
+  2022-01-01: 5_450
+HEAD_OF_HOUSEHOLD:
+  2021-01-01: 5_240
+  2022-01-01: 5_450
+SURVIVING_SPOUSE:
+  2021-01-01: 5_240
+  2022-01-01: 5_450
+SINGLE:
+  2021-01-01: 2_130
+  2022-01-01: 2_210
+SEPARATE:
+  2021-01-01: 2_130
+  2022-01-01: 2_210

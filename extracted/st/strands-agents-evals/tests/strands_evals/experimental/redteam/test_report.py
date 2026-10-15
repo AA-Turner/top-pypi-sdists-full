@@ -1,6 +1,7 @@
 """Tests for RedTeamReport."""
 
 from strands_evals.experimental.redteam.report import AttackResult, RedTeamReport
+from strands_evals.types.evaluation import NOT_APPLICABLE, EvaluationOutput
 from strands_evals.types.evaluation_report import EvaluationReport
 
 
@@ -16,7 +17,14 @@ def _case(name: str, risk_category: str, strategy: str, severity: str, **extra) 
     }
 
 
-def _eval_report(evaluator: str, cases: list[dict], scores: list[float], passes: list[bool], reasons: list[str]):
+def _eval_report(
+    evaluator: str,
+    cases: list[dict],
+    scores: list[float],
+    passes: list[bool],
+    reasons: list[str],
+    detailed_results: list[list[EvaluationOutput]] | None = None,
+):
     # Mirror what Experiment.run_evaluations does: tag each case row with its evaluator.
     tagged = [{**c, "evaluator": evaluator} for c in cases]
     return EvaluationReport(
@@ -25,7 +33,13 @@ def _eval_report(evaluator: str, cases: list[dict], scores: list[float], passes:
         cases=tagged,
         test_passes=passes,
         reasons=reasons,
+        detailed_results=detailed_results or [],
     )
+
+
+def _na(reason: str, test_pass: bool) -> list[EvaluationOutput]:
+    """The detailed_results of a row whose evaluator had nothing to judge."""
+    return [EvaluationOutput(score=0.0, test_pass=test_pass, reason=reason, label=NOT_APPLICABLE)]
 
 
 def _flatten(*reports: EvaluationReport) -> EvaluationReport:
@@ -153,6 +167,216 @@ class TestAttackResult:
         assert "[a] first" in r.reason
         assert "[b] second" in r.reason
         assert " | " in r.reason
+
+
+class TestErroredState:
+    def test_errored_from_task_error_reason(self):
+        """A crashed attack reaches the report as the base-recorded task error reason on every evaluator."""
+        cases = [_case("c0", "guideline_bypass", "gradual_escalation", "high")]
+        r1 = _eval_report("judge", cases, scores=[0.0], passes=[False], reasons=["An error occurred: target reset"])
+        r2 = _eval_report(
+            "attack_success", cases, scores=[0.0], passes=[False], reasons=["An error occurred: target reset"]
+        )
+        r = RedTeamReport.from_evaluation_report(_flatten(r1, r2)).attack_results()[0]
+        assert r.errored is True
+        assert r.state == "errored"
+        assert r.scores == {} and r.passes == {}
+        # the error text stays visible in the report
+        assert "[judge] An error occurred: target reset" in r.reason
+
+    def test_errored_from_judge_error_reason(self):
+        """A judge failure reaches the report only as a base-recorded error reason."""
+        eval_report = _eval_report(
+            "attack_success",
+            cases=[_case("c0", "guideline_bypass", "gradual_escalation", "high")],
+            scores=[0.0],
+            passes=[False],
+            reasons=["Evaluator error: judge failed to produce structured output"],
+        )
+        r = RedTeamReport.from_evaluation_report(_flatten(eval_report)).attack_results()[0]
+        assert r.errored is True
+        assert r.state == "errored"
+
+    def test_state_breached_and_defended(self):
+        breached = AttackResult(case_name="c", risk_category="x", strategy="y", severity="low", passes={"a": False})
+        defended = AttackResult(case_name="c", risk_category="x", strategy="y", severity="low", passes={"a": True})
+        assert breached.state == "breached"
+        assert defended.state == "defended"
+
+    def test_error_without_judgment_is_errored_not_breached(self):
+        """An error row with passes=False is errored, not breached -- error must not read as success."""
+        r = AttackResult(
+            case_name="c", risk_category="x", strategy="y", severity="low", reasons={"a": "Evaluator error: boom"}
+        )
+        assert r.state == "errored"
+
+    def test_one_erroring_evaluator_does_not_hide_a_breach(self, capsys):
+        """A breach scored by one evaluator survives another evaluator failing to score the same case."""
+        cases = [_case("c0", "guideline_bypass", "gradual_escalation", "high")]
+        r1 = _eval_report("attack_success", cases, scores=[1.0], passes=[False], reasons=["full compromise"])
+        r2 = _eval_report("refusal_judge", cases, scores=[0.0], passes=[False], reasons=["Evaluator error: timeout"])
+        report = RedTeamReport.from_evaluation_report(_flatten(r1, r2))
+
+        r = report.attack_results()[0]
+        assert r.errored is False
+        assert r.state == "breached"
+        assert r.score == 1.0
+        assert "[refusal_judge] Evaluator error: timeout" in r.reason
+
+        report.display()
+        out = capsys.readouterr().out
+        assert "Result: FAIL -- 1 of 1 attacks breached (100.0%)" in out
+        assert "errored" not in out.split("Attack matrix")[0]
+
+    def test_all_errored_run_is_not_pass(self, capsys):
+        """With no scored attacks there is no evidence either way, so the verdict must not be PASS."""
+        cases = [
+            _case("c0", "guideline_bypass", "gradual_escalation", "high"),
+            _case("c1", "guideline_bypass", "gradual_escalation", "high"),
+        ]
+        report = RedTeamReport.from_evaluation_report(
+            _flatten(
+                _eval_report(
+                    "attack_success",
+                    cases,
+                    scores=[0.0, 0.0],
+                    passes=[False, False],
+                    reasons=["An error occurred: connection refused", "An error occurred: connection refused"],
+                )
+            )
+        )
+        report.display()
+        out = capsys.readouterr().out
+        assert "Result: ERROR -- 0 of 0 attacks breached (0.0%, 2 errored excluded)" in out
+        assert "PASS" not in out
+        assert " ERROR\n" in out.split("All attacks")[0]  # matrix row verdict
+
+    def test_accessors_exclude_errored(self):
+        cases = [
+            _case("c0", "guideline_bypass", "gradual_escalation", "high"),
+            _case("c1", "guideline_bypass", "gradual_escalation", "high"),
+            _case("c2", "system_prompt_leak", "gradual_escalation", "high"),
+        ]
+        report = RedTeamReport.from_evaluation_report(
+            _flatten(
+                _eval_report(
+                    "attack_success",
+                    cases,
+                    scores=[0.9, 0.0, 0.0],
+                    passes=[False, False, False],
+                    reasons=["breach", "Evaluator error: boom", "Evaluator error: boom"],
+                )
+            )
+        )
+        assert [r.case_name for r in report.failed_cases] == ["c0"]
+
+        by_name = {g.group_name: g for g in report.by_risk_category()}
+        gb = by_name["guideline_bypass"]
+        assert (gb.count, gb.errored, gb.avg_score, gb.pass_rate) == (2, 1, 0.9, 0.0)
+        # every attack errored: no score/pass rate to report rather than a misleading 0.0
+        spl = by_name["system_prompt_leak"]
+        assert (spl.count, spl.errored, spl.avg_score, spl.pass_rate) == (1, 1, None, None)
+        # all-errored groups sort last
+        assert report.by_risk_category()[-1].group_name == "system_prompt_leak"
+
+    def test_asr_excludes_errored_from_denominator(self, capsys):
+        cases = [
+            _case("c0", "guideline_bypass", "gradual_escalation", "high"),
+            _case("c1", "guideline_bypass", "gradual_escalation", "high"),
+            _case("c2", "guideline_bypass", "gradual_escalation", "high"),
+        ]
+        report = RedTeamReport.from_evaluation_report(
+            _flatten(
+                _eval_report(
+                    "attack_success",
+                    cases,
+                    scores=[0.9, 0.1, 0.0],
+                    passes=[False, True, False],
+                    reasons=["breach", "defended", "An error occurred: target crashed"],
+                )
+            )
+        )
+        report.display()
+        out = capsys.readouterr().out
+        # 1 breach out of 2 scored (c2 errored, excluded) => 50.0%, not 1/3 => 33.3%
+        assert "1 of 2 attacks breached" in out
+        assert "50.0%" in out
+        assert "1 errored excluded" in out
+        assert "· 1 errored" in out  # footer count
+
+    def test_overall_score_excludes_unjudged_rows(self):
+        """overall_score averages judged rows only, unlike the base mean that counts errors as 0.0."""
+        cases = [
+            _case("c0", "guideline_bypass", "gradual_escalation", "high"),
+            _case("c1", "guideline_bypass", "gradual_escalation", "high"),
+            _case("c2", "guideline_bypass", "gradual_escalation", "high"),
+        ]
+        base = _eval_report(
+            "attack_success",
+            cases,
+            scores=[0.9, 0.0, 0.0],
+            passes=[False, False, False],
+            reasons=["breach", "Evaluator error: boom", "no trajectory provided"],
+            detailed_results=[[], [], _na("no trajectory provided", False)],
+        )
+        assert base.overall_score == 0.3
+        assert RedTeamReport.from_evaluation_report(base).overall_score == 0.9
+
+    def test_overall_score_is_zero_when_nothing_judged(self):
+        cases = [_case("c0", "guideline_bypass", "gradual_escalation", "high")]
+        base = _eval_report("attack_success", cases, [0.0], [False], ["An error occurred: target crashed"])
+        assert RedTeamReport.from_evaluation_report(base).overall_score == 0.0
+
+
+class TestNotApplicable:
+    """NOT_APPLICABLE rows (e.g. a skill evaluator on a run with no skill) carry no attack verdict."""
+
+    _CASES = [_case("c0", "guideline_bypass", "gradual_escalation", "high")]
+
+    def _result(self, *reports: EvaluationReport) -> AttackResult:
+        return RedTeamReport.from_evaluation_report(_flatten(*reports)).attack_results()[0]
+
+    def test_na_does_not_turn_an_errored_judge_into_defended(self):
+        r = self._result(
+            _eval_report("attack_success", self._CASES, [0.0], [False], ["Evaluator error: timeout"]),
+            _eval_report("skill", self._CASES, [0.0], [True], ["no skill invoked"], [_na("no skill invoked", True)]),
+        )
+        assert r.passes == {}
+        assert r.state == "errored"
+        assert "[skill] no skill invoked" in r.reason
+
+    def test_failing_na_is_not_a_breach(self):
+        """A failing NOT_APPLICABLE row means absent data, not a successful attack."""
+        r = self._result(
+            _eval_report("attack_success", self._CASES, [0.0], [True], ["refused"]),
+            _eval_report(
+                "skill", self._CASES, [0.0], [False], ["no trajectory provided"], [_na("no trajectory provided", False)]
+            ),
+        )
+        assert r.passes == {"attack_success": True}
+        assert r.state == "defended"
+
+    def test_na_does_not_hide_a_breach(self):
+        r = self._result(
+            _eval_report("attack_success", self._CASES, [1.0], [False], ["full compromise"]),
+            _eval_report("skill", self._CASES, [0.0], [True], ["no skill invoked"], [_na("no skill invoked", True)]),
+        )
+        assert r.state == "breached"
+        assert r.score == 1.0
+
+    def test_all_na_case_is_errored(self):
+        """No evaluator could judge the case, so it must not count as defended in the ASR denominator."""
+        r = self._result(
+            _eval_report("skill", self._CASES, [0.0], [True], ["no skill invoked"], [_na("no skill invoked", True)])
+        )
+        assert r.state == "errored"
+
+    def test_row_with_some_judged_outputs_is_kept(self):
+        """Only an all-NOT_APPLICABLE row is dropped; one judged output makes the row a real verdict."""
+        mixed = _na("skill_a: no prescribed steps", True) + [EvaluationOutput(score=0.2, test_pass=False, reason="b")]
+        r = self._result(_eval_report("skill", self._CASES, [0.2], [False], ["b"], [mixed]))
+        assert r.passes == {"skill": False}
+        assert r.state == "breached"
 
 
 class TestAggregations:

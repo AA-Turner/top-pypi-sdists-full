@@ -10,6 +10,120 @@ from beta9.config import ConfigContext
 from beta9.deployment import onboarding
 
 
+def test_vm_hourly_price_uses_live_vm_rates(monkeypatch):
+    from decimal import Decimal
+    from beta9.cli import setup
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"vm": {"cpu": "0.0000000011875", "memory": "0.00000000059375"}}
+    get = MagicMock(return_value=response)
+    monkeypatch.setattr("requests.get", get)
+    assert setup.vm_hourly_price(ConfigContext(api_url="https://api.example/v2")) == Decimal(
+        "0.0342"
+    )
+    get.assert_called_once_with(
+        "https://api.example/v2/payment/get-resource-rates/", timeout=10, allow_redirects=False
+    )
+
+
+@pytest.mark.parametrize(
+    "rates", [{}, {"vm": {"cpu": "NaN", "memory": "1"}}, {"vm": {"cpu": "-1", "memory": "1"}}]
+)
+def test_invalid_vm_pricing_is_not_presented_as_a_free_vm(monkeypatch, rates):
+    from beta9.cli import setup
+
+    response = MagicMock(status_code=200)
+    response.json.return_value = rates
+    monkeypatch.setattr("requests.get", lambda *_, **__: response)
+    with pytest.raises(RuntimeError, match="hourly price"):
+        setup.vm_hourly_price(ConfigContext(api_url="https://api.example/v2"))
+
+
+def test_setup_vm_confirmation_includes_hourly_price(monkeypatch):
+    from decimal import Decimal
+    from click.testing import CliRunner
+    from beta9.cli import setup
+
+    monkeypatch.setattr(setup, "connect_onboarding", lambda *_: (ConfigContext(), None))
+    monkeypatch.setattr(setup, "vm_hourly_price", lambda _: Decimal("0.0342"))
+    result = CliRunner().invoke(setup.common, ["setup", "vm"], input="n\n")
+    assert result.exit_code == 0, result.output
+    assert "$0.0342/hour" in result.output
+
+
+def test_setup_vm_displays_allocated_ipv6(tmp_path, monkeypatch):
+    from click.testing import CliRunner
+    from beta9.cli import setup
+
+    monkeypatch.setattr(setup, "connect_onboarding", lambda *_: (ConfigContext(), None))
+    monkeypatch.setattr(
+        setup, "get_settings", lambda: SimpleNamespace(config_path=tmp_path / "config")
+    )
+    monkeypatch.setattr(setup, "dashboard_link", lambda *_: None)
+    monkeypatch.setattr("beta9.config.get_config_context", lambda _: ConfigContext())
+    monkeypatch.setattr("beta9.channel.ServiceClient", lambda _: MagicMock())
+    address = "2600:1f18:1234:5678:100:abcd:ef01:2345"
+    monkeypatch.setattr(
+        onboarding,
+        "prepare_vm",
+        lambda *_, **__: {"name": "dev", "id": "vm-id", "public_ipv6": address},
+    )
+    result = CliRunner().invoke(setup.common, ["setup", "vm", "--skip-agents", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert "IPv6" in result.output and address in result.output
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_setup_browser_links_use_existing_session_flow(tmp_path, monkeypatch, as_json):
+    from click.testing import CliRunner
+    from beta9.cli import setup
+
+    if as_json:
+        monkeypatch.setenv("BETA9_JSON", "1")
+    else:
+        monkeypatch.delenv("BETA9_JSON", raising=False)
+    monkeypatch.setattr(setup, "connect_onboarding", lambda *_: (ConfigContext(), None))
+    monkeypatch.setattr(
+        setup, "get_settings", lambda: SimpleNamespace(config_path=tmp_path / "config")
+    )
+    monkeypatch.setattr(setup, "dashboard_link", lambda *_: None)
+    monkeypatch.setattr("beta9.config.get_config_context", lambda _: ConfigContext())
+    selected = MagicMock()
+    client = MagicMock()
+    client.__enter__.return_value = selected
+    monkeypatch.setattr("beta9.channel.ServiceClient", lambda _: client)
+    info = {
+        "name": "dev",
+        "id": "vm-id",
+        "terminal_url": "https://terminal.example/",
+        "desktop_url": "https://desktop.example/",
+        "spec": {"protected_ports": [7681, 8080]},
+    }
+    monkeypatch.setattr(onboarding, "prepare_vm", lambda *_, **__: info)
+    signed = [
+        "https://terminal.example/?beam_vm_session=terminal",
+        "https://desktop.example/?beam_vm_session=desktop",
+    ]
+    selected.http.json.side_effect = [{"url": url} for url in signed]
+    result = CliRunner(mix_stderr=False).invoke(
+        setup.common, ["setup", "vm", "--skip-agents", "--yes"]
+    )
+    assert result.exit_code == 0, result.output
+    if as_json:
+        assert json.loads(result.stdout)["vm"] == info
+        selected.http.json.assert_not_called()
+    else:
+        for url in signed:
+            assert url in result.stdout
+        assert "Browser links expire after 10 minutes" in result.stdout
+        assert [c.kwargs["json"]["port"] for c in selected.http.json.call_args_list] == [
+            7681,
+            8080,
+        ]
+    assert info["terminal_url"] == "https://terminal.example/"
+
+
 def test_lost_creation_response_resumes_identical_request(tmp_path, monkeypatch):
     selected = SimpleNamespace(http=SimpleNamespace(workspace_id="workspace"))
     vm = MagicMock(info={"id": "vm-id"})
@@ -35,7 +149,8 @@ def test_lost_creation_response_resumes_identical_request(tmp_path, monkeypatch)
     assert (next(tmp_path.rglob("*.json")).stat().st_mode & 0o777) == 0o600
 
 
-def test_unnamed_vm_takes_the_generated_name_and_resumes_by_id(tmp_path, monkeypatch):
+@pytest.mark.parametrize("state", ["stopped", "paused"])
+def test_unnamed_vm_takes_the_generated_name_and_resumes_by_id(tmp_path, monkeypatch, state):
     selected = SimpleNamespace(http=SimpleNamespace(workspace_id="workspace"))
     vm = MagicMock(info={"id": "vm-id"})
     vm._creation_body = None
@@ -52,7 +167,7 @@ def test_unnamed_vm_takes_the_generated_name_and_resumes_by_id(tmp_path, monkeyp
 
     vm.info.update(
         metadata={"beam.onboarding": factory.call_args.kwargs["request_id"]},
-        desired_state="stopped",
+        desired_state=state,
     )
     factory.get.return_value = vm
     onboarding.prepare_vm(selected, tmp_path)
@@ -194,8 +309,13 @@ def test_authorization_failure_does_not_create_vm(tmp_path, monkeypatch):
     factory.assert_not_called()
 
 
-@pytest.mark.parametrize(("args", "name"), [(["--name", "first"], "first"), ([], None)])
-def test_setup_vm_emits_one_json_result_after_guest_readiness(tmp_path, monkeypatch, args, name):
+@pytest.mark.parametrize(
+    ("args", "name", "desktop"),
+    [(["--name", "first"], "first", True), ([], None, True), (["--no-desktop"], None, False)],
+)
+def test_setup_vm_emits_one_json_result_after_guest_readiness(
+    tmp_path, monkeypatch, args, name, desktop
+):
     from click.testing import CliRunner
 
     from beta9.cli import setup
@@ -233,6 +353,7 @@ def test_setup_vm_emits_one_json_result_after_guest_readiness(tmp_path, monkeypa
     }
     prepare.assert_called_once()
     assert prepare.call_args.args[2] == name
+    assert prepare.call_args.kwargs["desktop"] is desktop
 
 
 def test_setup_vm_does_not_report_success_after_failed_probe(tmp_path, monkeypatch):

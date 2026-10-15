@@ -11,7 +11,7 @@ Env vars:
   PROBE_SERVICE_TOKEN a read-only egress token (probe_svc_...) for the read-only Reader
   PROBE_INGEST_TOKEN  an ingest token (ros_ing_...) for /ingest
   PROBE_HMAC_SECRET   optional shared secret for the X-Signature body HMAC on /ingest
-  PROBE_WORKSPACE     the active workspace id, overriding the context file
+  PROBE_WORKSPACE     this computer's workspace (an id or a slug), overriding the context file
   PROBE_PROJECT       the active project id/slug, overriding the context file
   PROBE_HEARTBEAT_SECONDS  run auto-heartbeat interval (default 60; <=0 disables —
                       see Run.start_heartbeat; env only, not read from this file)
@@ -102,6 +102,10 @@ _CONTEXT_KEYS = (
     "workspace",
 )
 
+#: Context key: this computer's one-time workspace handover already ran, or the
+#: person cleared the workspace on purpose (`probe workspace use --clear`), so a
+#: legacy saved default (0354) is never pinned again (`Client._hand_over_workspace`).
+WORKSPACE_HANDOVER = "workspace_handover"
 
 
 #: The config path the Probe daemon's shell runs with: a file that never exists, so

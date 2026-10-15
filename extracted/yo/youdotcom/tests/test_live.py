@@ -34,10 +34,12 @@ from youdotcom.models import (
     LiveCrawl,
     LiveCrawlFormats,
     SafeSearch,
+    KnowledgeResult,
     ResearchEffort,
     ResearchResponse,
     TaskResponse,
     TaskDetail,
+    FinanceResearchContentType,
     FinanceResearchEffort,
     AnswerResponse,
 )
@@ -124,15 +126,6 @@ class TestLiveSearch:
             assert len(res.results.web) <= 5
     
     @pytest.mark.filterwarnings("ignore::DeprecationWarning")
-    @pytest.mark.xfail(
-        reason="Backend regression on a deprecated path: `livecrawl=web` combined "
-        "with `livecrawl_formats=[markdown]` no longer returns `contents` on any "
-        "web result (0/3), though `livecrawl=all`, `livecrawl=web` without "
-        "formats, and both `extraction` modes all still work (2/3, 2/3, 3/3, "
-        "3/3). Fails identically on main, so it predates this branch. Non-strict: "
-        "remove this marker if the server starts returning contents again. Note "
-        "MIGRATION.md still promises livecrawl works until 4.0.0.",
-    )
     def test_search_with_livecrawl_web(self, you_client):
         """Test search with livecrawl for web results.
 
@@ -163,69 +156,57 @@ class TestLiveSearch:
                 "Expected at least one result with contents.html and/or contents.markdown"
             )
 
-    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
-    def test_search_with_livecrawl_news(self, you_client):
-        """Test search with livecrawl for news results (new in 2.2.0).
+@requires_api_key
+class TestLiveSearchDefaults:
+    """Live tests for the flipped defaults (knowledge + highlights).
 
-        Deprecated: use ``extraction`` instead.
-        """
+    A default ``you.search(query=...)`` call sends ``knowledge="core"`` and
+    ``extraction_mode="highlights"``, covering the web+knowledge+highlights
+    combination.
+    """
+
+    @pytest.mark.slow
+    def test_default_search_returns_highlights_and_knowledge(self, you_client):
+        """The default call returns contents.highlights and knowledge cards."""
+        with you_client as you:
+            res = you.search(query="nvda stock price", count=5)
+
+            assert res.results is not None
+            web = res.results.web or []
+            assert web, "Expected web results on the default search"
+            highlights_seen = [
+                r.contents.highlights
+                for r in web
+                if r.contents and r.contents.highlights is not None
+            ]
+            assert highlights_seen, "Expected at least one result with contents.highlights"
+            assert all(isinstance(h, list) for h in highlights_seen)
+            # Snippets are omitted under the default highlights mode.
+            assert all(r.snippets is None for r in web)
+
+            # Cards are limited to those relevant to the query, so the
+            # section can legitimately be empty; when present, parse-check.
+            knowledge_seen = [
+                card
+                for card in (res.results.knowledge or [])
+                if isinstance(card, KnowledgeResult) and card.title is not None
+            ]
+            assert len(knowledge_seen) == len(res.results.knowledge or [])
+
+    @pytest.mark.slow
+    def test_default_search_optout_returns_snippets(self, you_client):
+        """knowledge=None, extraction=None restores the plain-search shape."""
         with you_client as you:
             res = you.search(
-                query="technology news today",
-                count=3,
-                livecrawl=LiveCrawl.NEWS,
-                livecrawl_formats=[LiveCrawlFormats.MARKDOWN],
+                query="nvda stock price", count=5, knowledge=None, extraction=None
             )
 
             assert res.results is not None
-
-            # News results can now have contents field (new in 2.2.0)
-            content_seen = [
-                (item.contents.html, item.contents.markdown)
-                for item in res.results.news or []
-                if item.contents
-                and (item.contents.html is not None or item.contents.markdown is not None)
-            ]
-            assert content_seen, (
-                "Expected at least one news result with contents.html and/or contents.markdown"
-            )
-
-    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
-    def test_search_with_livecrawl_all(self, you_client):
-        """Test search with livecrawl=ALL for both web and news.
-
-        Deprecated: use ``extraction`` instead.
-        """
-        with you_client as you:
-            res = you.search(
-                query="breaking tech news",
-                count=3,
-                livecrawl=LiveCrawl.ALL,
-                livecrawl_formats=[LiveCrawlFormats.HTML],
-            )
-
-            assert res.results is not None
-
-            # livecrawl=ALL covers both web and news; assert at least one
-            # of each has contents.html / contents.markdown populated.
-            web_content_seen = [
-                (r.contents.html, r.contents.markdown)
-                for r in res.results.web or []
-                if r.contents
-                and (r.contents.html is not None or r.contents.markdown is not None)
-            ]
-            news_content_seen = [
-                (n.contents.html, n.contents.markdown)
-                for n in res.results.news or []
-                if n.contents
-                and (n.contents.html is not None or n.contents.markdown is not None)
-            ]
-            assert web_content_seen, (
-                "Expected at least one web result with contents.html and/or contents.markdown"
-            )
-            assert news_content_seen, (
-                "Expected at least one news result with contents.html and/or contents.markdown"
-            )
+            web = res.results.web or []
+            assert web, "Expected web results on the plain search"
+            snippets_seen = [r.snippets for r in web if r.snippets is not None]
+            assert snippets_seen, "Expected at least one result with snippets"
+            assert res.results.knowledge is None
 
 
 @requires_api_key
@@ -258,6 +239,27 @@ class TestLiveSearchExtraction:
             highlights_seen = [
                 result.contents.highlights
                 for result in res.results.web
+                if result.contents and result.contents.highlights is not None
+            ]
+            assert highlights_seen, "Expected at least one result with contents.highlights"
+            assert all(isinstance(h, list) for h in highlights_seen)
+
+    def test_highlights_caps(self, you_client):
+        """total_max_tokens is accepted by the API."""
+        with you_client as you:
+            res = you.search(
+                query="Python type hints guide",
+                count=5,
+                extraction={
+                    "extraction_mode": "highlights",
+                    "highlights": {"total_max_tokens": 4096},
+                },
+            )
+
+            assert res.results is not None
+            highlights_seen = [
+                result.contents.highlights
+                for result in res.results.web or []
                 if result.contents and result.contents.highlights is not None
             ]
             assert highlights_seen, "Expected at least one result with contents.highlights"
@@ -468,11 +470,12 @@ class TestLiveSearchKnowledge:
         assert res.results.knowledge
         assert len(res.results.knowledge) <= 25
 
-    def test_knowledge_omitted_when_not_requested(self, you_client):
-        """Baseline calls omit ``results.knowledge`` entirely, so the parsed
-        attribute is ``None`` rather than an empty list."""
+    def test_knowledge_none_sends_no_knowledge(self, you_client):
+        """An explicit ``knowledge=None`` opts out of the default: the API
+        omits ``results.knowledge`` entirely, so the parsed attribute is
+        ``None`` rather than an empty list."""
         with you_client as you:
-            res = you.search(query="Python programming language")
+            res = you.search(query="Python programming language", knowledge=None)
 
             assert res.results is not None
             assert res.results.knowledge is None
@@ -694,6 +697,32 @@ class TestLiveFinanceResearch:
             if res.output.sources:
                 for source in res.output.sources:
                     assert source.url is not None
+
+    @pytest.mark.slow
+    def test_finance_research_output_schema(self, you_client):
+        """output_schema returns a dict content with content_type "object"."""
+        with you_client as you:
+            res = you.finance_research(
+                input="What was NVIDIA's fiscal year 2025 revenue and what drove it?",
+                research_effort=FinanceResearchEffort.DEEP,
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "revenue": {"type": "string"},
+                        "drivers": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["revenue", "drivers"],
+                    "additionalProperties": False,
+                },
+            )
+
+            assert res.output.content_type == FinanceResearchContentType.OBJECT
+            assert isinstance(res.output.content, dict)
+            for field in res.output.content:
+                assert field in {"revenue", "drivers"}
+            # `warnings` is modeled Optional, so the API may omit the key on a
+            # successful response; accept None as well as a list.
+            assert res.warnings is None or isinstance(res.warnings, list)
 
 
 @requires_api_key
@@ -1056,7 +1085,7 @@ class TestLiveAnswer:
 
 @requires_api_key
 class TestLiveAttribution:
-    """The ``X-Client-Info`` header on real requests (DX-777).
+    """The ``X-Client-Info`` header on real requests.
 
     The mock-transport tests in ``tests/test_attribution.py`` pin the wire
     format; what they cannot show is that the real API *accepts* the header.

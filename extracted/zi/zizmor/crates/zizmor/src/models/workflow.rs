@@ -3,21 +3,24 @@
 //! These models enrich the models under [`github_actions_models::workflow`],
 //! providing higher-level APIs for zizmor to use.
 
-use std::sync::LazyLock;
-
 use github_actions_expressions::context::{self};
 use github_actions_models::{
-    common::{self, expr::LoE},
+    common::{self, CacheMode, expr::LoE},
     workflow::{
-        self, Trigger,
+        self, TriggerSyntax,
         event::{BareEvent, OptionalBody},
         job,
     },
 };
+use std::collections::HashSet;
+use std::sync::LazyLock;
 use terminal_link::Link;
 
+pub(crate) mod cache_mode;
 pub(crate) mod matrix;
+pub(crate) mod runners;
 
+use crate::models::workflow::runners::{JobRunners, Runner};
 use crate::{
     InputKey,
     finding::location::{Locatable, SymbolicFeature, SymbolicLocation},
@@ -109,12 +112,10 @@ impl HasInputs for workflow::event::WorkflowDispatch {
 
 impl HasInputs for Workflow {
     fn get_input(&self, name: &str) -> Option<Capability> {
-        let workflow::Trigger::Events(events) = &self.on else {
-            return None;
-        };
+        let events = &self.on.events;
 
         let wc_cap = {
-            if let workflow::event::OptionalBody::Body(wc) = &events.workflow_call {
+            if let OptionalBody::Body(wc) = &events.workflow_call {
                 wc.get_input(name)
             } else {
                 None
@@ -122,7 +123,7 @@ impl HasInputs for Workflow {
         };
 
         let wd_cap = {
-            if let workflow::event::OptionalBody::Body(wd) = &events.workflow_dispatch {
+            if let OptionalBody::Body(wd) = &events.workflow_dispatch {
                 wd.get_input(name)
             } else {
                 None
@@ -165,46 +166,73 @@ impl Workflow {
         Jobs::new(self)
     }
 
-    /// Whether this workflow is triggered by pull_request_target.
-    pub(crate) fn has_pull_request_target(&self) -> bool {
-        match &self.on {
-            Trigger::BareEvent(event) => *event == BareEvent::PullRequestTarget,
-            Trigger::BareEvents(events) => events.contains(&BareEvent::PullRequestTarget),
-            Trigger::Events(events) => !matches!(events.pull_request_target, OptionalBody::Missing),
+    /// Produce a [`SymbolicLocation`] for an event that's known to be present
+    /// in the workflow's triggers.
+    fn trigger_location(&self, event: BareEvent) -> SymbolicLocation<'_> {
+        let parent = self.location().with_keys(["on".into()]);
+
+        match &self.on.syntax {
+            TriggerSyntax::Mapping => parent.with_keys([event.as_str().into()]).key_only(),
+            TriggerSyntax::Scalar => parent,
+            TriggerSyntax::Sequence(events) => {
+                let idx = events
+                    .iter()
+                    .position(|candidate| *candidate == event)
+                    .expect("present event must appear in the source sequence");
+                parent.with_keys([idx.into()])
+            }
         }
     }
 
-    /// Whether this workflow is triggered by workflow_run.
-    pub(crate) fn has_workflow_run(&self) -> bool {
-        match &self.on {
-            Trigger::BareEvent(event) => *event == BareEvent::WorkflowRun,
-            Trigger::BareEvents(events) => events.contains(&BareEvent::WorkflowRun),
-            Trigger::Events(events) => !matches!(events.workflow_run, OptionalBody::Missing),
-        }
+    /// Return the symbolic location for this workflow's `issue_comment` trigger,
+    /// if it has one.
+    pub(crate) fn issue_comment<'doc>(&'doc self) -> Option<SymbolicLocation<'doc>> {
+        self.on
+            .events
+            .issue_comment
+            .is_present()
+            .then(|| self.trigger_location(BareEvent::IssueComment))
     }
 
-    /// Whether this workflow is triggered by `workflow_call`, i.e. whether it's reusable or not.
-    pub(crate) fn has_workflow_call(&self) -> bool {
-        match &self.on {
-            Trigger::BareEvent(event) => *event == BareEvent::WorkflowCall,
-            Trigger::BareEvents(events) => events.contains(&BareEvent::WorkflowCall),
-            Trigger::Events(events) => !matches!(events.workflow_call, OptionalBody::Missing),
-        }
+    /// Return the symbolic location for this workflow's `pull_request_target` trigger,
+    /// if it has one.
+    pub(crate) fn pull_request_target<'doc>(&'doc self) -> Option<SymbolicLocation<'doc>> {
+        self.on
+            .events
+            .pull_request_target
+            .is_present()
+            .then(|| self.trigger_location(BareEvent::PullRequestTarget))
+    }
+
+    /// Return the symbolic location for this workflow's `workflow_run` trigger,
+    /// if it has one.
+    pub(crate) fn workflow_run<'doc>(&'doc self) -> Option<SymbolicLocation<'doc>> {
+        self.on
+            .events
+            .workflow_run
+            .is_present()
+            .then(|| self.trigger_location(BareEvent::WorkflowRun))
+    }
+
+    /// Return the symbolic location for this workflow's `workflow_call` trigger,
+    /// if it has one.
+    pub(crate) fn workflow_call<'doc>(&'doc self) -> Option<SymbolicLocation<'doc>> {
+        self.on
+            .events
+            .workflow_call
+            .is_present()
+            .then(|| self.trigger_location(BareEvent::WorkflowCall))
     }
 
     /// Whether this workflow is triggered by exactly one event.
     pub(crate) fn has_single_trigger(&self) -> bool {
-        match &self.on {
-            Trigger::BareEvent(_) => true,
-            Trigger::BareEvents(events) => events.len() == 1,
-            Trigger::Events(events) => events.count() == 1,
-        }
+        self.on.events.count() == 1
     }
 
     /// Whether this workflow is *only* a reusable workflow, i.e. it's triggered by a
     /// `workflow_call` event and nothing else.
     pub(crate) fn is_reusable_only(&self) -> bool {
-        self.has_workflow_call() && self.has_single_trigger()
+        self.workflow_call().is_some() && self.has_single_trigger()
     }
 
     /// Returns this workflow's [`SymbolicLocation`].
@@ -315,6 +343,17 @@ impl<'doc> NormalJob<'doc> {
                 .filter_map(|step| step.r#if().map(|cond| (cond, step.location()))),
         )
     }
+
+    /// Returns an iterator over this job's runners. A runner may be precisely
+    /// defined or have an indetermination attached in case of matrices and
+    /// expressions. See [`Runner`].
+    pub(crate) fn runners(
+        &self,
+        included_runners: &HashSet<String>,
+        excluded_groups: &HashSet<String>,
+    ) -> impl Iterator<Item = Runner<'doc>> {
+        JobRunners::new(self, included_runners, excluded_groups).iter()
+    }
 }
 
 impl<'a, 'doc> AsDocument<'a, 'doc> for NormalJob<'doc> {
@@ -334,6 +373,10 @@ impl<'doc> JobCommon<'doc> for NormalJob<'doc> {
 
     fn parent(&self) -> &'doc Workflow {
         self.parent
+    }
+
+    fn cache_mode(&self) -> Option<CacheMode> {
+        self.cache_mode
     }
 }
 
@@ -384,6 +427,10 @@ impl<'doc> JobCommon<'doc> for ReusableWorkflowCallJob<'doc> {
     fn parent(&self) -> &'doc Workflow {
         self.parent
     }
+
+    fn cache_mode(&self) -> Option<CacheMode> {
+        self.cache_mode
+    }
 }
 
 impl<'doc> std::ops::Deref for ReusableWorkflowCallJob<'doc> {
@@ -404,6 +451,9 @@ pub(crate) trait JobCommon<'doc>: Locatable<'doc> {
 
     /// The job's parent [`Workflow`].
     fn parent(&self) -> &'doc Workflow;
+
+    /// The job's [`CacheMode`], if it has an explicit one.
+    fn cache_mode(&self) -> Option<CacheMode>;
 }
 
 impl<'doc, T: JobCommon<'doc>> Locatable<'doc> for T {

@@ -2170,9 +2170,9 @@ def register_generated_tools(mcp, _get_client):
         identifiers are read from the ad record (persisted during sync) with a Marketing-API
         fallback for ads that predate the field.
 
-        For Instagram-placed comments, the Instagram account that runs the ad must be connected
-        to Zernio, because those comments are read through that account's token. If no connected
-        Instagram ...
+        Comments can land on extra posts Meta creates for placement variants, which the creative
+        does not report. On Instagram, every media a `comment.received` for this ad arrived on is
+        read ...
 
         Platforms: meta, tiktok
 
@@ -4608,7 +4608,10 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_list_ad_accounts(
-        account_id: str, ad_account_id: str | None = None, limit: int | None = None
+        account_id: str,
+        ad_account_id: str | None = None,
+        limit: int | None = None,
+        in_scope_only: bool = False,
     ) -> str:
         """List ad accounts
 
@@ -4634,11 +4637,15 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Account ID (required)
             ad_account_id: Filter response to a single platform ad account ID (e.g. `act_123` for Meta, advertiser_id for TikTok). Returns at most one item.
-            limit: Clamp the returned `accounts[]` length. Useful for typeahead pickers on agency tokens with hundreds of advertisers."""
+            limit: Clamp the returned `accounts[]` length. Useful for typeahead pickers on agency tokens with hundreds of advertisers.
+            in_scope_only: Google Ads only. `true` returns only the customers this connection accepts as `adAccountId` (or `customerId`) on the other /v1/ads endpoints, i.e. those inside its ad-account selection. Without it every customer the Google login can reach is listed, including ones selected on another connection of the same login, which those endpoints answer with a 400. Ignored on other platforms."""
         client = _get_client()
         try:
             response = client.ad_accounts.list_ad_accounts(
-                account_id=account_id, ad_account_id=ad_account_id, limit=limit
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                limit=limit,
+                in_scope_only=in_scope_only,
             )
             return _format_response(response)
         except Exception as e:
@@ -7165,6 +7172,8 @@ def register_generated_tools(mcp, _get_client):
         from the campaign and is left untouched).
                 roas_average_floor: Minimum ROAS as a decimal multiplier (2.0 = 2.0x). Required when bidStrategy is
         LOWEST_COST_WITH_MIN_ROAS. Sent to Meta as `bid_constraints.roas_average_floor` × 10000.
+        Meta only: may be sent alone, WITHOUT bidStrategy, to update the floor on an ad set
+        whose strategy (its own, or the campaign's under CBO) is LOWEST_COST_WITH_MIN_ROAS.
         Not supported on OpenAI (422).
                 value_rule_set_id: Meta only (other platforms return 501). Value rule set to attach to this ad
         set, from `/v1/ads/value-rule-sets`. Sending a different id replaces the
@@ -7495,7 +7504,7 @@ def register_generated_tools(mcp, _get_client):
            - the creative's `effective_object_story_id` (`{pageId}_{postId}` shape, Facebook side)
            - the creative's `effective_instagram_media_id` (Instagram side)
 
-           Any of the four resolve to the same ad. Caller doesn't need a translation ...
+           - an Instagram media id an ad comment arrived on (`comment.platformPostId` ...
 
            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -10528,14 +10537,14 @@ def register_generated_tools(mcp, _get_client):
 
             Returns performance analytics for a whole campaign in one call: summary metrics, a daily
             timeline over the requested date range (summed across the campaign's ads), and optional
-            demographic breakdowns. Breakdowns are fetched live from Meta at the campaign level (one call
-            per dimension, no per-ad fan-out), so an agency dashboard gets campaign-level age/gender/etc.
-            without summing thousands of per-ad reads. `campaignId` is the platform campaign id; pass
+            demographic breakdowns. Breakdowns are fetched live from Meta, TikTok or LinkedIn at the campaign
+            level (one call per dimension, no per-ad fan-out), so an agency dashboard gets campaign-level
+            age/gender/placement/etc. without summing thousands of per-ad reads. `campaignId` is the platform campaign id; pass
             `platform` when a campaign id could be ambiguous across platforms. If no date range is provided,
             defaults to the last 90 days. Date range is capped at 730 days max.
             Google adds searchImpressionShare, searchBudgetLostImpressionShare,
             searchRankLostImpressionShare, searchTopImpressionShare and searchAbsoluteTopImpressionShare
-            under analytics.summary for the requested inclusive range. These ratios are queried ...
+            under analytics.summary for the requested inclusive ...
 
             Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -10549,10 +10558,22 @@ def register_generated_tools(mcp, _get_client):
         **Meta**: age, gender, country, publisher_platform, device_platform, region,
         platform_position, impression_device, video_asset, image_asset, body_asset, title_asset.
 
+        **TikTok**: gender, age, country (or country_code), publisher_platform (or platform),
+        ac, language, placement. TikTok serves at most 365 days per breakdown, so a longer
+        range is read over its last 365 days and `analytics.breakdownsRange` says which window.
+
         **LinkedIn** (firmographics): job_title, job_function, seniority, industry,
         company, company_size, country, region. Rows carry the raw pivot `value`
         plus a resolved `name`. LinkedIn serves these aggregated over the whole
-        range, delays the data 12-24h, and omits segments with fewer than 3 events."""
+        range, delays the data 12-24h, and omits segments with fewer than 3 events.
+
+        A known dimension the platform cannot break down by is listed in
+        `analytics.unsupportedBreakdowns` instead of being dropped (with guidance in
+        `analytics.breakdownHints` where there is an alternative); the rest of the response
+        is unchanged. An unknown name returns 400. A TikTok dimension that fails is listed
+        in `analytics.breakdownErrors` and the response stays 200.
+        Metrics TikTok refuses for a dimension are listed in `analytics.breakdownDroppedMetrics`,
+        and the row values derived from them are null."""
         client = _get_client()
         try:
             response = client.ad_insights.get_campaign_analytics(
@@ -10763,7 +10784,7 @@ def register_generated_tools(mcp, _get_client):
             page_token: Google only: cursor from paging.nextPageToken of the previous page.
             level: Row granularity
             fields: Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set.
-            breakdowns: Comma-separated Graph breakdowns (e.g. age,gender or publisher_platform).
+            breakdowns: Meta only: comma-separated Graph breakdowns (e.g. age,gender or publisher_platform). Returns 400 on TikTok (add the breakdown to dimensions with reportType=AUDIENCE, e.g. dimensions=campaign_id,placement) and on Google (select segments.* in the query).
             action_breakdowns: Comma-separated Graph action breakdowns; segments the actions[] arrays in each row. Pass `none` to clear Meta's default action_type breakdown, required to combine some non-action breakdowns such as instagram_ads_follow_type (otherwise Meta returns a (#100) invalid-combination error).
             action_attribution_windows: Comma-separated Meta attribution windows. Action values are returned keyed per window.
             action_report_time: When actions are counted: impression, conversion or mixed.
@@ -10935,10 +10956,10 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get ad analytics
 
-            Returns one ad's performance summary and daily timeline, with optional audience breakdowns on Meta and TikTok.
+            Returns one ad's performance summary and daily timeline, with optional audience breakdowns on Meta, TikTok and LinkedIn.
 
             Includes summary metrics, a daily timeline
-            over the requested date range, and optional demographic breakdowns (Meta and TikTok only).
+            over the requested date range, and optional demographic breakdowns (Meta, TikTok and LinkedIn only).
             If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
 
             Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
@@ -10949,14 +10970,25 @@ def register_generated_tools(mcp, _get_client):
                 to_date: End of date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
                 breakdowns: Comma-separated breakdown dimensions.
 
-        **Meta**: age, gender, country, publisher_platform, device_platform, region.
+        **Meta**: age, gender, country, publisher_platform, device_platform, region,
+        platform_position, impression_device, video_asset, image_asset, body_asset, title_asset.
 
-        **TikTok**: gender, age, country_code, platform, ac, language.
+        **TikTok**: gender, age, country (or country_code), publisher_platform (or platform),
+        ac, language, placement. TikTok serves at most 365 days per breakdown, so a longer
+        range is read over its last 365 days and `analytics.breakdownsRange` says which window.
 
         **LinkedIn** (firmographics): job_title, job_function, seniority, industry,
         company, company_size, country, region. Rows carry the raw pivot `value`
         plus a resolved `name`. LinkedIn serves these aggregated over the whole
-        range, delays the data 12-24h, and omits segments with fewer than 3 events."""
+        range, delays the data 12-24h, and omits segments with fewer than 3 events.
+
+        A known dimension the platform cannot break down by is listed in
+        `analytics.unsupportedBreakdowns` instead of being dropped (with guidance in
+        `analytics.breakdownHints` where there is an alternative); the rest of the response
+        is unchanged. An unknown name returns 400. A TikTok dimension that fails is listed
+        in `analytics.breakdownErrors` and the response stays 200.
+        Metrics TikTok refuses for a dimension are listed in `analytics.breakdownDroppedMetrics`,
+        and the row values derived from them are null."""
         client = _get_client()
         try:
             response = client.ad_insights.get_ad_analytics(
@@ -12740,7 +12772,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get LinkedIn aggregate stats
 
-        Returns aggregate analytics across all posts for a LinkedIn personal account. Only includes posts published through Zernio (LinkedIn API limitation). Org accounts should use /v1/analytics instead. Requires r_member_postAnalytics scope. Saves (POST_SAVE) and sends (POST_SEND) are available for personal accounts; organization pages always return 0 for these two metrics because LinkedIn does not expose them on the organization analytics endpoint.
+        Returns aggregate analytics across all posts for a LinkedIn personal account. Covers every post authored by the member, whether or not it was published through Zernio (LinkedIn aggregates by member, not by post). Org accounts should use /v1/analytics instead. Requires r_member_postAnalytics scope. Saves (POST_SAVE) and sends (POST_SEND) are available for personal accounts; organization pages always return 0 for these two metrics because LinkedIn does not expose them on the organization analytics endpoint.
 
         Args:
             account_id: The ID of the LinkedIn personal account (required)
@@ -25698,6 +25730,8 @@ def register_generated_tools(mcp, _get_client):
 
         `likeCount` is null when the owner hides like counts.
 
+        Media URLs are temporary, and fields Meta does not return come back as null, never omitted.
+
         Args:
             account_id: The ID of a connected Instagram account (Facebook Login). (required)
             username: Instagram handle to look up, with or without the leading @. Case-insensitive. (required)
@@ -26403,9 +26437,9 @@ def register_generated_tools(mcp, _get_client):
             profile_id: Filter by profile ID
             platform: Filter by platform
             status: Filter by conversation status
-            folder: requests lists Facebook and Instagram Message Requests (threads from people the account has not accepted) live from Meta, first page only, each item with `folder: requests`. Meta has no accept call: replying moves a thread to the inbox, which is what POST /v1/inbox/conversations/{conversationId}/accept does. When Meta will not list the folder for the one account asked (`accountId`), the call answers 400 PLATFORM_LIMITATION; across several accounts the refusal is reported per account in meta.failedAccounts.
+            folder: requests lists Facebook and Instagram Message Requests (threads from people the account has not accepted) live from Meta, each item with `folder: requests`. Meta has no accept call: replying moves a thread to the inbox, which is what POST /v1/inbox/conversations/{conversationId}/accept does. When Meta will not list the folder for the one account asked (`accountId`), the call answers 400 PLATFORM_LIMITATION; across several accounts the refusal is reported per account in meta.failedAccounts. Instagram accounts connected with Instagram Login answer PLATFORM_LIMITATION (Meta does not expose the folder on that login); Facebook and Instagram via Facebook Login are served. One page of up to `limit` threads; `pagination.hasMore` is true when threads past `limit` were cut (narrow with `accountId`), `pagination.nextCursor` is always null and a `cursor` answers 400.
             sort_order: Sort order by updated time
-            limit: Maximum number of conversations to return
+            limit: Maximum number of conversations to return; values above 100 are served as 100.
             cursor: Pagination cursor for next page
             account_id: Filter by specific account ID"""
         client = _get_client()
@@ -30187,7 +30221,9 @@ def register_generated_tools(mcp, _get_client):
 
         Lists the Meta product catalogs a business portfolio owns or has been shared, for catalog and shopping ads.
 
-        The business comes from `businessId`, else the ad account's owner (`adAccountId`), else the WhatsApp Business Account's owner when `accountId` is a WhatsApp connection, else the only business the Meta login can see. Reads work with scopes customers already granted.
+        The business comes from `businessId`, else the ad account's owner (`adAccountId`), else the WhatsApp Business Account's owner when `accountId` is a WhatsApp connection, else the only business the Meta login can see.
+
+        Listing catalogs needs catalog_management on the Meta login. The permission is pending Meta App Review and is not requested on connect yet, so most logins get the 403 below (Meta's code 100 \"This application has not been approved to use this api\"); pass catalogAccountId naming a facebook, instagram or metaads connection whose Meta login already holds it. Creating a catalog_sales ad from a known product set ID does not need it (see promotedObject.productSetId on POST /v1/ads/create).
 
         Platforms: meta
 
@@ -32502,7 +32538,7 @@ def register_generated_tools(mcp, _get_client):
         """Look up carrier + line type
 
         Carrier name and line type (mobile / landline / voip / toll-free) for a
-        number, plus `smsReachable` (landlines can't receive SMS). Use it to
+        number, plus `smsReachable`. Use it to
         validate recipients before sending. Each lookup is billed by the
         carrier-data provider, so call it explicitly (e.g. pre-validating an
         opt-in list), not on every send.
@@ -35465,11 +35501,13 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Dial from the browser softphone
 
-        Step 2 of the browser softphone handshake: places an outbound call
-        whose answered leg is bridged to the browser registered with the
-        credential from `POST /v1/voice/calls/web`. The call runs through the
-        normal outbound lane, so it is logged as outbound (from = your number,
-        to = target) and recorded per the number's settings.
+        Step 2 of the browser softphone handshake: rings the browser registered
+        with the credential from `POST /v1/voice/calls/web` first, and dials
+        the target only once the browser answers, so the callee's pickup
+        connects immediately with no ringing after they answer. The call is
+        logged as outbound (from = your number, to = target) and recorded per
+        the number's settings. `ringTimeoutSeconds` applies to the target's
+        phone, not to the browser.
 
         Args:
             to: The number to call, E.164 with leading +. (required)

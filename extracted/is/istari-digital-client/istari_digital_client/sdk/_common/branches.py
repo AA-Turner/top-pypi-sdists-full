@@ -27,6 +27,10 @@ from istari_digital_client.sdk._exceptions import IstariError, NotFoundError
 
 _log = logging.getLogger(__name__)
 
+# Envoy in front of the registry caps request headers, URL included, at 60 KiB;
+# each repeated ``resource_id`` costs 49 bytes, so one lookup carries this many.
+_RESOURCE_ID_CHUNK = 400
+
 # MIME types whose content is text we can decode and inline in ``contents()``.
 # Anything else (binary: CAD, mesh, image, archives) is left with ``content=None``.
 _TEXT_MIME_EXACT = frozenset(
@@ -522,9 +526,10 @@ class Branches(_Manager):
     ) -> Page[TrackedResource]:
         """Resolve a branch's tracked files to TrackedResource, applying resource filters.
 
-        Batches the resolution: collects the tracked files' resource ids and issues
-        a single ``list_resources`` query per page (no per-file N+1). Tracked files
-        with no ``resource_id`` are logged and omitted.
+        Batches the resolution: collects the tracked files' resource ids and queries
+        ``list_resources`` for them in chunks of ``_RESOURCE_ID_CHUNK`` ids (no
+        per-file N+1, no request URL that grows with the branch). Tracked files with
+        no ``resource_id`` are logged and omitted.
 
         When the client opted into the listing cache, the assembled result is cached
         per ``(branch_id, snapshot_id, filters)`` — the snapshot id is already on the
@@ -589,15 +594,15 @@ class Branches(_Manager):
                 return resource  # type: ignore[return-value]
             return TrackedResource._attach(resource, tracked_file)
 
-        def fetch(cursor: str | None) -> Any:
+        def fetch(chunk: list[str], cursor: str | None) -> Any:
             return self._call(
                 self._engine.v3_api.list_resources,
                 cursor=cursor,
-                resource_id=ids,
+                resource_id=chunk,
                 **resource_filters,
             )
 
-        page = self._paginate(fetch, bind)
+        page = self._paginate_chunked(fetch, bind, ids, chunk_size=_RESOURCE_ID_CHUNK)
         if cache is None or cache_key is None:
             return page
         # Walk the chain once, keeping each page's items separate so the cached

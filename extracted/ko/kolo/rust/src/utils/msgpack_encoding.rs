@@ -198,14 +198,12 @@ pub(super) fn write_meta(
     write_str_pair(buf, "version", Some(version));
     write_str_pair(buf, "source", Some(source));
 
-    // Serialize 'environment' as a nested map
     rmp::encode::write_str(buf, "environment").expect("Writing to memory, not I/O");
     rmp::encode::write_map_len(buf, environment.len() as u32).expect("Writing to memory, not I/O");
     for (key, value) in environment {
         write_str_pair(buf, key, Some(value));
     }
 
-    // Serialize 'config' as a nested map with `RmpvValue` types
     rmp::encode::write_str(buf, "config").expect("Writing to memory, not I/O");
     rmp::encode::write_map_len(buf, config.len() as u32).expect("Writing to memory, not I/O");
     for (key, value) in config {
@@ -223,9 +221,6 @@ pub(super) fn write_assign_tuple(
     const PY_TUPLE_EXTENSION_TYPE: i8 = 6;
     let (variable, assigned) = assign;
 
-    // The tuple's payload is encoded in place, behind an extension header
-    // reserved at its largest size and shrunk to fit afterwards, so a line
-    // event needs no buffer of its own.
     let key_start = buf.len();
     rmp::encode::write_str(buf, "assign").expect("Writing to memory, not I/O");
     let header_start = buf.len();

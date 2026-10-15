@@ -21,14 +21,6 @@ pub(crate) fn json_file_paths(dir: &Path) -> Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
-/// Extract the filename (e.g. "abc.json") from a path as a `String`.
-pub(crate) fn filename_of(path: &Path) -> String {
-    path.file_name()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .into_owned()
-}
-
 /// Extract the filename stem (e.g. "abc" from "abc.json") as a `&str`.
 ///
 /// Returns `Err(ValidationError)` if the stem is missing or contains
@@ -80,15 +72,29 @@ pub(crate) fn normalize_os_path(path: &Path) -> String {
 /// fields added to the schema are automatically covered.
 /// Returns `true` if any path was changed.
 pub(crate) fn normalize_code_unit_paths(unit: &mut CodeUnit) -> bool {
-    use crate::generated::file_path_fields::FILE_PATH_FIELDS;
-
     let Ok(mut json) = serde_json::to_value(&*unit) else {
         return false;
     };
 
+    let changed = normalize_value_paths(&mut json);
+    if changed {
+        if let Ok(normalized) = serde_json::from_value(json) {
+            *unit = normalized;
+        }
+    }
+    changed
+}
+
+/// Normalize all file path fields of a code unit's JSON form in place.
+///
+/// Same rewrite as [`normalize_code_unit_paths`], applied before
+/// deserialization so reads don't pay an extra serialize round-trip.
+pub(crate) fn normalize_value_paths(json: &mut Value) -> bool {
+    use crate::generated::file_path_fields::FILE_PATH_FIELDS;
+
     let mut changed = false;
     for path in FILE_PATH_FIELDS {
-        if let Some(val) = navigate_path_mut(&mut json, path) {
+        if let Some(val) = navigate_path_mut(json, path) {
             if let Some(s) = val.as_str() {
                 let norm = normalize_path_str(s);
                 if norm != s {
@@ -96,12 +102,6 @@ pub(crate) fn normalize_code_unit_paths(unit: &mut CodeUnit) -> bool {
                     changed = true;
                 }
             }
-        }
-    }
-
-    if changed {
-        if let Ok(normalized) = serde_json::from_value(json) {
-            *unit = normalized;
         }
     }
     changed

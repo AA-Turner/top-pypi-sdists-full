@@ -1,0 +1,11 @@
+description: California CalWORKs monthly child care requires the child care need occurs in every week of the month
+values:
+  2018-10-18: 4
+
+metadata:
+  unit: week
+  period: month
+  label: California CalWORKs monthly child care weeks per month requirement
+  reference:
+  - title: Los Angeles Department of Public Social Services E-Policy | Child Care Regional Market Rate Ceilings
+    href: https://my.dpss.lacounty.gov/public/en/home/epolicy/program/child-care/regional-market-rate-ceilings.html

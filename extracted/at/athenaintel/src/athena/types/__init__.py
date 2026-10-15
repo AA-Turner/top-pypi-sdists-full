@@ -152,6 +152,7 @@ if typing.TYPE_CHECKING:
     from .semantic_model_meta_response_out import SemanticModelMetaResponseOut
     from .semantic_model_order_entry import SemanticModelOrderEntry
     from .semantic_model_query_response_out import SemanticModelQueryResponseOut
+    from .semantic_model_source_snapshot_out import SemanticModelSourceSnapshotOut
     from .semantic_model_token_response_out import SemanticModelTokenResponseOut
     from .session_out import SessionOut
     from .share_asset_response_out import ShareAssetResponseOut
@@ -344,6 +345,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SemanticModelMetaResponseOut": ".semantic_model_meta_response_out",
     "SemanticModelOrderEntry": ".semantic_model_order_entry",
     "SemanticModelQueryResponseOut": ".semantic_model_query_response_out",
+    "SemanticModelSourceSnapshotOut": ".semantic_model_source_snapshot_out",
     "SemanticModelTokenResponseOut": ".semantic_model_token_response_out",
     "SessionOut": ".session_out",
     "ShareAssetResponseOut": ".share_asset_response_out",
@@ -560,6 +562,7 @@ __all__ = [
     "SemanticModelMetaResponseOut",
     "SemanticModelOrderEntry",
     "SemanticModelQueryResponseOut",
+    "SemanticModelSourceSnapshotOut",
     "SemanticModelTokenResponseOut",
     "SessionOut",
     "ShareAssetResponseOut",

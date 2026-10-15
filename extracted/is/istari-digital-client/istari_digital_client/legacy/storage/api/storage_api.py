@@ -1774,6 +1774,7 @@ class StorageApi:
         self,
         sha: StrictStr,
         model_id: Optional[StrictStr] = None,
+        receiving_remote_id: Optional[StrictStr] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1788,6 +1789,8 @@ class StorageApi:
         :type sha: str
         :param model_id:
         :type model_id: str
+        :param receiving_remote_id:
+        :type receiving_remote_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -1796,6 +1799,7 @@ class StorageApi:
         _param = self._generate_upload_url_serialize(
             sha=sha,
             model_id=model_id,
+            receiving_remote_id=receiving_remote_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1828,6 +1832,7 @@ class StorageApi:
         self,
         sha,
         model_id,
+        receiving_remote_id,
         _request_auth,
         _content_type,
         _headers,
@@ -1855,6 +1860,10 @@ class StorageApi:
         if model_id is not None:
 
             _query_params.append(('model_id', model_id))
+
+        if receiving_remote_id is not None:
+
+            _query_params.append(('receiving_remote_id', receiving_remote_id))
 
         # process the header parameters
         # process the form parameters
@@ -1896,6 +1905,7 @@ class StorageApi:
         self,
         request_body: List[StrictStr],
         model_id: Optional[StrictStr] = None,
+        receiving_remote_id: Optional[StrictStr] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1910,6 +1920,8 @@ class StorageApi:
         :type request_body: List[str]
         :param model_id:
         :type model_id: str
+        :param receiving_remote_id:
+        :type receiving_remote_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -1918,6 +1930,7 @@ class StorageApi:
         _param = self._generate_upload_urls_bulk_serialize(
             request_body=request_body,
             model_id=model_id,
+            receiving_remote_id=receiving_remote_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1950,6 +1963,7 @@ class StorageApi:
         self,
         request_body,
         model_id,
+        receiving_remote_id,
         _request_auth,
         _content_type,
         _headers,
@@ -1976,6 +1990,10 @@ class StorageApi:
         if model_id is not None:
 
             _query_params.append(('model_id', model_id))
+
+        if receiving_remote_id is not None:
+
+            _query_params.append(('receiving_remote_id', receiving_remote_id))
 
         # process the header parameters
         # process the form parameters

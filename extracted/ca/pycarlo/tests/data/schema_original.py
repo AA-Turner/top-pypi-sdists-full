@@ -6578,6 +6578,9 @@ class Permission(sgqlc.types.Enum):
     * `AlertsUpdateStatus`None
     * `AssetsAccess`None
     * `AssetsEdit`None
+    * `ComplianceAccess`None
+    * `CompliancePiiInventoryAccess`None
+    * `CompliancePiiInventoryExport`None
     * `DashboardAccess`None
     * `DashboardEdit`None
     * `DashboardEditTheirOwn`None
@@ -6712,6 +6715,9 @@ class Permission(sgqlc.types.Enum):
         "AlertsUpdateStatus",
         "AssetsAccess",
         "AssetsEdit",
+        "ComplianceAccess",
+        "CompliancePiiInventoryAccess",
+        "CompliancePiiInventoryExport",
         "DashboardAccess",
         "DashboardEdit",
         "DashboardEditTheirOwn",
@@ -6916,6 +6922,23 @@ class PiiFilteringFailModeType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CLOSE", "OPEN")
+
+
+class PiiInventoryAccessMode(sgqlc.types.Enum):
+    """Cutover mode for the PII inventory permission check.      -
+    ``off``     – the default: the check is inert.     - ``shadow``  –
+    evaluate the check and log a would-deny, but allow the request.
+    - ``enforce`` – deny requests that fail the check.
+
+    Enumeration Choices:
+
+    * `ENFORCE`None
+    * `OFF`None
+    * `SHADOW`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ENFORCE", "OFF", "SHADOW")
 
 
 class PiiMonitorMode(sgqlc.types.Enum):
@@ -7527,14 +7550,17 @@ class RcaStatus(sgqlc.types.Enum):
 class ReinforcementLoopAgentErrorKind(sgqlc.types.Enum):
     """MISSING_PERMISSIONS: Monte Carlo's warehouse role can't read
     resources the reinforcement loop needs to diagnose the agent.
+    CLUSTERING_BLOCKED: Snowflake refused the queries that group the
+    agent's conversations into issues.
 
     Enumeration Choices:
 
+    * `CLUSTERING_BLOCKED`None
     * `MISSING_PERMISSIONS`None
     """
 
     __schema__ = schema
-    __choices__ = ("MISSING_PERMISSIONS",)
+    __choices__ = ("CLUSTERING_BLOCKED", "MISSING_PERMISSIONS")
 
 
 class ReinforcementLoopAgentResourceKind(sgqlc.types.Enum):
@@ -7591,6 +7617,104 @@ class ReinforcementLoopDispatchOutcome(sgqlc.types.Enum):
         "SKIPPED_IN_FLIGHT",
         "SKIPPED_NO_TARGETS",
         "SKIPPED_RECENTLY_DISPATCHED",
+    )
+
+
+class ReinforcementLoopFeedbackPriorityReason(sgqlc.types.Enum):
+    """Why a person thinks an RL V2 issue has the wrong priority.
+
+    Enumeration Choices:
+
+    * `AGENT_RECOVERED`None
+    * `LOW_IMPACT_FAILURE`None
+    * `OTHER`None
+    * `TOO_FEW_CONVERSATIONS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENT_RECOVERED", "LOW_IMPACT_FAILURE", "OTHER", "TOO_FEW_CONVERSATIONS")
+
+
+class ReinforcementLoopFeedbackRating(sgqlc.types.Enum):
+    """A rating of an RL V2 issue. UNDO withdraws the caller's current
+    rating.
+
+    Enumeration Choices:
+
+    * `DOWN`None
+    * `UNDO`None
+    * `UP`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DOWN", "UNDO", "UP")
+
+
+class ReinforcementLoopFeedbackReason(sgqlc.types.Enum):
+    """Why a person rated an RL V2 issue. CONVERSATION_DOESNT_BELONG and
+    CONVERSATION_AGENT_RECOVERED rate one conversation; the rest rate
+    the issue.
+
+    Enumeration Choices:
+
+    * `CONVERSATION_AGENT_RECOVERED`None
+    * `CONVERSATION_DOESNT_BELONG`None
+    * `DUPLICATE`None
+    * `FIX_WORKED`None
+    * `FIX_WOULDNT_WORK`None
+    * `HARD_TO_UNDERSTAND`None
+    * `NOT_A_REAL_PROBLEM`None
+    * `OTHER`None
+    * `WRONG_PRIORITY`None
+    * `WRONG_ROOT_CAUSE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CONVERSATION_AGENT_RECOVERED",
+        "CONVERSATION_DOESNT_BELONG",
+        "DUPLICATE",
+        "FIX_WORKED",
+        "FIX_WOULDNT_WORK",
+        "HARD_TO_UNDERSTAND",
+        "NOT_A_REAL_PROBLEM",
+        "OTHER",
+        "WRONG_PRIORITY",
+        "WRONG_ROOT_CAUSE",
+    )
+
+
+class ReinforcementLoopIssueDisposition(sgqlc.types.Enum):
+    """What a user decided about an issue. IGNORED issues are left out of
+    the digest.
+
+    Enumeration Choices:
+
+    * `IGNORED`None
+    * `NONE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("IGNORED", "NONE")
+
+
+class ReinforcementLoopIssueDispositionReason(sgqlc.types.Enum):
+    """Why a user ignored an RL V2 issue.
+
+    Enumeration Choices:
+
+    * `ALREADY_KNOWN_OR_FIXED`None
+    * `INTENDED_BEHAVIOR`None
+    * `NOT_A_REAL_PROBLEM`None
+    * `NOT_WORTH_FIXING`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "ALREADY_KNOWN_OR_FIXED",
+        "INTENDED_BEHAVIOR",
+        "NOT_A_REAL_PROBLEM",
+        "NOT_WORTH_FIXING",
     )
 
 
@@ -7883,6 +8007,14 @@ class ResourcePolicyPath(sgqlc.types.Enum):
     * `AssetsPropose`None
     * `AssetsRead`None
     * `AssetsWrite`None
+    * `ComplianceAll`None
+    * `CompliancePiiInventoryAll`None
+    * `CompliancePiiInventoryPropose`None
+    * `CompliancePiiInventoryRead`None
+    * `CompliancePiiInventoryWrite`None
+    * `CompliancePropose`None
+    * `ComplianceRead`None
+    * `ComplianceWrite`None
     * `DashboardAll`None
     * `DashboardPropose`None
     * `DashboardRead`None
@@ -8113,6 +8245,14 @@ class ResourcePolicyPath(sgqlc.types.Enum):
         "AssetsPropose",
         "AssetsRead",
         "AssetsWrite",
+        "ComplianceAll",
+        "CompliancePiiInventoryAll",
+        "CompliancePiiInventoryPropose",
+        "CompliancePiiInventoryRead",
+        "CompliancePiiInventoryWrite",
+        "CompliancePropose",
+        "ComplianceRead",
+        "ComplianceWrite",
         "DashboardAll",
         "DashboardPropose",
         "DashboardRead",
@@ -12398,11 +12538,11 @@ class ClusteringConfigInput(sgqlc.types.Input):
         "eval_score_threshold",
     )
     discovery_model_id = sgqlc.types.Field(String, graphql_name="discoveryModelId")
-    """Bedrock model id for the one-time taxonomy synthesis."""
+    """Model id for the one-time taxonomy synthesis."""
 
     classify_model_id = sgqlc.types.Field(String, graphql_name="classifyModelId")
-    """Bedrock model id for per-conversation classification (and
-    discovery summaries).
+    """Model id for per-conversation classification (and discovery
+    summaries).
     """
 
     embedding_model_id = sgqlc.types.Field(String, graphql_name="embeddingModelId")
@@ -15172,6 +15312,7 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
         "chunk_char_size",
         "include_internal_steps",
         "lazy_tool_io",
+        "full_content",
         "timeout_seconds",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
@@ -15210,6 +15351,17 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
     """Whether tool-call input/output may be returned lazily. Defaults to
     false so existing machine consumers continue to receive complete
     tool payloads inline.
+    """
+
+    full_content = sgqlc.types.Field(Boolean, graphql_name="fullContent")
+    """Read the whole conversation, including tool inputs and outputs, in
+    one warehouse read for Monte Carlo-hosted agents. Intended for
+    batch readers such as the reinforcement loop. Tool inputs and
+    outputs come back complete inline. Message bodies still follow
+    previewCharLimit and the thread-wide preview budget; fetch the
+    rest of an incomplete message with
+    getConversationMessageContentV2. Agents on Snowflake Cortex or
+    Databricks Genie ignore it. Defaults to false.
     """
 
     timeout_seconds = sgqlc.types.Field(Int, graphql_name="timeoutSeconds")
@@ -16740,7 +16892,10 @@ class ModifyCollectionBlockListInput(sgqlc.types.Input):
     """Value used to match against dataset/schema."""
 
     table_name = sgqlc.types.Field(String, graphql_name="tableName")
-    """Value used to match against table name."""
+    """Value used to match against table name. Not supported for data
+    lakes whose metadata comes only from Glue, which applies rules per
+    catalog and database.
+    """
 
     match_type = sgqlc.types.Field(
         sgqlc.types.non_null(CollectionPreferenceMatchType), graphql_name="matchType"
@@ -20263,6 +20418,17 @@ class UCSExplicitAlertConditionInput(sgqlc.types.Input):
     """Explicit freshness threshold in minutes"""
 
 
+class UpdateConversationClusteringSettingsInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("snowflake_model_id",)
+    snowflake_model_id = sgqlc.types.Field(String, graphql_name="snowflakeModelId")
+    """Snowflake Cortex model id, as listed by
+    getWarehouseSupportedLlmModels(connectionType: "snowflake"). Null
+    clears the setting; existing Snowflake spaces go back to the
+    warehouse default.
+    """
+
+
 class UpdateDataShareInput(sgqlc.types.Input):
     """Input for updating Snowflake data share configuration"""
 
@@ -22093,6 +22259,7 @@ class Account(sgqlc.types.Type):
         "enable_domain_metrics_digest",
         "enable_platform_agent_domain_filtering",
         "agent_raw_data_access_mode",
+        "pii_inventory_access_mode",
         "enable_pr_agent_paid_tier",
         "enable_pr_agent_metering",
         "enable_proactive_tune_creator_notifications",
@@ -22730,6 +22897,15 @@ class Account(sgqlc.types.Type):
     gate still decides, so denials are not user-visible. ENFORCE means
     the new gate decides and a user without the agent-
     observability/content permission is blocked.
+    """
+
+    pii_inventory_access_mode = sgqlc.types.Field(
+        sgqlc.types.non_null(PiiInventoryAccessMode), graphql_name="piiInventoryAccessMode"
+    )
+    """Rollout stage of the PII inventory permission check for this
+    account. OFF means the check is inert. SHADOW means a missing
+    permission is logged but the request is allowed. ENFORCE means a
+    user without the PII inventory permissions is blocked.
     """
 
     enable_pr_agent_paid_tier = sgqlc.types.Field(Boolean, graphql_name="enablePrAgentPaidTier")
@@ -30169,13 +30345,13 @@ class ClusteringConfig(sgqlc.types.Type):
     discovery_model_id = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="discoveryModelId"
     )
-    """Bedrock model id for the one-time taxonomy synthesis."""
+    """Model id for the one-time taxonomy synthesis."""
 
     classify_model_id = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="classifyModelId"
     )
-    """Bedrock model id for per-conversation classification (and
-    discovery summaries).
+    """Model id for per-conversation classification (and discovery
+    summaries).
     """
 
     embedding_model_id = sgqlc.types.Field(String, graphql_name="embeddingModelId")
@@ -31612,6 +31788,15 @@ class ConversationClusteringRunType(sgqlc.types.Type):
 
     error = sgqlc.types.Field(String, graphql_name="error")
     """Error message; set only when status is ERROR."""
+
+
+class ConversationClusteringSettings(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("snowflake_model_id",)
+    snowflake_model_id = sgqlc.types.Field(String, graphql_name="snowflakeModelId")
+    """Snowflake Cortex model id clustering runs on this account's
+    Snowflake agents. Null: the warehouse default (llama3.1-70b).
+    """
 
 
 class ConversationClusteringSpaceConnection(sgqlc.types.relay.Connection):
@@ -43491,6 +43676,12 @@ class IAMResourceDefinition(sgqlc.types.Type):
     """
 
 
+class IgnoreReinforcementLoopIssue(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("issue_uuid",)
+    issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
+
+
 class IncidentCategoryCount(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("incident_category", "category_count")
@@ -49461,6 +49652,7 @@ class Mutation(sgqlc.types.Type):
         "refresh_conversation_clustering_space",
         "request_conversation_clustering_backfill",
         "delete_conversation_clustering_space",
+        "update_conversation_clustering_settings",
         "create_or_update_custom_conversation_cluster",
         "delete_custom_conversation_cluster",
         "create_or_update_agent_trace_table",
@@ -49472,6 +49664,8 @@ class Mutation(sgqlc.types.Type):
         "trigger_reinforcement_loop_dispatch",
         "delete_reinforcement_loop_issues_by_issue_id",
         "delete_reinforcement_loop_issues_by_agent",
+        "submit_reinforcement_loop_issue_feedback",
+        "ignore_reinforcement_loop_issue",
         "update_reinforcement_loop_agent",
         "update_reinforcement_loop_selector",
         "delete_agent_trace_table",
@@ -51516,6 +51710,31 @@ class Mutation(sgqlc.types.Type):
     * `space_uuid` (`UUID!`)None
     """
 
+    update_conversation_clustering_settings = sgqlc.types.Field(
+        "UpdateConversationClusteringSettings",
+        graphql_name="updateConversationClusteringSettings",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UpdateConversationClusteringSettingsInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set or clear account-level conversation clustering
+    settings. Changing the Snowflake model rewrites the model on every
+    existing Snowflake clustering space in the account.
+
+    Arguments:
+
+    * `input` (`UpdateConversationClusteringSettingsInput!`)None
+    """
+
     create_or_update_custom_conversation_cluster = sgqlc.types.Field(
         CreateOrUpdateCustomConversationCluster,
         graphql_name="createOrUpdateCustomConversationCluster",
@@ -51778,6 +51997,139 @@ class Mutation(sgqlc.types.Type):
     * `trace_table_mcon` (`String!`): The agent's trace table MCON —
       the same agentName/traceTableMcon pair
       getReinforcementLoopIssues takes.
+    """
+
+    submit_reinforcement_loop_issue_feedback = sgqlc.types.Field(
+        "SubmitReinforcementLoopIssueFeedback",
+        graphql_name="submitReinforcementLoopIssueFeedback",
+        args=sgqlc.types.ArgDict(
+            (
+                ("comment", sgqlc.types.Arg(String, graphql_name="comment", default=None)),
+                (
+                    "conversation_id",
+                    sgqlc.types.Arg(String, graphql_name="conversationId", default=None),
+                ),
+                (
+                    "duplicate_of_issue_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="duplicateOfIssueUuid", default=None),
+                ),
+                ("fix_pr_url", sgqlc.types.Arg(String, graphql_name="fixPrUrl", default=None)),
+                (
+                    "issue_report_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="issueReportUuid", default=None
+                    ),
+                ),
+                (
+                    "issue_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="issueUuid", default=None
+                    ),
+                ),
+                (
+                    "priority_reason",
+                    sgqlc.types.Arg(
+                        ReinforcementLoopFeedbackPriorityReason,
+                        graphql_name="priorityReason",
+                        default=None,
+                    ),
+                ),
+                (
+                    "rating",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ReinforcementLoopFeedbackRating),
+                        graphql_name="rating",
+                        default=None,
+                    ),
+                ),
+                (
+                    "reason",
+                    sgqlc.types.Arg(
+                        ReinforcementLoopFeedbackReason, graphql_name="reason", default=None
+                    ),
+                ),
+                (
+                    "shown_priority",
+                    sgqlc.types.Arg(
+                        AgentHealthPriority, graphql_name="shownPriority", default=None
+                    ),
+                ),
+                (
+                    "suggested_priority",
+                    sgqlc.types.Arg(
+                        AgentHealthPriority, graphql_name="suggestedPriority", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Rate an RL V2 issue, or one of its conversations,
+    with a reason. Each call adds a row; the caller's newest row is
+    their current feedback. Feedback from Monte Carlo staff is hidden
+    from customers.
+
+    Arguments:
+
+    * `comment` (`String`): Free text. Required for reason OTHER.
+    * `conversation_id` (`String`): Required for
+      CONVERSATION_DOESNT_BELONG and CONVERSATION_AGENT_RECOVERED, and
+      must be one of the issue's conversations. Not allowed with other
+      reasons.
+    * `duplicate_of_issue_uuid` (`UUID`): Required for DUPLICATE:
+      another RL V2 issue of the same agent.
+    * `fix_pr_url` (`String`): Required for FIX_WORKED.
+    * `issue_report_uuid` (`UUID!`): The issueReportUuid of the node,
+      as the person saw it.
+    * `issue_uuid` (`UUID!`): The issueUuid of a
+      getReinforcementLoopV2Issues node.
+    * `priority_reason` (`ReinforcementLoopFeedbackPriorityReason`):
+      Required for WRONG_PRIORITY, with suggestedPriority.
+    * `rating` (`ReinforcementLoopFeedbackRating!`): UNDO withdraws
+      the caller's current feedback on the issue, or on
+      conversationId, and takes no reason, comment or reason-specific
+      fields.
+    * `reason` (`ReinforcementLoopFeedbackReason`): UP takes no
+      reason, FIX_WORKED or HARD_TO_UNDERSTAND. DOWN needs a reason
+      other than FIX_WORKED.
+    * `shown_priority` (`AgentHealthPriority`): The priority the
+      person saw.
+    * `suggested_priority` (`AgentHealthPriority`): Required for
+      WRONG_PRIORITY, with priorityReason. Not HIDDEN.
+    """
+
+    ignore_reinforcement_loop_issue = sgqlc.types.Field(
+        IgnoreReinforcementLoopIssue,
+        graphql_name="ignoreReinforcementLoopIssue",
+        args=sgqlc.types.ArgDict(
+            (
+                ("comment", sgqlc.types.Arg(String, graphql_name="comment", default=None)),
+                (
+                    "issue_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="issueUuid", default=None
+                    ),
+                ),
+                (
+                    "reason",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ReinforcementLoopIssueDispositionReason),
+                        graphql_name="reason",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Marks the issue ignored with a reason. The
+    scheduled digest leaves ignored issues out. Ignoring again
+    replaces the reason. Monte Carlo staff can't ignore issues.
+
+    Arguments:
+
+    * `comment` (`String`)None
+    * `issue_uuid` (`UUID!`): The issueUuid of a
+      getReinforcementLoopV2Issues node.
+    * `reason` (`ReinforcementLoopIssueDispositionReason!`)None
     """
 
     update_reinforcement_loop_agent = sgqlc.types.Field(
@@ -79988,6 +80340,7 @@ class Query(sgqlc.types.Type):
         "get_storage_optimization_candidates",
         "get_scheduled_reports",
         "get_scheduled_report",
+        "get_agent_digest_selection",
         "get_my_dashboard_schedules",
         "get_customer_mcp_servers",
         "get_customer_mcp_server_authorizations",
@@ -80005,6 +80358,7 @@ class Query(sgqlc.types.Type):
         "get_open_telemetry_data_stores",
         "get_agent_observability_summary",
         "get_conversation_clustering_spaces",
+        "get_conversation_clustering_settings",
         "get_conversation_clustering",
         "get_agent_metadata",
         "get_agent_metadata_v2",
@@ -80789,6 +81143,29 @@ class Query(sgqlc.types.Type):
     * `report_uuid` (`UUID!`): UUID of the report to fetch.
     """
 
+    get_agent_digest_selection = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="getAgentDigestSelection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "run_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="runUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Monitor UUIDs the agent digest's audience-gap CTA
+    named for that occurrence. Empty when the run is not the caller's,
+    is not an agent digest, or carried no audience-gap section.
+
+    Arguments:
+
+    * `run_uuid` (`UUID!`): UUID of the digest occurrence.
+    """
+
     get_my_dashboard_schedules = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DashboardScheduleType))),
         graphql_name="getMyDashboardSchedules",
@@ -81221,6 +81598,12 @@ class Query(sgqlc.types.Type):
     * `first` (`Int`)None
     * `last` (`Int`)None
     """
+
+    get_conversation_clustering_settings = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationClusteringSettings),
+        graphql_name="getConversationClusteringSettings",
+    )
+    """(experimental) Account-level conversation clustering settings."""
 
     get_conversation_clustering = sgqlc.types.Field(
         ConversationClusteringResult,
@@ -106745,7 +107128,7 @@ class ReinforcementLoopAgentErrorState(sgqlc.types.Type):
     """Why the reinforcement loop can't diagnose an agent."""
 
     __schema__ = schema
-    __field_names__ = ("kind", "resources", "objects", "message", "since")
+    __field_names__ = ("kind", "resources", "objects", "message", "since", "detail", "grant_sql")
     kind = sgqlc.types.Field(
         sgqlc.types.non_null(ReinforcementLoopAgentErrorKind), graphql_name="kind"
     )
@@ -106771,6 +107154,14 @@ class ReinforcementLoopAgentErrorState(sgqlc.types.Type):
 
     since = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="since")
     """When the problem was first seen."""
+
+    detail = sgqlc.types.Field(String, graphql_name="detail")
+    """Snowflake's own message; null for MISSING_PERMISSIONS."""
+
+    grant_sql = sgqlc.types.Field(String, graphql_name="grantSql")
+    """The statement that fixes it, with <monte_carlo_role> standing for
+    Monte Carlo's role; null when the fix isn't a grant.
+    """
 
 
 class ReinforcementLoopAgentGithubCodeRepo(sgqlc.types.Type):
@@ -106823,7 +107214,7 @@ class ReinforcementLoopAgentWarningState(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("kind", "resources", "objects", "message", "since")
+    __field_names__ = ("kind", "resources", "objects", "message", "since", "detail", "grant_sql")
     kind = sgqlc.types.Field(
         sgqlc.types.non_null(ReinforcementLoopAgentErrorKind), graphql_name="kind"
     )
@@ -106849,6 +107240,14 @@ class ReinforcementLoopAgentWarningState(sgqlc.types.Type):
 
     since = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="since")
     """When the problem was first seen."""
+
+    detail = sgqlc.types.Field(String, graphql_name="detail")
+    """Snowflake's own message; null for MISSING_PERMISSIONS."""
+
+    grant_sql = sgqlc.types.Field(String, graphql_name="grantSql")
+    """The statement that fixes it, with <monte_carlo_role> standing for
+    Monte Carlo's role; null when the fix isn't a grant.
+    """
 
 
 class ReinforcementLoopAvailableCluster(sgqlc.types.Type):
@@ -107141,6 +107540,100 @@ class ReinforcementLoopIssueConnection(sgqlc.types.relay.Connection):
     """Pagination information."""
 
 
+class ReinforcementLoopIssueFeedback(sgqlc.types.Type):
+    """The current feedback on an RL V2 issue. Customers don't see Monte
+    Carlo staff feedback.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("entries", "up_count", "down_count")
+    entries = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopIssueFeedbackEntry"))
+        ),
+        graphql_name="entries",
+    )
+    """Each person's current feedback, newest first. Conversation-level
+    entries carry conversationId. Monte Carlo staff feedback is left
+    out for customers.
+    """
+
+    up_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="upCount")
+    """UP ratings among the issue-level entries. Conversation-level
+    entries aren't counted.
+    """
+
+    down_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="downCount")
+    """DOWN ratings among the issue-level entries. Conversation-level
+    entries aren't counted.
+    """
+
+
+class ReinforcementLoopIssueFeedbackEntry(sgqlc.types.Type):
+    """One person's current feedback on an RL V2 issue, or on one of its
+    conversations.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "feedback_uuid",
+        "user_email",
+        "is_staff",
+        "rating",
+        "reason",
+        "comment",
+        "conversation_id",
+        "shown_priority",
+        "duplicate_of_issue_uuid",
+        "suggested_priority",
+        "priority_reason",
+        "fix_pr_url",
+        "created_time",
+    )
+    feedback_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="feedbackUuid")
+
+    user_email = sgqlc.types.Field(String, graphql_name="userEmail")
+    """Display label for the person who left the feedback. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address. Null once that user is deleted.
+    """
+
+    is_staff = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isStaff")
+    """Left by Monte Carlo staff. Only staff see these entries."""
+
+    rating = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopFeedbackRating), graphql_name="rating"
+    )
+
+    reason = sgqlc.types.Field(ReinforcementLoopFeedbackReason, graphql_name="reason")
+
+    comment = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="comment")
+
+    conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
+    """The conversation the feedback is about; null for feedback on the
+    issue.
+    """
+
+    shown_priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="shownPriority")
+    """The priority the person saw."""
+
+    duplicate_of_issue_uuid = sgqlc.types.Field(UUID, graphql_name="duplicateOfIssueUuid")
+    """The issue this one duplicates, for reason DUPLICATE."""
+
+    suggested_priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="suggestedPriority")
+    """The priority the person suggests, for WRONG_PRIORITY."""
+
+    priority_reason = sgqlc.types.Field(
+        ReinforcementLoopFeedbackPriorityReason, graphql_name="priorityReason"
+    )
+
+    fix_pr_url = sgqlc.types.Field(String, graphql_name="fixPrUrl")
+    """The pull request that fixed it, for FIX_WORKED."""
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+
 class ReinforcementLoopIssuePageInfo(sgqlc.types.Type):
     """Forward-only pagination info for getReinforcementLoopIssues."""
 
@@ -107368,6 +107861,11 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "jira_ticket",
         "service_now_ticket",
         "draft_pr",
+        "issue_report_uuid",
+        "feedback",
+        "disposition",
+        "disposition_reason",
+        "disposition_comment",
     )
     issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
     """The issue's public id — the handle the ticket and draft-PR
@@ -107479,6 +107977,31 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     """The newest draft-PR workflow dispatch for this issue; null when
     never dispatched.
     """
+
+    issue_report_uuid = sgqlc.types.Field(UUID, graphql_name="issueReportUuid")
+    """The report record the title, description and recommendation come
+    from. Send it back as issueReportUuid when leaving feedback. Null
+    on an issue with no report.
+    """
+
+    feedback = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopIssueFeedback), graphql_name="feedback"
+    )
+
+    disposition = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopIssueDisposition), graphql_name="disposition"
+    )
+    """IGNORED once a user ignored the issue. Ignored issues still list
+    here.
+    """
+
+    disposition_reason = sgqlc.types.Field(
+        ReinforcementLoopIssueDispositionReason, graphql_name="dispositionReason"
+    )
+    """Why the issue was ignored; null unless IGNORED."""
+
+    disposition_comment = sgqlc.types.Field(String, graphql_name="dispositionComment")
+    """The comment left when the issue was ignored."""
 
 
 class ReinforcementLoopV2IssueConnection(sgqlc.types.relay.Connection):
@@ -111438,6 +111961,12 @@ class SubmitFindingFeedback(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("finding",)
     finding = sgqlc.types.Field(sgqlc.types.non_null("Finding"), graphql_name="finding")
+
+
+class SubmitReinforcementLoopIssueFeedback(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("feedback_uuid",)
+    feedback_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="feedbackUuid")
 
 
 class SupportedTableValidationsResponse(sgqlc.types.Type):
@@ -116598,6 +117127,14 @@ class UpdateCiGateConfig(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
+class UpdateConversationClusteringSettings(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("settings",)
+    settings = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationClusteringSettings), graphql_name="settings"
+    )
 
 
 class UpdateCostAgentSettings(sgqlc.types.Type):

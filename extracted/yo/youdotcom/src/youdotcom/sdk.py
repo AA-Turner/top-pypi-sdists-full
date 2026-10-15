@@ -66,10 +66,10 @@ def _build_search_request(
     country: Optional[str],
     language: OptionalNullable[str],
     safesearch: Optional[str],
-    knowledge: Optional[str],
+    knowledge: OptionalNullable[str],
     livecrawl: Optional[str],
     livecrawl_formats: Optional[Iterable[str]],
-    extraction: Optional[Union[models.Extraction, Mapping[str, Any]]],
+    extraction: OptionalNullable[Union[models.Extraction, Mapping[str, Any]]],
     include_domains: Optional[Iterable[str]],
     exclude_domains: Optional[Iterable[str]],
     boost_domains: Optional[Iterable[str]],
@@ -80,7 +80,26 @@ def _build_search_request(
     Shared by the sync and async search paths so the extraction
     coercion/validation, deprecation warning, conflict check, and
     plus-value rule live in exactly one place.
+
+    ``knowledge`` and ``extraction`` are on by default: a caller that omits both
+    gets ``knowledge="core"`` and a highlights ``extraction`` on the wire.
+    Passing ``None`` for either opts out of that default; passing
+    ``knowledge=None, extraction=None`` restores the pre-3.6.0 plain-search
+    shape. The deprecated ``livecrawl`` / ``livecrawl_formats`` suppress the
+    ``extraction`` injection (an injected default would trip the conflict
+    ``ValueError`` below); ``knowledge`` still flips for them.
     """
+    # Flipped defaults: omitted -> on; explicit None -> off. Resolved before
+    # the extraction coercion below so the injected model drives the
+    # plus-value rule (crawl_timeout strip) the same as an explicit one.
+    if knowledge is UNSET:
+        knowledge = "core"
+    if extraction is UNSET:
+        extraction = (
+            {"extraction_mode": "highlights"}
+            if livecrawl is None and livecrawl_formats is None
+            else None
+        )
     # Coerce `extraction` to an Extraction instance so we can read
     # `.extraction_mode` for the plus-value rule below. Pydantic
     # raises ValidationError on strict-validation failures (unknown
@@ -122,7 +141,7 @@ def _build_search_request(
     if strip_crawl_timeout and crawl_timeout is not None:
         # Resolved inside the branch so the common path never forces
         # ``models.SearchRequestBody`` to load (the lazy package root is what
-        # keeps ``import youdotcom`` transport-free -- see DX-776).
+        # keeps ``import youdotcom`` transport-free).
         #
         # astroid cannot infer attributes through the PEP 562 ``__getattr__``
         # in ``models/__init__.py``, so it types ``model_fields`` as an
@@ -997,10 +1016,10 @@ class You(BaseSDK):
         country: Optional[str] = None,
         language: OptionalNullable[str] = UNSET,
         safesearch: Optional[str] = None,
-        knowledge: Optional[str] = None,
+        knowledge: OptionalNullable[str] = UNSET,
         livecrawl: Optional[str] = None,
         livecrawl_formats: Optional[Iterable[str]] = None,
-        extraction: Optional[Union[models.Extraction, Mapping[str, Any]]] = None,
+        extraction: OptionalNullable[Union[models.Extraction, Mapping[str, Any]]] = UNSET,
         include_domains: Optional[Iterable[str]] = None,
         exclude_domains: Optional[Iterable[str]] = None,
         boost_domains: Optional[Iterable[str]] = None,
@@ -1016,6 +1035,11 @@ class You(BaseSDK):
         ``knowledge``, ``livecrawl``, ``livecrawl_formats``, ``freshness``)
         accept plain strings in any case -- the SDK normalizes them to the
         casing the API expects, so callers don't need to import enum classes.
+
+        ``knowledge`` and ``extraction`` are on by default: an omitted pair
+        sends ``knowledge="core"`` and highlights extraction. Pass ``None``
+        for either to opt out of that default; restoring the pre-3.6.0
+        plain-search shape takes ``knowledge=None, extraction=None``.
 
         ``livecrawl`` and ``livecrawl_formats`` are deprecated; prefer
         ``extraction``. The two are mutually exclusive -- passing both
@@ -1035,18 +1059,20 @@ class You(BaseSDK):
         :param safesearch: ``"strict"``, ``"moderate"``, or ``"off"``.
         :param knowledge: ``"core"`` -- requests knowledge results (cards backed
             by licensed data providers), returned under
-            ``response.results.knowledge`` when relevant. Omit to skip them. It
-            is the only value the API accepts; anything else raises
-            :class:`pydantic.ValidationError` locally, mirroring the server's
-            ``422``.
+            ``response.results.knowledge`` when relevant. On by default;
+            pass ``None`` to skip them. It is the only value the API accepts;
+            anything else raises :class:`pydantic.ValidationError` locally,
+            mirroring the server's ``422``.
         :param livecrawl: deprecated. ``"web"``, ``"news"``, or ``"all"``.
             Use ``extraction`` instead. Mutually exclusive with ``extraction``.
         :param livecrawl_formats: deprecated. ``["html"]``, ``["markdown"]``,
             or both. Use ``extraction`` instead. Mutually exclusive with
             ``extraction``.
         :param extraction: Controls how page content is attached to each
-            result. ``None`` keeps snippets-only. Pass an ``Extraction``
-            instance or a dict matching :class:`ExtractionTypedDict`.
+            result. On by default: an omitted ``extraction`` sends
+            ``extraction_mode="highlights"`` (query-relevant excerpts in
+            ``results.web[].contents.highlights``, snippets omitted). Pass
+            ``None`` for a plain snippets-only search.
             ``extraction_mode`` is required (``"highlights"`` returns
             ``results.web[].contents.highlights``; ``"full_page"`` returns
             ``results.web[].contents.html`` / ``contents.markdown``).
@@ -1181,10 +1207,10 @@ class You(BaseSDK):
         country: Optional[str] = None,
         language: OptionalNullable[str] = UNSET,
         safesearch: Optional[str] = None,
-        knowledge: Optional[str] = None,
+        knowledge: OptionalNullable[str] = UNSET,
         livecrawl: Optional[str] = None,
         livecrawl_formats: Optional[Iterable[str]] = None,
-        extraction: Optional[Union[models.Extraction, Mapping[str, Any]]] = None,
+        extraction: OptionalNullable[Union[models.Extraction, Mapping[str, Any]]] = UNSET,
         include_domains: Optional[Iterable[str]] = None,
         exclude_domains: Optional[Iterable[str]] = None,
         boost_domains: Optional[Iterable[str]] = None,
@@ -2080,6 +2106,7 @@ class You(BaseSDK):
         research_effort: Optional[
             models.FinanceResearchEffort
         ] = models.FinanceResearchEffort.DEEP,
+        output_schema: Optional[Mapping[str, Any]] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -2098,6 +2125,7 @@ class You(BaseSDK):
             Available levels:
             - `deep`: The default. Spends more time researching and cross-referencing sources. Good for most financial questions, including multi-company comparisons, earnings analysis, and regulatory research.
             - `exhaustive`: The most thorough option. Explores the topic as fully as possible, best suited for complex financial research tasks where you want the highest quality result.
+        :param output_schema: Beta. Requests structured JSON output in `output.content` using a supported JSON Schema subset. Supported with every `research_effort` value. The rules and limits match the Research API, so the same schema works on both endpoints.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -2116,6 +2144,7 @@ class You(BaseSDK):
         request = models.FinanceResearchRequest(
             input=input,
             research_effort=research_effort,
+            output_schema=utils.unmarshal(output_schema, Optional[Dict[str, Any]]),
         )
 
         req = self._build_request(
@@ -2204,6 +2233,7 @@ class You(BaseSDK):
         research_effort: Optional[
             models.FinanceResearchEffort
         ] = models.FinanceResearchEffort.DEEP,
+        output_schema: Optional[Mapping[str, Any]] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -2222,6 +2252,7 @@ class You(BaseSDK):
             Available levels:
             - `deep`: The default. Spends more time researching and cross-referencing sources. Good for most financial questions, including multi-company comparisons, earnings analysis, and regulatory research.
             - `exhaustive`: The most thorough option. Explores the topic as fully as possible, best suited for complex financial research tasks where you want the highest quality result.
+        :param output_schema: Beta. Requests structured JSON output in `output.content` using a supported JSON Schema subset. Supported with every `research_effort` value. The rules and limits match the Research API, so the same schema works on both endpoints.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -2240,6 +2271,7 @@ class You(BaseSDK):
         request = models.FinanceResearchRequest(
             input=input,
             research_effort=research_effort,
+            output_schema=utils.unmarshal(output_schema, Optional[Dict[str, Any]]),
         )
 
         req = self._build_request_async(

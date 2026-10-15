@@ -170,6 +170,17 @@ def test_second_round_removes_what_the_first_round_made_removable() -> None:
     )
 
 
+def test_within_a_version_complement() -> None:
+    # No marker string spells the universe, which is no reason to refuse a
+    # question that is decidable over it.
+    within = ~ms('python_version < "3.10"')
+    marker = ms('python_version >= "3.10" and sys_platform == "linux"')
+    assert marker.equivalent_within(ms('sys_platform == "linux"'), within) is True
+    assert marker.simplify(within=within).to_marker_string() == (
+        'sys_platform == "linux"'
+    )
+
+
 def test_within_empty_raises() -> None:
     with pytest.raises(ValueError, match="empty set"):
         ms(SPAN).simplify(within=MarkerSet.empty())
@@ -330,6 +341,21 @@ ORACLE_TRIPLES = [
         '"5.10.0" in platform_release or python_version >= "3.12"',
         'python_version >= "3.12"',
         _u('platform_release == "5.10"'),
+    ),
+    # A version complement has no NNF, so these universes split on their own
+    # top-level ``or`` instead.
+    (
+        'python_version >= "3.10"',
+        'python_version >= "3.10" or sys_platform == "linux"',
+        (~ms('python_version < "3.10"'))._tree,
+    ),
+    (
+        'sys_platform == "linux" and python_version >= "3.10"',
+        'sys_platform == "linux"',
+        (
+            ms('sys_platform == "linux"') & ~ms('python_version < "3.10"')
+            | ms('sys_platform == "win32"')
+        )._tree,
     ),
 ]
 
@@ -549,6 +575,22 @@ def _partition_counter(monkeypatch: pytest.MonkeyPatch) -> Callable[[], int]:
     return lambda: calls
 
 
+def _decision_counter(monkeypatch: pytest.MonkeyPatch) -> Callable[[], int]:
+    """Count emptiness decisions that the store could not answer."""
+    calls = 0
+    real = engine._decide_empty
+
+    def counting(
+        node: engine.Formula, max_cells: int, memo: engine.Memo
+    ) -> engine._Decision:
+        nonlocal calls
+        calls += 1
+        return real(node, max_cells, memo)
+
+    monkeypatch.setattr(engine, "_decide_empty", counting)
+    return lambda: calls
+
+
 def _truth_counter(monkeypatch: pytest.MonkeyPatch) -> Callable[[], int]:
     """Start counting atom-truth evaluations, and return a reader for the count.
 
@@ -629,8 +671,7 @@ def test_one_operation_reads_each_atom_truth_once(
     """An atom's truth on one point is evaluated once per operation.
 
     Partitions of one axis over overlapping atom sets re-read the same atom on the
-    same point, which is why the memo pays. 164 evaluations here, against 218 with
-    the memo bypassed.
+    same point.
     """
     left = ms('python_version < "3.12"' + _SPREAD)
     right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
@@ -638,7 +679,7 @@ def test_one_operation_reads_each_atom_truth_once(
     truths = _truth_counter(monkeypatch)
     assert left.equivalent_within(right, _row_universe()) is True
 
-    assert truths() == 164
+    assert truths() == 132
 
 
 def test_atoms_keep_no_truths_between_operations(
@@ -685,6 +726,26 @@ def test_partition_is_keyed_on_atom_order_not_just_the_set() -> None:
         assert cell.vector == tuple(atom.holds(cell.point) for atom in atoms)
     for cell in backward:
         assert cell.vector == tuple(atom.holds(cell.point) for atom in reversed(atoms))
+
+
+def test_clause_decisions_reuse_work_across_atom_orders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reordered clause reuses its decision without evaluating cells again."""
+    atoms = engine.collect_atoms(
+        engine.parse('python_version < "3.11" and python_version >= "3.10"')
+    )
+    store = engine.Memo()
+    decisions = _decision_counter(monkeypatch)
+
+    forward = engine._clause_formula(atoms)
+    assert engine.is_empty(forward, _MAX_CELLS, store) is False
+    first = decisions()
+
+    backward = engine._clause_formula(reversed(atoms))
+    assert engine.is_empty(backward, _MAX_CELLS, store) is False
+    assert first == 1
+    assert decisions() == first
 
 
 def test_partitions_do_not_outlive_one_operation(
@@ -738,7 +799,7 @@ def test_a_shared_store_serves_the_next_decision_its_truths(
     """A decision handed the previous one's store re-reads no stored atom truth.
 
     Only restriction repeats, one read for each of the six rows' two operands,
-    against 164 for the decision itself.
+    against 132 for the decision itself.
     """
     universe = _row_universe()
     left = ms('python_version < "3.12"' + _SPREAD)
@@ -750,7 +811,7 @@ def test_a_shared_store_serves_the_next_decision_its_truths(
     first = truths()
     left.equivalent_within(right, universe, store=store)
 
-    assert first == 164
+    assert first == 132
     assert truths() - first == 12
 
 

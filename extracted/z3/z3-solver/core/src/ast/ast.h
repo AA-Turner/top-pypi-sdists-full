@@ -278,6 +278,7 @@ public:
     void del_eh(ast_manager & m);
 
     family_id get_family_id() const { return m_family_id; }
+
     decl_kind get_decl_kind() const { return m_kind; }
     bool is_decl_of(family_id fid, decl_kind k) const { return m_family_id == fid && k == m_kind; }
     unsigned get_num_parameters() const { return m_parameters.size(); }
@@ -630,6 +631,34 @@ public:
     void set_num_elements(sort_size const& s) { get_info()->set_num_elements(s); }
     unsigned get_size() const { return get_obj_size(); }
     bool is_type_var() const { return get_family_id() == poly_family_id; }
+
+    // Uniform access to the sort(s) nested under a parametric sort
+    // constructor, e.g., the domain/range sorts of an Array sort, the
+    // element sort of a Seq/RegEx sort, or the element sort of a
+    // FiniteSet sort. Such sorts store their argument sorts as PARAM_AST
+    // parameters, so a nested sort is simply a parameter that is an ast
+    // of kind AST_SORT. Defined out-of-line below, once is_sort()/to_sort()
+    // are available.
+    unsigned get_num_sort_parameters() const;
+    sort * get_sort_parameter(unsigned idx) const;
+
+    class sort_parameters {
+        sort const & m_s;
+    public:
+        class iterator {
+            sort const & m_s;
+            unsigned     m_idx;
+        public:
+            iterator(sort const & s, unsigned idx) : m_s(s), m_idx(idx) {}
+            iterator & operator++() { ++m_idx; return *this; }
+            sort * operator*() const { return m_s.get_sort_parameter(m_idx); }
+            bool operator!=(iterator const & other) const { return m_idx != other.m_idx; }
+        };
+        sort_parameters(sort const & s) : m_s(s) {}
+        iterator begin() const { return iterator(m_s, 0); }
+        iterator end() const { return iterator(m_s, m_s.get_num_sort_parameters()); }
+    };
+    sort_parameters get_sort_parameters() const { return sort_parameters(*this); }
 };
 
 // -----------------------------------
@@ -950,6 +979,29 @@ inline bool is_forall(ast const * n)     { return is_quantifier(n) && static_cas
 inline bool is_exists(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->get_kind() == exists_k; }
 inline bool is_lambda(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->get_kind() == lambda_k; }
 
+inline unsigned sort::get_num_sort_parameters() const {
+    unsigned n = 0;
+    for (unsigned i = 0; i < get_num_parameters(); ++i) {
+        parameter const & p = get_parameter(i);
+        if (p.is_ast() && is_sort(p.get_ast()))
+            ++n;
+    }
+    return n;
+}
+
+inline sort * sort::get_sort_parameter(unsigned idx) const {
+    for (unsigned i = 0; i < get_num_parameters(); ++i) {
+        parameter const & p = get_parameter(i);
+        if (p.is_ast() && is_sort(p.get_ast())) {
+            if (idx == 0)
+                return static_cast<sort *>(p.get_ast());
+            --idx;
+        }
+    }
+    UNREACHABLE();
+    return nullptr;
+}
+
 // -----------------------------------
 //
 // AST coercions
@@ -1022,6 +1074,7 @@ class decl_plugin {
 protected:
     ast_manager * m_manager = nullptr;
     family_id     m_family_id = null_family_id;
+    bool          m_has_sorts = false;
 
     virtual void set_manager(ast_manager * m, family_id id) {
         SASSERT(m_manager == nullptr);
@@ -1052,6 +1105,9 @@ public:
     virtual decl_plugin * mk_fresh() = 0;
 
     family_id get_family_id() const { return m_family_id; }
+
+    // Conservative fast path, including sorts created by AST translation.
+    bool has_sorts() const { return m_has_sorts; }
 
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) = 0;
 
@@ -1141,7 +1197,7 @@ enum basic_op_kind {
     PR_ASSUMPTION_ADD, PR_TH_ASSUMPTION_ADD, PR_LEMMA_ADD, PR_TH_LEMMA_ADD, PR_REDUNDANT_DEL, PR_CLAUSE_TRAIL,
 
     PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_SKOLEMIZE, 
-    PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, LAST_BASIC_PR
+    PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, PR_DEMODULATION, LAST_BASIC_PR
 };
 
 class basic_decl_plugin : public decl_plugin {
@@ -1181,6 +1237,7 @@ protected:
     ptr_vector<func_decl> m_distributivity_decls;
     ptr_vector<func_decl> m_assoc_flat_decls;
     ptr_vector<func_decl> m_rewrite_star_decls;
+    ptr_vector<func_decl> m_demodulation_decls;
 
     func_decl * m_hypothesis_decl = nullptr;
     func_decl * m_iff_true_decl = nullptr;
@@ -1597,6 +1654,7 @@ public:
     reslimit& limit() { return m_limit; }
     // bool canceled() { return !limit().inc(); }
     bool inc() { return limit().inc(); }
+    bool inc(unsigned v) { return limit().inc(v); }
 
     void register_plugin(symbol const & s, decl_plugin * plugin);
 
@@ -2180,6 +2238,13 @@ public:
     MATCH_TERNARY(is_or);
     END_DISABLE_WARNING;
 
+    expr* strip_double_not(expr* e) const {
+        expr* a = nullptr, *b = nullptr;
+        while (is_not(e, a) && is_not(a, b))
+            e = b;
+        return e;
+    }
+
     bool is_iff(expr const* n, expr*& lhs, expr*& rhs) const { return is_eq(n, lhs, rhs) && is_bool(lhs); } 
 
     bool is_ite(expr const* n, expr*& t1, expr*& t2, expr*& t3) const {
@@ -2377,8 +2442,11 @@ public:
     proof * mk_oeq_quant_intro(quantifier * q1, quantifier * q2, proof * p);
     proof * mk_distributivity(expr * s, expr * r);
     proof * mk_rewrite(expr * s, expr * t);
+    proof * mk_rewrite(expr * s, expr * t, symbol const & rule);
+    symbol get_rewrite_rule(proof const * p) const;
     proof * mk_oeq_rewrite(expr * s, expr * t);
     proof * mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
+    proof * mk_demodulation(expr * t, expr * s, unsigned num_proofs, proof * const * proofs);
     proof * mk_bind_proof(quantifier * q, proof * p);
     proof * mk_pull_quant(expr * e, quantifier * q);
     proof * mk_push_quant(quantifier * q, expr * e);

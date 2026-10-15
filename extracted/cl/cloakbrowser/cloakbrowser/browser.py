@@ -14,6 +14,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 import os
@@ -507,10 +508,12 @@ async def launch_async(  # noqa: C901
 
     from playwright.async_api import async_playwright
 
-    binary_path = ensure_binary(license_key=license_key, browser_version=browser_version, release_channel=release_channel)
-    timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale, args)
+    # Blocking network calls (license/download, exit-IP lookups) run in a thread so
+    # they don't freeze the caller's event loop.
+    binary_path = await asyncio.to_thread(ensure_binary, license_key=license_key, browser_version=browser_version, release_channel=release_channel)
+    timezone, locale, exit_ip = await asyncio.to_thread(maybe_resolve_geoip, geoip, proxy, timezone, locale, args)
     proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version, license_key, release_channel)
-    args = _resolve_webrtc_args(args, proxy)
+    args = await asyncio.to_thread(_resolve_webrtc_args, args, proxy)
     args = _append_webrtc_exit_ip(args, exit_ip)
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=binary_supports_maximized_window(license_key, browser_version, release_channel) and not _suppress_maximize)
     _maybe_warn_windows_fonts(chrome_args)
@@ -819,10 +822,11 @@ async def launch_persistent_context_async(
 
     timezone = _resolve_timezone(timezone, kwargs)
 
-    binary_path = ensure_binary(license_key=license_key, browser_version=browser_version, release_channel=release_channel)
-    timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale, args)
+    # Blocking network calls run in a thread (see launch_async).
+    binary_path = await asyncio.to_thread(ensure_binary, license_key=license_key, browser_version=browser_version, release_channel=release_channel)
+    timezone, locale, exit_ip = await asyncio.to_thread(maybe_resolve_geoip, geoip, proxy, timezone, locale, args)
     proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version, license_key, release_channel)
-    args = _resolve_webrtc_args(args, proxy)
+    args = await asyncio.to_thread(_resolve_webrtc_args, args, proxy)
     args = _append_webrtc_exit_ip(args, exit_ip)
     args = persistent_seed_args(user_data_dir, stealth_args, args)
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=binary_supports_maximized_window(license_key, browser_version, release_channel) and viewport is _VIEWPORT_UNSET and "viewport" not in kwargs and "no_viewport" not in kwargs)
@@ -1104,8 +1108,8 @@ async def launch_context_async(
     timezone = _resolve_timezone(timezone, kwargs)
 
     # Resolve geoip BEFORE launch_async() to avoid double-resolution and ensure
-    # resolved values flow to binary flags
-    timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale, args)
+    # resolved values flow to binary flags. Threaded: the lookup is blocking network I/O.
+    timezone, locale, exit_ip = await asyncio.to_thread(maybe_resolve_geoip, geoip, proxy, timezone, locale, args)
     args = _append_webrtc_exit_ip(args, exit_ip)
     # --fingerprint-timezone is process-wide (reads CommandLine in renderer),
     # so it applies to ALL contexts, not just the default one.

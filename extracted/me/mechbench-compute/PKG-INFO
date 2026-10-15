@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mechbench-compute
-Version: 0.198.0
+Version: 0.200.0
 Summary: Composable mechanistic-interpretability primitives: hook-aware forward, interventions, activation cache, logit lens, probes, and geometry.
 Author-email: Benji Smith <benji@shaxpir.com>
 License: MIT
@@ -34,6 +34,7 @@ Requires-Dist: nnsight<0.9,>=0.7; extra == "torch"
 Requires-Dist: transformers>=5; extra == "torch"
 Requires-Dist: safetensors>=0.4; extra == "torch"
 Requires-Dist: accelerate>=1.0; extra == "torch"
+Requires-Dist: nvidia-ml-py>=12.535; extra == "torch"
 Provides-Extra: dev
 Requires-Dist: pytest>=8; extra == "dev"
 Requires-Dist: ruff>=0.5; extra == "dev"

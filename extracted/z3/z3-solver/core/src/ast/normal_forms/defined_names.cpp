@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "util/obj_hashtable.h"
 #include "ast/normal_forms/defined_names.h"
+#include "ast/ast_translation.h"
 #include "ast/used_vars.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_smt2_pp.h"
@@ -69,6 +70,7 @@ struct defined_names::impl {
     void push_scope();
     void pop_scope(unsigned num_scopes);
     void reset();
+    void translate(impl const& src, ast_translation& tr);
 
     unsigned get_num_names() const { return m_names.size(); }
     func_decl * get_name_decl(unsigned i) const { return to_app(m_names.get(i))->get_decl(); }
@@ -80,6 +82,20 @@ struct defined_names::pos_impl : public defined_names::impl {
 
 };
 
+void defined_names::impl::translate(impl const& src, ast_translation& tr) {
+    SASSERT(src.m_lims.empty());
+    SASSERT(m_exprs.empty());
+    for (unsigned i = 0; i < src.m_exprs.size(); ++i) {
+        expr* e = tr(src.m_exprs.get(i));
+        app* n = to_app(tr(src.m_names.get(i)));
+        cache_new_name(e, n);
+        if (src.m.proofs_enabled()) {
+            proof* p = to_app(tr(src.m_apply_proofs.get(i)));
+            cache_new_name_intro_proof(e, p);
+        }
+    }
+}
+
 
 defined_names::impl::impl(ast_manager & m, char const * prefix):
     m(m),
@@ -88,6 +104,11 @@ defined_names::impl::impl(ast_manager & m, char const * prefix):
     m_apply_proofs(m) {
     if (prefix)
         m_z3name = prefix;
+}
+
+void defined_names::translate(defined_names const& src, ast_translation& tr) {
+    m_impl->translate(*src.m_impl, tr);
+    m_pos_impl->translate(*src.m_pos_impl, tr);
 }
 
 /**
@@ -188,7 +209,9 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
         bound_vars(var_sorts, var_names, MK_OR(n, MK_NOT(e)), n, defs);
     }
     else if (m.is_term_ite(e)) {
-        bound_vars(var_sorts, var_names, MK_OR(MK_NOT(to_app(e)->get_arg(0)), MK_EQ(n, to_app(e)->get_arg(1))), n, defs);
+        expr_ref not_condition(MK_NOT(to_app(e)->get_arg(0)), m);
+        expr_ref then_eq(MK_EQ(n, to_app(e)->get_arg(1)), m);
+        bound_vars(var_sorts, var_names, MK_OR(not_condition, then_eq), n, defs);
         bound_vars(var_sorts, var_names, MK_OR(to_app(e)->get_arg(0),         MK_EQ(n, to_app(e)->get_arg(2))), n, defs);
     }    
     else {
@@ -329,8 +352,3 @@ func_decl * defined_names::get_name_decl(unsigned i) const {
     unsigned n1 = m_impl->get_num_names();
     return i < n1 ? m_impl->get_name_decl(i) : m_pos_impl->get_name_decl(i - n1);
 }
-
-
-
-
-

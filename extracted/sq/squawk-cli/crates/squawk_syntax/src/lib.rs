@@ -185,7 +185,8 @@ macro_rules! match_ast {
         $( $( $path:ident )::+ ($it:pat) => $res:expr, )*
         _ => $catch_all:expr $(,)?
     }) => {{
-        $( if let Some($it) = $($path::)+cast($node.clone()) { $res } else )*
+        let kind = $node.kind();
+        $( if $($path::)+can_cast(kind) && let Some($it) = $($path::)+cast($node.clone()) { $res } else )*
         { $catch_all }
     }};
 }
@@ -268,7 +269,7 @@ fn api_walkthrough() {
     };
     let as_definition: ast::AsDefinition = match option.as_func_target().unwrap() {
         ast::AsFuncTarget::AsDefinition(d) => d,
-        _ => unreachable!(),
+        ast::AsFuncTarget::AsObjFile(_) => unreachable!(),
     };
     let definition: ast::Literal = as_definition.literal().unwrap();
     assert_eq!(definition.syntax().to_string(), "'select 1 + 1'");
@@ -278,7 +279,7 @@ fn api_walkthrough() {
     let func_option_syntax = func_option.syntax();
 
     // Note how `func_option_syntax` and `option` are in fact the same node underneath:
-    assert!(func_option_syntax == option.syntax());
+    assert_eq!(func_option_syntax, option.syntax());
 
     // To go from CST to AST, `AstNode::cast` function is used:
     let _expr: ast::FuncOption = match ast::FuncOption::cast(func_option_syntax.clone()) {
@@ -501,7 +502,7 @@ fn create_table() {
             ],
         ),
     ]
-    "#)
+    "#);
 }
 
 #[test]

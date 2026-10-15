@@ -1,8 +1,14 @@
 import json
 import os.path
+import subprocess
+import sys
+import tempfile
+import unittest
+import warnings
 from email.mime.image import MIMEImage
+from unittest import mock
 
-from django.core import mail
+from django.core import checks, mail
 from django.core.mail.backends.base import BaseEmailBackend
 from django.core.mail.backends import locmem
 from django.core.mail import EmailMultiAlternatives
@@ -11,6 +17,7 @@ from django.test.utils import override_settings
 
 import celery
 from djcelery_email import tasks, utils
+from djcelery_email.backends import CeleryEmailBackend
 
 
 def even(n):
@@ -99,6 +106,22 @@ class UtilTests(TestCase):
     def test_custom_email_multi_alternatives_class(self):
         msg = utils.get_email_multi_alternatives_class()()
         self.assertIsInstance(msg, CustomEmailMultiAlternatives)
+
+    def test_email_to_dict_without_tasks_imported(self):
+        # utils must load the default settings itself instead of relying on
+        # tasks.py having imported conf.py first (#16). Needs a fresh
+        # interpreter because this test module already imports tasks.
+        code = (
+            "import django\n"
+            "from django.conf import settings\n"
+            "settings.configure()\n"
+            "django.setup()\n"
+            "from django.core.mail import EmailMessage\n"
+            "from djcelery_email.utils import email_to_dict\n"
+            "email_to_dict(EmailMessage())\n"
+        )
+        result = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class TaskTests(TestCase):
@@ -201,7 +224,7 @@ class TaskTests(TestCase):
 class EvenErrorBackend(locmem.EmailBackend):
     """ Fails to deliver every 2nd message. """
     def __init__(self, *args, **kwargs):
-        super(EvenErrorBackend, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.message_count = 0
 
     def send_messages(self, messages):
@@ -209,7 +232,7 @@ class EvenErrorBackend(locmem.EmailBackend):
         if even(self.message_count-1):
             raise RuntimeError("Something went wrong sending the message")
         else:
-            return super(EvenErrorBackend, self).send_messages(messages)
+            return super().send_messages(messages)
 
 
 class TaskErrorTests(TestCase):
@@ -217,21 +240,17 @@ class TaskErrorTests(TestCase):
     Tests that the 'tasks.send_emails' task does not crash if a single message
     could not be sent and that it requeues that message.
     """
-    # TODO: replace setUp/tearDown with 'unittest.mock' at some point
     def setUp(self):
-        super(TaskErrorTests, self).setUp()
+        super().setUp()
 
         self._retry_calls = []
 
         def mock_retry(*args, **kwargs):
             self._retry_calls.append((args, kwargs))
 
-        self._old_retry = tasks.send_emails.retry
-        tasks.send_emails.retry = mock_retry
-
-    def tearDown(self):
-        super(TaskErrorTests, self).tearDown()
-        tasks.send_emails.retry = self._old_retry
+        patcher = mock.patch.object(tasks.send_emails, 'retry', mock_retry)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     @override_settings(CELERY_EMAIL_BACKEND='tests.tests.EvenErrorBackend')
     def test_send_multiple_emails(self):
@@ -264,21 +283,17 @@ class BackendTests(TestCase):
     i.e. it submits the correct number of jobs (according to the chunk size)
     and passes backend parameters to the task.
     """
-    # TODO: replace setUp/tearDown with 'unittest.mock' at some point
     def setUp(self):
-        super(BackendTests, self).setUp()
+        super().setUp()
 
         self._delay_calls = []
 
         def mock_delay(*args, **kwargs):
             self._delay_calls.append((args, kwargs))
 
-        self._old_delay = tasks.send_emails.delay
-        tasks.send_emails.delay = mock_delay
-
-    def tearDown(self):
-        super(BackendTests, self).tearDown()
-        tasks.send_emails.delay = self._old_delay
+        patcher = mock.patch.object(tasks.send_emails, 'delay', mock_delay)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_backend_parameters(self):
         """ Our backend should pass kwargs to the 'send_emails' task. """
@@ -339,13 +354,11 @@ class IntegrationTests(TestCase):
     # the future?)
 
     def setUp(self):
-        super(IntegrationTests, self).setUp()
-        # TODO: replace with 'unittest.mock' at some point
-        celery.current_app.conf.task_always_eager = True
-
-    def tearDown(self):
-        super(IntegrationTests, self).tearDown()
-        celery.current_app.conf.task_always_eager = False
+        super().setUp()
+        # Celery keeps its settings in a mapping, which mock.patch.object can't restore.
+        conf = celery.current_app.conf
+        self.addCleanup(setattr, conf, 'task_always_eager', conf.task_always_eager)
+        conf.task_always_eager = True
 
     def test_sending_email(self):
         [result] = mail.send_mail('test', 'Testing with Celery! w00t!!', 'from@example.com',
@@ -410,3 +423,96 @@ class IntegrationTests(TestCase):
             self.assertEqual(len(mail.outbox), 11)
             self.assertEqual(mail.outbox[0].subject, 'mass 0')
             self.assertEqual(mail.outbox[1].subject, 'mass 1')
+
+
+class ConflictingPackageCheckTests(TestCase):
+    def conflict_warnings(self):
+        return [m for m in checks.run_checks() if m.id == 'djcelery_email.W001']
+
+    def test_warns_when_django_celery_email_is_installed(self):
+        # A dist-info folder on sys.path is all importlib.metadata needs to
+        # report the original django-celery-email as installed (#20).
+        with tempfile.TemporaryDirectory() as site_dir:
+            dist_info = os.path.join(site_dir, 'django_celery_email-3.0.0.dist-info')
+            os.mkdir(dist_info)
+            with open(os.path.join(dist_info, 'METADATA'), 'w') as f:
+                f.write('Metadata-Version: 2.1\nName: django-celery-email\nVersion: 3.0.0\n')
+            sys.path.insert(0, site_dir)
+            try:
+                warnings = self.conflict_warnings()
+            finally:
+                sys.path.remove(site_dir)
+
+        self.assertEqual(len(warnings), 1)
+        self.assertIn('django-celery-email', warnings[0].msg)
+
+    def test_no_warning_without_django_celery_email(self):
+        self.assertEqual(self.conflict_warnings(), [])
+
+
+class FailSilentlyTests(TestCase):
+    def test_fail_silently_without_deprecation_warning(self):
+        # Django 6.1 deprecates passing fail_silently to BaseEmailBackend, so the
+        # backend has to handle it itself.
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            backend = CeleryEmailBackend(fail_silently=True)
+        self.assertTrue(backend.fail_silently)
+
+
+HAS_MAILERS = hasattr(mail, 'mailers')
+
+MAILERS = {
+    'default': {
+        'BACKEND': 'djcelery_email.backends.CeleryEmailBackend',
+        'OPTIONS': {'using': 'wrapped'},
+    },
+    'wrapped': {
+        'BACKEND': 'django.core.mail.backends.locmem.EmailBackend',
+    },
+}
+
+
+@unittest.skipUnless(HAS_MAILERS, 'MAILERS requires Django 6.1+')
+@override_settings(MAILERS=MAILERS)
+class MailersTests(TestCase):
+    def setUp(self):
+        super().setUp()
+        conf = celery.current_app.conf
+        self.addCleanup(setattr, conf, 'task_always_eager', conf.task_always_eager)
+        conf.task_always_eager = True
+
+    def assertInvalidMailer(self, options, message):
+        mailers = {**MAILERS, 'default': {**MAILERS['default'], 'OPTIONS': options}}
+        with override_settings(MAILERS=mailers):
+            with self.assertRaisesMessage(mail.InvalidMailer, message):
+                mail.mailers['default']
+
+    def test_sends_through_wrapped_mailer(self):
+        [result] = mail.send_mail('test', 'body', 'from@example.com', ['to@example.com'])
+
+        self.assertEqual(result.get(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].sent_using, 'wrapped')
+
+    def test_retry_keeps_wrapped_mailer(self):
+        mailers = {**MAILERS, 'wrapped': {'BACKEND': 'tests.tests.EvenErrorBackend'}}
+        msgs = [mail.EmailMessage(subject="msg %d" % i) for i in range(2)]
+
+        with override_settings(MAILERS=mailers), mock.patch.object(tasks.send_emails, 'retry') as retry:
+            tasks.send_emails([utils.email_to_dict(msg) for msg in msgs], using='wrapped')
+
+        retry.assert_called_once()
+        self.assertEqual(retry.call_args.kwargs['kwargs'], {'using': 'wrapped'})
+
+    def test_using_is_required(self):
+        self.assertInvalidMailer({}, "'using'")
+
+    def test_using_cannot_refer_to_itself(self):
+        self.assertInvalidMailer({'using': 'default'}, "'using'")
+
+    def test_using_must_refer_to_existing_mailer(self):
+        self.assertInvalidMailer({'using': 'missing'}, "'missing'")
+
+    def test_unknown_options_are_rejected(self):
+        self.assertInvalidMailer({'using': 'wrapped', 'host': 'smtp.example.com'}, "'host'")

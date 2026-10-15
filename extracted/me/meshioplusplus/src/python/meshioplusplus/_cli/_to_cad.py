@@ -68,7 +68,47 @@ def add_args(parser):
         help="rounds of demoting failed faces before faceting all (default: 8)",
     )
     parser.add_argument(
+        "--no-freeform",
+        action="store_true",
+        help="facet the patches no primitive explains instead of fitting B-spline faces",
+    )
+    parser.add_argument(
+        "--freeform-degree",
+        type=int,
+        default=3,
+        help="highest degree of a freeform B-spline face, 3 to 8 (default: 3)",
+    )
+    parser.add_argument(
+        "--freeform-max-control",
+        type=int,
+        default=64,
+        help="most grid points per direction a freeform fit samples (default: 64)",
+    )
+    parser.add_argument(
+        "--no-freeform-split",
+        action="store_true",
+        help="facet a freeform patch that folds over every flattening instead of "
+        "splitting it into pieces",
+    )
+    parser.add_argument(
+        "--no-fillets",
+        action="store_true",
+        help="do not try a patch between two fitted faces as a rolling-ball fillet "
+        "or blend",
+    )
+    parser.add_argument(
+        "--no-threads",
+        action="store_true",
+        help="do not try a patch as a helical thread face",
+    )
+    parser.add_argument(
         "--mesh-out", type=str, default=None, help="also write the re-meshed solid here"
+    )
+    parser.add_argument(
+        "--cad-json",
+        type=str,
+        default=None,
+        help="also write the solid as Kratos CAD JSON (NURBS faces, loops, edges) here",
     )
     parser.add_argument("--json", action="store_true", help="emit the report as JSON")
     parser.add_argument(
@@ -94,10 +134,18 @@ def to_cad_cmd(args):
         types=[t.strip() for t in args.types.split(",") if t.strip()],
         mesh_deflection=args.mesh_deflection,
         max_demotion_rounds=args.max_demotion_rounds,
+        freeform=not args.no_freeform,
+        freeform_degree=args.freeform_degree,
+        freeform_max_control=args.freeform_max_control,
+        freeform_split=not args.no_freeform_split,
+        fillets=not args.no_fillets,
+        threads=not args.no_threads,
         return_report=True,
     )
     if args.mesh_out:
         write(args.mesh_out, out)
+    if args.cad_json:
+        write(args.cad_json, out, file_format="cad_json")
     if args.json:
         emit_json(report)
     elif not args.quiet:
@@ -107,6 +155,25 @@ def to_cad_cmd(args):
         )
         for t in TYPES[1:]:
             print(f"  {t + ':':10s} {report['num_' + t]}")
+        split = report["num_split_patches"]
+        print(
+            f"  {'bspline:':10s} {report['num_bspline']}"
+            + (f" ({split} split piece(s))" if split > 0 else "")
+        )
+        variable, blend = report["num_variable_fillet"], report["num_blend"]
+        print(
+            f"  {'fillet:':10s} {report['num_fillet']}"
+            + (
+                f" ({variable} of varying radius, {blend} blend(s))"
+                if variable > 0 or blend > 0
+                else ""
+            )
+        )
+        rounded = report["num_rounded_thread"]
+        print(
+            f"  {'helical:':10s} {report['num_helical']}"
+            + (f" ({rounded} rounded)" if rounded > 0 else "")
+        )
         print(f"  {'facets:':10s} {report['num_faceted_faces']}")
         print(f"  {'demoted:':10s} {report['num_demoted']} patch(es)")
         print(

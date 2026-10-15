@@ -13,7 +13,6 @@ except ImportError:
 
 from cerberus import Validator
 
-# Re-export from _paths for backwards compatibility
 from ._paths import KoloWriteError, create_kolo_directory  # noqa: F401
 
 __all__ = ["KoloWriteError", "create_kolo_directory"]
@@ -62,17 +61,8 @@ schema = {
     "use_msgpack": {"type": "boolean"},
     "use_rust": {"type": "boolean"},
     "auto_emit": {"type": "boolean"},
-    # trace_points: when one of the listed functions returns, kolo
-    # snapshots its frame slice and saves it as a standalone top-level
-    # trace via a daemon save worker.
-    #
-    # Healthy saves are async on a long-lived worker. If the worker is
-    # unavailable or saturated, kolo falls back to inline save so the
-    # trace still persists instead of being silently dropped. Process
-    # crash can still lose unfinished work. "Function returned"
-    # therefore does NOT imply "trace persisted now". Reach for trace
-    # points for low-cardinality observability sampling, not for durable
-    # audit trails.
+    # Saves are async, falling back to inline; a crash can still lose unfinished work, so a return
+    # does not mean the trace is persisted.
     "trace_points": {
         "type": "dict",
         "schema": {
@@ -82,18 +72,12 @@ schema = {
             },
         },
     },
-    # Flush threshold in megabytes. Accepts integer or float (fractional
-    # MB) so tests can pin sub-megabyte thresholds to force flushes on
-    # small fixtures. Also accepts ``false`` to disable flushing entirely
-    # (TOML has no null literal). Converted to bytes at read time.
+    # Floats let tests force small thresholds; `false` disables flushing (TOML has no null).
     "flush_subtree_mb": {
         "type": ["integer", "float", "boolean"],
         "nullable": True,
         "min": 0,
     },
-    # Per-value budget in megabytes (integer or float, or ``false`` for no
-    # limit). A traced value whose encoding is larger is recorded as a
-    # truncation marker instead.
     "max_value_mb": {
         "type": ["integer", "float", "boolean"],
         "nullable": True,
@@ -117,9 +101,8 @@ pyproject_validator = Validator(pyproject_schema, allow_unknown=True)
 
 
 def clear_errors(config: MutableMapping[str, Any], errors) -> None:
-    # Collect keys, dedupe, and only sort+reverse for list configs so that
-    # deleting list elements does not shift later indices. Mixing str and
-    # int keys (mapping vs list) in one sort would raise TypeError.
+    # Only sort+reverse list keys so deletions don't shift later indices; mixing str and int keys
+    # in one sort raises TypeError.
     keys_to_delete = []
     for error in errors:
         key = error.document_path[-1]
@@ -137,10 +120,7 @@ def clear_errors(config: MutableMapping[str, Any], errors) -> None:
             del config[key]
 
 
-# Parsed and validated config files, keyed by absolute path and validator.
-# Middleware loads the config on every request; the file is still read every
-# time, but parsing and validating it again is only needed when its bytes
-# change.
+# Middleware loads config every request: re-parse/validate only when the file's bytes change.
 _config_files: dict[Tuple[str, int], Tuple[bytes, MutableMapping[str, Any], Any]] = {}
 
 

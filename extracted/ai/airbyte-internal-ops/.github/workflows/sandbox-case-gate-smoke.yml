@@ -1,0 +1,79 @@
+# Runs the case gate's shape and origin checks on the reference source-slack
+# case, so a change to the gate is exercised on its PR: sandbox-case-validate.yml
+# is dispatch-only and cannot run before it is on `main`. Nothing is merged,
+# no case run is started and no write token is minted.
+name: Sandbox Case Gate Smoke
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - 'src/airbyte_ops_mcp/regression_tests/case_gate.py'
+      - 'src/airbyte_ops_mcp/regression_tests/case_validate.py'
+      - 'src/airbyte_ops_mcp/regression_tests/sandbox_support.py'
+      - 'src/airbyte_ops_mcp/regression_tests/repro_case.py'
+      - 'src/airbyte_ops_mcp/github_api.py'
+      - 'src/airbyte_ops_mcp/docker_hub.py'
+      - 'src/airbyte_ops_mcp/regression_tests/ci_output.py'
+      - '.github/workflows/sandbox-case-validate.yml'
+      - '.github/workflows/sandbox-case-gate-smoke.yml'
+      - '.github/actions/setup-saas-sandbox/**'
+      - '.github/saas-sandbox-ref'
+      - 'tests/fixtures/regression_cases/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Case gate on the reference case
+    # Fork PRs get no secrets.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --group dev --group live-tests --all-packages
+
+      - name: Get SaaS Sandbox checkout token
+        id: sandbox-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+          owner: airbytehq
+          repositories: saas-sandbox
+          permission-contents: read
+
+      - name: Set up SaaS Sandbox
+        uses: ./.github/actions/setup-saas-sandbox
+        with:
+          token: ${{ steps.sandbox-token.outputs.token }}
+          start: "false"
+
+      - name: Run the case gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uv run airbyte-ops cloud connector regression-case-gate \
+            --case-dir tests/fixtures/regression_cases/source-slack/threads-fractional-cursor-429

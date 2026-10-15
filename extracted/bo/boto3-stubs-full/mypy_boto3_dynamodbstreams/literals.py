@@ -40,7 +40,7 @@ KeyTypeType = Literal["HASH", "RANGE"]
 OperationTypeType = Literal["INSERT", "MODIFY", "REMOVE"]
 ShardFilterTypeType = Literal["CHILD_SHARDS"]
 ShardIteratorTypeType = Literal[
-    "AFTER_SEQUENCE_NUMBER", "AT_SEQUENCE_NUMBER", "LATEST", "TRIM_HORIZON"
+    "AFTER_SEQUENCE_NUMBER", "AT_SEQUENCE_NUMBER", "AT_TIMESTAMP", "LATEST", "TRIM_HORIZON"
 ]
 StreamStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
 StreamViewTypeType = Literal["KEYS_ONLY", "NEW_AND_OLD_IMAGES", "NEW_IMAGE", "OLD_IMAGE"]

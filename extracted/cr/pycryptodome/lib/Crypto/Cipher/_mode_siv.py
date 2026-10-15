@@ -1,52 +1,31 @@
-# ===================================================================
-#
-# Copyright (c) 2014, Legrandin <helderijs@gmail.com>
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-# ===================================================================
+# SPDX-FileCopyrightText: 2014 Legrandin <helderijs@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
 
 """
 Synthetic Initialization Vector (SIV) mode.
 """
 
-__all__ = ['SivMode']
+from __future__ import annotations
 
-from binascii import hexlify, unhexlify
+from hmac import compare_digest
+from typing import TYPE_CHECKING, Optional, Union, overload
 
-from Crypto.Util.py3compat import bord, _copy_bytes
+__all__ = ["SivMode"]
 
-from Crypto.Util._raw_api import is_buffer
+from binascii import unhexlify
 
-from Crypto.Util.number import long_to_bytes, bytes_to_long
+from Crypto.Cipher._state_machine import Method
 from Crypto.Protocol.KDF import _S2V
-from Crypto.Hash import BLAKE2s
-from Crypto.Random import get_random_bytes
+from Crypto.Util._raw_api import is_buffer
+from Crypto.Util.number import bytes_to_long
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+Buffer = Union[bytes, bytearray, memoryview]
 
 
-class SivMode(object):
+class SivMode:
     """Synthetic Initialization Vector (SIV).
 
     This is an Authenticated Encryption with Associated Data (`AEAD`_) mode.
@@ -88,8 +67,7 @@ class SivMode(object):
     :undocumented: __init__
     """
 
-    def __init__(self, factory, key, nonce, kwargs):
-
+    def __init__(self, factory: ModuleType, key: Buffer, nonce: Buffer, kwargs: dict) -> None:
         self.block_size = factory.block_size
         """The block size of the underlying cipher, in bytes."""
 
@@ -107,24 +85,21 @@ class SivMode(object):
             if len(nonce) == 0:
                 raise ValueError("When provided, the nonce must be non-empty")
 
-            self.nonce = _copy_bytes(None, None, nonce)
+            self.nonce = bytes(nonce)
             """Public attribute is only available in case of non-deterministic
             encryption."""
 
         subkey_size = len(key) // 2
 
-        self._mac_tag = None  # Cache for MAC tag
-        self._kdf = _S2V(key[:subkey_size],
-                         ciphermod=factory,
-                         cipher_params=self._cipher_params)
+        self._mac_tag: Optional[bytes] = None  # Cache for MAC tag
+        self._kdf = _S2V(key[:subkey_size], ciphermod=factory, cipher_params=self._cipher_params)
         self._subkey_cipher = key[subkey_size:]
 
         # Purely for the purpose of verifying that cipher_params are OK
         factory.new(key[:subkey_size], factory.MODE_ECB, **kwargs)
 
         # Allowed transitions after initialization
-        self._next = ["update", "encrypt", "decrypt",
-                      "digest", "verify"]
+        self._next = [Method.UPDATE, Method.ENCRYPT, Method.DECRYPT, Method.DIGEST, Method.VERIFY]
 
     def _create_ctr_cipher(self, v):
         """Create a new CTR cipher from V in SIV mode"""
@@ -132,13 +107,10 @@ class SivMode(object):
         v_int = bytes_to_long(v)
         q = v_int & 0xFFFFFFFFFFFFFFFF7FFFFFFF7FFFFFFF
         return self._factory.new(
-                    self._subkey_cipher,
-                    self._factory.MODE_CTR,
-                    initial_value=q,
-                    nonce=b"",
-                    **self._cipher_params)
+            self._subkey_cipher, self._factory.MODE_CTR, initial_value=q, nonce=b"", **self._cipher_params
+        )
 
-    def update(self, component):
+    def update(self, component: Buffer) -> SivMode:
         """Protect one associated data component
 
         For SIV, the associated data is a sequence (*vector*) of non-empty
@@ -164,16 +136,15 @@ class SivMode(object):
             The next associated data component.
         """
 
-        if "update" not in self._next:
-            raise TypeError("update() can only be called"
-                                " immediately after initialization")
+        if Method.UPDATE not in self._next:
+            raise TypeError("update() can only be called immediately after initialization")
 
-        self._next = ["update", "encrypt", "decrypt",
-                      "digest", "verify"]
+        self._next = [Method.UPDATE, Method.ENCRYPT, Method.DECRYPT, Method.DIGEST, Method.VERIFY]
 
-        return self._kdf.update(component)
+        self._kdf.update(component)
+        return self
 
-    def encrypt(self, plaintext):
+    def encrypt(self, plaintext: Buffer) -> bytes:
         """
         For SIV, encryption and MAC authentication must take place at the same
         point. This method shall not be used.
@@ -181,10 +152,9 @@ class SivMode(object):
         Use `encrypt_and_digest` instead.
         """
 
-        raise TypeError("encrypt() not allowed for SIV mode."
-                        " Use encrypt_and_digest() instead.")
+        raise TypeError("encrypt() not allowed for SIV mode. Use encrypt_and_digest() instead.")
 
-    def decrypt(self, ciphertext):
+    def decrypt(self, ciphertext: Buffer) -> bytes:
         """
         For SIV, decryption and verification must take place at the same
         point. This method shall not be used.
@@ -192,10 +162,9 @@ class SivMode(object):
         Use `decrypt_and_verify` instead.
         """
 
-        raise TypeError("decrypt() not allowed for SIV mode."
-                        " Use decrypt_and_verify() instead.")
+        raise TypeError("decrypt() not allowed for SIV mode. Use decrypt_and_verify() instead.")
 
-    def digest(self):
+    def digest(self) -> bytes:
         """Compute the *binary* MAC tag.
 
         The caller invokes this function at the very end.
@@ -206,24 +175,23 @@ class SivMode(object):
         :Return: the MAC, as a byte string.
         """
 
-        if "digest" not in self._next:
-            raise TypeError("digest() cannot be called when decrypting"
-                            " or validating a message")
-        self._next = ["digest"]
+        if Method.DIGEST not in self._next:
+            raise TypeError("digest() cannot be called when decrypting or validating a message")
+        self._next = [Method.DIGEST]
         if self._mac_tag is None:
             self._mac_tag = self._kdf.derive()
         return self._mac_tag
 
-    def hexdigest(self):
+    def hexdigest(self) -> str:
         """Compute the *printable* MAC tag.
 
         This method is like `digest`.
 
         :Return: the MAC, as a hexadecimal string.
         """
-        return "".join(["%02x" % bord(x) for x in self.digest()])
+        return self.digest().hex()
 
-    def verify(self, received_mac_tag):
+    def verify(self, received_mac_tag: Buffer) -> None:
         """Validate the *binary* MAC tag.
 
         The caller invokes this function at the very end.
@@ -240,23 +208,17 @@ class SivMode(object):
             or the key is incorrect.
         """
 
-        if "verify" not in self._next:
-            raise TypeError("verify() cannot be called"
-                            " when encrypting a message")
-        self._next = ["verify"]
+        if Method.VERIFY not in self._next:
+            raise TypeError("verify() cannot be called when encrypting a message")
+        self._next = [Method.VERIFY]
 
         if self._mac_tag is None:
             self._mac_tag = self._kdf.derive()
 
-        secret = get_random_bytes(16)
-
-        mac1 = BLAKE2s.new(digest_bits=160, key=secret, data=self._mac_tag)
-        mac2 = BLAKE2s.new(digest_bits=160, key=secret, data=received_mac_tag)
-
-        if mac1.digest() != mac2.digest():
+        if not compare_digest(self._mac_tag, received_mac_tag):
             raise ValueError("MAC check failed")
 
-    def hexverify(self, hex_mac_tag):
+    def hexverify(self, hex_mac_tag: str) -> None:
         """Validate the *printable* MAC tag.
 
         This method is like `verify`.
@@ -271,7 +233,17 @@ class SivMode(object):
 
         self.verify(unhexlify(hex_mac_tag))
 
-    def encrypt_and_digest(self, plaintext, output=None):
+    @overload
+    def encrypt_and_digest(self, plaintext: Buffer) -> tuple[bytes, bytes]: ...
+
+    @overload
+    def encrypt_and_digest(
+        self, plaintext: Buffer, output: Union[bytearray, memoryview]
+    ) -> tuple[None, bytes]: ...
+
+    def encrypt_and_digest(
+        self, plaintext: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> tuple[Optional[bytes], bytes]:
         """Perform encrypt() and digest() in one step.
 
         :Parameters:
@@ -291,14 +263,13 @@ class SivMode(object):
             specified a location for the result.
         """
 
-        if "encrypt" not in self._next:
-            raise TypeError("encrypt() can only be called after"
-                            " initialization or an update()")
+        if Method.ENCRYPT not in self._next:
+            raise TypeError("encrypt() can only be called after initialization or an update()")
 
-        self._next = ["digest"]
+        self._next = [Method.DIGEST]
 
         # Compute V (MAC)
-        if hasattr(self, 'nonce'):
+        if hasattr(self, "nonce"):
             self._kdf.update(self.nonce)
         self._kdf.update(plaintext)
         self._mac_tag = self._kdf.derive()
@@ -307,7 +278,17 @@ class SivMode(object):
 
         return cipher.encrypt(plaintext, output=output), self._mac_tag
 
-    def decrypt_and_verify(self, ciphertext, mac_tag, output=None):
+    @overload
+    def decrypt_and_verify(self, ciphertext: Buffer, mac_tag: Buffer) -> bytes: ...
+
+    @overload
+    def decrypt_and_verify(
+        self, ciphertext: Buffer, mac_tag: Buffer, output: Union[bytearray, memoryview]
+    ) -> None: ...
+
+    def decrypt_and_verify(
+        self, ciphertext: Buffer, mac_tag: Buffer, output: Optional[Union[bytearray, memoryview]] = None
+    ) -> Optional[bytes]:
         """Perform decryption and verification in one step.
 
         A cipher object is stateful: once you have decrypted a message
@@ -336,17 +317,16 @@ class SivMode(object):
             or the key is incorrect.
         """
 
-        if "decrypt" not in self._next:
-            raise TypeError("decrypt() can only be called"
-                            " after initialization or an update()")
-        self._next = ["verify"]
+        if Method.DECRYPT not in self._next:
+            raise TypeError("decrypt() can only be called after initialization or an update()")
+        self._next = [Method.VERIFY]
 
         # Take the MAC and start the cipher for decryption
         self._cipher = self._create_ctr_cipher(mac_tag)
 
         plaintext = self._cipher.decrypt(ciphertext, output=output)
 
-        if hasattr(self, 'nonce'):
+        if hasattr(self, "nonce"):
             self._kdf.update(self.nonce)
         self._kdf.update(plaintext if output is None else output)
         self.verify(mac_tag)

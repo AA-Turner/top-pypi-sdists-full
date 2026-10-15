@@ -14,10 +14,16 @@ Example:
         GCSStorageClient, GCSConfig,
     )
 
-    # Azure
+    # Azure (接続文字列)
     client = AzureBlobStorageClient(AzureBlobConfig(
         bucket_name="my-container",
         connection_string="DefaultEndpointsProtocol=https;...",
+    ))
+
+    # Azure (資格情報なし: Workload Identity / Managed Identity = DefaultAzureCredential)
+    client = AzureBlobStorageClient(AzureBlobConfig(
+        bucket_name="my-container",
+        storage_account_name="mystorageaccount",
     ))
 
     # AWS S3

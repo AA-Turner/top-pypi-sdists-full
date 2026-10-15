@@ -48,7 +48,7 @@ class ExperiencesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ExperienceListItem, ListExperiencesResponse]:
         """
-        Returns a paginated list of experiences belonging to a company, with optional filtering by product and app.
+        Lists the experiences in an account, optionally filtered to those attached to one product or powered by one app.
 
         Parameters
         ----------
@@ -94,7 +94,7 @@ class ExperiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -143,6 +143,8 @@ class ExperiencesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Experience:
         """
+        Creates an experience for an account, powered by an app such as courses, forums, or chat. Attach it to a product with `POST /experiences/:id/attach` to give that product's customers access.
+
         Required permissions:
          - `experience:create`
 
@@ -182,7 +184,7 @@ class ExperiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -225,7 +227,7 @@ class ExperiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -238,6 +240,8 @@ class ExperiencesClient:
 
     def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> bool:
         """
+        Deletes an experience and detaches it from every product, removing customer access to it. Returns `true` on success.
+
         Required permissions:
          - `experience:delete`
 
@@ -259,7 +263,7 @@ class ExperiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -284,6 +288,8 @@ class ExperiencesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Experience:
         """
+        Updates an experience's name, logo, visibility, or notification setting, or moves it to another section or position.
+
         Required permissions:
          - `experience:update`
 
@@ -326,7 +332,7 @@ class ExperiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -351,7 +357,7 @@ class ExperiencesClient:
         self, id: str, *, product_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> Experience:
         """
-        Attach an experience to a product, making it accessible to the product's customers.
+        Attaches an experience to a product, giving the product's customers access to it.
 
         Required permissions:
          - `experience:attach`
@@ -377,7 +383,7 @@ class ExperiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -393,7 +399,7 @@ class ExperiencesClient:
         self, id: str, *, product_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> Experience:
         """
-        Detach an experience from a product, removing customer access to it through that product.
+        Detaches an experience from a product, removing customer access to it through that product.
 
         Required permissions:
          - `experience:detach`
@@ -419,7 +425,7 @@ class ExperiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -435,10 +441,7 @@ class ExperiencesClient:
         self, id: str, *, name: typing.Optional[str] = OMIT, request_options: typing.Optional[RequestOptions] = None
     ) -> Experience:
         """
-        Duplicates an existing experience. The name will be copied, unless provided. The new experience will be attached to the same products as the original experience.
-        If duplicating a Forum or Chat experience, the new experience will have the same settings as the original experience, e.g. who can post, who can comment, etc.
-        No content, e.g. posts, messages, lessons from within the original experience will be copied.
-
+        Duplicates an experience and attaches the copy to the same products as the original. Forum and chat copies keep the original's settings, such as who can post or comment. No content, such as posts, messages, or lessons, is copied.
 
         Required permissions:
          - `experience:create`
@@ -464,7 +467,7 @@ class ExperiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -506,7 +509,7 @@ class AsyncExperiencesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ExperienceListItem, ListExperiencesResponse]:
         """
-        Returns a paginated list of experiences belonging to a company, with optional filtering by product and app.
+        Lists the experiences in an account, optionally filtered to those attached to one product or powered by one app.
 
         Parameters
         ----------
@@ -553,7 +556,7 @@ class AsyncExperiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -609,6 +612,8 @@ class AsyncExperiencesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Experience:
         """
+        Creates an experience for an account, powered by an app such as courses, forums, or chat. Attach it to a product with `POST /experiences/:id/attach` to give that product's customers access.
+
         Required permissions:
          - `experience:create`
 
@@ -650,7 +655,7 @@ class AsyncExperiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -701,7 +706,7 @@ class AsyncExperiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -720,6 +725,8 @@ class AsyncExperiencesClient:
 
     async def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> bool:
         """
+        Deletes an experience and detaches it from every product, removing customer access to it. Returns `true` on success.
+
         Required permissions:
          - `experience:delete`
 
@@ -743,7 +750,7 @@ class AsyncExperiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -774,6 +781,8 @@ class AsyncExperiencesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Experience:
         """
+        Updates an experience's name, logo, visibility, or notification setting, or moves it to another section or position.
+
         Required permissions:
          - `experience:update`
 
@@ -818,7 +827,7 @@ class AsyncExperiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -849,7 +858,7 @@ class AsyncExperiencesClient:
         self, id: str, *, product_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> Experience:
         """
-        Attach an experience to a product, making it accessible to the product's customers.
+        Attaches an experience to a product, giving the product's customers access to it.
 
         Required permissions:
          - `experience:attach`
@@ -877,7 +886,7 @@ class AsyncExperiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -899,7 +908,7 @@ class AsyncExperiencesClient:
         self, id: str, *, product_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> Experience:
         """
-        Detach an experience from a product, removing customer access to it through that product.
+        Detaches an experience from a product, removing customer access to it through that product.
 
         Required permissions:
          - `experience:detach`
@@ -927,7 +936,7 @@ class AsyncExperiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -949,10 +958,7 @@ class AsyncExperiencesClient:
         self, id: str, *, name: typing.Optional[str] = OMIT, request_options: typing.Optional[RequestOptions] = None
     ) -> Experience:
         """
-        Duplicates an existing experience. The name will be copied, unless provided. The new experience will be attached to the same products as the original experience.
-        If duplicating a Forum or Chat experience, the new experience will have the same settings as the original experience, e.g. who can post, who can comment, etc.
-        No content, e.g. posts, messages, lessons from within the original experience will be copied.
-
+        Duplicates an experience and attaches the copy to the same products as the original. Forum and chat copies keep the original's settings, such as who can post or comment. No content, such as posts, messages, or lessons, is copied.
 
         Required permissions:
          - `experience:create`
@@ -980,7 +986,7 @@ class AsyncExperiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-09-2",
+            "2026-10-13-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

@@ -67,6 +67,13 @@ OWNERS: dict[str, str] = {
     "companion report": READ, "companion trace": READ,
     "context delete": SETUP, "context list": READ, "context show": READ, "context use": SETUP,
     "coordinates": READ, "doctor": READ,
+    # The data catalog (data-catalog C5): registering a dataset by identity, a
+    # source, and what a run used are the daemon's; downloading bytes is the
+    # researcher's, and so is hosting them (`dataset add --upload`, below).
+    "checkpoint list": READ, "checkpoint use": DAEMON,
+    "dataset add": DAEMON, "dataset download": RESEARCHER, "dataset list": READ, "dataset show": READ,
+    "dataset use": DAEMON, "provenance": READ,
+    "source add": DAEMON, "source list": READ, "source show": READ,
     "daemon worker": SETUP, "daemon status": READ, "daemon install": SETUP, "daemon override": DAEMON,
     "approvals": RESEARCHER, "deny": RESEARCHER,
     # The main agent's question to the daemon's reader: never the writer's.
@@ -130,7 +137,8 @@ OWNERS: dict[str, str] = {
     "wandb discover": RESEARCHER, "wandb import-hosted": RESEARCHER, "wandb import-local": RESEARCHER,
     "wandb key set": SETUP, "wandb key status": SETUP,
     "whoami": READ,
-    "workspace create": RESEARCHER, "workspace delete": RESEARCHER, "workspace get": READ, "workspace list": READ,
+    "workspace create": RESEARCHER, "workspace delete": RESEARCHER,
+    "workspace get": READ, "workspace list": READ,
     "workspace rename": RESEARCHER, "workspace use": RESEARCHER, "workspace writers set": RESEARCHER,
     "workspace writers show": READ,
 }
@@ -187,6 +195,8 @@ _SUMMARY_IS_THE_RESEARCHERS = ("`--summary` is the researcher's own Markdown on 
 #: (`agent_session.default_authorship`), so the lane still replaces it when the
 #: run finishes.
 _PROJECT_DESCRIPTION_IS_THE_SERVERS = "a project's description is written by the server once a run finishes under it"
+_HOSTING_IS_THE_RESEARCHERS = ("`--upload` stores the dataset's bytes in Probe against the team's hosted-data cap: "
+                               "that is the researcher's call - register it as a reference without it")
 _TEAM_NOTE_IS_A_QUESTION = ("`--team` writes the team note directly; change it in its file instead, where "
                             "the researcher sees each change first")
 _FORBIDDEN_OPTIONS = {
@@ -206,6 +216,8 @@ _FORBIDDEN_OPTIONS = {
     # changes it through its file, where each write is held as a question with
     # its diff; `--team` would write it directly and skip that.
     **{(path, "team"): _TEAM_NOTE_IS_A_QUESTION for path in ("notes append", "notes edit")},
+    # C8: hosting puts the bytes in Probe, against the team's hosted-data cap.
+    ("dataset add", "upload"): _HOSTING_IS_THE_RESEARCHERS,
 }
 #: Per command, the parameters whose value is a local file the command reads and
 #: sends (uploads, or reads as a body). Named by the command's MEANING, not by a
@@ -236,6 +248,10 @@ NOT_FILES: dict[tuple[str, str], str] = {
     ("edge add", "source"): "an entity ref (`run:<id>`)",
     ("experiment fork", "source"): "the experiment to fork (a slug or id)",
     ("artifact version-add", "from_artifact"): "an artifact id",
+    ("dataset add", "path"): "a file, folder or uri recorded by identity (path, size, sha256); its bytes are sent "
+                             "only with --upload, which the daemon never passes, and the CLI uploads no preview "
+                             "sample when the daemon runs it (PROBE_DAEMON_SESSION)",
+    ("dataset add", "from_ref"): "a dataset version ref the step read",
 }
 #: Text the CLI takes LITERALLY, never as `@file` or `-`: the text-only notes
 #: writes. A value here starting with `@` is still scanned as the text it is,
@@ -361,6 +377,24 @@ def new_block_id() -> str:
     return short_id()
 
 
+def _claims_human(parsed: Parsed) -> bool:
+    """`--authored-by human` anywhere in the command, parsed or not.
+
+    The parser is resilient: it stops at an option it does not know, so a
+    flag before `--authored-by` would leave `authored_by` unparsed while the
+    CLI still applies it. Read the raw argv too, both spellings.
+    """
+    if parsed.params.get("authored_by") in ("human",):
+        return True
+    argv = [str(token) for token in parsed.argv]
+    for i, token in enumerate(argv):
+        if token == "--authored-by" and i + 1 < len(argv) and argv[i + 1].strip().lower() == "human":
+            return True
+        if token.lower().startswith("--authored-by=") and token.split("=", 1)[1].strip().lower() == "human":
+            return True
+    return False
+
+
 def check(parsed: Parsed, *, cwd: Path, trash: bool | None = False) -> Block | None:
     """Checks 1 and 2 (allowed, secret scan). The approval check needs Probe reads (`tools`).
 
@@ -393,7 +427,7 @@ def check(parsed: Parsed, *, cwd: Path, trash: bool | None = False) -> Block | N
     for (path, param), why in _FORBIDDEN_OPTIONS.items():
         if path == parsed.path and parsed.params.get(param) and why:
             return Block(new_block_id(), why, "option", argv=parsed.argv)
-    if parsed.path == "run set" and parsed.params.get("authored_by") in ("human",):
+    if parsed.path in ("run set", "experiment set") and _claims_human(parsed):
         return Block(new_block_id(), "the daemon can't mark its own words as a human's (use `--authored-by agent`)",
                      "option", argv=parsed.argv)
     if owner == READ:

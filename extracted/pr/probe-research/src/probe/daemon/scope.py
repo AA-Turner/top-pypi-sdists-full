@@ -105,6 +105,9 @@ SCOPE_PARAMS: dict[str, tuple[str, ...] | Callable[[precheck.Parsed], str | None
     "notes append": ("project", "experiment"),
     "notes edit": ("project", "experiment"),
     "notes rename": ("project", "experiment"),
+    # A dataset is the team's; only a step recorded by hand (`--from`) is filed
+    # under a project, and only `--project` names it here.
+    "dataset add": ("project",),
 }
 
 #: Daemon writes that leave the label where it is: they name a run, an artifact,
@@ -119,6 +122,8 @@ NO_SCOPE: frozenset[str] = frozenset({
     "artifact set", "artifact version-add",
     "group set", "edge add", "paper update", "paper tag",
     "views create", "views rename", "views update",
+    # The data catalog: a source is the team's; a use names a run by ref.
+    "source add", "dataset use", "checkpoint use",
 })
 
 

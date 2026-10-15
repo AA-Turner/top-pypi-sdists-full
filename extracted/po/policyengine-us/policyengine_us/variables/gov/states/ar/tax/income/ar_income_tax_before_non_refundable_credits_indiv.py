@@ -1,0 +1,26 @@
+from policyengine_us.model_api import *
+from policyengine_us.variables.gov.states.ar.tax.income.ar_income_tax_helpers import (
+    ar_regular_income_tax,
+)
+
+
+class ar_income_tax_before_non_refundable_credits_indiv(Variable):
+    value_type = float
+    entity = Person
+    label = "Arkansas income tax before non refundable credits when married couples are filing separately"
+    unit = USD
+    definition_period = YEAR
+    reference = (
+        "https://www.dfa.arkansas.gov/wp-content/uploads/2023_AR1000F_and_AR1000NR_Instructions.pdf",
+        "https://www.dfa.arkansas.gov/wp-content/uploads/2023_AR1000F_FullYearResidentIndividualIncomeTaxReturn.pdf",
+        # Regular Income Tax Table.
+        "https://www.dfa.arkansas.gov/wp-content/uploads/2024_AR1000F_and_AR1000NR_Instructions.pdf#page=30",
+        # Indexed Tax Brackets: the table is computed at each row's midpoint.
+        "https://www.dfa.arkansas.gov/wp-content/uploads/2024_TaxBrackets.pdf#page=2",
+    )
+    defined_for = StateCode.AR
+
+    def formula(person, period, parameters):
+        p = parameters(period).gov.states.ar.tax.income.rates.main
+        taxable_income = person("ar_taxable_income_indiv", period)
+        return max_(ar_regular_income_tax(taxable_income, p), 0)

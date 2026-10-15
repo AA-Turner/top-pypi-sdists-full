@@ -85,7 +85,9 @@ class AccountHelperServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def TickValueWithSize(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Tick value as array. Name the symbols (symbolNames); with no names the reply covers the
+        symbols currently in Market Watch, never the whole server list.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')

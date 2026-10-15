@@ -46,7 +46,6 @@ class PermissionSubjectType(str, Enum):
     FUNCTIONAUTHSECRET = 'functionauthsecret'
     AUTHINTEGRATION = 'authintegration'
     UPSTREAMREMOTE = 'upstreamremote'
-    DOCUMENT = 'document'
     RESOURCE = 'resource'
     WORKFLOW_OUTPUT = 'workflow_output'
     CONNECTEDSOURCE = 'connectedsource'

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # ===================================================================
 # The contents of this file are dedicated to the public domain.  To
@@ -18,16 +17,25 @@
 # SOFTWARE.
 # ===================================================================
 
-from Crypto.Util.py3compat import bord
 
-from Crypto.Util._raw_api import (load_pycryptodome_raw_lib,
-                                  VoidPointer, SmartPointer,
-                                  create_string_buffer,
-                                  get_raw_buffer, c_size_t,
-                                  c_uint8_ptr)
+from __future__ import annotations
 
-_raw_sha224_lib = load_pycryptodome_raw_lib("Crypto.Hash._SHA224",
-                        """
+from typing import Optional, Union
+
+from Crypto.Hash.SHA256 import _load_sha_ni_lib
+from Crypto.Util._raw_api import (
+    SmartPointer,
+    VoidPointer,
+    c_size_t,
+    c_uint8_ptr_len,
+    create_string_buffer,
+    get_raw_buffer,
+    load_pycryptodome_raw_lib,
+)
+
+Buffer = Union[bytes, bytearray, memoryview]
+
+_sha224_cdecl = """
                         int SHA224_init(void **shaState);
                         int SHA224_destroy(void *shaState);
                         int SHA224_update(void *hs,
@@ -44,9 +52,19 @@ _raw_sha224_lib = load_pycryptodome_raw_lib("Crypto.Hash._SHA224",
                                             uint8_t *final_digest,
                                             size_t iterations,
                                             size_t digest_size);
-                        """)
+                        """
 
-class SHA224Hash(object):
+_raw_sha224_portable_lib = load_pycryptodome_raw_lib("Crypto.Hash._SHA224", _sha224_cdecl)
+_raw_sha224_shani_lib = _load_sha_ni_lib("Crypto.Hash._SHA224_shani", _sha224_cdecl)
+
+# The implementation used by SHA224Hash
+if _raw_sha224_shani_lib is not None:
+    _raw_sha224_lib = _raw_sha224_shani_lib
+else:
+    _raw_sha224_lib = _raw_sha224_portable_lib
+
+
+class SHA224Hash:
     """A SHA-224 hash object.
     Do not instantiate directly.
     Use the :func:`new` function.
@@ -63,38 +81,34 @@ class SHA224Hash(object):
     """
 
     # The size of the resulting hash in bytes.
-    digest_size = 28
+    digest_size: int = 28
     # The internal block size of the hash algorithm in bytes.
-    block_size = 64
+    block_size: int = 64
     # ASN.1 Object ID
-    oid = '2.16.840.1.101.3.4.2.4'
+    oid: str = "2.16.840.1.101.3.4.2.4"
 
-    def __init__(self, data=None):
+    def __init__(self, data: Optional[Buffer] = None) -> None:
         state = VoidPointer()
         result = _raw_sha224_lib.SHA224_init(state.address_of())
         if result:
-            raise ValueError("Error %d while instantiating SHA224"
-                             % result)
-        self._state = SmartPointer(state.get(),
-                                   _raw_sha224_lib.SHA224_destroy)
+            raise ValueError("Error %d while instantiating SHA224" % result)
+        self._state = SmartPointer(state.get(), _raw_sha224_lib.SHA224_destroy)
         if data:
             self.update(data)
 
-    def update(self, data):
+    def update(self, data: Buffer) -> None:
         """Continue hashing of a message by consuming the next chunk of data.
 
         Args:
             data (byte string/byte array/memoryview): The next chunk of the message being hashed.
         """
 
-        result = _raw_sha224_lib.SHA224_update(self._state.get(),
-                                               c_uint8_ptr(data),
-                                               c_size_t(len(data)))
+        data_ptr, data_len = c_uint8_ptr_len(data)
+        result = _raw_sha224_lib.SHA224_update(self._state.get(), data_ptr, c_size_t(data_len))
         if result:
-            raise ValueError("Error %d while hashing data with SHA224"
-                             % result)
+            raise ValueError("Error %d while hashing data with SHA224" % result)
 
-    def digest(self):
+    def digest(self) -> bytes:
         """Return the **binary** (non-printable) digest of the message that has been hashed so far.
 
         :return: The hash digest, computed over the data processed so far.
@@ -103,16 +117,13 @@ class SHA224Hash(object):
         """
 
         bfr = create_string_buffer(self.digest_size)
-        result = _raw_sha224_lib.SHA224_digest(self._state.get(),
-                                               bfr,
-                                               c_size_t(self.digest_size))
+        result = _raw_sha224_lib.SHA224_digest(self._state.get(), bfr, c_size_t(self.digest_size))
         if result:
-            raise ValueError("Error %d while making SHA224 digest"
-                             % result)
+            raise ValueError("Error %d while making SHA224 digest" % result)
 
         return get_raw_buffer(bfr)
 
-    def hexdigest(self):
+    def hexdigest(self) -> str:
         """Return the **printable** digest of the message that has been hashed so far.
 
         :return: The hash digest, computed over the data processed so far.
@@ -120,9 +131,9 @@ class SHA224Hash(object):
         :rtype: string
         """
 
-        return "".join(["%02x" % bord(x) for x in self.digest()])
+        return self.digest().hex()
 
-    def copy(self):
+    def copy(self) -> SHA224Hash:
         """Return a copy ("clone") of the hash object.
 
         The copy will have the same internal state as the original hash
@@ -134,19 +145,18 @@ class SHA224Hash(object):
         """
 
         clone = SHA224Hash()
-        result = _raw_sha224_lib.SHA224_copy(self._state.get(),
-                                             clone._state.get())
+        result = _raw_sha224_lib.SHA224_copy(self._state.get(), clone._state.get())
         if result:
             raise ValueError("Error %d while copying SHA224" % result)
         return clone
 
-    def new(self, data=None):
+    def new(self, data: Optional[Buffer] = None) -> SHA224Hash:
         """Create a fresh SHA-224 hash object."""
 
         return SHA224Hash(data)
 
 
-def new(data=None):
+def new(data: Optional[Buffer] = None) -> SHA224Hash:
     """Create a new hash object.
 
     :parameter data:
@@ -160,25 +170,28 @@ def new(data=None):
 
 
 # The size of the resulting hash in bytes.
-digest_size = SHA224Hash.digest_size
+digest_size: int = SHA224Hash.digest_size
 
 # The internal block size of the hash algorithm in bytes.
-block_size = SHA224Hash.block_size
+block_size: int = SHA224Hash.block_size
 
 
 def _pbkdf2_hmac_assist(inner, outer, first_digest, iterations):
     """Compute the expensive inner loop in PBKDF-HMAC."""
 
-    assert iterations > 0
+    # Not an assert: a negative number would become a huge one in C
+    if iterations < 1:
+        raise ValueError("The number of iterations must be positive")
 
-    bfr = create_string_buffer(len(first_digest));
+    bfr = create_string_buffer(len(first_digest))
     result = _raw_sha224_lib.SHA224_pbkdf2_hmac_assist(
-                    inner._state.get(),
-                    outer._state.get(),
-                    first_digest,
-                    bfr,
-                    c_size_t(iterations),
-                    c_size_t(len(first_digest)))
+        inner._state.get(),
+        outer._state.get(),
+        first_digest,
+        bfr,
+        c_size_t(iterations),
+        c_size_t(len(first_digest)),
+    )
 
     if result:
         raise ValueError("Error %d with PBKDF2-HMAC assist for SHA224" % result)

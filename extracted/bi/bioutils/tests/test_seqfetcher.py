@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+from unittest.mock import Mock
 
 import pytest
 import vcr
@@ -7,6 +8,7 @@ import vcr
 from bioutils.seqfetcher import (
     _add_eutils_api_key,
     _fetch_seq_ncbi,
+    enst_default_seq_type,
     fetch_seq,
 )
 
@@ -40,6 +42,40 @@ def test_fetch_seq():
     assert "MAALSGGGGGGAEPGQALFNGDMEP" == fetch_seq("ENSP00000288602", 0, 25)
 
 
+ENST00000617537_470_480 = {
+    # In [16]: s_gen[470:480], s_cdna[470:480], s_cds[470:480]
+    # Out[16]: ("TAGGTATGCA", "TAGGGTGTGT", "TGACATTTGT")
+    "genomic": "TAGGTATGCA",
+    "cdna": "TAGGGTGTGT",
+    "cds": "TGACATTTGT",
+}
+
+
+@vcr.use_cassette
+def test_fetch_ENST00000617537_noenv(caplog, monkeypatch):
+    """ensure expected lengths for ENST00000617537 with ENST_DEFAULT_SEQ_TYPE unset"""
+    monkeypatch.delenv("ENST_DEFAULT_SEQ_TYPE", raising=False)
+    ac = "ENST00000617537"
+    assert ENST00000617537_470_480[enst_default_seq_type] == fetch_seq(ac, start_i=470, end_i=480)
+    assert "Transcript type not specified or set in ENST_DEFAULT_SEQ_TYPE" in caplog.text
+    assert ENST00000617537_470_480["genomic"] == fetch_seq(ac, start_i=470, end_i=480, seq_type="genomic")
+    assert ENST00000617537_470_480["cdna"] == fetch_seq(ac, start_i=470, end_i=480, seq_type="cdna")
+    assert ENST00000617537_470_480["cds"] == fetch_seq(ac, start_i=470, end_i=480, seq_type="cds")
+
+
+@vcr.use_cassette
+def test_fetch_ENST00000617537_env(caplog, monkeypatch):
+    """ensure expected lengths for ENST00000617537 with ENST_DEFAULT_SEQ_TYPE set"""
+    user_enst_default_type = "cds"  # intentionally != enst_default_seq_type to ensure use
+    monkeypatch.setenv("ENST_DEFAULT_SEQ_TYPE", user_enst_default_type)
+    ac = "ENST00000617537"
+    assert ENST00000617537_470_480[user_enst_default_type] == fetch_seq(ac, start_i=470, end_i=480)
+    assert "Transcript type not specified or set in ENST_DEFAULT_SEQ_TYPE" not in caplog.text
+    assert ENST00000617537_470_480["genomic"] == fetch_seq(ac, start_i=470, end_i=480, seq_type="genomic")
+    assert ENST00000617537_470_480["cdna"] == fetch_seq(ac, start_i=470, end_i=480, seq_type="cdna")
+    assert ENST00000617537_470_480["cds"] == fetch_seq(ac, start_i=470, end_i=480, seq_type="cds")
+
+
 @vcr.use_cassette
 def test_fetch_seq_ncbi_invalid_positions():
     with pytest.raises(RuntimeError) as excinfo:
@@ -59,6 +95,34 @@ def test_add_eutils_api_key():
             os.environ.pop("NCBI_API_KEY")
         except KeyError:
             pass
+
+
+@pytest.mark.parametrize("api_key", [None, "test-api-key"])
+def test_fetch_seq_ncbi_retry_logging(api_key, caplog, monkeypatch):
+    if api_key:
+        monkeypatch.setenv("NCBI_API_KEY", api_key)
+    failed_response = Mock(ok=False, status_code=500)
+    successful_response = Mock(ok=True, text=">NP_056374.2\nMESRETLSSS\n")
+    get = Mock(side_effect=[failed_response, successful_response])
+    sleep = Mock()
+    monkeypatch.setattr("bioutils.seqfetcher.requests.get", get)
+    monkeypatch.setattr("bioutils.seqfetcher.time.sleep", sleep)
+
+    assert _fetch_seq_ncbi("NP_056374.2", 0, 10) == "MESRETLSSS"
+
+    url = get.call_args_list[0].args[0]
+    assert get.call_args_list[1].args[0] == url
+    assert "db=protein&id=NP_056374.2&rettype=fasta&seq_start=1&seq_stop=10" in url
+    if api_key:
+        assert url.endswith("&api_key=" + api_key)
+        assert api_key not in caplog.text
+        assert "api_key=" not in caplog.text
+        assert "Failed to fetch " + url.split("&api_key=")[0] in caplog.text
+    else:
+        assert "api_key=" not in url
+        assert "Failed to fetch " + url in caplog.text
+    assert "Failure 0/3; retry in 1 seconds" in caplog.text
+    sleep.assert_called_once_with(1)
 
 
 @vcr.use_cassette
@@ -88,3 +152,5 @@ def test_rate_limit():
     num_requests = num_threads = 5
     p = multiprocessing.Pool(num_threads)
     p.map(_check1, range(num_requests))
+    p.close()
+    p.join()

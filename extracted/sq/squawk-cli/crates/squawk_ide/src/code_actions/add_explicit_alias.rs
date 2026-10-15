@@ -21,13 +21,13 @@ pub(super) fn add_explicit_alias(
         return None;
     }
 
-    if let Some(ast::Expr::FieldExpr(field_expr)) = target.expr()
+    if let Some(field_expr) = target.expr().and_then(|expr| expr.as_field_expr())
         && field_expr.star_token().is_some()
     {
         return None;
     }
 
-    let alias = ColumnName::from_target(target.clone()).and_then(|c| c.0.to_string())?;
+    let alias = ColumnName::from_target(&target).and_then(|c| c.0.to_string())?;
 
     let expr_end = target.expr().map(|e| e.syntax().text_range().end())?;
 

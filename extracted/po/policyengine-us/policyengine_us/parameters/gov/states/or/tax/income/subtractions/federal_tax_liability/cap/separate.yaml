@@ -1,0 +1,112 @@
+description: Oregon caps its federal tax liability subtraction for married filing separately filers at this amount, depending on federal AGI.
+metadata:
+  type: single_amount
+  threshold_unit: currency-USD
+  amount_unit: currency-USD
+  period: year
+  label: Oregon federal tax liability subtraction cap for married filing separately filers
+  reference:
+    - title: Chapter 316 - Personal Income Tax
+      href: https://www.oregonlegislature.gov/bills_laws/ors/ors316.html #316.800
+    - title: 2021 Oregon Income Tax Form OR-40 Instructions
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2021.pdf#page=13
+    - title: 2022 Oregon Income Tax Form OR-40 Instructions
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2022.pdf#page=14
+    - title: 2023 Oregon Income Tax Form OR-40 Instructions
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2023.pdf#page=14
+    - title: 2024 Oregon Income Tax Form OR-40 Instructions
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2024.pdf#page=15
+    - title: 2025 Oregon Income Tax Form OR-40 Instructions
+      href: https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2025.pdf#page=15
+    - title: 2026 Publication OR-ESTIMATE, Oregon Estimated Income Tax Instructions, estimated Oregon indexed figures for tax year 2026 (federal tax subtraction $0 to $8,750)
+      href: https://www.oregon.gov/dor/forms/FormsPubs/publication-or-estimate_101-026_2026.pdf#page=3
+    - title: 2026 Oregon Withholding Tax Formulas (150-206-436), federal tax withheld phase-out
+      href: https://www.oregon.gov/dor/forms/FormsPubs/withholding-tax-formulas_206-436_2026.pdf#page=7
+    # ORS 316.680(3)(d): married filing separately uses 50 percent of the
+    # individual amounts, so 2026 is half of 8,750 / 7,000 / 5,250 / 3,500 / 1,750.
+brackets:
+  - threshold:
+      2021-01-01: 0
+    amount:
+      values:
+        2021-01-01: 3_525
+        2022-01-01: 3_625
+        2023-01-01: 3_900
+        2024-01-01: 4_125
+        2025-01-01: 4_250
+        2026-01-01: 4_375
+      metadata:
+        uprating:
+          parameter: gov.irs.uprating
+          rounding:
+            type: downwards
+            interval: 25
+  - threshold:
+      2021-01-01: 125_000
+    amount:
+      values:
+        2021-01-01: 2_825
+        2022-01-01: 2_900
+        2023-01-01: 3_125
+        2024-01-01: 3_300
+        2025-01-01: 3_400
+        2026-01-01: 3_500
+      metadata:
+        uprating:
+          parameter: gov.irs.uprating
+          rounding:
+            type: downwards
+            interval: 25
+  - threshold:
+      2021-01-01: 130_000
+    amount:
+      values:
+        2021-01-01: 2_100
+        2022-01-01: 2_175
+        2023-01-01: 2_350
+        2024-01-01: 2_500
+        2025-01-01: 2_550
+        2026-01-01: 2_625
+      metadata:
+        uprating:
+          parameter: gov.irs.uprating
+          rounding:
+            type: downwards
+            interval: 25
+  - threshold:
+      2021-01-01: 135_000
+    amount:
+      values:
+        2021-01-01: 1_400
+        2022-01-01: 1_450
+        2023-01-01: 1_550
+        2024-01-01: 1_650
+        2025-01-01: 1_700
+        2026-01-01: 1_750
+      metadata:
+        uprating:
+          parameter: gov.irs.uprating
+          rounding:
+            type: downwards
+            interval: 25
+  - threshold:
+      2021-01-01: 140_000
+    amount:
+      values:
+        2021-01-01: 700
+        2022-01-01: 725
+        2023-01-01: 775
+        2024-01-01: 825
+        2025-01-01: 850
+        2026-01-01: 875
+      metadata:
+        uprating:
+          parameter: gov.irs.uprating
+          rounding:
+            type: downwards
+            interval: 25
+  - threshold:
+      2021-01-01: 145_000
+    amount:
+      values:
+        2021-01-01: 0
